@@ -1,0 +1,42 @@
+# Namen, die die Doku nennt und die nicht in diesem Repo liegen (geprüft von tools/doku_pruefen.py).
+# Eine Zeile je Name oder Muster, dahinter nach # der Grund. Ein Muster mit / am Ende meint den Ordner und alles darin,
+# jedes andere gilt als fnmatch-Muster (* steht für beliebig viel Text). Der Name steht ohne ./ und ohne fyos-os/ davor.
+# Nennt die Doku einen Namen nicht mehr, meldet das Werkzeug die Zeile als überflüssig: dann streichen.
+
+# fyos-agent: Verhalten des Agenten (eigenes Repo; docs/ARCHITEKTUR.md, docs/ERWEITERN.md Abschnitt 5)
+vertrag/             # Verhaltensvertrag
+workspace/           # Workspace-Vorlagen (*.md.tmpl)
+config/              # Vorlagen der Gateway-Konfiguration
+fyos_agent/          # Renderer der Vorlagen
+render.py            # dasselbe, ohne Ordner genannt
+fyos.example.yaml    # Vorlage der Persona-Datei fyos.yaml
+AGENTS.md            # Workspace-Dateien, gerendert aus den Vorlagen
+SOUL.md
+IDENTITY.md
+USER.md
+
+# Beispiel eines OpenClaw-Plugins (docs/ERWEITERN.md Abschnitt 5.2)
+openclaw.plugin.json
+index.mjs
+zaehler.mjs
+*.test.mjs           # zaehler.test.mjs und das Muster selbst
+
+# Plugin-Repos: ihr Aufbau, wie die Anleitung ihn beschreibt (Vorlage: fyos-plugin-vorlage)
+fyos_plugin_wetter/  # Beispiel-Plugin der Anleitung
+shell/wetter.ts      # Shell-Erweiterung des Beispiel-Plugins
+skills/              # Skills liegen im Paket des Plugins
+SKILL.md             # eine Skill-Datei
+fyos-katalog.yaml    # Katalogeintrag des Plugins für den Installer
+begleiter/           # Begleitskripte auf anderen Geräten
+mac/                 # Beispiel: Begleitskript für den Mac
+install.sh
+dienst/              # Beispiel: eigener Dienst als Container
+tests/test_plugin.py # Tests des Plugin-Repos
+umbenennen.py        # Skript der Plugin-Vorlage
+
+# Entsteht erst im Betrieb oder legt der Betreiber an
+fyos.config.json     # Laufzeit-Konfiguration der Shell (Vorlagen: web/public/fyos.config.example.json)
+config.yaml          # Konfiguration des Hubs (Vorlage: hub/config.example.yaml)
+secrets.yaml         # vom Installer für Kubernetes erzeugt
+secrets.example.yaml
+antworten.yaml       # Antworten für den Installer ohne Oberfläche

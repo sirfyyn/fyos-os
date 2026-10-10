@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="16" fill="#f8f7f4"/>
+  <rect x="5" y="5" width="54" height="54" rx="13" fill="none" stroke="#e2e1de"/>
+  <text x="50%" y="56%" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="31" font-weight="650" letter-spacing="-1.1" fill="#0f1520">fy</text>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Kontostand und Umsätze</title>
+<desc id="d">Eine Finanz-App mit drei Kontoständen oben, einem kleinen Verlaufsdiagramm und einer Liste von Umsätzen mit Beträgen.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="40" y="26" width="560" height="348" rx="12"/>
+<rect class="ln" x="40" y="26" width="560" height="348" rx="12"/>
+<rect class="bar" x="41" y="27" width="558" height="28" rx="11"/>
+<text class="ink" x="290" y="46">Finanzen</text>
+<rect class="bar" x="60" y="72" width="164" height="62" rx="8"/>
+<text class="mut" x="74" y="94">Girokonto</text><text class="ink" x="74" y="120" font-size="18" font-weight="700">1.240,50 €</text>
+<rect class="bar" x="238" y="72" width="164" height="62" rx="8"/>
+<text class="mut" x="252" y="94">Rücklage</text><text class="ink" x="252" y="120" font-size="18" font-weight="700">3.800,00 €</text>
+<rect class="bar" x="416" y="72" width="164" height="62" rx="8"/>
+<text class="mut" x="430" y="94">Noch offen</text><text class="wrm" x="430" y="120" font-size="18" font-weight="700">486,20 €</text>
+<path class="ln" d="M70 232l50-24 50 14 50-36 50 22 50-40 60 10" stroke="#3f7d6e"/>
+<path class="ln" d="M70 250h300" opacity=".35"/>
+<text class="mut" x="70" y="272">Verlauf, 30 Tage</text>
+<text class="ink" x="396" y="168" font-weight="700">Letzte Umsätze</text>
+<text class="ink" x="396" y="196">Supermarkt</text><text class="ink" x="520" y="196">−42,10</text>
+<text class="ink" x="396" y="224">Miete</text><text class="ink" x="520" y="224">−780,00</text>
+<text class="ink" x="396" y="252">Gehalt</text><text class="acc" x="520" y="252">+2.450,00</text>
+<text class="ink" x="396" y="280">Strom</text><text class="ink" x="520" y="280">−65,00</text>
+<rect class="acc" x="60" y="304" width="14" height="14" rx="4"/><text class="ink" x="84" y="316">Miete bezahlt</text>
+<rect class="ln" x="230" y="304" width="14" height="14" rx="4"/><text class="ink" x="254" y="316">Versicherung offen</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

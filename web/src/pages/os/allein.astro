@@ -1,0 +1,12 @@
+---
+/**
+ * /os/allein — eine Fläche des OS allein im Tab, mit Kulisse und Weg zurück ins OS.
+ * Das Ziel kommt aus der Adresse: ?ziel=<fläche|werkzeug|pfad>[&eingabe=<base64url(JSON)>] (lib/os/allein.ts).
+ */
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Allein from '~/components/os/Allein';
+---
+
+<BaseLayout bare>
+  <div class="h-full"><Allein client:only="solid-js" /></div>
+</BaseLayout>

@@ -1,0 +1,31 @@
+# FYOS-Grundinstallation fuer Kubernetes. Ein Overlay setzt Namespace, Bilder und die
+# Agenten-Konfiguration (ConfigMap `fyos-agent-config`). Die Vorgaben unten zeigen auf eine
+# Beispieladresse, die sich nie aufloesen laesst: ohne Overlay schlaegt das Ziehen sichtbar fehl.
+#
+# Bilder im Overlay: kustomize ersetzt hier zuerst, das Overlay danach. Ein Overlay nennt die
+# Bilder deshalb so, wie diese Basis sie ausgibt, also mit vollem Beispielnamen:
+#   images:
+#     - name: registry.example.com/fyos/fyos-os/web
+#       newName: registry.meine.example/fyos-os/web
+# Ein kurzer Name (fyos-os/web) greift im Overlay nicht mehr. Flux (`spec.images` der
+# Kustomization) ersetzt dagegen die Eintraege unten gleichen Namens und nimmt beide Formen.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: fyos
+resources:
+  - redis.yaml
+  - hub.yaml
+  - agent.yaml
+  - web.yaml
+images:
+  - name: fyos-os/web
+    newName: registry.example.com/fyos/fyos-os/web
+    newTag: main
+  - name: fyos-os/hub
+    newName: registry.example.com/fyos/fyos-os/hub
+    newTag: main
+  - name: fyos-agent/openclaw
+    newName: registry.example.com/fyos/fyos-agent/openclaw
+    newTag: main

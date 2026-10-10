@@ -1,0 +1,54 @@
+[build-system]
+# 77: erste Fassung mit Lizenz als SPDX-Ausdruck (PEP 639); die Tabellenform `license = { text = ... }` ist veraltet.
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fyos-hub"
+version = "0.1.0"
+description = "Der MCP-Hub von FYOS - For Your Own Sake: ein Server, viele Plugins, Apps mit Oberflaeche."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "sirfyyn and FYOS CONTRIBUTORS" }]  # sauber: ok
+dependencies = [
+    "mcp==2.1.1",
+    "pydantic>=2",
+    "pyyaml>=6",
+    "uvicorn[standard]>=0.30",
+    "starlette>=0.40",
+    "httpx>=0.27",
+    "pyjwt[crypto]>=2.8",
+    "redis>=5.0",
+]
+
+[project.optional-dependencies]
+# Vektorsuche im Audit-Log (Qdrant) und schneller Kosinus fuer die Werkzeugsuche
+suche = ["qdrant-client>=1.10", "numpy>=1.26"]
+test = ["pytest>=8", "pytest-asyncio>=0.23", "numpy>=1.26", "qdrant-client>=1.10", "fakeredis>=2.20"]
+
+[project.scripts]
+fyos-hub = "mcp_hub.server:main"
+
+# Die Kern-Plugins melden sich wie jedes andere Plugin: ueber die Entry-Point-Gruppe.
+[project.entry-points."mcp_hub.plugins"]
+echo = "mcp_hub.plugins.example_echo:EchoPlugin"
+math = "mcp_hub.plugins.example_math:MathPlugin"
+audit = "mcp_hub.plugins.audit:AuditPlugin"
+event_bus_publisher = "mcp_hub.plugins.event_bus_publisher:EventBusPublisherPlugin"
+skills = "mcp_hub.plugins.skills:SkillsPlugin"
+werkstatt = "mcp_hub.plugins.werkstatt:WerkstattPlugin"
+mcp = "mcp_hub.plugins.mcp_kasten:McpPlugin"
+shell = "mcp_hub.plugins.shell:ShellPlugin"
+beispiel_app = "mcp_hub.plugins.beispiel_app:BeispielAppPlugin"
+openclaw = "mcp_hub.plugins.openclaw:OpenClawPlugin"
+
+[tool.setuptools.packages.find]
+include = ["mcp_hub*"]
+
+[tool.setuptools.package-data]
+mcp_hub = ["plugins/ui/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

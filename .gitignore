@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.astro/
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.env
+.DS_Store

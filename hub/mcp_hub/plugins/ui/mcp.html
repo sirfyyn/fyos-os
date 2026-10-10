@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP</title>
+<style>/*STIL*/
+  #meldung { margin: 0 0 14px; }
+  #reiter { margin: 0 0 16px; }
+  #reiter .ico { font-size: 15px; margin-right: 1px; }
+
+  /* ── Werkzeugkasten: Plugins | Werkzeuge | Detail. Schmal: eine Spalte, Zurück-Knopf führt eine Stufe hoch. ── */
+  .k-kasten { display: grid; gap: 14px; }
+  .k-kasten > .k-sp { display: none; min-width: 0; }
+  .k-kasten[data-pane="plugins"] > .k-sp-plugins,
+  .k-kasten[data-pane="werkzeuge"] > .k-sp-werkzeuge,
+  .k-kasten[data-pane="detail"] > .k-sp-detail { display: block; }
+  .k-sp > h2 { margin-top: 0; }
+  .k-zurueck { margin: 0 0 12px -6px; }
+  .k-liste { min-width: 0; }
+  .k-pl { min-height: 42px; padding: 7px 12px; gap: 10px; }
+  .k-pl .zeile-titel { font-size: 13.5px; }
+  .k-pl .zeile-ende { font-size: 12px; }
+  .k-pl.alle .zeile-titel { font-weight: var(--font-weight-semibold); }
+  .k-pl .punkt { margin-left: 2px; }
+  .k-wz { min-height: 52px; padding: 8px 12px; }
+  .k-wz .zeile-unter { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .k-wz .zeile-titel code { overflow-wrap: anywhere; }
+  .k-wz-marken { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+  .k-mehr { width: 100%; border-radius: 0; border: 0; border-top: 1px solid var(--line); min-height: 42px; color: var(--akz); box-shadow: none; background: transparent; }
+
+  /* Kopf eines Plugins über der Werkzeugliste */
+  .k-plugin { margin: 0 0 12px; padding: 13px 15px; }
+  .k-plugin-kopf { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+  .k-plugin-name { font-size: 15px; font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  .k-plugin p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--mut); }
+  .k-plugin .hinweis { margin-top: 10px; font-size: 12.5px; padding: 9px 12px; }
+  .k-leiste { margin: 0 0 10px; }
+  .k-leiste .chip { min-height: 30px; padding: 0 11px; font-size: 12.5px; }
+
+  /* Detail */
+  .k-kopf { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
+  .k-kopf-text { min-width: 0; flex: 1 1 auto; }
+  .k-name { margin: 0; font-size: 18px; line-height: 1.3; font-weight: var(--font-weight-semibold); letter-spacing: -0.012em; overflow-wrap: anywhere; }
+  .k-name .k-plugin-teil { color: var(--mut); font-weight: var(--font-weight-normal); }
+  .k-titel { margin: 1px 0 0; font-size: 13px; color: var(--mut); }
+  .k-marken { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+  .k-text { margin: 0 0 14px; font-size: 13.5px; line-height: 1.6; color: var(--mut); white-space: pre-line; overflow-wrap: anywhere; }
+  .k-text.lang { max-height: 11.5em; overflow: auto; padding-right: 4px; }
+  .k-felder { display: grid; gap: 14px; padding: 15px 16px; }
+  .k-feld { display: grid; gap: 6px; min-width: 0; }
+  .k-feldkopf { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 13px; font-weight: var(--font-weight-medium); color: var(--fg); }
+  .k-feldkopf code { font-weight: var(--font-weight-semibold); }
+  .k-feld .zeile-unter { font-weight: var(--font-weight-normal); }
+  .k-feld :where(input, select, textarea) { width: 100%; }
+  .k-feld textarea { font-family: var(--mono); font-size: 12.5px; min-height: 64px; }
+  .k-feld.fehler :where(input, select, textarea) { border-color: color-mix(in oklab, var(--schlecht) 60%, transparent); }
+  .k-aktion { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 14px 0 0; }
+  .k-aktion .mut { flex: 1 1 200px; }
+  .k-abschnitt { margin-top: 20px; }
+  .k-abschnitt > h2 { margin-bottom: 8px; }
+  .k-pre { margin: 0; max-height: 360px; }
+  .k-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 8px; font-size: 12.5px; color: var(--mut); }
+  .k-app { display: flex; align-items: center; gap: 13px; padding: 13px 15px; }
+  .k-app .zeile-text { flex: 1 1 auto; }
+  .k-app > .kachel { align-self: center; }
+  .k-roh summary { margin-top: 6px; }
+  .k-leer-detail { display: none; }
+  dl.k-erreichbar { margin: 0; }
+
+  /* Apps */
+  .k-appkarte { display: flex; flex-direction: column; gap: 12px; padding: 16px 17px; }
+  .k-appkopf { display: flex; align-items: center; gap: 13px; }
+  .k-appkopf .zeile-titel { font-size: 16px; font-weight: var(--font-weight-semibold); }
+  .k-appkarte dl.kv { margin: 0; }
+  .k-appkarte .knoepfe { margin-top: auto; }
+  .k-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .k-chips .chip { min-height: 26px; padding: 0 9px; font-size: 12px; font-family: var(--mono); }
+
+  /* Protokolle */
+  .k-zugang { padding: 15px 17px; display: grid; gap: 9px; }
+  .k-zugang-kopf { display: flex; align-items: center; gap: 12px; }
+  .k-zugang-kopf .zeile-titel { font-size: 15px; font-weight: var(--font-weight-semibold); }
+  .k-versionen { display: flex; flex-wrap: wrap; gap: 6px; }
+  .k-versionen .marke { font-family: var(--mono); font-size: 11.5px; }
+  .k-zugang p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--mut); }
+  #haupt > .abschnitt + .abschnitt { margin-top: 26px; }
+
+  @media (min-width: 820px) {
+    .k-kasten { grid-template-columns: 208px minmax(0, 1fr) minmax(0, 1.28fr); align-items: start; gap: 18px; }
+    .k-kasten > .k-sp { display: block; }
+    .k-zurueck { display: none; }
+    .k-scroll { max-height: 640px; overflow-y: auto; border-radius: var(--r-l); }
+    /* In FYOS wächst das Fenster mit, nur die Fläche scrollt (_stil.css Abschnitt 13) */
+    html[data-host="fyos"][data-rahmen="frei"] .k-scroll { max-height: none; }
+    .k-scroll > .gruppe { overflow: visible; }
+    .k-kasten .k-sp-detail { position: relative; }
+    .k-leer-detail { display: block; }
+  }
+  @media (max-width: 480px) {
+    .k-name { font-size: 17px; }
+    .k-felder { padding: 14px; }
+    .k-aktion .haupt { width: 100%; min-height: 44px; }
+    .k-appkarte { padding: 14px; }
+    #reiter { display: flex; }
+    #reiter button { flex: 1 1 0; padding: 0 8px; }
+  }
+</style>
+</head>
+<body data-breite="voll">
+<!--KOPF-->
+  <button id="neu" class="rund drehen" title="Aktualisieren" aria-label="Aktualisieren"><svg class="ico" data-symbol="refresh-cw"></svg></button>
+<!--/KOPF-->
+<div id="meldung" class="hinweis fehler" role="alert" hidden></div>
+<nav class="reiter" id="reiter" role="tablist" aria-label="Ansicht" data-klebt hidden></nav>
+<main id="haupt"><div class="laedt gross">Der Werkzeugkasten wird geladen …</div></main>
+
+<script>
+/*BRUECKE*/
+const $ = (id) => document.getElementById(id);
+const { esc, symbol, kachel, marke, zustand, satz } = App;
+const rufen = (name, args) => App.rufen("mcp__" + name, args);
+const fehlertext = App.fehlertext;
+
+// ── Wörterbücher: Scope, Sichtbarkeit, Zustand der Plugins ─────────────────────────────────────
+const SCOPE = {
+  READ: { text: "Lesen", klasse: "lesen", symbol: "eye", ton: "gut" },
+  WRITE: { text: "Schreiben", klasse: "schreiben", symbol: "pencil", ton: "warn" },
+  DESTRUCTIVE: { text: "Löschen", klasse: "loeschen", symbol: "trash-2", ton: "schlecht" },
+  EXEC: { text: "Ausführen", klasse: "system", symbol: "terminal", ton: "warn" },
+  EXTERN: { text: "Extern", klasse: "akz", symbol: "globe", ton: "akz" },
+  UNKNOWN: { text: "Scope offen", klasse: "gelb", symbol: "circle-help", ton: "grau" },
+};
+const SICHT = {
+  modell: { text: "Modell", symbol: "bot", hilfe: "Ein Modell sieht und ruft das Werkzeug (über den Hub)." },
+  app: { text: "nur App", symbol: "app-window", hilfe: "Nur die Oberfläche der App ruft es; das Modell sieht es nicht." },
+  beide: { text: "Modell + App", symbol: "layers", hilfe: "Modell und Oberfläche der App sehen es." },
+};
+const STATUS = {
+  ok: { text: "gesund", punkt: "gut" },
+  krank: { text: "gestört", punkt: "schlecht" },
+  unerreichbar: { text: "nicht erreichbar", punkt: "schlecht" },
+  aus: { text: "abgeschaltet", punkt: "" },
+  nicht_geladen: { text: "nicht geladen", punkt: "schlecht" },
+};
+const WEG = { mcp: { text: "MCP", symbol: "plug" }, rest: { text: "REST", symbol: "route" }, os: { text: "OS", symbol: "monitor" } };
+const FILTER = [
+  { id: "alle", text: "Alle" },
+  { id: "lesen", text: "Lesend" },
+  { id: "schreiben", text: "Schreibend" },
+  { id: "app", text: "Mit App" },
+];
+const SEITE = 60; // Zeilen je Seite der Werkzeugliste
+
+// ── Zustand ────────────────────────────────────────────────────────────────────────────────────
+let daten = null, standZeit = 0, veraltet = false, bekommen = false, meldungUhr = null, vorwahl = "";
+const S = { ansicht: "kasten", pane: "plugins", plugin: "", werkzeug: "", suche: "", filter: "alle", zeilen: SEITE };
+const details = new Map();   // Werkzeug-Kennung → Antwort von mcp__werkzeug (oder { fehler })
+const eingaben = new Map();  // Werkzeug-Kennung → { feld: Text }
+const probe = new Map();     // Werkzeug-Kennung → { laeuft } | { ok, text, ms, zeichen, gekuerzt } | { fehler }
+const feldFehler = new Map();// Werkzeug-Kennung → { feld: Text }
+
+function melden(text) {
+  clearTimeout(meldungUhr);
+  $("meldung").innerHTML = text ? symbol("circle-alert") + `<span>${esc(text)}</span>` : "";
+  $("meldung").hidden = !text;
+  if (text) meldungUhr = setTimeout(() => { $("meldung").hidden = true; }, 15000);
+}
+async function oeffnen(url) {
+  if (!/^https?:\/\//i.test(url || "")) return;
+  try { await App.anfrage("ui/open-link", { url }); } catch { try { window.open(url, "_blank", "noopener"); } catch {} }
+}
+const appVon = (uri) => (daten && uri ? daten.apps.find((a) => a.uri === uri) : null) || null;
+const werkzeugVon = (id) => (daten ? daten.werkzeuge.find((w) => w.id === id) : null) || null;
+const pluginVon = (name) => (daten ? daten.plugins.find((p) => p.name === name) : null) || null;
+const zahlWort = (n, eins, viele) => `${n} ${n === 1 ? eins : viele}`;
+
+// ── Kopfsatz ───────────────────────────────────────────────────────────────────────────────────
+function zeichneSatz() {
+  if (!daten) return;
+  const z = daten.zaehler;
+  const gestoert = z.krank + z.unerreichbar + z.nicht_geladen;
+  const teile = [gestoert ? `${zahlWort(gestoert, "Plugin gestört", "Plugins gestört")}` : "Alle Plugins gesund",
+    zahlWort(z.werkzeuge, "Werkzeug", "Werkzeuge"), zahlWort(z.apps, "App", "Apps"), App.zeit.uhr(standZeit)];
+  if (veraltet) teile.push("nicht aktuell");
+  satz(teile.join(" · "), veraltet ? "warn" : gestoert ? "schlecht" : "gut");
+}
+
+// ── Ansichten ──────────────────────────────────────────────────────────────────────────────────
+const ANSICHTEN = [
+  { id: "kasten", text: "Werkzeuge", symbol: "toolbox" },
+  { id: "apps", text: "Apps", symbol: "layout-grid" },
+  { id: "protokolle", text: "Protokolle", symbol: "waypoints" },
+];
+function zeichneReiter() {
+  const r = $("reiter");
+  r.hidden = !daten;
+  r.innerHTML = ANSICHTEN.map((a) => `<button type="button" role="tab" id="tab-${a.id}" data-ansicht="${a.id}" aria-selected="${S.ansicht === a.id}">${symbol(a.symbol)}${esc(a.text)}</button>`).join("");
+}
+function zeichnen() {
+  if (!daten) return;
+  zeichneSatz();
+  zeichneReiter();
+  const ort = $("haupt");
+  if (S.ansicht === "apps") ort.innerHTML = appsHtml();
+  else if (S.ansicht === "protokolle") ort.innerHTML = protokolleHtml();
+  else { ort.innerHTML = kastenHtml(); zeichneListe(); zeichneDetail(); }
+}
+
+// ── Werkzeugkasten: Plugins ────────────────────────────────────────────────────────────────────
+function pluginReihe(p) {
+  const st = STATUS[p.status] || STATUS.krank;
+  const an = S.plugin === p.name;
+  return `<button type="button" class="zeile mitte k-pl${an ? " an" : ""}" data-plugin="${esc(p.name)}"${an ? ' aria-current="true"' : ""} title="${esc(p.name)} · ${esc(st.text)}">`
+    + `<span class="punkt ${st.punkt}" aria-hidden="true"></span>`
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(p.name)}</span></span>`
+    + `<span class="zeile-ende"><span class="nur-lesen">${esc(st.text)}, </span>${p.werkzeuge}</span></button>`;
+}
+function pluginsHtml() {
+  const rang = (p) => (p.status === "ok" ? 1 : p.status === "aus" ? 2 : 0);
+  const liste = [...daten.plugins].sort((a, b) => rang(a) - rang(b) || a.name.localeCompare(b.name));
+  const alle = `<button type="button" class="zeile mitte k-pl alle${S.plugin === "" ? " an" : ""}" data-plugin=""${S.plugin === "" ? ' aria-current="true"' : ""}>`
+    + `<span class="kachel klein grau">${symbol("boxes")}</span><span class="zeile-text"><span class="zeile-titel">Alle Plugins</span></span><span class="zeile-ende">${daten.zaehler.werkzeuge}</span></button>`;
+  return `<h2>${symbol("plug")}Plugins<span class="anzahl">${daten.plugins.length}</span></h2>`
+    + `<div class="k-scroll"><div class="gruppe">${alle}${liste.map(pluginReihe).join("")}</div></div>`;
+}
+
+// ── Werkzeugkasten: Werkzeugliste ──────────────────────────────────────────────────────────────
+function scopeMarke(sc) {
+  const s = SCOPE[sc] || SCOPE.UNKNOWN;
+  return marke(s.text, s.klasse, s.symbol);
+}
+function sichtMarke(sicht) {
+  const s = SICHT[sicht] || SICHT.modell;
+  return `<span class="marke" title="${esc(s.hilfe)}">${symbol(s.symbol)}${esc(s.text)}</span>`;
+}
+function werkzeugKachel(w) {
+  const app = appVon(w.oberflaeche);
+  if (app) return `<span class="kachel app klein" style="--h:${Number(app.ton) || 230}">${symbol(app.symbol)}</span>`;
+  const s = SCOPE[w.scope] || SCOPE.UNKNOWN;
+  return kachel(s.symbol, s.ton, "klein");
+}
+function werkzeugReihe(w) {
+  const an = S.werkzeug === w.id;
+  const name = S.plugin ? w.name : w.id;
+  const unter = w.kurz || w.titel || "";
+  const marken = scopeMarke(w.scope) + (w.sicht === "app" ? sichtMarke("app") : "");
+  return `<button type="button" class="zeile k-wz${an ? " an" : ""}" data-werkzeug="${esc(w.id)}"${an ? ' aria-current="true"' : ""}>`
+    + werkzeugKachel(w)
+    + `<span class="zeile-text"><span class="zeile-titel"><code>${esc(name)}</code></span>${unter ? `<span class="zeile-unter">${esc(unter)}</span>` : ""}<span class="k-wz-marken">${marken}</span></span></button>`;
+}
+function gefiltert() {
+  const q = S.suche.trim().toLowerCase();
+  return daten.werkzeuge.filter((w) => {
+    if (S.plugin && w.plugin !== S.plugin) return false;
+    if (S.filter === "lesen" && w.scope !== "READ") return false;
+    if (S.filter === "schreiben" && w.scope === "READ") return false;
+    if (S.filter === "app" && !w.oberflaeche) return false;
+    return !q || `${w.id} ${w.titel} ${w.kurz} ${w.app || ""}`.toLowerCase().includes(q);
+  });
+}
+function pluginKopf() {
+  const p = pluginVon(S.plugin);
+  if (!p) return "";
+  const st = STATUS[p.status] || STATUS.krank;
+  const ton = p.status === "ok" ? "gut" : p.status === "aus" ? "" : "schlecht";
+  return `<div class="karte k-plugin"><div class="k-plugin-kopf"><span class="k-plugin-name">${esc(p.name)}</span>`
+    + `<span class="marke ${ton}"><span class="punkt ${st.punkt}" aria-hidden="true"></span>${esc(st.text)}</span>`
+    + (p.version ? `<span class="marke">v${esc(p.version)}</span>` : "")
+    + (p.sicherung && p.sicherung !== "closed" ? `<span class="marke schlecht" title="Die Sicherung des Hubs hat dieses Plugin vorübergehend gesperrt">${symbol("shield-check")}Sicherung ${esc(p.sicherung)}</span>` : "")
+    + `</div>${p.beschreibung ? `<p>${esc(p.beschreibung)}</p>` : ""}`
+    + (p.grund ? `<div class="hinweis ${p.status === "aus" ? "info" : "fehler"}">${symbol(p.status === "aus" ? "info" : "circle-alert")}<span>${esc(p.grund)}</span></div>` : "")
+    + `</div>`;
+}
+function werkzeugeHtml() {
+  const filter = FILTER.map((f) => `<button type="button" class="chip${S.filter === f.id ? " an" : ""}" data-filter="${f.id}" aria-pressed="${S.filter === f.id}">${esc(f.text)}</button>`).join("");
+  return pluginKopf()
+    + `<div class="leiste k-leiste"><input type="search" id="suche" placeholder="Werkzeug suchen" aria-label="Werkzeug suchen" value="${esc(S.suche)}" autocomplete="off"></div>`
+    + `<div class="knoepfe k-leiste" role="group" aria-label="Filter">${filter}</div>`
+    + `<div id="liste" class="k-liste"></div>`;
+}
+function zeichneListe() {
+  const ort = $("liste");
+  if (!ort) return;
+  const alle = gefiltert();
+  if (!alle.length) {
+    const gefiltertVonNutzer = S.suche.trim() || S.filter !== "alle";
+    ort.innerHTML = `<div class="gruppe">${zustand({
+      symbol: "search", ton: "grau", klein: true, titel: "Nichts gefunden",
+      text: gefiltertVonNutzer ? "Zu Suche und Filter passt kein Werkzeug." : "Dieses Plugin hat keine Werkzeuge.",
+      knopf: gefiltertVonNutzer ? { text: "Zurücksetzen", aktion: "zuruecksetzen", symbol: "x" } : null,
+    })}</div>`;
+    return;
+  }
+  const sicht = alle.slice(0, S.zeilen);
+  const rest = alle.length - sicht.length;
+  ort.innerHTML = `<div class="k-scroll"><div class="gruppe">${sicht.map(werkzeugReihe).join("")}`
+    + (rest > 0 ? `<button type="button" class="k-mehr" data-mehr="1">${symbol("chevron-down")}Weitere ${rest} anzeigen</button>` : "")
+    + `</div></div>`;
+}
+function kastenHtml() {
+  return `<div class="k-kasten" data-pane="${S.pane}">`
+    + `<section class="k-sp k-sp-plugins">${pluginsHtml()}</section>`
+    + `<section class="k-sp k-sp-werkzeuge"><button type="button" class="leise klein k-zurueck" data-zurueck="plugins">${symbol("arrow-left")}Plugins</button><h2>${symbol("wrench")}Werkzeuge<span class="anzahl">${S.plugin ? (pluginVon(S.plugin) || { werkzeuge: 0 }).werkzeuge : daten.zaehler.werkzeuge}</span></h2>${werkzeugeHtml()}</section>`
+    + `<section class="k-sp k-sp-detail" id="detail"></section></div>`;
+}
+
+// ── Werkzeugkasten: Detail ─────────────────────────────────────────────────────────────────────
+function typMarke(f) {
+  let t = f.typ_text;
+  if (f.typ === "array" && f.liste_von) t = `Liste von ${f.liste_von}`;
+  return `<span class="marke">${esc(t)}</span>`;
+}
+function feldHtml(f, id, an) {
+  const wert = (eingaben.get(id) || {})[f.name] ?? "";
+  const fehler = (feldFehler.get(id) || {})[f.name];
+  const dis = an ? "" : " disabled";
+  const name = esc(f.name);
+  const platz = "standard" in f ? `Standard: ${typeof f.standard === "string" ? f.standard : JSON.stringify(f.standard)}` : "";
+  let eingabe;
+  if (f.auswahl && f.auswahl.length) {
+    eingabe = `<select data-feld="${name}" id="f-${name}"${dis}><option value="">${f.pflicht ? "Bitte wählen" : "– nicht gesetzt –"}</option>`
+      + f.auswahl.map((o) => `<option value="${esc(String(o))}"${String(o) === wert ? " selected" : ""}>${esc(String(o))}</option>`).join("") + `</select>`;
+  } else if (f.typ === "boolean") {
+    eingabe = `<select data-feld="${name}" id="f-${name}"${dis}><option value="">– nicht gesetzt –</option><option value="ja"${wert === "ja" ? " selected" : ""}>Ja</option><option value="nein"${wert === "nein" ? " selected" : ""}>Nein</option></select>`;
+  } else if (f.typ === "integer" || f.typ === "number") {
+    const grenzen = (f.von != null ? ` min="${Number(f.von)}"` : "") + (f.bis != null ? ` max="${Number(f.bis)}"` : "");
+    eingabe = `<input type="number" inputmode="decimal" step="${f.typ === "integer" ? "1" : "any"}"${grenzen} data-feld="${name}" id="f-${name}" value="${esc(wert)}" placeholder="${esc(platz)}"${dis}>`;
+  } else if (f.typ === "array" || f.typ === "object" || f.typ === "any") {
+    eingabe = `<textarea rows="3" spellcheck="false" data-feld="${name}" id="f-${name}" placeholder="${esc(f.typ === "array" ? "[ … ]" : "{ … }")}"${dis}>${esc(wert)}</textarea>`;
+  } else {
+    eingabe = `<input type="text" data-feld="${name}" id="f-${name}" value="${esc(wert)}" placeholder="${esc(platz)}" autocomplete="off" spellcheck="false"${dis}>`;
+  }
+  const grenze = f.von != null || f.bis != null ? ` Wertebereich ${f.von != null ? f.von : "…"} bis ${f.bis != null ? f.bis : "…"}.` : "";
+  const unter = (f.beschreibung || "") + grenze + (f.leer_erlaubt ? " Darf leer bleiben." : "");
+  return `<div class="k-feld${fehler ? " fehler" : ""}"><label class="k-feldkopf" for="f-${name}"><code>${name}</code>${typMarke(f)}`
+    + (f.pflicht ? `<span class="marke gelb">Pflicht</span>` : "") + `</label>${eingabe}`
+    + (unter.trim() ? `<span class="zeile-unter">${esc(unter.trim())}</span>` : "")
+    + (fehler ? `<span class="zeile-unter schlecht">${esc(fehler)}</span>` : "") + `</div>`;
+}
+/** Texte aus dem Formular → Argumente. Wirft keine Fehler, sondern sammelt sie je Feld. */
+function argumente(felder, werte, streng) {
+  const args = {}, fehler = {};
+  for (const f of felder) {
+    const roh = werte[f.name];
+    if (roh == null || String(roh).trim() === "") {
+      if (f.pflicht && streng) fehler[f.name] = "Pflichtfeld";
+      continue;
+    }
+    const t = String(roh).trim();
+    try {
+      if (f.auswahl && f.auswahl.length) {
+        const treffer = f.auswahl.find((o) => String(o) === t);
+        args[f.name] = treffer === undefined ? t : treffer;
+      } else if (f.typ === "integer") {
+        if (!/^-?\d+$/.test(t)) throw new Error("Bitte eine ganze Zahl eingeben");
+        args[f.name] = Number(t);
+      } else if (f.typ === "number") {
+        if (isNaN(Number(t))) throw new Error("Bitte eine Zahl eingeben");
+        args[f.name] = Number(t);
+      } else if (f.typ === "boolean") args[f.name] = t === "ja";
+      else if (f.typ === "array" || f.typ === "object" || f.typ === "any") args[f.name] = JSON.parse(t);
+      else args[f.name] = String(roh);
+    } catch (e) {
+      fehler[f.name] = e instanceof SyntaxError ? "Das ist kein gültiges JSON" : e.message;
+    }
+  }
+  return { args, fehler };
+}
+function aufrufText(w, d) {
+  const { args } = argumente(d.eingabefelder || [], eingaben.get(w.id) || {}, false);
+  const json = (o) => JSON.stringify(o, null, 2);
+  let t = `hub__call_tool\n${json({ tool: w.id, arguments: args })}`;
+  if (w.mcp_name) t += `\n\noder als eigenes MCP-Werkzeug\n${w.mcp_name}\n${json(args)}`;
+  return t;
+}
+function ergebnisHtml(id) {
+  const p = probe.get(id);
+  if (!p) return "";
+  if (p.laeuft) return `<div class="k-abschnitt"><div class="laedt">Wird aufgerufen …</div></div>`;
+  if (p.fehler) return `<div class="k-abschnitt"><h2>${symbol("circle-alert")}Ergebnis</h2><div class="hinweis fehler" role="alert">${symbol("circle-alert")}<span>${esc(p.fehler)}</span></div></div>`;
+  return `<div class="k-abschnitt"><h2>${symbol("circle-check")}Ergebnis</h2>`
+    + `<div class="k-meta">${marke(`${App.zahl(p.ms, 0)} ms`, "gut", "clock")}${marke(`${App.zahl(p.zeichen, 0)} Zeichen`, "", "braces")}${p.gekuerzt ? marke("gekürzt", "gelb", "triangle-alert") : ""}</div>`
+    + `<pre class="k-pre"><code>${esc(p.text)}</code></pre></div>`;
+}
+function erreichbarHtml(w) {
+  return `<dl class="kv k-erreichbar">`
+    + `<dt>Über den Hub</dt><dd><code>hub__call_tool</code> mit <code>${esc(w.id)}</code></dd>`
+    + (w.mcp_name ? `<dt>Eigenes MCP-Werkzeug</dt><dd><code>${esc(w.mcp_name)}</code></dd>` : "")
+    + `<dt>Shell (Flächen-Werkzeug)</dt><dd>${w.flaeche ? "Ja" : "Nein, nur der MCP-Weg"}</dd>`
+    + `</dl>`;
+}
+// ── Offizieller MCP Inspector (eigener Dienst, optional) ───────────────────────────────────
+// Der Hub liefert `inspector` nur, wo der Link etwas bringt (Adresse in MCP_INSPECTOR_URL). Adress-Parameter für den
+// Server kennt der Inspector nicht; der Hub ist dort als einziger Server voreingestellt.
+function inspectorKnopf() {
+  const i = daten && daten.inspector;
+  if (!i || !i.url) return "";
+  return `<button type="button" class="zweit klein" data-oeffnen="${esc(i.url)}" title="Öffnet den offiziellen MCP Inspector in einem neuen Tab (Anmeldung wie beim Dienst eingerichtet)">${symbol("square-arrow-out-up-right")}Im Inspector öffnen</button>`;
+}
+function inspectorAbschnitt() {
+  const i = daten && daten.inspector;
+  if (!i || !i.url) return "";
+  return `<section class="abschnitt"><h2>${symbol("microscope")}Offizieller Inspector</h2><div class="karte k-zugang">`
+    + `<p>${esc(i.hinweis)}</p>`
+    + `<dl class="kv" style="margin:0"><dt>Version</dt><dd><code>${esc(i.version)}</code></dd><dt>Voreingestellter Server</dt><dd><code>${esc(i.hub_ziel)}</code> (Streamable HTTP)</dd></dl>`
+    + `<div class="knoepfe">${inspectorKnopf()}</div></div></section>`;
+}
+function appKarte(w, d) {
+  const app = appVon(w.oberflaeche);
+  if (!app) return "";
+  const knopf = d && d.oeffnen
+    ? `<button type="button" class="zweit klein" data-oeffnen="${esc(d.oeffnen)}">${symbol("square-arrow-out-up-right")}In FYOS öffnen</button>` : "";
+  return `<div class="k-abschnitt"><h2>${symbol("layout-grid")}App</h2><div class="karte k-app">`
+    + `<span class="kachel app gross" style="--h:${Number(app.ton) || 230}">${symbol(app.symbol)}</span>`
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(app.titel)}</span><span class="zeile-unter">${esc(app.untertitel)}</span></span>${knopf}</div>`
+    + `<p class="mut" style="margin:8px 2px 0">Oberfläche <code>${esc(app.uri)}</code>${d && !d.oeffnen ? " · der Link „In FYOS öffnen“ braucht Eingaben oder ist hier nicht erlaubt" : ""}</p></div>`;
+}
+/** Was Modelle von diesem Werkzeug in der kurzen Ansicht sehen: mitgelieferte und gelernte Felder je Liste (ansicht.sicht_bericht). */
+function kurzeAnsichtHtml(d) {
+  const k = d.kurze_ansicht;
+  if (!k) return "";
+  const b = k.budget || {};
+  const fuss = `<p class="mut" style="margin:8px 2px 0">Ergebnisse über dem Budget kommen gekürzt (${App.zahl(b.standard, 0)} Zeichen); `
+    + `<code>hub__mehr</code> holt den Rest. Ein Feld, nach dem ${k.schwelle}-mal gefragt wurde, steht danach von selbst darin; ${k.verfall_tage} Tage ohne Nutzung, dann fällt es wieder heraus.</p>`;
+  const felder = k.felder || [];
+  if (!felder.length) {
+    return `<div class="k-abschnitt"><h2>${symbol("filter")}Kurze Ansicht für Modelle</h2><div class="karte"><span class="mut">Keine eigene Sicht: In Listen stehen die Kernfelder (`
+      + `${(k.kern || []).slice(0, 8).map((f) => `<code>${esc(f)}</code>`).join(", ")} …).</span></div>${fuss}</div>`;
+  }
+  const herkunft = (e) => e.herkunft === "plugin" ? marke("mitgeliefert", "akz", "package")
+    : e.herkunft === "gelernt" ? marke(`gelernt · ${e.nachfragen}× gefragt`, "gut", "sparkles")
+    : marke(`${e.nachfragen} von ${k.schwelle} Nachfragen`, "", "hourglass");
+  const pfade = new Map();
+  for (const e of felder) { if (!pfade.has(e.pfad)) pfade.set(e.pfad, []); pfade.get(e.pfad).push(e); }
+  const zeilen = [...pfade].map(([pfad, liste]) => `<dt><code>${esc(pfad || "oberste Ebene")}</code></dt><dd>`
+    + liste.map((e) => `<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 4px 0"><code>${esc(e.feld)}</code>${herkunft(e)}</span>`).join("") + "</dd>").join("");
+  return `<div class="k-abschnitt"><h2>${symbol("filter")}Kurze Ansicht für Modelle<span class="anzahl">${felder.length}</span></h2>`
+    + `<div class="karte"><dl class="kv" style="margin:0">${zeilen}</dl></div>${fuss}</div>`;
+}
+function detailHtml() {
+  const w = werkzeugVon(S.werkzeug);
+  if (!w) {
+    return `<div class="k-leer-detail"><div class="gruppe">${zustand({ symbol: "toolbox", ton: "grau", titel: "Werkzeug wählen",
+      text: "Links ein Plugin, in der Mitte ein Werkzeug: hier stehen dann Beschreibung, Eingabe und der Weg, es zu rufen." })}</div></div>`;
+  }
+  const d = details.get(w.id);
+  const s = SCOPE[w.scope] || SCOPE.UNKNOWN;
+  const kopf = `<button type="button" class="leise klein k-zurueck" data-zurueck="werkzeuge">${symbol("arrow-left")}Werkzeuge</button>`
+    + `<div class="k-kopf">${werkzeugKachel(w).replace("klein", "gross")}<div class="k-kopf-text">`
+    + `<h3 class="k-name"><span class="k-plugin-teil">${esc(w.plugin)}.</span>${esc(w.name)}</h3>${w.titel ? `<p class="k-titel">${esc(w.titel)}</p>` : ""}`
+    + `<div class="k-marken">${scopeMarke(w.scope)}${sichtMarke(w.sicht)}${w.flaeche ? marke("Fläche", "", "monitor") : ""}</div></div></div>`;
+  if (!d) return kopf + `<div class="laedt">Details werden geladen …</div>`;
+  if (d.fehler) return kopf + zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: "Die Details lassen sich nicht laden", text: d.fehler, knopf: { text: "Erneut versuchen", aktion: "detail-neu", symbol: "refresh-cw" } });
+
+  const an = w.ausprobierbar;
+  const felder = d.eingabefelder || [];
+  const lang = (d.beschreibung || "").length > 700;
+  const formular = felder.length
+    ? `<div class="karte k-felder">${felder.map((f) => feldHtml(f, w.id, an)).join("")}</div>`
+    : `<div class="karte"><span class="mut">${symbol("circle-check")} Dieses Werkzeug braucht keine Eingabe.</span></div>`;
+  const hinweis = an ? "" : `<div class="hinweis info" style="margin-top:10px">${symbol("lock")}<span>${esc(w.ausprobier_grund || "Hier nicht ausprobierbar.")}</span></div>`;
+  const taste = an
+    ? `<div class="k-aktion"><button type="button" class="haupt" data-aktion="probieren" id="probieren"${(probe.get(w.id) || {}).laeuft ? " disabled" : ""}>${symbol("play")}Ausprobieren</button>`
+      + `<span class="mut">Ruft das lesende Werkzeug wirklich auf; im Audit-Log steht es wie jeder Aufruf.</span></div>` : "";
+  return kopf
+    + `<p class="k-text${lang ? " lang" : ""}">${esc(d.beschreibung || "Keine Beschreibung.")}</p>`
+    + `<div class="k-abschnitt" style="margin-top:0"><h2>${symbol("sliders-horizontal")}Eingabe${felder.length ? `<span class="anzahl">${felder.length}</span>` : ""}</h2>${formular}${hinweis}${taste}</div>`
+    + `<div id="ergebnis">${ergebnisHtml(w.id)}</div>`
+    + `<div class="k-abschnitt"><h2>${symbol("terminal")}Aufruf</h2><pre class="k-pre" id="aufruf"><code>${esc(aufrufText(w, d))}</code></pre>${daten.inspector ? `<div class="k-aktion">${inspectorKnopf()}<span class="mut">Im Inspector: Tool <code>hub__call_tool</code> mit <code>${esc(w.id)}</code>.</span></div>` : ""}</div>`
+    + appKarte(w, d)
+    + kurzeAnsichtHtml(d)
+    + `<div class="k-abschnitt"><h2>${symbol("route")}Wo erreichbar</h2><div class="karte">${erreichbarHtml(w)}</div></div>`
+    + `<div class="k-abschnitt k-roh"><details><summary>JSON-Schema der Eingabe</summary><pre class="k-pre"><code>${esc(JSON.stringify(d.schema, null, 2))}</code></pre></details></div>`;
+}
+function zeichneDetail() {
+  const ort = $("detail");
+  if (ort) ort.innerHTML = detailHtml();
+}
+async function ladeDetail(id, neu) {
+  if (!neu && details.has(id) && !details.get(id).fehler) return;
+  details.delete(id);
+  zeichneDetail();
+  try {
+    const d = await rufen("werkzeug", { name: id });
+    if (!d || !d.eingabefelder) throw new Error("Die Antwort ist unvollständig.");
+    details.set(id, d);
+  } catch (e) { details.set(id, { fehler: fehlertext(e) }); }
+  if (S.werkzeug === id) zeichneDetail();
+}
+function waehleWerkzeug(id) {
+  S.werkzeug = id; S.pane = "detail";
+  const ort = $("haupt").querySelector(".k-kasten");
+  if (ort) ort.dataset.pane = S.pane;
+  zeichneListe(); zeichneDetail();
+  ladeDetail(id);
+  if (window.matchMedia("(max-width: 819px)").matches) window.scrollTo?.({ top: 0 });
+}
+async function probieren() {
+  const w = werkzeugVon(S.werkzeug), d = w && details.get(w.id);
+  if (!w || !d || !w.ausprobierbar) return;
+  const { args, fehler } = argumente(d.eingabefelder || [], eingaben.get(w.id) || {}, true);
+  feldFehler.set(w.id, fehler);
+  if (Object.keys(fehler).length) { probe.delete(w.id); zeichneDetail(); const el = $("detail").querySelector(".k-feld.fehler :where(input,select,textarea)"); if (el) el.focus(); return; }
+  probe.set(w.id, { laeuft: true }); zeichneDetail();
+  try {
+    const r = await rufen("ausprobieren", { werkzeug: w.id, arguments: args });
+    probe.set(w.id, r && r.ok ? r : { fehler: (r && r.error) || "Der Aufruf hat nicht geklappt." });
+  } catch (e) { probe.set(w.id, { fehler: fehlertext(e) }); }
+  if (S.werkzeug === w.id) { zeichneDetail(); const el = $("ergebnis"); if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+}
+
+// ── Apps ───────────────────────────────────────────────────────────────────────────────────────
+function appsHtml() {
+  if (!daten.apps.length) return `<div class="gruppe">${zustand({ symbol: "layout-grid", ton: "grau", titel: "Keine Apps", text: "Der Hub liefert gerade keine Werkzeuge mit Oberfläche." })}</div>`;
+  const nachKategorie = new Map();
+  for (const a of daten.apps) { const k = a.kategorie || "Weitere"; if (!nachKategorie.has(k)) nachKategorie.set(k, []); nachKategorie.get(k).push(a); }
+  return [...nachKategorie].map(([k, liste]) => `<section class="abschnitt"><h2>${symbol("layout-grid")}${esc(k)}<span class="anzahl">${liste.length}</span></h2><div class="raster">${liste.map(appKarteHtml).join("")}</div></section>`).join("");
+}
+function appKarteHtml(a) {
+  const chips = a.werkzeuge.map((id) => `<button type="button" class="chip" data-springe="${esc(id)}" title="Im Werkzeugkasten zeigen">${esc(id.split(".")[1] || id)}</button>`).join("");
+  return `<article class="karte k-appkarte"><div class="k-appkopf"><span class="kachel app gross" style="--h:${Number(a.ton) || 230}">${symbol(a.symbol)}</span>`
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(a.titel)}</span><span class="zeile-unter">${esc(a.untertitel)}</span></span></div>`
+    + `<dl class="kv"><dt>Oberfläche</dt><dd><code>${esc(a.uri)}</code></dd><dt>Plugin</dt><dd><code>${esc(a.plugin)}</code></dd><dt>Werkzeuge</dt><dd><span class="k-chips">${chips}</span></dd></dl>`
+    + (a.oeffnen ? `<div class="knoepfe"><button type="button" class="zweit klein" data-oeffnen="${esc(a.oeffnen)}">${symbol("square-arrow-out-up-right")}In FYOS öffnen</button></div>` : "")
+    + `</article>`;
+}
+
+// ── Protokolle, Zugänge, Aufrufer ──────────────────────────────────────────────────────────────
+function versionen(liste, modern) {
+  if (!liste || !liste.length) return `<span class="mut">keine MCP-Versionen (kein Handshake)</span>`;
+  return [...liste].sort().reverse().map((v) => `<span class="marke${modern.includes(v) ? " akz" : ""}">${esc(v)}</span>`).join("");
+}
+function zugangHtml(z) {
+  const sym = z.name.startsWith("Hub") ? "server" : z.name === "REST" ? "route" : "monitor";
+  return `<article class="karte k-zugang"><div class="k-zugang-kopf">${kachel(sym, "akz", "gross")}<span class="zeile-text"><span class="zeile-titel">${esc(z.name)}</span><span class="zeile-unter"><code>${esc(z.pfad)}</code></span></span></div>`
+    + `<p>${esc(z.wer)} · ${esc(z.art)}${z.werkzeuge != null ? ` · ${zahlWort(z.werkzeuge, "Werkzeug", "Werkzeuge")} freigegeben` : ""}</p>`
+    + (z.protokolle.length ? `<div class="k-versionen">${versionen(z.protokolle, daten.hub.modern)}</div>` : "") + `</article>`;
+}
+function flaecheReihe(f) {
+  const weg = WEG[f.weg] || WEG.mcp;
+  const prot = Object.entries(f.protokolle || {}).map(([v, n]) => `<span class="marke${daten.hub.modern.includes(v) ? " akz" : ""}" title="${n} Anfragen mit dieser Version">${esc(v)}</span>`).join("");
+  return `<li class="zeile"><span class="kachel klein grau">${symbol(weg.symbol)}</span><span class="zeile-text"><span class="zeile-titel"><code>${esc(f.aufrufer)}</code></span>`
+    + `<span class="zeile-unter">${esc(weg.text)} · ${esc(App.zeit.vor(f.zuletzt))}</span>${prot ? `<span class="k-versionen" style="margin-top:4px">${prot}</span>` : ""}</span>`
+    + `<span class="zeile-ende">${App.zahl(f.anzahl, 0)}×</span></li>`;
+}
+/** Was die kurze Ansicht je Aufrufer spart (ansicht.messung, 7 Tage): Zeichen voll gegen kurz + nachgeholt. */
+function messungAbschnitt() {
+  const m = daten.ansicht_messung;
+  if (!m) return "";
+  const zahl = (n) => n >= 10000 ? `${App.zahl(n / 1000, 0)} k` : App.zahl(n, 0);
+  const reihe = (z) => {
+    const p = z.gespart_prozent;
+    const ton = p == null ? "grau" : p >= 50 ? "gut" : p >= 10 ? "akz" : "grau";
+    return `<li class="zeile"><span class="kachel klein ${ton}">${symbol(z.aufrufer === "alle" ? "layers" : "bot")}</span>`
+      + `<span class="zeile-text"><span class="zeile-titel">${esc(z.aufrufer === "alle" ? "Alle Modelle" : z.aufrufer)}</span>`
+      + `<span class="zeile-unter">${App.zahl(z.aufrufe, 0)} Aufrufe, ${App.zahl(z.gekuerzt, 0)} gekürzt · ${zahl(z.zeichen_voll)} → ${zahl(z.zeichen_kurz)} Zeichen`
+      + `${z.mehr ? ` · ${App.zahl(z.mehr, 0)}× nachgeholt (${zahl(z.zeichen_nachgeholt)})` : ""}</span></span>`
+      + `<span class="zeile-ende">${p == null ? "" : marke(`${App.zahl(p, 0)} % gespart`, ton === "grau" ? "" : ton, "trending-down")}</span></li>`;
+  };
+  const zeilen = m.aufrufer || [];
+  return `<section class="abschnitt"><h2>${symbol("filter")}Kurze Ansicht — Ersparnis ${m.tage} Tage</h2>`
+    + (zeilen.length
+      ? `<div class="gruppe"><ul class="zeilen">${[m.gesamt, ...zeilen].map(reihe).join("")}</ul></div>`
+      : `<div class="gruppe">${zustand({ symbol: "filter", ton: "grau", klein: true, titel: "Noch nichts gemessen", text: "Sobald ein Modell ein Werkzeug über den Hub ruft, steht es hier." })}</div>`)
+    + `<p class="fuss" style="text-align:left;margin:8px 2px 0">${esc(m.hinweis)}</p></section>`;
+}
+function protokolleHtml() {
+  const h = daten.hub;
+  const modernText = h.modern.length ? "Der Hub spricht beide Zeitalter: den Handshake (initialize) und die zustandslose Fassung 2026-07-28 (server/discover)." : "Dieses SDK kennt nur den Handshake; 2026-07-28 spricht erst mcp 2.x.";
+  return `<section class="abschnitt"><h2>${symbol("waypoints")}Protokollversionen</h2>`
+    + `<div class="hinweis info">${symbol("info")}<span>${esc(modernText)}</span></div>`
+    + `<dl class="kv" style="margin:14px 2px 0"><dt>Hub</dt><dd>Version ${esc(h.version)}, gestartet ${esc(App.zeit.vor(h.gestartet))}</dd><dt>SDK</dt><dd><code>${esc(h.sdk)}</code></dd>`
+    + `<dt>Handshake</dt><dd><span class="k-versionen">${versionen(h.handshake, h.modern)}</span></dd>`
+    + `<dt>Zustandslos</dt><dd><span class="k-versionen">${versionen(h.modern, h.modern)}</span></dd>`
+    + `</dl></section>`
+    + inspectorAbschnitt()
+    + messungAbschnitt()
+    + `<section class="abschnitt"><h2>${symbol("plug")}Zugänge<span class="anzahl">${daten.zugaenge.length}</span></h2><div class="raster">${daten.zugaenge.map(zugangHtml).join("")}</div></section>`
+    + `<section class="abschnitt"><h2>${symbol("history")}Zuletzt gesehen<span class="anzahl">${daten.flaechen.length}</span></h2>`
+    + (daten.flaechen.length
+      ? `<div class="gruppe"><ul class="zeilen">${daten.flaechen.map(flaecheReihe).join("")}</ul></div>`
+      : `<div class="gruppe">${zustand({ symbol: "unplug", ton: "grau", klein: true, titel: "Noch niemand seit dem Start", text: "Sobald ein Client den Hub anspricht, steht er hier." })}</div>`)
+    + `<p class="fuss" style="text-align:left;margin:8px 2px 0">${esc(daten.flaechen_hinweis)}</p></section>`
+    + `<section class="abschnitt"><h2>${symbol("app-window")}Oberflächen (ui://)<span class="anzahl">${daten.ressourcen.length}</span></h2>`
+    + (daten.ressourcen.length
+      ? `<div class="gruppe"><ul class="zeilen">${daten.ressourcen.map((r) => `<li class="zeile"><span class="kachel klein grau">${symbol("app-window")}</span><span class="zeile-text"><span class="zeile-titel"><code>${esc(r.uri)}</code></span><span class="zeile-unter">${esc(r.name)} · Plugin ${esc(r.plugin)}</span></span><span class="zeile-ende"><span class="marke">${esc(String(r.mime).replace("text/html;profile=", ""))}</span></span></li>`).join("")}</ul></div>`
+      : `<div class="gruppe">${zustand({ symbol: "app-window", ton: "grau", klein: true, titel: "Keine Oberflächen", text: "Kein Plugin liefert eine ui://-Ressource." })}</div>`)
+    + `</section>`;
+}
+
+// ── Laden ──────────────────────────────────────────────────────────────────────────────────────
+function datenUebernehmen(d) {
+  if (!d || !Array.isArray(d.plugins) || !Array.isArray(d.werkzeuge)) return false;
+  daten = d; standZeit = Date.now(); veraltet = false;
+  if (S.plugin && !pluginVon(S.plugin)) S.plugin = "";
+  if (S.werkzeug && !werkzeugVon(S.werkzeug)) S.werkzeug = "";
+  if (vorwahl && werkzeugVon(vorwahl)) {
+    const w = werkzeugVon(vorwahl);
+    S.werkzeug = w.id; S.plugin = w.plugin; S.pane = "detail"; S.ansicht = "kasten";
+    vorwahl = "";
+    ladeDetail(w.id);
+  }
+  zeichnen();
+  return true;
+}
+function ladeFehler(text) {
+  if (!daten) {
+    $("reiter").hidden = true;
+    $("haupt").innerHTML = `<div class="gruppe">${zustand({ symbol: "wifi-off", ton: "schlecht", titel: "Der Werkzeugkasten ist nicht erreichbar", text, knopf: { text: "Erneut versuchen", aktion: "neu", symbol: "refresh-cw" } })}</div>`;
+    satz("Keine Verbindung", "schlecht");
+  } else { veraltet = true; zeichneSatz(); melden(`Das Aktualisieren hat nicht geklappt: ${text}`); }
+}
+async function neu(frisch) {
+  $("neu").disabled = true;
+  try {
+    if (!datenUebernehmen(await rufen("uebersicht", frisch ? { frisch: true, voll: true } : { voll: true }))) throw new Error("Die Antwort ist unvollständig.");
+    melden("");
+  } catch (e) { ladeFehler(fehlertext(e)); }
+  $("neu").disabled = false;
+}
+$("neu").addEventListener("click", () => neu(true));
+App.bei("neu", () => neu(true));
+App.bei("zuruecksetzen", () => { S.suche = ""; S.filter = "alle"; zeichnen(); });
+App.bei("probieren", probieren);
+App.bei("detail-neu", () => { if (S.werkzeug) ladeDetail(S.werkzeug, true); });
+
+// ── Bedienung ──────────────────────────────────────────────────────────────────────────────────
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest && ev.target.closest("[data-ansicht],[data-plugin],[data-werkzeug],[data-filter],[data-zurueck],[data-mehr],[data-oeffnen],[data-springe]");
+  if (!t || t.disabled) return;
+  const d = t.dataset;
+  if (d.ansicht) { S.ansicht = d.ansicht; zeichnen(); }
+  else if (d.plugin !== undefined) { S.plugin = d.plugin; S.zeilen = SEITE; S.pane = "werkzeuge"; zeichnen(); }
+  else if (d.werkzeug) waehleWerkzeug(d.werkzeug);
+  else if (d.filter) { S.filter = d.filter; S.zeilen = SEITE; zeichnen(); }
+  else if (d.zurueck) { S.pane = d.zurueck; zeichnen(); }
+  else if (d.mehr) { S.zeilen += SEITE; zeichneListe(); }
+  else if (d.oeffnen) oeffnen(d.oeffnen);
+  else if (d.springe) {
+    const w = werkzeugVon(d.springe);
+    S.ansicht = "kasten"; if (w) S.plugin = w.plugin; S.suche = ""; S.filter = "alle"; S.zeilen = SEITE;
+    zeichnen(); waehleWerkzeug(d.springe);
+  }
+});
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (t.id === "suche") { S.suche = t.value; S.zeilen = SEITE; zeichneListe(); return; }
+  if (t.dataset && t.dataset.feld && S.werkzeug) {
+    const werte = eingaben.get(S.werkzeug) || {};
+    werte[t.dataset.feld] = t.value; eingaben.set(S.werkzeug, werte);
+    const fe = feldFehler.get(S.werkzeug);
+    if (fe && fe[t.dataset.feld]) { delete fe[t.dataset.feld]; t.closest(".k-feld").classList.remove("fehler"); }
+    const w = werkzeugVon(S.werkzeug), d = w && details.get(w.id), pre = $("aufruf");
+    if (pre && d && d.eingabefelder) pre.innerHTML = `<code>${esc(aufrufText(w, d))}</code>`;
+  }
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.matches && ev.target.matches("input[data-feld]")) { ev.preventDefault(); probieren(); }
+});
+
+// ── Host ───────────────────────────────────────────────────────────────────────────────────────
+App.auf("ui/notifications/tool-result", (r) => {
+  bekommen = true;
+  if (r && r.isError) { ladeFehler(fehlertext(((r.content || [])[0] || {}).text)); return; }
+  const d = App.daten(r);
+  if (d && d.eingabefelder && d.id) { vorwahl = d.id; details.set(d.id, d); neu(false); return; } // geöffnet über mcp__werkzeug
+  if (d && d.knapp) { neu(false); return; } // knappe Ansicht (KI-Aufruf): ohne Werkzeugkatalog, die Oberfläche holt die Vollform
+  if (!datenUebernehmen(d) && !daten) neu(false);
+});
+App.start("fyos-mcp").then(() => setTimeout(() => { if (!bekommen) neu(false); }, 1500)).catch(() => {});
+</script>
+</body>
+</html>

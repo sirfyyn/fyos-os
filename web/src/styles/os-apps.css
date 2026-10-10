@@ -1,0 +1,413 @@
+/*
+ * os-apps.css — Apps im OS: Katalog, Fensterkopf, Angeheftet.
+ *
+ * Eine Gestaltung für alles, was eine Hub-App zeigt: das Symbol (Glyphe auf farbiger, abgerundeter
+ * Fläche, lib/os/symbole.ts) ist überall dasselbe und trägt den Namen; Aktionen sind ruhige
+ * Symbolknöpfe wie in der Werkzeugleiste eines Mac-Fensters. Läuft im OS-Fenster (durchsichtig,
+ * Glas dahinter) und allein im Browser (Seitengrund) gleich — deshalb nur Mischungen aus --color-fg.
+ */
+@layer components {
+
+:root { --os-stern: #ffb340; }
+html[data-theme="light"] { --os-stern: #f59e0b; }
+
+/* ── Symbol, das der Hub als fertiges Bild mitbringt ───────────────────────────────────────── */
+.os-symbol.os-symbol-fertig { background: none; box-shadow: none; }
+.os-symbol-bild {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.2)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.22));
+}
+
+/* ── Menüpunkte mit Symbol ─────────────────────────────────────────────────────────────────── */
+.os-menue-glyphe { display: block; width: 0.95rem; height: 0.95rem; margin: 0 auto; opacity: 0.8; stroke-width: 1.9; }
+.os-menue-gewaehlt .os-menue-glyphe { opacity: 1; }
+.os-menue-aus .os-menue-glyphe { opacity: 1; } /* die Zeile ist schon abgeblendet */
+
+/* ── Start: geheftete Apps ─────────────────────────────────────────────────────────────────── */
+.os-kachel-bild { position: relative; display: inline-flex; }
+.os-kachel-pin {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.35rem;
+  display: grid;
+  width: 1.15rem;
+  height: 1.15rem;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--os-akzent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-bg) 88%, transparent), 0 2px 5px rgb(0 0 0 / 0.35);
+}
+.os-kachel-pin > svg { width: 0.62rem; height: 0.62rem; }
+
+/* ── Fensterkopf einer App ─────────────────────────────────────────────────────────────────── */
+/* Ampel links, danach Symbol und Titel, rechts die Aktionen. Der Kopf liegt über dem Inhalt und ist selbst der
+   Container für die Breitenabfrage; die Rückmeldung „Link kopiert" erscheint in ihm, links neben den Aktionen.
+   Er klebt wie jeder Fensterkopf (os.css); sticky ist zugleich Bezug für die absolut gesetzte Rückmeldung. */
+[data-fenster] > .os-kopf.os-kopf-app {
+  position: sticky;
+  z-index: 3;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  container: appkopf / inline-size;
+}
+.os-app-titel { display: flex; min-width: 0; align-items: center; gap: 0.55rem; }
+.os-app-titel .os-fenstertitel { min-width: 0; text-align: left; }
+/* Fenster einer Seite: Symbol und Titel stehen in der Mitte des Kopfs, etwas kleiner als bei Apps */
+[data-fenster] > .os-kopf:not(.os-kopf-app) > .os-app-titel { justify-self: center; gap: 0.45rem; }
+[data-fenster] > .os-kopf:not(.os-kopf-app) .os-app-symbol.os-symbol { width: 1.3rem; height: 1.3rem; border-radius: 0.38rem; }
+.os-app-symbol.os-symbol {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 0.45rem;
+  box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.3), 0 1px 2px rgb(0 0 0 / 0.28);
+}
+.os-app-symbol > svg { width: 62%; height: 62%; stroke-width: 2.1; filter: none; }
+.os-app-aktionen { position: relative; display: flex; align-items: center; justify-self: end; gap: 0.125rem; }
+.os-app-aktion { position: relative; }
+.os-app-glyphe { width: 1.05rem; height: 1.05rem; stroke-width: 1.8; flex-shrink: 0; }
+/* Der Agent im Akzent des OS, wenn man ihn berührt; geheftet = Akzent; kopiert = grün */
+.os-app-agent:hover, .os-app-agent:focus-visible { color: var(--os-akzent); background: color-mix(in oklab, var(--os-akzent) 14%, transparent); }
+.os-app-an { color: var(--os-akzent); }
+.os-app-an:hover { color: var(--os-akzent); }
+.os-app-gut, .os-app-gut:hover { color: #30d158; }
+/* Schmale Köpfe (Viertelbreite, Handy): nur „Agent fragen" und ⋯ — der Rest steht im Menü */
+@container appkopf (max-width: 30rem) {
+  .os-app-zweit { display: none; }
+}
+
+/* Rückmeldung: bleibt als Fläche im Dokument (Screenreader), sichtbar nur mit Text. Dann steht sie im Kopf,
+   unmittelbar links neben den Aktionen — dort deckt sie keinen Inhalt der App zu. */
+.os-app-melder {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.os-app-melder[data-an] {
+  top: 50%;
+  right: calc(100% + 0.55rem);
+  z-index: 6;
+  display: inline-flex;
+  width: auto;
+  height: auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.75rem 0.32rem 0.55rem;
+  overflow: visible;
+  clip-path: none;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
+  font-size: 0.78rem;
+  font-weight: 550;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  box-shadow: 0 8px 22px -10px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.07);
+  backdrop-filter: blur(24px) saturate(1.8);
+  pointer-events: none;
+  animation: os-melder-auf 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.os-app-melder[data-art="ok"] .os-app-glyphe { color: #30d158; }
+.os-app-melder[data-art="hinweis"] .os-app-glyphe { color: var(--color-warn); }
+@keyframes os-melder-auf { from { opacity: 0; transform: translate(0.4rem, -50%) scale(0.96); } }
+
+/* ── Katalog (/apps/mcp): wie der App Store, Symbole groß und ruhig ───────────────────────── */
+.os-katalog {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1.75rem 1.75rem 3.5rem;
+  font-family: var(--os-schrift);
+  color: var(--color-fg);
+}
+@media (max-width: 767px) { .os-katalog { padding: 1.1rem 1rem 2.5rem; } }
+.os-katalog-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1.9rem;
+}
+.os-katalog-titel {
+  margin: 0;
+  font-size: clamp(1.75rem, 3.4vw, 2.3rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.028em;
+}
+.os-katalog-unter { margin: 0.4rem 0 0; font-size: 0.95rem; color: var(--color-fg-muted); }
+.os-katalog-suche { position: relative; display: flex; width: min(100%, 19rem); align-items: center; }
+@media (max-width: 767px) { .os-katalog-suche { width: 100%; } }
+.os-katalog-suche > svg {
+  position: absolute;
+  left: 0.9rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-fg-subtle);
+  pointer-events: none;
+}
+.os-katalog-suche > input {
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0 0.95rem 0 2.6rem;
+  border-radius: 0.85rem;
+  border: 0.5px solid var(--os-glas-rand);
+  background: color-mix(in oklab, var(--color-fg) 6%, transparent);
+  font: inherit;
+  font-size: 0.95rem;
+  color: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.os-katalog-suche > input::placeholder { color: var(--color-fg-subtle); }
+.os-katalog-suche > input:focus {
+  border-color: var(--os-akzent);
+  background: color-mix(in oklab, var(--color-fg) 4%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--os-akzent) 38%, transparent);
+}
+.os-katalog-sektion {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.85rem;
+  font-size: 1.08rem;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+}
+.os-katalog-sektion > span { font-size: 0.8rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--color-fg-subtle); }
+.os-katalog-mehr { margin-left: auto; font-size: 0.82rem; font-weight: 500; color: var(--os-akzent); }
+.os-katalog-mehr:hover { text-decoration: underline; }
+/* Kachel, die aus dem Haus hinausführt : kleines Pfeilzeichen oben rechts, wo sonst der Stern steht */
+.os-app-extern { position: absolute; top: 0.85rem; right: 0.9rem; width: 0.95rem; height: 0.95rem; color: var(--color-fg-subtle); opacity: 0.85; }
+.os-katalog-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr));
+  gap: 0.85rem;
+  margin-bottom: 2.1rem;
+}
+.os-katalog-leer { margin: 3rem 0; text-align: center; color: var(--color-fg-muted); }
+.os-katalog-meldung {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: -0.8rem 0 1.4rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.8rem;
+  font-size: 0.85rem;
+  background: color-mix(in oklab, var(--color-fg) 6%, transparent);
+}
+.os-katalog-meldung > svg { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--color-warn); }
+.os-katalog-fehler {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 2.5rem auto;
+  max-width: 26rem;
+  padding: 1.5rem;
+  border-radius: 1.2rem;
+  text-align: center;
+  border: 0.5px solid var(--os-glas-rand);
+  background: color-mix(in oklab, var(--color-fg) 5%, transparent);
+}
+.os-katalog-fehler > p { margin: 0; color: var(--color-fg-muted); font-size: 0.9rem; }
+
+/* Eine Kachel: Symbol, Titel, Untertitel (höchstens zwei Zeilen, immer gleich hoch), Stern oben rechts */
+.os-app-kachel {
+  position: relative;
+  display: flex;
+  border-radius: 1.2rem;
+  border: 0.5px solid var(--os-glas-rand);
+  background: color-mix(in oklab, var(--color-fg) 4.5%, transparent);
+  transition: background-color 0.18s, border-color 0.18s, box-shadow 0.25s, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.os-app-kachel:hover {
+  background: color-mix(in oklab, var(--color-fg) 8%, transparent);
+  border-color: color-mix(in oklab, var(--color-fg) 16%, transparent);
+  box-shadow: 0 16px 32px -20px rgb(0 0 0 / 0.55);
+  transform: translateY(-1px);
+}
+.os-app-kachel:active { transform: scale(0.985); }
+.os-app-kachel-haupt {
+  display: flex;
+  min-width: 0;
+  min-height: 6.25rem;
+  flex: 1;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 3.1rem 1rem 1rem;
+  border-radius: inherit;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.os-app-kachel-haupt:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-app-kachel-symbol.os-symbol { width: 4rem; height: 4rem; border-radius: 1.1rem; transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+.os-app-kachel:hover .os-app-kachel-symbol { transform: scale(1.05); }
+.os-app-kachel-text { display: flex; min-width: 0; flex-direction: column; gap: 0.22rem; }
+.os-app-kachel-titel {
+  overflow: hidden;
+  font-size: 1.03rem;
+  font-weight: 630;
+  line-height: 1.2;
+  letter-spacing: -0.014em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.os-app-kachel-unter {
+  display: -webkit-box;
+  min-height: 2.64em; /* zwei Zeilen reserviert: alle Kacheln einer Reihe gleich hoch */
+  overflow: hidden;
+  font-size: 0.83rem;
+  line-height: 1.32;
+  color: var(--color-fg-muted);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.os-app-stern {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-fg-subtle);
+  opacity: 0.55;
+  transition: color 0.15s, background-color 0.15s, opacity 0.15s, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.os-app-kachel:hover .os-app-stern, .os-app-stern:focus-visible, .os-app-stern[aria-pressed="true"] { opacity: 1; }
+.os-app-stern:hover { color: var(--color-fg); background: color-mix(in oklab, var(--color-fg) 10%, transparent); }
+.os-app-stern:active { transform: scale(0.88); }
+.os-app-stern:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+.os-app-stern > svg { width: 1.12rem; height: 1.12rem; stroke-width: 1.8; transition: fill 0.2s, filter 0.2s; }
+.os-app-stern[aria-pressed="true"] { color: var(--os-stern); }
+.os-app-stern[aria-pressed="true"] > svg { fill: currentColor; filter: drop-shadow(0 0 5px color-mix(in oklab, var(--os-stern) 55%, transparent)); }
+@media (pointer: coarse) { .os-app-stern { width: 2.6rem; height: 2.6rem; top: 0.4rem; right: 0.4rem; opacity: 0.8; } }
+
+/* Ladezustand: Platzhalter in Kachelform, ein langsamer Glanz läuft darüber */
+.os-app-kachel-leer {
+  min-height: 6.25rem;
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(100deg, transparent 30%, color-mix(in oklab, var(--color-fg) 7%, transparent) 50%, transparent 70%) 0 0 / 220% 100% no-repeat,
+    color-mix(in oklab, var(--color-fg) 4%, transparent);
+  animation: os-glanz 1.5s ease-in-out infinite;
+}
+@keyframes os-glanz { from { background-position: 130% 0, 0 0; } to { background-position: -30% 0, 0 0; } }
+
+/* ── Katalog: eine App geöffnet (Seite allein im Browser) ─────────────────────────────────── */
+.os-detail-kopf { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 0.9rem; margin-bottom: 1.1rem; }
+.os-detail-zurueck {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.85rem 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 550;
+  color: var(--color-fg);
+  background: color-mix(in oklab, var(--color-fg) 7%, transparent);
+  transition: background-color 0.15s;
+}
+.os-detail-zurueck:hover { background: color-mix(in oklab, var(--color-fg) 12%, transparent); }
+.os-detail-zurueck:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-detail-zurueck > svg { width: 1.05rem; height: 1.05rem; }
+.os-detail-name { display: flex; min-width: 0; flex: 1; align-items: center; gap: 0.75rem; }
+.os-detail-symbol.os-symbol { width: 2.9rem; height: 2.9rem; border-radius: 0.8rem; }
+.os-detail-titel { margin: 0; overflow: hidden; font-size: 1.25rem; font-weight: 650; letter-spacing: -0.02em; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.os-detail-untertitel { margin: 0.12rem 0 0; font-size: 0.85rem; color: var(--color-fg-muted); }
+.os-detail-aktionen { position: relative; display: flex; align-items: center; gap: 0.125rem; }
+/* Handy: oben „Apps" und die Aktionen, darunter Symbol und Name mit der ganzen Breite für die Zeile */
+@media (max-width: 599px) {
+  .os-detail-kopf {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "zurueck aktionen" "name name";
+    gap: 0.9rem 0.5rem;
+  }
+  .os-detail-zurueck { grid-area: zurueck; justify-self: start; }
+  .os-detail-aktionen { grid-area: aktionen; }
+  .os-detail-name { grid-area: name; }
+}
+@media (pointer: coarse) { .os-detail-zurueck { min-height: 2.75rem; } }
+.os-detail-felder { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0 0 0.9rem; }
+.os-detail-felder > input, .os-detail-felder > select {
+  min-height: 2.4rem;
+  padding: 0 0.8rem;
+  border-radius: 0.7rem;
+  border: 0.5px solid var(--os-glas-rand);
+  background: color-mix(in oklab, var(--color-fg) 6%, transparent);
+  font: inherit;
+  font-size: 0.9rem;
+  color: inherit;
+  outline: none;
+}
+.os-detail-felder > input:focus, .os-detail-felder > select:focus { border-color: var(--os-akzent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--os-akzent) 38%, transparent); }
+.os-detail-los {
+  min-height: 2.4rem;
+  padding: 0 1.15rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--os-akzent);
+  transition: filter 0.15s, opacity 0.15s;
+}
+.os-detail-los:hover { filter: brightness(1.08); }
+.os-detail-los:disabled { opacity: 0.5; }
+.os-detail-los:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-detail-rahmen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.2rem;
+  border: 0.5px solid var(--os-glas-rand);
+  background: color-mix(in oklab, var(--color-fg) 3.5%, transparent);
+}
+.os-detail-rahmen > iframe { display: block; width: 100%; border: 0; background: transparent; }
+.os-detail-hinweis { margin: 0 0 0.9rem; font-size: 0.85rem; color: var(--color-warn); }
+.os-details { margin-top: 1.25rem; font-size: 0.8rem; color: var(--color-fg-muted); }
+.os-details > summary { display: inline-flex; cursor: pointer; align-items: center; gap: 0.3rem; list-style: none; padding: 0.2rem 0.1rem; }
+.os-details > summary::-webkit-details-marker { display: none; }
+.os-details > summary > svg { width: 0.9rem; height: 0.9rem; transition: transform 0.2s; }
+.os-details[open] > summary > svg { transform: rotate(180deg); }
+.os-details > dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.3rem 1rem; margin: 0.5rem 0 0; }
+.os-details dt { color: var(--color-fg-subtle); }
+.os-details dd { margin: 0; overflow-wrap: anywhere; }
+.os-details code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.95em; }
+
+/* ── Angeheftet: Apps, die auf dem Startbildschirm mitlaufen ───────────────────────────────────────── */
+.os-geheftet {
+  min-width: 0;
+  padding: 0.4rem 0.8rem 0.8rem;
+  border-radius: var(--os-radius, 1.2rem);
+  border: 0.5px solid var(--os-glas-rand);
+  background: var(--os-glas);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+.os-geheftet-kopf { display: flex; align-items: center; gap: 0.6rem; min-height: 2.6rem; }
+.os-geheftet-symbol.os-symbol { width: 1.7rem; height: 1.7rem; border-radius: 0.48rem; }
+.os-geheftet-symbol > svg { width: 60%; height: 60%; stroke-width: 2.1; filter: none; }
+.os-geheftet-titel { min-width: 0; flex: 1; margin: 0; overflow: hidden; font-size: 0.9rem; font-weight: 630; letter-spacing: -0.01em; text-overflow: ellipsis; white-space: nowrap; }
+.os-geheftet-aktionen { display: flex; align-items: center; gap: 0.125rem; }
+.os-geheftet > iframe { display: block; width: 100%; border: 0; background: transparent; }
+.os-geheftet-fehler { margin: 0 0 0.4rem; font-size: 0.8rem; color: var(--color-warn); }
+
+@media (prefers-reduced-motion: reduce) {
+  .os-app-kachel, .os-app-kachel-symbol, .os-app-stern { transition: none; }
+  .os-app-kachel:hover, .os-app-kachel:active { transform: none; }
+  .os-app-melder[data-an], .os-app-kachel-leer { animation: none; }
+}
+
+}

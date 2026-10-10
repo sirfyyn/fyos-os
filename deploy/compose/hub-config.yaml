@@ -1,0 +1,15 @@
+# Installierte Plugin-Pakete laden ohne Eintrag (Entry-Point-Gruppe mcp_hub.plugins).
+# Einträge nur für Konfiguration, Geheimnisse oder enabled: false (Schema: hub/config.example.yaml).
+host: 0.0.0.0
+port: 8080
+path: /mcp
+plugins:
+  - name: echo
+    enabled: false
+  - name: math
+    enabled: false
+  - name: skills
+    config:
+      quellen:
+        - /opt/fyos/skills
+  - name: beispiel_app

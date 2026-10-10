@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Hub als Werkzeugkasten</title>
+<desc id="d">Ein Fenster listet Werkzeuge des Hubs mit Suchfeld, rechts daneben eine Pfeilkette vom Werkzeug über den Hub zur App im Desktop.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="30" y="40" width="300" height="320" rx="10"/>
+<rect class="ln" x="30" y="40" width="300" height="320" rx="10"/>
+<rect class="bar" x="31" y="41" width="298" height="28" rx="9"/>
+<text class="ink" x="140" y="60">Werkzeuge</text>
+<rect class="bar" x="48" y="84" width="264" height="30" rx="15"/>
+<text class="mut" x="68" y="104">Suchen …</text>
+<rect class="acc" x="48" y="130" width="10" height="10" rx="3"/><text class="ink" x="68" y="140">notiz.anlegen</text>
+<rect class="acc" x="48" y="162" width="10" height="10" rx="3"/><text class="ink" x="68" y="172">notiz.suchen</text>
+<rect class="wrm" x="48" y="194" width="10" height="10" rx="3"/><text class="ink" x="68" y="204">kalender.termine</text>
+<rect class="wrm" x="48" y="226" width="10" height="10" rx="3"/><text class="ink" x="68" y="236">wetter.heute</text>
+<rect class="mut" x="48" y="258" width="10" height="10" rx="3"/><text class="ink" x="68" y="268">hub.health</text>
+<text class="mut" x="48" y="330">… und alles, was Bausteine mitbringen</text>
+<rect class="acc" x="380" y="80" width="110" height="52" rx="10"/>
+<text class="fl" x="404" y="112" font-weight="700">Hub</text>
+<path class="ln" d="M330 106h50"/><path class="ln" d="M372 99l8 7-8 7"/>
+<rect class="fl" x="500" y="60" width="116" height="92" rx="8"/>
+<rect class="ln" x="500" y="60" width="116" height="92" rx="8"/>
+<rect class="bar" x="501" y="61" width="114" height="20" rx="7"/>
+<text class="ink" x="528" y="108">App</text>
+<path class="ln" d="M490 106h10"/><path class="ln" d="M492 99l8 7-8 7"/>
+<rect class="wrm" x="380" y="220" width="110" height="52" rx="10"/>
+<text class="fl" x="404" y="252" font-weight="700">Agent</text>
+<path class="ln" d="M435 132v78"/><path class="ln" d="M428 202l7 8 7-8"/>
+<text class="mut" x="446" y="176">ruft Werkzeuge</text>
+<text class="mut" x="380" y="320">Ein Werkzeug, mehrere Flächen:</text>
+<text class="mut" x="380" y="340">Fenster, Chat und Agent</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

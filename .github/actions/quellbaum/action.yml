@@ -1,0 +1,20 @@
+# Quellbaum von fyos-os für andere Repos: gibt den Pfad der Wurzel zurück, damit zum Beispiel fyos-plugin-vorlage den Hub
+# (hub/) und den Installer (installer/) aus dem Quelltext installieren kann.
+# Bei `uses:` lädt der Runner dieses Repo ohnehin vollständig herunter; die Action braucht weder ein Geheimnis noch ein
+# eigenes Auschecken. Solange fyos-os privat ist, erlaubt die Einstellung Actions > General > Access ("Accessible from
+# repositories owned by the user") den anderen Repos desselben Kontos den Zugriff; ein öffentliches Repo braucht sie nicht.
+# Aufruf:  uses: <besitzer>/fyos-os/.github/actions/quellbaum@main
+name: Quellbaum von fyos-os
+description: Gibt den Pfad der Wurzel des Quellbaums von fyos-os zurück (hub/, installer/)
+
+outputs:
+  wurzel:
+    description: Absoluter Pfad der Wurzel von fyos-os auf dem Runner
+    value: ${{ steps.pfad.outputs.wurzel }}
+
+runs:
+  using: composite
+  steps:
+    - id: pfad
+      shell: bash
+      run: echo "wurzel=$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)" >> "$GITHUB_OUTPUT"

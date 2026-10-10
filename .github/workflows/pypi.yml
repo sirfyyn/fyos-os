@@ -1,0 +1,115 @@
+# Pakete auf PyPI veröffentlichen: fyos-hub (hub/) und fyos-installer (installer/).
+# Auslöser: ein Tag v* oder von Hand (Actions, pypi, "Run workflow"). Veröffentlicht wird nur, wenn der Lauf auf einem Tag
+# steht; von einem Zweig aus baut und prüft er bloß.
+# Veröffentlicht wird ohne Token, per Trusted Publishing (OIDC). Auf pypi.org braucht jedes Paket einen Publisher, der auf
+# dieses Repo (Besitzer und Name), den Workflow pypi.yml und die Umgebung pypi zeigt (für ein neues Projekt als "pending
+# publisher"). Die Umgebung pypi liegt in diesem Repo (Settings, Environments). Der Tag trägt die Version: v0.1.0 für 0.1.0.
+name: pypi
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Pakete bauen und prüfen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      # setuptools ab 77 nimmt LICENSE* und NOTICE* aus dem Ordner des Pakets in Wheel (dist-info/licenses) und Sdist.
+      # Die Dateien liegen aber in der Wurzel des Repos, deshalb kommen sie vor dem Bau in die Paketordner.
+      - name: LICENSE und NOTICE in die Paketordner kopieren
+        run: |
+          cp LICENSE NOTICE hub/
+          cp LICENSE NOTICE installer/
+      - name: Pakete bauen
+        run: |
+          python -m pip install -q build==1.6.1
+          python -m build --outdir dist/hub hub
+          python -m build --outdir dist/installer installer
+      - name: Prüfen, dass Wheel und Sdist LICENSE und NOTICE enthalten und die Version zum Tag passt
+        run: |
+          python - dist <<'PY'
+          import os
+          import sys
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          PFLICHT = ("LICENSE", "NOTICE")
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v") if os.environ.get("GITHUB_REF_TYPE") == "tag" else None
+          wheels = sorted(Path(sys.argv[1]).rglob("*.whl"))
+          sdists = sorted(Path(sys.argv[1]).rglob("*.tar.gz"))
+          fehler = []
+          if not wheels or len(wheels) != len(sdists):
+              fehler.append(f"erwartet je Paket ein Wheel und ein Sdist, gefunden {len(wheels)} und {len(sdists)}")
+          for wheel in wheels:
+              namen = zipfile.ZipFile(wheel).namelist()
+              fehler += [f"{wheel.name}: {d} fehlt" for d in PFLICHT if not any(n.endswith(f".dist-info/licenses/{d}") for n in namen)]
+              if tag and wheel.name.split("-")[1] != tag:
+                  fehler.append(f"{wheel.name}: Version passt nicht zum Tag v{tag}")
+          for sdist in sdists:
+              namen = tarfile.open(sdist).getnames()
+              fehler += [f"{sdist.name}: {d} fehlt" for d in PFLICHT if not any(n.count("/") == 1 and n.endswith(f"/{d}") for n in namen)]
+          for f in fehler:
+              print(f"::error::{f}")
+          if fehler:
+              sys.exit(1)
+          print(f"{len(wheels)} Wheel(s) und {len(sdists)} Sdist(s): LICENSE und NOTICE sind enthalten")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-hub
+          path: dist/hub
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-installer
+          path: dist/installer
+          if-no-files-found: error
+
+  publish:
+    name: Auf PyPI veröffentlichen (${{ matrix.projekt }})
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/${{ matrix.projekt }}/
+    permissions:
+      id-token: write # Trusted Publishing: das Token tauscht PyPI gegen die Kennung dieses Laufs
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - paket: hub
+            projekt: fyos-hub
+          - paket: installer
+            projekt: fyos-installer
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-${{ matrix.paket }}
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist

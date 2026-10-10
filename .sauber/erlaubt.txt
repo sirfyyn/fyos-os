@@ -1,0 +1,5 @@
+# Pfad-Präfixe, die tools/sauber.py überspringt (eine Zeile je Präfix, Kommentare nur in eigenen Zeilen).
+# Die Urheberzeile der Lizenz nennt ein Konto, das sonst als verboten gilt. Wo sie steht und kein Kommentar
+# "sauber: ok" möglich ist (NOTICE hat ein festes Format, JSON kennt keine Kommentare), gilt die Ausnahme für die Datei.
+NOTICE
+web/package.json

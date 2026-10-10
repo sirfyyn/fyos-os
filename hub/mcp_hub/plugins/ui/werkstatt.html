@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Werkstatt</title>
+<style>/*STIL*/
+  /* ── Aufbau: links die Liste, rechts das Skript; schmal zeigt nur eines von beiden ── */
+  .werk { display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 22px; align-items: start; }
+  #links, #rechts { min-width: 0; }
+  body.nur-ergebnis .werk { grid-template-columns: minmax(0, 1fr); }
+  body.nur-ergebnis #links { display: none; }
+  .zurueck { margin: -4px 0 12px -8px; }
+  @media (min-width: 720px) { .zurueck { display: none; } }
+  @media (max-width: 719px) {
+    .werk { grid-template-columns: minmax(0, 1fr); }
+    body.mit-skript #links, body:not(.mit-skript) #rechts { display: none; }
+  }
+
+  /* ── Liste ── */
+  .werkzeugleiste { display: grid; gap: 10px; margin-bottom: 16px; }
+  .werkzeugleiste input[type="search"] { width: 100%; }
+  /* Die Lupe liegt als eigenes Symbol im Feld: das Hintergrundbild der Vorlage fällt im Fokus weg. */
+  .suchfeld { position: relative; }
+  .suchfeld > .ico { position: absolute; left: 13px; top: 50%; width: 15px; height: 15px; margin-top: -7.5px; color: var(--leise); pointer-events: none; }
+  .suchfeld > input[type="search"] { background-image: none; }
+  .filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .filter .chip { padding: 0 12px; }
+  .filter .ortfeld { flex: 1 1 130px; max-width: 100%; }
+  .filter .ortwahl { width: 100%; min-height: 32px; padding-left: 12px; border-radius: var(--r-voll); font-size: 13px; }
+  @media (pointer: coarse) { .filter .ortwahl { min-height: 38px; } }
+  /* Auswahlfeld: der Pfeil liegt als eigenes Symbol im Feld, weil das Hintergrundbild der Vorlage im Fokus wegfällt. */
+  .auswahlfeld { position: relative; }
+  .auswahlfeld > select { background-image: none; }
+  .fe .auswahlfeld { margin-top: 4px; }
+  .fe .auswahlfeld > .fe-feld { margin-top: 0; }
+  .auswahlfeld > .ico { position: absolute; right: 12px; top: 50%; width: 14px; height: 14px; margin-top: -7px; color: var(--leise); pointer-events: none; }
+  .liste-gruppe { max-height: 600px; overflow: auto; }
+  .klemme { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  @media (max-width: 480px) { .liste-gruppe { max-height: none; } }
+  /* In FYOS wächst das Fenster mit, nur die Fläche scrollt (_stil.css Abschnitt 13) */
+  html[data-host="fyos"][data-rahmen="frei"] .liste-gruppe { max-height: none; }
+
+  /* ── Skriptkarte ── */
+  .skriptkarte { padding: 20px 20px 18px; }
+  .skript-kopf { display: flex; gap: 14px; align-items: flex-start; }
+  .skript-text { min-width: 0; flex: 1 1 auto; }
+  .skript-titel { display: block; margin: 0; padding: 0; font-size: 20px; line-height: 1.25; font-weight: var(--font-weight-semibold); letter-spacing: -0.015em; color: var(--fg); }
+  .skript-zweck { margin: 4px 0 0; font-size: 14px; color: var(--mut); }
+  .marken { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .skriptkarte > .hinweis { margin-top: 14px; }
+  h3.klein { display: flex; align-items: center; gap: 7px; min-height: 0; padding: 0; font-weight: var(--font-weight-semibold); }
+  h3.klein .ico { color: var(--leise); }
+  #form { margin-top: 22px; }
+  .keine-angaben { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; color: var(--mut); }
+  .keine-angaben .ico { color: var(--gut); }
+  .technik { margin-top: 18px; }
+  .technik dl.kv { margin: 8px 0 0; }
+  .technik .marken { margin-top: 0; }
+  .karte > .laedt { padding: 18px 4px; }
+
+  /* ── Formular: Beschriftung, Hilfe als zweite Zeile, dann das Feld ── */
+  .formular { display: grid; gap: 18px; }
+  .fe { display: grid; gap: 4px; min-width: 0; }
+  .fe-kopf { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 10px; }
+  .fe-name { font-size: 13.5px; font-weight: var(--font-weight-semibold); color: var(--fg); }
+  .pflicht { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: var(--font-weight-medium); color: var(--mut); }
+  .pflicht::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+  .fe-hilfe { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--mut); overflow-wrap: anywhere; }
+  .fe-feld { margin-top: 4px; }
+  .zeile.fe { display: flex; gap: 12px; } /* Schalterzeile: Text links, Schalter rechts */
+  .fe :where(input:not([type="checkbox"]), select, textarea) { width: 100%; }
+  .fe-fehler { margin: 2px 0 0; font-size: 12.5px; color: var(--schlecht); }
+  .fe.fehlt :where(input, select, textarea) { border-color: color-mix(in oklab, var(--schlecht) 70%, transparent); }
+  .fe.fehlt .reiter { border-color: color-mix(in oklab, var(--schlecht) 70%, transparent); }
+  .fe .segment { display: flex; width: 100%; }
+  .fe .segment button { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 0 10px; white-space: nowrap; }
+  .formular .gruppe .zeile { min-height: 56px; }
+  .formular .gruppe label.zeile-text { cursor: pointer; }
+  .weitere { margin: 0; }
+  .weitere > summary { margin-bottom: 4px; }
+  .weitere[open] > summary { margin-bottom: 14px; }
+  .weitere .formular { margin-bottom: 4px; }
+
+  /* ── Aktionen: Lesen einfach, Schreiben in zwei Schritten ── */
+  .aktion { margin-top: 22px; }
+  .aktion .knoepfe { gap: 10px; }
+  .gross-knopf { min-height: 42px; padding: 0 22px; font-size: 14.5px; }
+  .zusage { display: flex; align-items: center; gap: 7px; margin: 12px 0 0; font-size: 12.5px; color: var(--mut); }
+  .zusage .ico { color: var(--gut); font-size: 15px; }
+  .sicher { display: grid; gap: 16px; padding: 16px; border: 1px solid color-mix(in oklab, var(--warn) 28%, var(--line-2)); border-radius: var(--r-m); background: linear-gradient(120deg, color-mix(in oklab, var(--warn) 11%, transparent), transparent 72%); }
+  .sicher.schlecht { border-color: color-mix(in oklab, var(--schlecht) 30%, var(--line-2)); background: linear-gradient(120deg, color-mix(in oklab, var(--schlecht) 11%, transparent), transparent 72%); }
+  .sicher-kopf { display: flex; align-items: flex-start; gap: 12px; }
+  .sicher-kopf b { display: block; font-size: 14.5px; line-height: 1.35; }
+  .sicher-kopf p { margin: 2px 0 0; font-size: 13px; color: var(--mut); }
+  .schritte { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+  .schritt { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; }
+  .nr { display: inline-grid; flex: none; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: color-mix(in oklab, var(--fg) 11%, transparent); font-size: 12px; font-weight: var(--font-weight-semibold); color: var(--mut); transition: background-color var(--tempo), color var(--tempo); }
+  .nr .ico { width: 14px; height: 14px; stroke-width: 2.6; }
+  .schritt.fertig .nr { background: var(--gut); color: var(--deck); }
+  .schritt-text { flex: 1 1 170px; min-width: 0; }
+  .schritt-titel { font-size: 14px; font-weight: var(--font-weight-semibold); line-height: 1.35; }
+  .schritt-unter { font-size: 12.5px; line-height: 1.45; color: var(--mut); }
+  .schritt-unter.gut { color: var(--gut); }
+  .schritt-unter.warn { color: var(--warn); }
+  .schritt .wahl { min-height: 30px; margin-top: 2px; font-size: 13px; }
+  .schritt .haupt:disabled { opacity: 0.55; }
+  @media (max-width: 480px) { .schritt > button { flex: 1 1 100%; min-height: 44px; } }
+  .pflichtmeldung { margin-top: 12px; }
+
+  /* ── Ergebnis ── */
+  #ergebnis { margin-top: 24px; }
+  #ergebnis:empty { display: none; }
+  body.nur-ergebnis #ergebnis { margin-top: 0; }
+  .kopie { flex: none; }
+  .satz .kopie { align-self: center; margin-left: auto; }
+  @media (max-width: 480px) { .kopie.nur-sym { width: 34px; min-width: 34px; padding: 0; } .kopie.nur-sym .beschriftung { display: none; } }
+  body.nur-ergebnis .zurueck { display: none; }
+  .satz-text .marke { margin-left: 6px; }
+  .lauf-info { padding: 16px 4px 8px; }
+  .lauf-info .balken { margin-top: 4px; }
+  .block { margin-top: 16px; }
+  .block > h3.klein { margin: 0 0 8px; }
+  .textblock-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
+  .textblock-titel { font-size: 13px; font-weight: var(--font-weight-semibold); color: var(--mut); }
+  .textblock pre { margin: 4px 0 0; }
+  .textblock .kopiert { color: var(--gut); }
+  details.aufklapper { margin-top: 14px; }
+  details.aufklapper > .textblock { margin-top: 6px; }
+  .tabelle-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
+  .tabwrap { max-height: 520px; }
+  .tabwrap table { min-width: 100%; }
+  .tabwrap th button { min-height: 0; padding: 0; gap: 5px; border: 0; border-radius: 0; background: none; box-shadow: none; font: inherit; color: inherit; white-space: nowrap; }
+  .tabwrap th button:hover:not(:disabled) { background: none; color: var(--fg); }
+  .tabwrap th[aria-sort] { color: var(--fg); }
+  .tabwrap th[aria-sort] button::after { content: ""; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+  .tabwrap th[aria-sort="ascending"] button::after { border-bottom: 5px solid currentColor; }
+  .tabwrap th[aria-sort="descending"] button::after { border-top: 5px solid currentColor; }
+  .tabwrap td code { font-size: 11.5px; }
+  .tabwrap th, .tabwrap td { white-space: nowrap; }
+  .tabwrap td.lang { min-width: 220px; max-width: 420px; white-space: normal; overflow-wrap: anywhere; }
+  /* Passt die Tabelle nicht in ihren Platz (Handy, schmales Fenster, Chat), wird jede Zeile zur Karte; tabellenForm() entscheidet. */
+  .tabwrap.karten { max-height: none; overflow: visible; border: 0; background: none; }
+  .tabwrap.karten thead { display: none; }
+  .tabwrap.karten table, .tabwrap.karten tbody, .tabwrap.karten tr, .tabwrap.karten td { display: block; }
+  .tabwrap.karten tbody { display: grid; gap: 10px; }
+  .tabwrap.karten tr { padding: 8px 14px; border: 1px solid var(--line-2); border-radius: var(--r-m); background: var(--flaeche); }
+  .tabwrap.karten td { display: flex; justify-content: space-between; gap: 14px; min-width: 0; max-width: none; padding: 5px 0; border: 0; text-align: right; white-space: normal; overflow-wrap: anywhere; }
+  .tabwrap.karten td::before { content: attr(data-l); flex: none; max-width: 46%; text-align: left; color: var(--mut); }
+  .tabwrap.karten td:first-child { display: block; padding: 3px 0 7px; text-align: left; font-size: 14.5px; font-weight: var(--font-weight-semibold); color: var(--fg); }
+  .tabwrap.karten td:first-child::before { content: none; }
+  .tabwrap.karten tbody tr:hover > td { background: none; }
+  .cron { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  .kennzahlen + * { margin-top: 14px; }
+  .zeigen-kopf { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+  .zeigen-kopf h2 { display: block; margin: 0; padding: 0; font-size: 20px; line-height: 1.25; font-weight: var(--font-weight-semibold); letter-spacing: -0.015em; color: var(--fg); }
+  .zeigen-kopf p { margin: 4px 0 0; font-size: 14px; color: var(--mut); }
+  .teil { margin-top: 20px; }
+  .teil > h3.klein { margin: 0 0 8px; }
+  .karte > dl.kv:first-child { margin-top: 0; }
+  .karte > dl.kv:last-child { margin-bottom: 0; }
+  .wert-nein { color: var(--mut); }
+
+  /* ── Diagramm ── */
+  .dg { margin: 0; }
+  .dg-flaeche { position: relative; }
+  .dg-flaeche svg { display: block; max-width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+  .dg-flaeche svg:focus-visible { outline-offset: 4px; border-radius: 6px; }
+  .dg .gitter { stroke: var(--line); stroke-width: 1; }
+  .dg .grundlinie { stroke: var(--line-3); stroke-width: 1; }
+  .dg .achse { fill: var(--leise); font: 11px var(--schrift); font-variant-numeric: tabular-nums; }
+  .dg .endtext { fill: var(--mut); font: 12px var(--schrift); }
+  .dg .linie { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .dg .unterflaeche { fill: currentColor; stroke: none; opacity: 0.1; }
+  .dg .markierung { fill: currentColor; stroke: var(--deck); stroke-width: 2; }
+  .dg .faden { stroke: var(--line-3); stroke-width: 1; }
+  .dg-tip { position: absolute; z-index: 3; top: 8px; min-width: 130px; max-width: 78%; padding: 8px 11px 9px; border: 1px solid var(--line-3); border-radius: var(--r-s); background: color-mix(in oklab, var(--deck) 94%, transparent); box-shadow: var(--shadow-md); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: 12.5px; pointer-events: none; }
+  .dg-tip-kopf { margin-bottom: 4px; font-size: 11.5px; color: var(--mut); }
+  .dg-tip-zeile { display: flex; align-items: center; gap: 8px; line-height: 1.55; }
+  .dg-tip-zeile i, .legende i { flex: none; width: 14px; height: 3px; border-radius: 2px; background: var(--c); }
+  .dg-tip-wert { font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; color: var(--fg); }
+  .dg-tip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mut); }
+  .legende { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 12px; }
+  .legende span { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; font-size: 12.5px; color: var(--mut); }
+  .legende b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--font-weight-normal); }
+  .dg details { margin-top: 12px; }
+  .dg details .tabwrap { margin-top: 6px; max-height: 320px; }
+</style>
+</head>
+<body>
+<!--KOPF-->
+  <button id="neu" class="rund drehen" title="Aktualisieren" aria-label="Aktualisieren"><svg class="ico" data-symbol="refresh-cw"></svg></button>
+<!--/KOPF-->
+<main class="werk" id="werk">
+  <section id="links" aria-label="Skripte">
+    <div class="werkzeugleiste" data-klebt>
+      <div class="suchfeld"><svg class="ico" data-symbol="search" aria-hidden="true"></svg><input id="q" type="search" placeholder="Skripte suchen" aria-label="Skripte suchen" autocomplete="off" enterkeyhint="search"></div>
+      <div class="filter" id="filter" role="group" aria-label="Filter">
+        <button type="button" class="chip an" aria-pressed="true" data-wirkung=""><svg class="ico" data-symbol="list"></svg>Alle</button>
+        <button type="button" class="chip" aria-pressed="false" data-wirkung="lesen"><svg class="ico" data-symbol="eye"></svg>Lesend</button>
+        <button type="button" class="chip" aria-pressed="false" data-wirkung="schreiben"><svg class="ico" data-symbol="pencil"></svg>Schreibend</button>
+        <button type="button" class="chip" aria-pressed="false" data-wirkung="system"><svg class="ico" data-symbol="settings"></svg>System</button>
+        <button type="button" class="chip" aria-pressed="false" data-wirkung="loeschen"><svg class="ico" data-symbol="trash-2"></svg>Löschend</button>
+        <div class="auswahlfeld ortfeld" id="ort-feld" hidden><select id="ort" class="ortwahl" aria-label="Nach Ort filtern"><option value="">Jeder Ort</option></select><svg class="ico" data-symbol="chevron-down" aria-hidden="true"></svg></div>
+      </div>
+    </div>
+    <div class="gruppe liste-gruppe"><ul id="liste" class="zeilen" aria-label="Skripte"><li class="laedt gross">Skripte werden geladen …</li></ul></div>
+  </section>
+  <section id="rechts" aria-label="Skript und Ergebnis">
+    <button type="button" id="zurueck" class="leise klein zurueck"><svg class="ico" data-symbol="chevron-left"></svg>Alle Skripte</button>
+    <div id="skript"></div>
+    <div id="ergebnis"></div>
+  </section>
+</main>
+
+<script>
+/*BRUECKE*/
+const $ = (id) => document.getElementById(id);
+const { esc, symbol, kachel, marke, zustand, satz } = App;
+const rufen = (name, args) => App.rufen("werkstatt__" + name, args);
+const fehlertext = App.fehlertext;
+
+// ── Wörter für Menschen ────────────────────────────────────────────────────────
+// Kopfblöcke und Ausgaben tragen Bezeichner (praefix, alter_tage) und ae/oe/ue-Schreibweisen. Angezeigt wird Deutsch:
+// bekannte Wörter bekommen ihre Umlaute zurück, Bezeichner werden zu Beschriftungen. Unbekanntes bleibt, wie es ist.
+const UMLAUTE = new Map((
+  "aendere=ändere aendern=ändern aendert=ändert aenderung=änderung aenderungen=änderungen agentenauftraege=agentenaufträge " +
+  "bestaetige=bestätige bestaetigen=bestätigen bestaetigt=bestätigt bestaetigung=bestätigung faerbt=färbt fuer=für fuehrt=führt " +
+  "gross=groß grosse=große groesse=größe hoechstens=höchstens laeuft=läuft laeufe=läufe loeschen=löschen loesche=lösche loescht=löscht " +
+  "luecke=lücke pruefe=prüfe pruefen=prüfen prueft=prüft pruefung=prüfung pruefstand=prüfstand pruefzustand=prüfzustand " +
+  "geprueft=geprüft ungeprueft=ungeprüft praefix=präfix rueckgabe=rückgabe schlaegt=schlägt schliessen=schließen schliesst=schließt " +
+  "ueber=über vollstaendig=vollständig vollstaendiges=vollständiges vorgaenge=vorgänge waechter=wächter zustaendig=zuständig " +
+  "ausfuehren=ausführen ausgefuehrt=ausgeführt benoetigt=benötigt waehlen=wählen oeffnen=öffnen moeglich=möglich verfuegbar=verfügbar " +
+  "gueltig=gültig ungueltig=ungültig zurueck=zurück spaeter=später frueher=früher aelter=älter aeltere=ältere natuerlich=natürlich " +
+  "hinzufuegen=hinzufügen gepruefte=geprüfte unterstuetzt=unterstützt"
+).split(" ").map((p) => p.split("=")));
+const WORTE = new Map(Object.entries({
+  id: "ID", url: "URL", uri: "URI", ns: "Namespace", cpu: "CPU", gpu: "GPU", ram: "RAM", ip: "IP", dns: "DNS", tls: "TLS",
+  ssh: "SSH", sha: "SHA", md5: "MD5", api: "API", hub: "Hub", rows: "Zeilen", row: "Zeile", count: "Anzahl", total: "Gesamt",
+  name: "Name", status: "Status", error: "Fehler", errors: "Fehler", warning: "Warnung", warnings: "Warnungen", ok: "OK", mean: "Mittel",
+  suspend: "pausiert", schedule: "Zeitplan", reason: "Grund", message: "Meldung", restarts: "Neustarts", ready: "bereit", node: "Knoten",
+  nodes: "Knoten", image: "Image", severity: "Schweregrad", title: "Titel", type: "Typ", kind: "Art", owner: "Besitzer", assignee: "Zuständig",
+  open: "offen", closed: "geschlossen", unique: "eindeutig", endpoint: "Endpunkt", by: "nach", age: "Alter", created: "erstellt",
+  updated: "geändert", last: "letzter", value: "Wert", values: "Werte", result: "Ergebnis", path: "Pfad", file: "Datei", files: "Dateien",
+  size: "Größe", time: "Zeit", date: "Datum", host: "Host", port: "Port", service: "Dienst", services: "Dienste", namespace: "Namespace",
+  commit: "Commit", branch: "Branch", digest: "Digest", version: "Version", priority: "Priorität", labels: "Etiketten", label: "Etikett",
+  // Hauptwörter aus deutschen Schlüsseln („mit_erfolg“ → „Mit Erfolg“); Eigenschaftswörter („erfolgreich“) bleiben klein
+  erfolg: "Erfolg", erfolge: "Erfolge", fehler: "Fehler", lauf: "Lauf", laeufe: "Läufe", dauer: "Dauer", stand: "Stand", anzahl: "Anzahl",
+  summe: "Summe", mittelwert: "Mittelwert", maximum: "Maximum", minimum: "Minimum", treffer: "Treffer", eintraege: "Einträge", eintrag: "Eintrag",
+  vorgaenge: "Vorgänge", vorgang: "Vorgang", quelle: "Quelle", ziel: "Ziel", inhalt: "Inhalt", bericht: "Bericht", hinweis: "Hinweis",
+  hinweise: "Hinweise", meldung: "Meldung", meldungen: "Meldungen", zahl: "Zahl", liste: "Liste", ergebnis: "Ergebnis", dienst: "Dienst",
+  knoten: "Knoten", grund: "Grund", wartezeit: "Wartezeit", zeitraum: "Zeitraum", zeitpunkt: "Zeitpunkt", beginn: "Beginn", ende: "Ende",
+  start: "Start", besitzer: "Besitzer", zustand: "Zustand", auftrag: "Auftrag", auftraege: "Aufträge", agent: "Agent", agenten: "Agenten",
+  modell: "Modell", modelle: "Modelle", werkzeug: "Werkzeug", werkzeuge: "Werkzeuge", art: "Art", ort: "Ort", text: "Text", gesamt: "Gesamt",
+  woche: "Woche", wochen: "Wochen", tag: "Tag", tage: "Tage", stunde: "Stunde", stunden: "Stunden", monat: "Monat", monate: "Monate",
+  speicher: "Speicher", auslastung: "Auslastung", temperatur: "Temperatur", leistung: "Leistung", gruppe: "Gruppe", gruppen: "Gruppen",
+}));
+const EINHEITEN = new Map(Object.entries({
+  s: "s", ms: "ms", min: "Min.", std: "Std.", h: "Std.", tage: "Tage", stunden: "Std.", minuten: "Min.", sekunden: "s",
+  pct: "%", prozent: "%", mb: "MB", gb: "GB", kb: "KB", mib: "MiB", gib: "GiB", bytes: "Bytes",
+}));
+/** Umlaute für bekannte Wörter („Waechter“ → „Wächter“); Groß- und Kleinschreibung bleibt. */
+function deutsch(text) {
+  return String(text ?? "").replace(/[A-Za-zÄÖÜäöüß]+/g, (w) => {
+    const e = UMLAUTE.get(w.toLowerCase());
+    if (!e) return w;
+    return w[0] !== w[0].toLowerCase() ? e[0].toUpperCase() + e.slice(1) : e;
+  });
+}
+/** Namen aus der Technik (hub__health, in_progress, lastSuccessfulTime) stehen im Fließtext als Code. Erwartet bereits maskierten Text. */
+const kennungen = (html) => html.replace(/\b[a-z][a-z0-9]*(?:_{1,2}[a-z0-9]+)+\b|\b[a-z]+(?:[A-Z][a-z0-9]+)+\b/g, (k) => `<code>${k}</code>`);
+/** Betonung durch GROSSSCHREIBEN („NICHT setzen“, „RELATIV“) wird zu fettem Text in normaler Schreibung. Erwartet bereits maskierten Text. */
+const betont = (html) => html.replace(/\b(?:NICHT|NIEMALS|NIE|KEINE|KEIN|NUR|IMMER|RELATIV)\b/g, (w, i) => `<b>${i === 0 ? w[0] + w.slice(1).toLowerCase() : w.toLowerCase()}</b>`);
+/** „alter_tage“ → „Alter Tage“; Eigennamen und Kürzel nach Liste. */
+function menschlich(bezeichner) {
+  const teile = String(bezeichner).replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s_\-./]+/).filter(Boolean);
+  const text = teile.map((t) => WORTE.get(t.toLowerCase()) ?? UMLAUTE.get(t.toLowerCase()) ?? t.toLowerCase()).join(" ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+/** Spaltenname aus einem Schlüssel: Einheiten am Ende kommen in Klammern („alter_tage“ → „Alter (Tage)“). */
+function spaltenName(key) {
+  const teile = String(key).split(/[_\-\s]+/).filter(Boolean);
+  const einheit = teile.length > 1 ? EINHEITEN.get(teile[teile.length - 1].toLowerCase()) : null;
+  return einheit ? `${menschlich(teile.slice(0, -1).join("_"))} (${einheit})` : menschlich(key);
+}
+function einheitVon(key) {
+  const teile = String(key).split(/[_\-\s]+/).filter(Boolean);
+  const e = teile.length > 1 ? EINHEITEN.get(teile[teile.length - 1].toLowerCase()) : null;
+  return e ? { name: menschlich(teile.slice(0, -1).join("_")), einheit: e } : { name: menschlich(key), einheit: "" };
+}
+/** Zahl mit deutschem Komma; ganze Zahlen bis 99 999 ohne Punkt (Ports, Jahre), darüber mit Tausenderpunkt. */
+function zahlText(v) {
+  if (typeof v !== "number" || !Number.isFinite(v)) return "—";
+  if (Number.isInteger(v)) return Math.abs(v) < 100000 ? String(v) : App.zahl(v, 0);
+  const a = Math.abs(v);
+  return App.zahl(v, a >= 100 ? 1 : a >= 1 ? 2 : 4);
+}
+const sekunden = (s) => (Number(s) < 0.1 ? "unter 0,1" : App.zahl(s, Number(s) < 10 ? 1 : 0));
+function zeitlimitText(s) { s = Number(s) || 0; return s >= 120 ? `${Math.round(s / 60)} Min.` : `${s} s`; }
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const CRON = /^[\d*][\d*/,-]*(?: [\d*/,\-A-Za-z?]+){4}$/; // Zeitplan wie „17 */6 * * *“ steht in Festbreite
+
+// ── Was die Kopfblöcke sagen: Wirkung, Ort, Beschriftungen ──────────────────────────
+const WIRKUNG = {
+  lesen: { text: "Lesend", symbol: "eye", ton: "gut", kurz: "liest nur" },
+  schreiben: { text: "Schreibend", symbol: "pencil", ton: "warn", kurz: "ändert etwas — erst Trockenlauf" },
+  system: { text: "System", symbol: "settings", ton: "warn", kurz: "greift ins System ein — erst Trockenlauf" },
+  loeschen: { text: "Löschend", symbol: "trash-2", ton: "schlecht", kurz: "löscht — führst du selbst aus" },
+};
+const wirkungVon = (w) => WIRKUNG[w] || { text: deutsch(menschlich(w || "Unbekannt")), symbol: "square-terminal", ton: "grau", kurz: "" };
+const ORT = { hub: ["Hub", "server"], extern: ["Extern", "hard-drive"], egal: ["Überall", "globe"] };
+const ortName = (o) => (ORT[o] ? ORT[o][0] : menschlich(o || "—"));
+const schreibend = (d) => d.wirkung === "schreiben" || d.wirkung === "system";
+
+// Beschriftungen für Angaben, deren Name allein nichts sagt (Schlüssel: „skript/name“, „name:typ“ oder „name“)
+const ETIKETT = {
+  befehl: "Aktion", zeige: "Zeilen anzeigen", severity: "Schweregrad", vor: "Stichtag",
+  bestaetige: "Bestätigen", durch: "Bestätigt durch", warn: "Nur berichten", repo_praefix: "Repo-Präfix",
+  streng: "Mit Fehlercode enden",
+  "pruefe:string": "Prüftext", "pruefe:boolean": "Prüfen",
+};
+const WERT_TEXT = {
+  stand: "Stand", an: "An", aus: "Aus", hole: "Holen", kommentare: "Kommentare", suche: "Suchen", aendere: "Ändern",
+  low: "Niedrig", medium: "Mittel", high: "Hoch", critical: "Kritisch", debug: "Debug", dev: "Entwicklung", test: "Test", wartung: "Wartung",
+};
+const etikett = (d, name, s) => ETIKETT[`${d.id}/${name}`] || ETIKETT[`${name}:${s.type}`] || ETIKETT[name] || menschlich(name);
+const wertText = (v) => WERT_TEXT[String(v)] || menschlich(String(v));
+
+// ── Zustand der App ────────────────────────────────────────────────────────────
+let skripte = [], aktuell = null, geprueft = null, eingabe = {};
+let wirkungFilter = "", veraltet = false, laeuft = false, geladen = false, suchNr = 0;
+let bekannteWirkungen = null, bekannteOrte = null, letzteId = "", letzteVorbelegung;
+let bekommen = false, zeitgeber, laufUhr = null;
+const kopierTexte = [], beobachter = [];
+
+const gefiltert = () => !!($("q").value.trim() || $("ort").value || wirkungFilter);
+function ansicht(mitSkript) { document.body.classList.toggle("mit-skript", !!mitSkript); }
+function hinweis(art, name, text) { return `<div class="hinweis${art ? " " + art : ""}"${art === "fehler" ? ' role="alert"' : ""}>${symbol(name)}<span>${text}</span></div>`; }
+
+// ── Liste ──────────────────────────────────────────────────────────────────────
+function satzListe() {
+  const n = skripte.length, g = skripte.filter((s) => s.gesperrt).length;
+  const teile = [gefiltert() ? (n === 1 ? "1 Treffer" : `${n} Treffer`) : n === 1 ? "1 Skript" : `${n} Skripte`];
+  if (g) teile.push(`${g} gesperrt`);
+  if (veraltet) teile.push("nicht aktuell");
+  satz(teile.join(" · "), veraltet || g ? "warn" : "");
+}
+function filterZeigen() {
+  document.querySelectorAll("#filter .chip[data-wirkung]").forEach((c) => {
+    const w = c.dataset.wirkung;
+    c.hidden = !!(w && bekannteWirkungen && !bekannteWirkungen.has(w) && wirkungFilter !== w);
+    const an = w === wirkungFilter;
+    c.classList.toggle("an", an); c.setAttribute("aria-pressed", String(an));
+  });
+  const orte = [...(bekannteOrte || [])].filter(Boolean);
+  const wahl = $("ort"), vorher = wahl.value;
+  if (orte.length > 1 || vorher) {
+    wahl.innerHTML = '<option value="">Jeder Ort</option>' + orte.map((o) => `<option value="${esc(o)}">${esc(o === "egal" ? "Ortsunabhängig" : ortName(o))}</option>`).join("");
+    wahl.value = vorher;
+    $("ort-feld").hidden = false;
+  }
+}
+function zeileHtml(s) {
+  const w = wirkungVon(s.wirkung), gesperrt = !!s.gesperrt;
+  const marken = marke(w.text, WIRKUNG[s.wirkung] ? s.wirkung : "", w.symbol)
+    + (s.ort && s.ort !== "hub" && s.ort !== "egal" ? marke(ortName(s.ort), "", (ORT[s.ort] || [])[1] || "server") : "")
+    + (gesperrt ? marke("Gesperrt", "gesperrt", "lock") : "");
+  const zweck = deutsch(s.zweck);
+  return `<li><button type="button" class="zeile mitte" data-id="${esc(s.id)}">${kachel(gesperrt ? "lock" : w.symbol, gesperrt ? "grau" : w.ton)}`
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(deutsch(s.titel))}${marken}</span>`
+    + `${zweck ? `<span class="zeile-unter klemme" title="${esc(zweck)}">${kennungen(betont(esc(zweck)))}</span>` : ""}</span>${symbol("chevron-right", "weiter")}</button></li>`;
+}
+function leereListe() {
+  if (gefiltert()) {
+    return zustand({ symbol: "search", titel: "Nichts gefunden", text: "Zu dieser Suche gibt es kein Skript. Lockere den Filter oder suche nach einem anderen Wort.", klein: true, knopf: { text: "Filter zurücksetzen", aktion: "zuruecksetzen", symbol: "x" } });
+  }
+  return zustand({ symbol: "square-terminal", titel: "Noch keine Skripte angemeldet", text: "Ein Skript erscheint hier, sobald es in seinem Kopfblock für die Werkstatt angemeldet ist.", klein: true });
+}
+function liste(d) {
+  skripte = (d && d.skripte) || [];
+  geladen = true; veraltet = false;
+  if (!gefiltert()) { bekannteWirkungen = new Set(skripte.map((s) => s.wirkung)); bekannteOrte = new Set(skripte.map((s) => s.ort)); }
+  filterZeigen();
+  satzListe();
+  $("liste").innerHTML = skripte.length ? skripte.map(zeileHtml).join("") : "<li>" + leereListe() + "</li>";
+  markiere(aktuell && aktuell.id);
+}
+function markiere(id) {
+  document.querySelectorAll("#liste button[data-id]").forEach((b) => {
+    const an = !!id && b.dataset.id === id;
+    b.classList.toggle("an", an);
+    if (an) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");
+  });
+  auswahlZeigen();
+}
+/** Scrollt die Liste (nur sie, nicht die Seite) so, dass die gewählte Zeile zu sehen ist. */
+function auswahlZeigen() {
+  const b = document.querySelector("#liste button.an"), g = document.querySelector(".liste-gruppe");
+  if (!b || !g || g.scrollHeight <= g.clientHeight) return;
+  const r = b.getBoundingClientRect(), c = g.getBoundingClientRect();
+  if (r.top >= c.top && r.bottom <= c.bottom) return;
+  // Zeilengenau scrollen: die Zeile davor bleibt als Anker sichtbar, keine halb abgeschnittene Zeile oben.
+  const li = b.closest("li"), anker = (li && li.previousElementSibling) || li || b;
+  g.scrollTop += anker.getBoundingClientRect().top - c.top;
+}
+async function suchen() {
+  const nr = ++suchNr, args = { voll: true }, q = $("q").value.trim();  // die App zeigt alle Treffer, nicht nur die besten 10
+  if (q) args.q = q;
+  if ($("ort").value) args.ort = $("ort").value;
+  if (wirkungFilter) args.wirkung = wirkungFilter;
+  try {
+    const d = await rufen("suchen", args);
+    if (nr === suchNr) liste(d);
+  } catch (e) {
+    if (nr !== suchNr) return;
+    if (geladen && skripte.length) { veraltet = true; satzListe(); return; }
+    $("liste").innerHTML = "<li>" + zustand({ symbol: "wifi-off", ton: "schlecht", titel: "Die Werkstatt antwortet nicht", text: fehlertext(e), klein: true, knopf: { text: "Erneut versuchen", aktion: "neu", symbol: "refresh-cw" } }) + "</li>";
+    satz("Keine Verbindung", "schlecht");
+  }
+}
+async function neuLaden() { $("neu").disabled = true; try { await suchen(); } finally { $("neu").disabled = false; } }
+$("neu").addEventListener("click", neuLaden);
+App.bei("neu", suchen);
+App.bei("zuruecksetzen", () => { $("q").value = ""; $("ort").value = ""; wirkungFilter = ""; filterZeigen(); suchen(); });
+$("q").addEventListener("input", () => { clearTimeout(zeitgeber); zeitgeber = setTimeout(suchen, 250); });
+$("ort").addEventListener("change", suchen);
+$("filter").addEventListener("click", (ev) => {
+  const c = ev.target.closest(".chip[data-wirkung]"); if (!c) return;
+  wirkungFilter = c.dataset.wirkung === wirkungFilter ? "" : c.dataset.wirkung;
+  filterZeigen(); suchen();
+});
+$("liste").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-id]"); if (!b) return;
+  await oeffnen(b.dataset.id);
+  // Schmal ist die Liste jetzt verborgen: der Fokus wandert zur Überschrift des Skripts, damit er nicht verloren geht.
+  if ($("links").offsetParent === null) { const t = $("skript-titel"); if (t) t.focus({ preventScroll: true }); }
+});
+$("zurueck").addEventListener("click", () => {
+  ansicht(false); satzListe(); auswahlZeigen();
+  const b = document.querySelector("#liste button.an"); if (b) b.focus({ preventScroll: true }); // zurück zur gewählten Zeile
+});
+
+// ── Skript öffnen: Beschreibung, Formular, Aktionen ───────────────────────────────
+function leerStart() {
+  return '<div class="karte">' + zustand({ symbol: "square-terminal", titel: "Kein Skript gewählt", text: "Wähle ein Skript aus der Liste. Dann siehst du, was es tut und welche Angaben es braucht.", klein: true }) + "</div>";
+}
+/** Fehlertext des Hubs für Menschen: ein unbekanntes Skript bekommt einen eigenen Satz, sonst der Text ohne Typkürzel. */
+function skriptFehler(fehler) {
+  const t = fehlertext(fehler), m = t.match(/kein angemeldetes Skript '([^']+)'/);
+  if (m) return { weg: true, titel: "Dieses Skript gibt es nicht", text: `„${m[1]}“ ist in der Werkstatt nicht angemeldet. Wähle ein Skript aus der Liste.` };
+  return { weg: false, titel: "Das hat nicht geklappt", text: menschenFehler(t) };
+}
+async function oeffnen(id, vorbelegt) {
+  letzteId = id; letzteVorbelegung = vorbelegt;
+  ansicht(true); ergebnisLeeren(); markiere(id);
+  $("skript").innerHTML = '<div class="karte"><div class="laedt">Skript wird geladen …</div></div>';
+  try { skript(await rufen("beschreiben", { id }), vorbelegt); }
+  catch (e) {
+    const f = skriptFehler(e), weg = f.weg;
+    $("skript").innerHTML = '<div class="karte">' + zustand({
+      symbol: "circle-alert", ton: "schlecht", titel: weg ? "Dieses Skript gibt es nicht mehr" : "Das Skript lässt sich nicht öffnen",
+      text: weg ? "Es ist nicht mehr angemeldet. Die Liste wird neu geladen." : f.text, klein: true,
+      knopf: weg ? undefined : { text: "Erneut versuchen", aktion: "skript-neu", symbol: "refresh-cw" },
+    }) + "</div>";
+    satz("Skript nicht geladen", "schlecht");
+    if (weg) suchen();
+  }
+}
+App.bei("skript-neu", () => oeffnen(letzteId, letzteVorbelegung));
+
+/** Werte und Feldnamen, die ein Hilfetext beim Namen nennt („bei an/aus“, „suche: …“, „genau eines von minuten/bis“), stehen als Beschriftung der Auswahl bzw. des Feldes da. */
+function benennen(text, d) {
+  const props = (d.schema && d.schema.properties) || {}, namen = new Map();
+  for (const s of Object.values(props)) {
+    if (!s.enum) continue;
+    const t = auswahlTexte(s);
+    s.enum.forEach((o) => namen.set(String(o), t ? t[String(o)] : wertText(o)));
+  }
+  for (const [n, s] of Object.entries(props)) if (!namen.has(n)) namen.set(n, etikett(d, n, s));
+  const werte = new Set(Object.values(props).flatMap((s) => (s.enum || []).map(String)));
+  const q = (k) => `„${namen.get(k)}“`;
+  return String(text)
+    .replace(/\b[a-z][a-z0-9_]*(?:\/[a-z][a-z0-9_]*)+(?![\w/-])/g, (liste) => (liste.split("/").every((k) => namen.has(k)) ? aufzaehlung(liste.split("/").map(q)) : liste))
+    .replace(/\b(bei)\s+([a-z][a-z0-9_]*)\b/gi, (m, bei, k) => (werte.has(k) ? `${bei} ${q(k)}` : m))
+    .replace(/\b(nur)\s+(?!bei\b)([a-z][a-z0-9_]*)\b/gi, (m, nur, k) => (werte.has(k) ? `${nur} bei ${q(k)}` : m))
+    .replace(/(^|·\s*)([a-z][a-z0-9_]*)(\s*:)/g, (m, vor, k, nach) => (werte.has(k) ? `${vor}${q(k)}${nach}` : m));
+}
+/** Hilfetext des Skripts: Umlaute, „--flag“ → Beschriftung des Feldes, `code` → Kennung. */
+function hilfeHtml(text, d) {
+  const flags = new Map(Object.entries(((d.schema || {}).properties) || {}).filter(([, s]) => s["x-flag"]).map(([n, s]) => [s["x-flag"], etikett(d, n, s)]));
+  // Flags zuerst (vor der Umlaut-Reparatur, die „--repo-praefix“ sonst mitten im Wort trennt); unbekannte bleiben unverändert und stehen als Code
+  const roh = [];
+  let t = benennen(text, d).replace(/--[a-z0-9-]+/g, (f) => (flags.has(f) ? `„${flags.get(f)}“` : `\u0001${roh.push(f) - 1}\u0002`));
+  t = deutsch(t).replace(/\bz\.\s?B\.\s*/gi, (m, i) => (i === 0 ? "Zum Beispiel " : "z. B. "));
+  t = t.charAt(0).toUpperCase() + t.slice(1);
+  return betont(esc(t)).replace(/\u0001(\d+)\u0002/g, (m, i) => `<code>${esc(roh[Number(i)])}</code>`).replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+/** Bei „stand = …, an = …“-Hilfen sind das die Beschriftungen der Auswahl. */
+function auswahlTexte(s) {
+  const paare = {};
+  String(s.description || "").replace(/(\S+)\s*=\s*([^,]+)/g, (_, k, v) => { paare[k] = v.trim(); return ""; });
+  const alle = (s.enum || []).every((o) => paare[String(o)]);
+  return alle ? Object.fromEntries((s.enum || []).map((o) => [String(o), deutsch(paare[String(o)]).replace(/^./, (c) => c.toUpperCase())])) : null;
+}
+/** „A“, „B“ und „C“ */
+function aufzaehlung(liste) {
+  return liste.length < 2 ? liste.join("") : liste.slice(0, -1).join(", ") + " und " + liste[liste.length - 1];
+}
+function feldHtml(d, i, name, s, pflicht, wert) {
+  const fid = "f" + i, label = etikett(d, name, s);
+  const mitTexten = s.enum ? auswahlTexte(s) : null;
+  const dflt = s.default;
+  const vorgabe = dflt !== undefined && dflt !== "" && s.type !== "boolean" && !s.enum && s.type !== "array" ? `Vorgabe: ${esc(String(dflt))}` : "";
+  const hilfe = s.description && !mitTexten ? hilfeHtml(s.description, d) : vorgabe;
+  const hid = hilfe ? ` aria-describedby="${fid}h"` : "";
+  const kopf = `<div class="fe-kopf"><label class="fe-name" for="${fid}">${esc(label)}</label>${pflicht ? '<span class="pflicht">Pflicht</span>' : ""}</div>`
+    + (hilfe ? `<p class="fe-hilfe" id="${fid}h">${hilfe}</p>` : "");
+  const abschluss = '<p class="fe-fehler" hidden></p>';
+  const vor = wert !== undefined ? wert : undefined;
+  const attr = `data-feld="${esc(name)}" id="${fid}"${hid}`;
+  if (s.type === "boolean") {
+    return `<div class="zeile mitte fe" data-fe="${esc(name)}"><label class="zeile-text" for="${fid}"><span class="zeile-titel">${esc(label)}</span>${hilfe ? `<span class="zeile-unter">${hilfe}</span>` : ""}</label>`
+      + `<input type="checkbox" role="switch" ${attr}${vor ? " checked" : ""}></div>`;
+  }
+  if (s.enum) {
+    const gewaehlt = String(vor ?? dflt ?? "");
+    const text = (o) => (mitTexten ? mitTexten[String(o)] : wertText(o));
+    const leer = pflicht && dflt === undefined ? "" : dflt !== undefined ? `Vorgabe (${text(dflt)})` : "Keine Angabe";
+    const lang = s.enum.reduce((n, o) => n + text(o).length, 0) + (pflicht ? 0 : 7);
+    if (!mitTexten && s.enum.length <= 4 && lang <= 28) { // kurze Auswahl als Segmente
+      const segmente = (pflicht ? [] : [["", leer && "Vorgabe"]]).concat(s.enum.map((o) => [String(o), text(o)]));
+      return `<div class="fe" data-fe="${esc(name)}">${kopf}<div class="reiter fe-feld segment" role="radiogroup" aria-label="${esc(label)}"${hid} data-feld="${esc(name)}" data-wert="${esc(gewaehlt)}">`
+        + segmente.map(([w, t]) => `<button type="button" role="radio" class="${w === gewaehlt ? "an" : ""}" aria-checked="${w === gewaehlt}" data-wert="${esc(w)}">${esc(t)}</button>`).join("")
+        + `</div>${abschluss}</div>`;
+    }
+    return `<div class="fe" data-fe="${esc(name)}">${kopf}<div class="auswahlfeld"><select class="fe-feld" ${attr}><option value="">${esc(pflicht && dflt === undefined ? "Bitte wählen" : leer)}</option>`
+      + s.enum.map((o) => `<option value="${esc(o)}"${String(o) === gewaehlt ? " selected" : ""}>${esc(text(o))}</option>`).join("") + `</select>${symbol("chevron-down")}</div>${abschluss}</div>`;
+  }
+  if (s.type === "array") {
+    return `<div class="fe" data-fe="${esc(name)}">${kopf}<textarea class="fe-feld" rows="3" placeholder="Ein Wert pro Zeile" ${attr}>${esc((vor || []).join("\n"))}</textarea>${abschluss}</div>`;
+  }
+  const zahl = s.type === "integer" || s.type === "number";
+  const beschr = String(s.description || "");
+  let typ = zahl ? "number" : "text";
+  if (!zahl && /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(beschr)) typ = "datetime-local";
+  else if (!zahl && /JJJJ-MM-TT/.test(beschr) && !/\boder\b|\+\d/.test(beschr)) typ = "date";
+  const extra = s.type === "integer" ? ' step="1" inputmode="numeric"' : s.type === "number" ? ' step="any" inputmode="decimal"' : ' autocomplete="off" autocapitalize="off" spellcheck="false"';
+  const ph = dflt !== undefined && dflt !== "" && typ === "text" || zahl && dflt !== undefined ? String(dflt) : "";
+  return `<div class="fe" data-fe="${esc(name)}">${kopf}<input class="fe-feld" type="${typ}"${extra} placeholder="${esc(ph)}" value="${esc(vor ?? "")}" ${attr}>${abschluss}</div>`;
+}
+function formularHtml(d, werte) {
+  const props = (d.schema && d.schema.properties) || {}, req = new Set((d.schema && d.schema.required) || []);
+  const namen = Object.keys(props).sort((a, b) => Number(req.has(b)) - Number(req.has(a)));
+  if (!namen.length) return `<p class="keine-angaben">${symbol("circle-check")}Dieses Skript braucht keine Angaben.</p>`;
+  const sichtbar = namen.length <= 5 ? namen.length : Math.max(4, namen.filter((n) => req.has(n)).length);
+  const bauen = (liste, ab) => {
+    const teile = []; let schalter = [];
+    const leeren = () => { if (schalter.length) teile.push(`<div class="gruppe">${schalter.join("")}</div>`); schalter = []; };
+    liste.forEach((n, k) => {
+      const h = feldHtml(d, ab + k, n, props[n], req.has(n), werte[n]);
+      if (props[n].type === "boolean") schalter.push(h); else { leeren(); teile.push(h); }
+    });
+    leeren();
+    return `<div class="formular">${teile.join("")}</div>`;
+  };
+  const weitere = namen.slice(sichtbar);
+  const offen = weitere.some((n) => werte[n] !== undefined);
+  return bauen(namen.slice(0, sichtbar), 0)
+    + (weitere.length ? `<details class="weitere aufklapper"${offen ? " open" : ""}><summary>Weitere Angaben (${weitere.length})</summary>${bauen(weitere, sichtbar)}</details>` : "");
+}
+function aktionenHtml(d) {
+  if (d.wirkung === "loeschen") {
+    return `<div class="aktion"><div class="sicher schlecht"><div class="sicher-kopf">${kachel("trash-2", "schlecht")}<div><b>Löschen führst du selbst aus</b>`
+      + `<p>Die Werkstatt löscht nie selbst. Sie zeigt den fertigen Befehl, den du im Repo ausführst.</p></div></div>`
+      + App.knoepfe([d.trockenlauf && { text: "Trockenlauf", symbol: "flask-conical", klasse: "zweit", attr: { id: "b-trocken" } },
+        { text: "Befehl zeigen", symbol: "terminal", klasse: "haupt", attr: { id: "b-befehl" } }]) + "</div></div>";
+  }
+  if (d.gesperrt) { // der Grund steht oben; hier gibt es nichts zu probieren
+    return `<div class="aktion">` + App.knoepfe([{ text: "Ausführen", symbol: "lock", klasse: "haupt gross-knopf", disabled: true, attr: { id: "b-echt" } }])
+      + `<p class="zusage">${symbol("lock")}Gesperrt — die Werkstatt führt dieses Skript nicht aus.</p></div>`;
+  }
+  if (schreibend(d)) {
+    return `<div class="aktion"><div class="sicher"><div class="sicher-kopf">${kachel("shield-check", "warn")}<div><b>${d.wirkung === "system" ? "Greift ins System ein" : "Ändert etwas"} — erst probieren</b>`
+      + `<p>Der Trockenlauf zeigt, was das Skript tun würde, ohne etwas zu verändern. Danach lässt es sich ausführen.</p></div></div>`
+      + `<ol class="schritte"><li class="schritt" id="s1"><span class="nr" id="nr1">1</span><div class="schritt-text"><div class="schritt-titel">Trockenlauf</div><div class="schritt-unter" id="s1-status">Noch nicht geprüft</div></div>`
+      + `<button type="button" class="zweit" id="b-trocken">${symbol("flask-conical")}Trockenlauf starten</button></li>`
+      + `<li class="schritt" id="s2"><span class="nr" id="nr2">2</span><div class="schritt-text"><div class="schritt-titel">Ausführen</div>`
+      + `<label class="wahl"><input type="checkbox" id="b-ok" disabled> Trockenlauf geprüft</label></div>`
+      + `<button type="button" class="haupt gross-knopf" id="b-echt" disabled>${symbol("lock")}Ausführen</button></li></ol></div></div>`;
+  }
+  return `<div class="aktion">` + App.knoepfe([{ text: "Ausführen", symbol: "play", klasse: "haupt gross-knopf", attr: { id: "b-echt" } },
+    d.trockenlauf && { text: "Trockenlauf", symbol: "flask-conical", klasse: "zweit", attr: { id: "b-trocken" } }])
+    + `<p class="zusage">${symbol("shield-check")}Liest nur — es wird nichts verändert.</p></div>`;
+}
+function sperrText(g) {
+  const s = String(g || "");
+  if (/^Kopfblock fehlerhaft/.test(s)) return "Der Kopfblock des Skripts ist fehlerhaft: " + deutsch(s.replace(/^Kopfblock fehlerhaft:\s*/, ""));
+  if (/ohne Trockenlauf im Kopfblock/.test(s)) return "Dieses Skript verändert etwas, hat aber keinen Trockenlauf. Die Werkstatt führt es deshalb nicht aus.";
+  return deutsch(s);
+}
+function skript(d, vorbelegt) {
+  aktuell = d; geprueft = null; laeuft = false;
+  ergebnisLeeren(); ansicht(true); markiere(d.id);
+  const w = wirkungVon(d.wirkung), werte = vorbelegt || {};
+  const hin = [];
+  if (d.gesperrt) hin.push(hinweis("fehler", "lock", esc(sperrText(d.gesperrt))));
+  if (!d.im_hub) hin.push(hinweis("info", "server", `Läuft auf <b>${esc(ortName(d.ort))}</b>, nicht im Hub. Die Werkstatt zeigt deshalb nur den Befehl für das Repo; ein Weg, ihn direkt zu starten, folgt.`));
+  (d.hinweise || []).forEach((h) => hin.push(hinweis("info", "info", betont(esc(deutsch(h))))));
+  const marken = marke(w.text, WIRKUNG[d.wirkung] ? d.wirkung : "", w.symbol)
+    + marke(ortName(d.ort), "", (ORT[d.ort] || [])[1] || "server")
+    + (d.trockenlauf && !schreibend(d) ? marke("Trockenlauf möglich", "akz", "flask-conical") : "");
+  const technik = [
+    `<dt>Skript</dt><dd><code>${esc(d.pfad)}</code></dd>`,
+    `<dt>Sprache</dt><dd>${d.sprache === "python" ? "Python" : d.sprache === "bash" ? "Shell" : esc(d.sprache || "—")}</dd>`,
+    `<dt>Zeitlimit</dt><dd>${esc(d.zeitlimit_s)} s</dd>`,
+    (d.braucht || []).length ? `<dt>Braucht</dt><dd class="marken">${d.braucht.map((b) => marke(String(b).replace(":", " · "))).join("")}</dd>` : "",
+  ].join("");
+  $("skript").innerHTML = `<section class="karte skriptkarte"><div class="skript-kopf">${kachel(d.gesperrt ? "lock" : w.symbol, d.gesperrt ? "grau" : w.ton, "gross")}`
+    + `<div class="skript-text"><h2 class="skript-titel" id="skript-titel" tabindex="-1">${esc(deutsch(d.titel))}</h2><p class="skript-zweck">${kennungen(betont(esc(deutsch(d.zweck))))}</p><div class="marken">${marken}</div></div></div>`
+    + `${hin.join("")}`
+    + `<div id="form">${formularHtml(d, werte)}</div>`
+    + `<div id="pflichtmeldung" class="pflichtmeldung" hidden>${hinweis("fehler", "circle-alert", "Bitte die markierten Angaben ausfüllen.")}</div>`
+    + `${aktionenHtml(d)}<details class="technik aufklapper"><summary>Technische Angaben</summary><dl class="kv">${technik}</dl></details></section>`;
+  satz(`${deutsch(d.titel)} · ${w.kurz || w.text}`, d.gesperrt ? "warn" : "");
+  knoepfeSetzen();
+}
+// Klicks im Skript: Aktionen, Segmente. Eingaben im Formular machen den geprüften Trockenlauf ungültig.
+$("skript").addEventListener("click", (ev) => {
+  const seg = ev.target.closest(".segment button");
+  if (seg) {
+    const g = seg.closest(".segment");
+    g.dataset.wert = seg.dataset.wert;
+    g.querySelectorAll("button").forEach((b) => { const an = b === seg; b.classList.toggle("an", an); b.setAttribute("aria-checked", String(an)); });
+    formAenderung(ev); return;
+  }
+  const b = ev.target.closest("button[id]"); if (!b || b.disabled) return;
+  if (b.id === "b-trocken") ausfuehren({ trocken: true });
+  else if (b.id === "b-befehl") ausfuehren({ trocken: false });
+  else if (b.id === "b-echt") ausfuehren(schreibend(aktuell) ? { trocken: false, bestaetigt: true } : { trocken: false });
+});
+$("skript").addEventListener("input", (ev) => { if (ev.target.closest("#form")) formAenderung(ev); });
+$("skript").addEventListener("change", (ev) => { if (ev.target.id === "b-ok") knoepfeSetzen(); });
+function formAenderung(ev) {
+  const fe = ev && ev.target.closest && ev.target.closest(".fe");
+  if (fe) { fe.classList.remove("fehlt"); const f = fe.querySelector(".fe-fehler"); if (f) f.hidden = true; }
+  $("pflichtmeldung").hidden = !document.querySelector("#form .fe.fehlt");
+  const ok = $("b-ok"); if (ok) ok.checked = false;
+  knoepfeSetzen();
+}
+function felder() { const m = new Map(); document.querySelectorAll("#form [data-feld]").forEach((el) => m.set(el.dataset.feld, el)); return m; }
+function werteLesen() {
+  const props = (aktuell.schema && aktuell.schema.properties) || {}, el = felder(), out = {};
+  for (const [n, s] of Object.entries(props)) {
+    const f = el.get(n); if (!f) continue;
+    if (s.type === "boolean") { if (f.checked) out[n] = true; continue; }
+    const v = (f.classList.contains("segment") ? f.dataset.wert : f.value).trim(); if (v === "") continue;
+    if (s.type === "array") {
+      const teile = v.split("\n").map((x) => x.trim()).filter(Boolean);
+      const it = (s.items || {}).type; out[n] = it === "integer" || it === "number" ? teile.map(Number) : teile;
+    } else if (s.type === "integer" || s.type === "number") out[n] = Number(v);
+    else out[n] = v;
+  }
+  return out;
+}
+const werteSchluessel = () => JSON.stringify(werteLesen());
+/** Fehlende Pflichtangaben (ohne Vorgabe) markieren; true, wenn alles da ist. */
+function pflichtOk() {
+  const props = (aktuell.schema && aktuell.schema.properties) || {}, w = werteLesen(), el = felder();
+  let alle = true;
+  for (const n of (aktuell.schema && aktuell.schema.required) || []) {
+    const s = props[n] || {};
+    if (s.type === "boolean" || w[n] !== undefined || s.default !== undefined) continue;
+    alle = false;
+    const fe = el.get(n) && el.get(n).closest(".fe"); if (!fe) continue;
+    fe.classList.add("fehlt");
+    const m = fe.querySelector(".fe-fehler"); if (m) { m.textContent = s.enum ? "Bitte wählen." : "Bitte ausfüllen."; m.hidden = false; }
+    const det = fe.closest("details"); if (det) det.open = true;
+  }
+  $("pflichtmeldung").hidden = alle;
+  if (!alle) { const e = document.querySelector("#form .fe.fehlt .fe-feld"); if (e && e.focus) e.focus({ preventScroll: false }); }
+  return alle;
+}
+function knoepfeSetzen() {
+  const d = aktuell; if (!d) return;
+  const sch = schreibend(d), ok = geprueft !== null && geprueft === werteSchluessel(), b = (id) => $(id);
+  if (b("b-trocken")) b("b-trocken").disabled = laeuft || !!(sch && d.gesperrt);
+  if (b("b-befehl")) b("b-befehl").disabled = laeuft;
+  if (b("b-ok")) { b("b-ok").disabled = laeuft || !ok; if (!ok) b("b-ok").checked = false; }
+  const frei = sch ? !!(b("b-ok") && b("b-ok").checked && ok) : !d.gesperrt;
+  if (b("b-echt")) {
+    b("b-echt").disabled = laeuft || !frei;
+    if (sch) b("b-echt").innerHTML = symbol(frei ? "play" : "lock") + "Ausführen";
+  }
+  if (sch && b("s1")) { // die zwei Schritte zeigen, wo man steht
+    const alt = geprueft !== null && !ok;
+    b("s1").classList.toggle("fertig", ok);
+    b("nr1").innerHTML = ok ? symbol("check") : "1";
+    if (b("b-trocken")) b("b-trocken").innerHTML = symbol("flask-conical") + (geprueft !== null ? "Erneut prüfen" : "Trockenlauf starten");
+    b("s1-status").className = "schritt-unter" + (ok ? " gut" : alt ? " warn" : "");
+    b("s1-status").textContent = ok ? "Geprüft — es wurde nichts verändert" : alt ? "Eingaben geändert — bitte erneut prüfen" : "Noch nicht geprüft";
+    b("s2").classList.toggle("fertig", false);
+  }
+}
+
+// ── Ausführen ─────────────────────────────────────────────────────────────────
+function menschenFehler(msg) {
+  const props = (aktuell && aktuell.schema && aktuell.schema.properties) || {};
+  const name = (n) => (props[n] ? `„${etikett(aktuell, n, props[n])}“` : `„${menschlich(n)}“`);
+  let m;
+  if ((m = msg.match(/^(\w+) ist Pflicht$/))) return `${name(m[1])} ist eine Pflichtangabe.`;
+  if ((m = msg.match(/^(\w+): ganze Zahl erwartet/))) return `${name(m[1])}: Bitte eine ganze Zahl eingeben.`;
+  if ((m = msg.match(/^(\w+): Zahl erwartet/))) return `${name(m[1])}: Bitte eine Zahl eingeben.`;
+  if ((m = msg.match(/^(\w+): Textwerte duerfen nicht mit -/))) return `${name(m[1])}: Der Text darf nicht mit einem Minuszeichen beginnen.`;
+  if ((m = msg.match(/^(\w+): (laenger als \d+ Zeichen)/))) return `${name(m[1])}: Der Text ist zu lang.`;
+  if ((m = msg.match(/^(\w+): (['"]).*nicht erlaubt/))) return `${name(m[1])}: Dieser Wert ist nicht erlaubt.`;
+  return deutsch(msg);
+}
+function ergebnisLeeren() {
+  beobachter.forEach((o) => o.disconnect()); beobachter.length = 0;
+  kopierTexte.length = 0;
+  clearInterval(laufUhr);
+  $("ergebnis").innerHTML = "";
+}
+function laufStart(modus) {
+  const grenze = Number(aktuell.zeitlimit_s) || 120, t0 = Date.now();
+  ergebnisLeeren();
+  satz(`${deutsch(aktuell.titel)} · ${modus.trocken ? "Trockenlauf läuft" : "wird ausgeführt"} …`, "akz"); // der Kopfsatz ist die ruhige Ansage; die Uhr darunter ist für die Augen
+  $("ergebnis").innerHTML = `<section class="abschnitt"><h2>${symbol("terminal")}Ergebnis</h2><div class="karte lauf-info"><div class="laedt" id="lauf-text">${modus.trocken ? "Trockenlauf läuft" : "Läuft"} …</div>`
+    + `<div class="balken"><i id="lauf-balken" style="--w:2%"></i></div><div class="zeile-unter" id="lauf-unter">Höchstens ${esc(zeitlimitText(grenze))}</div></div></section>`;
+  laufUhr = setInterval(() => {
+    const s = Math.round((Date.now() - t0) / 1000), a = $("lauf-text"), bar = $("lauf-balken"), u = $("lauf-unter");
+    if (!a) return;
+    a.textContent = `${modus.trocken ? "Trockenlauf läuft" : "Läuft"} seit ${s} s …`;
+    if (bar) bar.style.setProperty("--w", Math.min(100, Math.max(2, (s / grenze) * 100)) + "%");
+    if (u) u.textContent = `Höchstens ${zeitlimitText(grenze)}`;
+  }, 1000);
+}
+async function ausfuehren(modus) {
+  if (laeuft || !pflichtOk()) return;
+  const args = { id: aktuell.id, argumente: werteLesen(), wer: "werkstatt-app", ...modus };
+  laeuft = true; knoepfeSetzen(); laufStart(modus);
+  try {
+    const d = await rufen("ausfuehren", args);
+    laeuft = false; clearInterval(laufUhr);
+    lauf(d);
+    if (d.ausgefuehrt && d.trocken) geprueft = JSON.stringify(args.argumente);
+    if (!modus.trocken) { geprueft = null; const ok = $("b-ok"); if (ok) ok.checked = false; }
+  } catch (e) {
+    laeuft = false; clearInterval(laufUhr);
+    $("ergebnis").innerHTML = '<section class="abschnitt"><h2>' + symbol("terminal") + "Ergebnis</h2>"
+      + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Das Skript wurde nicht gestartet", text: menschenFehler(fehlertext(e)), klein: true }) + "</section>";
+    satz(`${deutsch(aktuell.titel)} · nicht gestartet`, "schlecht");
+  }
+  knoepfeSetzen();
+}
+
+// ── Ergebnis ───────────────────────────────────────────────────────────────────
+function kopieren(text, knopf) {
+  const alt = knopf.innerHTML;
+  const fertig = () => {
+    knopf.innerHTML = symbol("check") + '<span class="beschriftung">Kopiert</span>'; knopf.classList.add("kopiert");
+    setTimeout(() => { knopf.innerHTML = alt; knopf.classList.remove("kopiert"); }, 1600);
+  };
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(fertig).catch(() => {
+    const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select();
+    try { if (document.execCommand("copy")) fertig(); } catch {} ta.remove();
+  });
+}
+$("ergebnis").addEventListener("click", (ev) => {
+  const k = ev.target.closest("[data-kopie]");
+  if (k) kopieren(k.dataset.kopie === "alles" ? ablagetext(letztesErgebnis) : kopierTexte[Number(k.dataset.kopie)] ?? "", k);
+});
+// Was in die Zwischenablage soll: Tabellen als TSV (fügt sich in Tabellen und Notizen sauber ein),
+// sonstige Daten als JSON, sonst die Textausgabe.
+function ablagetext(d) {
+  const x = d.daten;
+  if (Array.isArray(x) && x.length && x.every((r) => r && typeof r === "object" && !Array.isArray(r))) {
+    const sp = [...new Set(x.flatMap((r) => Object.keys(r)))];
+    const zelle = (v) => (v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v)).replace(/[\t\n]+/g, " ");
+    return [sp.join("\t"), ...x.map((r) => sp.map((k) => zelle(r[k])).join("\t"))].join("\n");
+  }
+  if (x !== undefined) return typeof x === "string" ? x : JSON.stringify(x, null, 2);
+  return (d.stdout || "").trimEnd();
+}
+let letztesErgebnis = {};
+function textblock(titel, text, knopf = "Kopieren") {
+  const i = kopierTexte.push(text) - 1;
+  return `<div class="textblock"><div class="textblock-kopf"><span class="textblock-titel">${esc(titel)}</span>`
+    + `<button type="button" class="leise klein kopie" data-kopie="${i}" title="${esc(knopf)}" aria-label="${esc(titel)}: ${esc(knopf)}">${symbol("copy")}<span class="beschriftung">${esc(knopf)}</span></button></div>`
+    + `<pre>${esc(text)}</pre></div>`;
+}
+function ergebnisKopf(teil) { return `<section class="abschnitt"><h2>${symbol("terminal")}Ergebnis</h2>${teil}</section>`; }
+function lauf(d) {
+  letztesErgebnis = d;
+  const titel = deutsch(aktuell ? aktuell.titel : d.titel || "");
+  if (!d.ausgefuehrt) {
+    const teile = [];
+    if (d.hinweis) teile.push(hinweis("", "triangle-alert", esc(deutsch(d.hinweis) + ".")));
+    if (d.grund) teile.push(hinweis("info", "info", esc(grundText(d.grund))));
+    teile.push(`<div class="block">${textblock("Befehl für das Repo", d.befehl || "")}</div>`);
+    $("ergebnis").innerHTML = ergebnisKopf('<div class="stapel">' + teile.join("") + "</div>");
+    satz(`${titel} · nicht ausgeführt`, "warn");
+    return;
+  }
+  const trocken = !!d.trocken, ok = d.rc === 0 && !d.zeitueberschreitung, s = sekunden(d.dauer_s) + " s"; // geschütztes Leerzeichen: Zahl und Einheit bleiben zusammen
+  const st = d.zeitueberschreitung
+    ? { ton: "warn", sym: "hourglass", titel: "Zeitlimit überschritten", unter: `Nach ${s} abgebrochen` }
+    : ok
+      ? { ton: "gut", sym: "circle-check", titel: trocken ? "Trockenlauf erfolgreich" : "Erfolgreich", unter: (trocken ? "Es wurde nichts verändert · " : "") + s }
+      : { ton: "schlecht", sym: "circle-x", titel: trocken ? "Trockenlauf nicht erfolgreich" : "Nicht erfolgreich", unter: `Beendet mit Code ${d.rc} · ${s}` };
+  const zusatz = d.gekappt ? marke("Ausgabe gekappt", "") : "";
+  // Der Kopf kopiert die ganze Ausgabe (bei Tabellen und Zahlen); ein reiner Text hat seinen eigenen Kopier-Knopf im Block darunter.
+  const text = d.daten !== undefined ? ablagetext(d) : "";
+  const kopf = `<div class="satz ${st.ton}" role="status">${kachel(st.sym, st.ton)}<div class="satz-text">${esc(st.titel)}${zusatz}<div class="zeile-unter">${esc(st.unter)}</div></div>`
+    + (text ? `<button type="button" class="zweit klein kopie nur-sym" data-kopie="alles" title="Ausgabe kopieren" aria-label="Ausgabe kopieren">${symbol("copy")}<span class="beschriftung">Ausgabe kopieren</span></button>` : "") + "</div>";
+  const teile = [kopf];
+  if (d.daten !== undefined) teile.push('<div class="block" id="daten"></div>');
+  else if (d.stdout && d.stdout.trim()) teile.push(`<div class="block">${textblock("Ausgabe", d.stdout.trimEnd())}</div>`);
+  else if (!d.stderr || !d.stderr.trim()) teile.push(hinweis("info", "info", "Das Skript hat keine Ausgabe geliefert."));
+  if (d.stderr && d.stderr.trim()) {
+    const meldungen = textblock("Meldungen des Skripts", d.stderr.trimEnd());
+    teile.push(ok ? `<details class="aufklapper"><summary>Meldungen des Skripts</summary>${meldungen}</details>` : `<div class="block">${meldungen}</div>`);
+  }
+  if (d.daten !== undefined && d.stdout) teile.push(`<details class="aufklapper"><summary>Rohausgabe</summary>${textblock("Ausgabe im Rohformat", d.stdout.trimEnd())}</details>`);
+  teile.push(`<details class="aufklapper"><summary>Befehl</summary>${textblock("Befehl", d.befehl || "")}</details>`);
+  $("ergebnis").innerHTML = ergebnisKopf(teile.join(""));
+  if (d.daten !== undefined) zeichnen($("daten"), d.daten);
+  satz(`${titel} · ${st.titel}${d.zeitueberschreitung ? "" : ` · ${s}`}`, st.ton);
+}
+function grundText(g) {
+  const s = String(g || ""); let m;
+  if ((m = s.match(/^läuft auf (\S+) — Job-Weg folgt/i))) return `Das Skript läuft auf ${ortName(m[1])}, nicht im Hub. Ein Weg, es von hier zu starten, folgt noch. Der Befehl lässt sich im Repo selbst ausführen.`;
+  if (/braucht bestaetigt/.test(s)) return "Ein echter Lauf braucht zuerst einen geprüften Trockenlauf.";
+  if (/^Kopfblock fehlerhaft|ohne Trockenlauf im Kopfblock/.test(s)) return sperrText(s);
+  return deutsch(s);
+}
+
+// ── Darstellung der Daten: Text, Diagramm, Tabelle, Zahlen, Angaben ─────────────────────
+const istObjekt = (r) => !!r && typeof r === "object" && !Array.isArray(r);
+const istPunkte = (x) => Array.isArray(x) && x.length > 0 && x.every((p) => istObjekt(p) && "x" in p && "y" in p);
+const skalar = (v) => v === null || ["string", "number", "boolean"].includes(typeof v);
+const istReihen = (x) => istObjekt(x) && Object.keys(x).length > 0 && Object.values(x).every(istPunkte);
+function formVon(x) {
+  if (typeof x === "string") return "text";
+  if (istPunkte(x) || istReihen(x)) return "kurve";
+  if (Array.isArray(x) && x.length && x.every(istObjekt)) return "tabelle";
+  if (Array.isArray(x)) return "liste";
+  return istObjekt(x) ? "objekt" : "wert";
+}
+function wertHtml(v) {
+  if (v === null || v === undefined || v === "") return '<span class="leise">—</span>';
+  if (typeof v === "boolean") return v ? "Ja" : '<span class="wert-nein">Nein</span>';
+  if (typeof v === "number") return esc(zahlText(v));
+  if (typeof v === "string") return ISO.test(v) && !isNaN(Date.parse(v)) ? esc(App.zeit.tag(v, true)) : CRON.test(v) ? `<span class="cron">${esc(v)}</span>` : esc(v);
+  const j = JSON.stringify(v);
+  return `<code title="${esc(j)}">${esc(j.length > 80 ? j.slice(0, 79) + "…" : j)}</code>`;
+}
+function zeichnen(ziel, d, tiefe = 0, ohneZahl = false) {
+  if (typeof d === "string") { ziel.innerHTML = textblock("Text", d); return; }
+  if (istPunkte(d)) { diagramm(ziel, { Wert: d }); return; }
+  if (istReihen(d)) { diagramm(ziel, d); return; }
+  if (Array.isArray(d) && d.length && d.every(istObjekt)) { tabelle(ziel, d, ohneZahl); return; }
+  if (Array.isArray(d) && d.every(skalar)) { ziel.innerHTML = d.length ? textblock(`${d.length} ${d.length === 1 ? "Eintrag" : "Einträge"}`, d.join("\n")) : '<p class="mut">Die Liste ist leer.</p>'; return; }
+  if (istObjekt(d) && tiefe < 2) {
+    const flach = Object.entries(d).filter(([, v]) => skalar(v)), tief = Object.entries(d).filter(([, v]) => !skalar(v));
+    const zahlen = flach.filter(([, v]) => typeof v === "number" && Number.isFinite(v));
+    const grosse = zahlen.length >= 1 && zahlen.length <= 6 ? zahlen : [];
+    const rest = flach.filter((e) => !grosse.includes(e));
+    let html = "";
+    if (grosse.length) {
+      html += '<div class="kennzahlen">' + grosse.map(([k, v]) => { const e = einheitVon(k); return `<div class="kennzahl"><div class="augenbraue">${esc(e.name)}</div><div class="zahl-gross">${esc(zahlText(v))}${e.einheit ? `<small>${esc(e.einheit)}</small>` : ""}</div></div>`; }).join("") + "</div>";
+    }
+    if (rest.length) html += `<div class="karte"><dl class="kv">${rest.map(([k, v]) => `<dt>${esc(spaltenName(k))}</dt><dd>${wertHtml(v)}</dd>`).join("")}</dl></div>`;
+    html += tief.map(([k], i) => `<div class="teil"><h3 class="klein">${esc(spaltenName(k))}</h3><div data-teil="${i}"></div></div>`).join("");
+    ziel.innerHTML = html || '<p class="mut">Keine Angaben.</p>';
+    tief.forEach(([, v], i) => zeichnen(ziel.querySelector(`[data-teil="${i}"]`), v, tiefe + 1));
+    return;
+  }
+  ziel.innerHTML = textblock("Daten", JSON.stringify(d, null, 2));
+}
+/** Passt die Tabelle nicht in ihren Platz, wird jede Zeile zur Karte (Handy, schmales Fenster, Chat); beim Umgrößern neu entscheiden. */
+function tabellenForm(ziel) {
+  const wrap = ziel.querySelector(".tabwrap"), tab = wrap && wrap.querySelector("table");
+  if (ziel._tabBeob) { ziel._tabBeob.disconnect(); ziel._tabBeob = null; }
+  if (!tab) return;
+  const pruefen = () => {
+    const platz = ziel.clientWidth;
+    if (!platz) return; // zugeklappt oder verborgen: später, wenn Platz da ist
+    wrap.classList.remove("karten");
+    tab.style.width = "auto";
+    const natur = tab.offsetWidth;
+    tab.style.width = "";
+    wrap.classList.toggle("karten", natur > platz - 2);
+  };
+  ziel._tabBeob = new ResizeObserver(pruefen); ziel._tabBeob.observe(ziel); beobachter.push(ziel._tabBeob);
+  pruefen();
+}
+function tabelle(ziel, rows, ohneZahl = false) {
+  const spalten = [...new Set(rows.flatMap((r) => Object.keys(r)))].slice(0, 30);
+  const lang = (v) => typeof v === "string" && v.length > 40;
+  const istZahl = (s) => rows.some((r) => typeof r[s] === "number") && rows.every((r) => r[s] == null || typeof r[s] === "number");
+  const zahlSp = new Set(spalten.filter(istZahl));
+  let sortiert = rows, nach = null, ab = false;
+  const bauen = () => {
+    const zeigen = sortiert.slice(0, 500);
+    ziel.innerHTML = (ohneZahl && rows.length <= 500 ? "" : `<div class="tabelle-kopf"><span class="mut">${rows.length} ${rows.length === 1 ? "Zeile" : "Zeilen"}${rows.length > 500 ? " (500 gezeigt)" : ""}</span></div>`)
+      + `<div class="tabwrap"><table><thead><tr>${spalten.map((s) => `<th class="${zahlSp.has(s) ? "zahl" : ""}"${nach === s ? ` aria-sort="${ab ? "descending" : "ascending"}"` : ""}><button type="button" data-s="${esc(s)}">${esc(spaltenName(s))}</button></th>`).join("")}</tr></thead><tbody>`
+      + zeigen.map((r) => `<tr>${spalten.map((s) => `<td class="${[zahlSp.has(s) ? "zahl" : "", lang(r[s]) ? "lang" : ""].join(" ").trim()}" data-l="${esc(spaltenName(s))}">${wertHtml(r[s])}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>";
+    tabellenForm(ziel);
+    ziel.querySelectorAll("th button").forEach((th) => th.onclick = () => {
+      const s = th.dataset.s; ab = nach === s ? !ab : false; nach = s;
+      sortiert = [...rows].sort((a, b) => { const x = a[s], y = b[s]; const c = typeof x === "number" && typeof y === "number" ? x - y : String(x ?? "").localeCompare(String(y ?? ""), "de"); return ab ? -c : c; });
+      bauen();
+    });
+  };
+  bauen();
+}
+
+// ── Diagramm: Linien mit Achsen, Fadenkreuz, Legende und Tabellenansicht ─────────────────
+// Farben nur über Variablen; Reihen in fester Reihenfolge, was darüber hinausgeht, wird grau zusammengefasst.
+const REIHEN_FARBEN = ["var(--akz)", "var(--warn)", "var(--neon-2)", "var(--gut)"];
+const REIHE_REST = "var(--leise)";
+function diagrammModell(roh) {
+  const namen = Object.keys(roh), alle = namen.flatMap((n) => roh[n]);
+  const zeitWert = (x) => {
+    if (typeof x === "number" && Number.isFinite(x)) return x > 9e8 && x < 9e9 ? x * 1000 : x > 9e11 && x < 9e12 ? x : NaN;
+    if (typeof x === "string" && /^\d{4}-\d{2}-\d{2}/.test(x)) return Date.parse(x.length > 10 ? x.replace(" ", "T") : x);
+    return NaN;
+  };
+  let art = "text";
+  if (alle.every((p) => typeof p.x === "number" && Number.isFinite(p.x))) art = alle.every((p) => Number.isFinite(zeitWert(p.x))) ? "zeit" : "zahl";
+  else if (alle.every((p) => Number.isFinite(zeitWert(p.x)))) art = "zeit";
+  const marken = [], index = new Map();
+  const reihen = namen.map((name, i) => {
+    const punkte = roh[name].map((p) => {
+      let x;
+      if (art === "zeit") x = zeitWert(p.x);
+      else if (art === "zahl") x = p.x;
+      else { const k = String(p.x); if (!index.has(k)) { index.set(k, marken.length); marken.push(k); } x = index.get(k); }
+      const y = p.y === null || p.y === undefined || p.y === "" || typeof p.y === "boolean" ? NaN : Number(p.y);
+      return { x, y: Number.isFinite(y) ? y : null };
+    });
+    if (art !== "text") punkte.sort((a, b) => a.x - b.x);
+    return { name, farbe: i < REIHEN_FARBEN.length ? REIHEN_FARBEN[i] : REIHE_REST, punkte };
+  });
+  return { art, reihen, marken };
+}
+// Zeitachse: Teilstriche auf runden Berliner Zeiten (volle Stunden, Mitternacht, Montage, Monatsanfänge).
+const MIN = 6e4, STD = 36e5, TAG = 864e5;
+const ZEITSTUFEN = [MIN, 2 * MIN, 5 * MIN, 10 * MIN, 15 * MIN, 30 * MIN, STD, 2 * STD, 3 * STD, 6 * STD, 12 * STD, TAG, 2 * TAG, 7 * TAG, 14 * TAG];
+const BERLIN_ZEIT = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+/** Wanduhr in Berlin als „UTC-Zahl“ (so lässt sich mit Kalenderzeit rechnen). */
+const berlinUhr = (t) => Date.parse(BERLIN_ZEIT.format(new Date(t)).replace(" ", "T") + "Z");
+function zeitTicks(min, max, n) {
+  const versatz = (t) => berlinUhr(t) - Math.floor(t / 1000) * 1000;
+  const echt = (wand) => wand - versatz(wand - versatz(wand)); // Wanduhr → Zeitpunkt
+  const von = min + versatz(min), bis = max + versatz(max), out = [];
+  if (bis - von > 100 * TAG) {
+    const a = new Date(von), b = new Date(bis), m0 = a.getUTCFullYear() * 12 + a.getUTCMonth(), m1 = b.getUTCFullYear() * 12 + b.getUTCMonth();
+    const schritt = [1, 2, 3, 6, 12, 24, 60].find((s) => Math.ceil((m1 - m0) / s) + 1 <= n) || 60;
+    for (let m = Math.ceil(m0 / schritt) * schritt; m <= m1; m += schritt) {
+      const wand = Date.UTC(Math.floor(m / 12), m % 12, 1);
+      if (wand >= von && wand <= bis) out.push(echt(wand));
+    }
+  } else {
+    const schritt = ZEITSTUFEN.find((s) => (bis - von) / s <= n - 1) || 14 * TAG;
+    const ofs = schritt >= 7 * TAG ? 4 * TAG : 0; // Wochen beginnen am Montag (der 1.1.1970 war ein Donnerstag)
+    for (let wand = Math.ceil((von - ofs) / schritt) * schritt + ofs; wand <= bis; wand += schritt) out.push(echt(wand));
+  }
+  return out.length >= 2 ? out : [min, max];
+}
+/** Beschriftung eines Teilstrichs: Uhrzeit bei einem Tag, Wochentag und Uhrzeit bis zu einer Woche, sonst das Datum. */
+function zeitAchsentext(x, spanne) {
+  if (spanne <= 1.5 * TAG) return App.zeit.uhr(x);
+  if (spanne <= 6 * TAG) {
+    const mitternacht = BERLIN_ZEIT.format(new Date(x)).slice(11, 16) === "00:00";
+    return mitternacht
+      ? new Date(x).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", weekday: "short", day: "numeric", month: "numeric" })
+      : new Date(x).toLocaleString("de-DE", { timeZone: "Europe/Berlin", weekday: "short", hour: "2-digit", minute: "2-digit" });
+  }
+  if (spanne <= 100 * TAG) return App.zeit.tag(x);
+  return new Date(x).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", month: "short", year: "numeric" });
+}
+/** Runde Achsenwerte: Schritt 1, 2, 5 × Zehnerpotenz. */
+function achsenWerte(min, max, ziel) {
+  if (!(max > min)) { const m = Math.abs(min) || 1; min -= m * 0.5; max += m * 0.5; }
+  const roh = (max - min) / ziel, p = Math.pow(10, Math.floor(Math.log10(roh))), r = roh / p;
+  const schritt = (r <= 1 ? 1 : r <= 2 ? 2 : r <= 5 ? 5 : 10) * p;
+  const von = Math.floor(min / schritt + 1e-9) * schritt, bis = Math.ceil(max / schritt - 1e-9) * schritt, liste = [];
+  for (let v = von; v <= bis + schritt / 2; v += schritt) liste.push(Number(v.toPrecision(12)));
+  return { von: liste[0], bis: liste[liste.length - 1], schritt, liste };
+}
+function diagramm(ziel, roh) {
+  const modell = diagrammModell(roh);
+  const reihen = modell.reihen.filter((r) => r.punkte.some((p) => p.y !== null));
+  if (!reihen.length) { ziel.innerHTML = '<p class="mut">Das Diagramm hat keine Zahlenwerte.</p>'; return; }
+  const viele = reihen.length > REIHEN_FARBEN.length;
+  const punkteZahl = reihen.reduce((n, r) => n + r.punkte.length, 0);
+  const legende = reihen.length > 1
+    ? '<div class="legende">' + reihen.slice(0, REIHEN_FARBEN.length).map((r) => `<span style="--c:${r.farbe}"><i></i><b title="${esc(r.name)}">${esc(r.name)}</b></span>`).join("")
+      + (viele ? `<span style="--c:${REIHE_REST}"><i></i><b>Weitere Reihen (${reihen.length - REIHEN_FARBEN.length})</b></span>` : "") + "</div>"
+    : "";
+  ziel.innerHTML = `<figure class="karte dg"><div class="dg-flaeche"></div>${legende}`
+    + `<details><summary>Werte als Tabelle</summary><div class="dg-tabelle"></div></details></figure>`;
+  const fig = ziel.querySelector("figure"), flaeche = fig.querySelector(".dg-flaeche");
+  let breite = 0;
+  const neuZeichnen = () => {
+    const b = Math.floor(flaeche.clientWidth);
+    if (b < 200 || Math.abs(b - breite) < 2) return;
+    breite = b; diagrammZeichnen(flaeche, modell, reihen, b, punkteZahl);
+  };
+  neuZeichnen();
+  const ro = new ResizeObserver(neuZeichnen); ro.observe(flaeche); beobachter.push(ro);
+  const det = fig.querySelector("details"); let gebaut = false;
+  det.addEventListener("toggle", () => { if (det.open && !gebaut) { gebaut = true; diagrammTabelle(fig.querySelector(".dg-tabelle"), modell, reihen); } });
+}
+function diagrammZeichnen(flaeche, modell, reihen, B, punkteZahl) {
+  const { art, marken } = modell, schmal = B < 420;
+  const H = schmal ? 210 : 250, O = 14, U = 28;
+  // Y-Achse: runde Werte, bei Zählwerten von Null an
+  const ys = reihen.flatMap((r) => r.punkte.filter((p) => p.y !== null).map((p) => p.y));
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  if (lo >= 0 && lo <= hi * 0.6) lo = 0;
+  const t = achsenWerte(lo, hi, schmal ? 3 : 4), dez = Math.max(0, Math.min(4, -Math.floor(Math.log10(t.schritt) + 1e-9)));
+  const fmt = new Intl.NumberFormat("de-DE", { minimumFractionDigits: dez, maximumFractionDigits: dez });
+  const kompakt = new Intl.NumberFormat("de-DE", { notation: "compact", maximumFractionDigits: 1 });
+  const yText = (v) => (Math.abs(t.bis) >= 1e6 ? kompakt.format(v) : fmt.format(v));
+  const L = Math.min(76, Math.max(34, Math.ceil(Math.max(...t.liste.map((v) => yText(v).length)) * 6.4) + 14));
+  // X-Achse
+  const xs = [...new Set(reihen.flatMap((r) => r.punkte.map((p) => p.x)))].sort((a, b) => a - b);
+  const xmin = xs[0], xmax = xs[xs.length - 1], spanne = xmax - xmin;
+  const xTextKurz = (x) => art === "zeit" ? zeitAchsentext(x, spanne) : art === "zahl" ? zahlText(x) : (marken[Math.round(x)] || "").slice(0, 14);
+  const xTextLang = (x) => art === "zeit" ? (spanne < 400 * TAG ? App.zeit.tag(x, true) : App.zeit.datum(x) + ", " + App.zeit.uhr(x)) : art === "zahl" ? zahlText(x) : marken[Math.round(x)] || "";
+  // Namen am Linienende, wenn Platz ist und sie sich nicht berühren
+  const letzte = (r) => { for (let i = r.punkte.length - 1; i >= 0; i--) if (r.punkte[i].y !== null) return r.punkte[i]; return null; };
+  const direkt = !schmal && B >= 480 && reihen.length <= 4;
+  const endName = (r) => (reihen.length === 1 ? zahlText(letzte(r).y) : r.name.length > 16 ? r.name.slice(0, 15) + "…" : r.name);
+  const R = direkt ? Math.min(120, Math.max(...reihen.map((r) => endName(r).length)) * 6.6 + 24) : 16;
+  const Bp = B - L - R;
+  const X = (x) => L + (spanne ? (x - xmin) / spanne : 0.5) * Bp;
+  const Y = (y) => O + (1 - (y - t.von) / (t.bis - t.von)) * (H - O - U);
+  const enden = direkt ? reihen.map((r) => Y(letzte(r).y)).sort((a, b) => a - b) : [];
+  const textDirekt = direkt && enden.every((y, i) => !i || y - enden[i - 1] >= 15);
+  const pfad = (r) => {
+    let d = "", offen = false;
+    const schritt = Math.max(1, Math.floor(r.punkte.length / (Bp * 2)));
+    r.punkte.forEach((p, i) => {
+      if (i % schritt && i !== r.punkte.length - 1) return;
+      if (p.y === null) { offen = false; return; }
+      d += `${offen ? "L" : "M"}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`; offen = true;
+    });
+    return d;
+  };
+  const nX = Math.max(2, Math.min(7, Math.floor(Bp / (art === "text" ? 84 : 76))));
+  let xt;
+  if (!spanne) xt = [xmin];
+  else if (art === "zeit") xt = zeitTicks(xmin, xmax, nX);
+  else if (art === "zahl") { const w = achsenWerte(xmin, xmax, nX - 1).liste.filter((v) => v >= xmin && v <= xmax); xt = w.length >= 2 ? w : [xmin, xmax]; }
+  else { // Kategorien: gleicher Abstand, von rechts gezählt, damit die letzte Beschriftung bleibt
+    const n = xs.length, hoechstens = Math.max(2, Math.min(nX, n));
+    let s = Math.ceil((n - 1) / (hoechstens - 1));
+    for (let k = s; k <= s + 2 && k < n; k++) if ((n - 1) % k === 0) { s = k; break; } // lieber ein Schritt, der auch die erste Marke trifft
+    xt = [];
+    for (let i = n - 1; i >= 0; i -= s) xt.unshift(xs[i]);
+  }
+  const einzel = reihen.length === 1 && reihen[0].punkte.every((p) => p.y !== null);
+  let svg = `<svg width="${B}" height="${H}" viewBox="0 0 ${B} ${H}" role="img" tabindex="0" aria-label="Liniendiagramm, ${reihen.length} ${reihen.length === 1 ? "Reihe" : "Reihen"}, ${punkteZahl} Werte. Pfeiltasten zeigen die Werte.">`;
+  t.liste.forEach((v) => { svg += `<line class="${v === t.von ? "grundlinie" : "gitter"}" x1="${L}" x2="${B - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="achse" x="${L - 8}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end">${esc(yText(v))}</text>`; });
+  xt.forEach((x) => {
+    const px = X(x), text = xTextKurz(x), halb = text.length * 3.3; // grobe halbe Textbreite bei 11 px
+    const anker = px - halb < L - 6 ? "start" : px + halb > B - 2 ? "end" : "middle";
+    svg += `<text class="achse" x="${px.toFixed(1)}" y="${H - 8}" text-anchor="${anker}">${esc(text)}</text>`;
+  });
+  reihen.forEach((r) => {
+    const d = pfad(r);
+    svg += `<g style="color:${r.farbe}">`;
+    if (einzel && d) svg += `<path class="unterflaeche" d="${d}L${X(r.punkte[r.punkte.length - 1].x).toFixed(1)},${Y(t.von).toFixed(1)}L${X(r.punkte[0].x).toFixed(1)},${Y(t.von).toFixed(1)}Z"/>`;
+    svg += `<path class="linie" d="${d}"/>`;
+    const e = letzte(r);
+    if (e) svg += `<circle class="markierung" r="5" cx="${X(e.x).toFixed(1)}" cy="${Y(e.y).toFixed(1)}"/>`;
+    svg += "</g>";
+    if (textDirekt && e) svg += `<text class="endtext" x="${(X(e.x) + 12).toFixed(1)}" y="${(Y(e.y) + 4).toFixed(1)}">${esc(endName(r))}</text>`;
+  });
+  svg += `<g class="ueber" hidden></g><rect x="${L}" y="${O}" width="${Bp}" height="${H - O - U}" fill="transparent" class="treffer"/></svg><div class="dg-tip" hidden></div>`;
+  flaeche.innerHTML = svg;
+  // Fadenkreuz: schnappt auf den nächsten X-Wert, eine Anzeige nennt alle Reihen
+  const el = flaeche.querySelector("svg"), ueber = el.querySelector(".ueber"), tip = flaeche.querySelector(".dg-tip");
+  const karten = reihen.map((r) => new Map(r.punkte.filter((p) => p.y !== null).map((p) => [p.x, p.y])));
+  let aktiv = -1;
+  const zeigen = (i) => {
+    aktiv = Math.max(0, Math.min(xs.length - 1, i));
+    const x = xs[aktiv], px = X(x);
+    let d = `<line class="faden" x1="${px.toFixed(1)}" x2="${px.toFixed(1)}" y1="${O}" y2="${H - U}"/>`;
+    let zeilen = "";
+    reihen.forEach((r, k) => {
+      if (!karten[k].has(x)) return;
+      d += `<g style="color:${r.farbe}"><circle class="markierung" r="5" cx="${px.toFixed(1)}" cy="${Y(karten[k].get(x)).toFixed(1)}"/></g>`;
+      if (k < 8) zeilen += `<div class="dg-tip-zeile" style="--c:${r.farbe}"><i></i><span class="dg-tip-wert">${esc(zahlText(karten[k].get(x)))}</span><span class="dg-tip-name">${esc(r.name)}</span></div>`;
+    });
+    ueber.innerHTML = d; ueber.removeAttribute("hidden");
+    tip.innerHTML = `<div class="dg-tip-kopf">${esc(xTextLang(x))}</div>${zeilen}`; tip.hidden = false;
+    const w = tip.offsetWidth;
+    tip.style.left = Math.max(0, px + 14 + w > B ? px - 14 - w : px + 14) + "px";
+  };
+  const verbergen = () => { aktiv = -1; ueber.setAttribute("hidden", ""); tip.hidden = true; };
+  const naechster = (ev) => {
+    const r = el.getBoundingClientRect(), px = (ev.clientX - r.left) * (B / (r.width || B));
+    let best = 0, abstand = Infinity;
+    xs.forEach((x, i) => { const a = Math.abs(X(x) - px); if (a < abstand) { abstand = a; best = i; } });
+    return best;
+  };
+  const flaecheTreffer = el.querySelector(".treffer");
+  flaecheTreffer.addEventListener("pointermove", (ev) => zeigen(naechster(ev)));
+  flaecheTreffer.addEventListener("pointerdown", (ev) => zeigen(naechster(ev)));
+  flaecheTreffer.addEventListener("pointerleave", (ev) => { if (ev.pointerType !== "touch") verbergen(); });
+  el.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowRight") { zeigen(aktiv < 0 ? 0 : aktiv + 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { zeigen(aktiv < 0 ? xs.length - 1 : aktiv - 1); ev.preventDefault(); }
+    else if (ev.key === "Home") { zeigen(0); ev.preventDefault(); }
+    else if (ev.key === "End") { zeigen(xs.length - 1); ev.preventDefault(); }
+    else if (ev.key === "Escape") verbergen();
+  });
+  el.addEventListener("blur", verbergen);
+}
+function diagrammTabelle(ziel, modell, reihen) {
+  const { art, marken } = modell;
+  const xs = [...new Set(reihen.flatMap((r) => r.punkte.map((p) => p.x)))].sort((a, b) => a - b);
+  const spanne = xs[xs.length - 1] - xs[0];
+  const xText = (x) => art === "zeit" ? (spanne < 400 * TAG ? App.zeit.tag(x, true) : App.zeit.datum(x)) : art === "zahl" ? zahlText(x) : marken[Math.round(x)] || "";
+  const karten = reihen.map((r) => new Map(r.punkte.filter((p) => p.y !== null).map((p) => [p.x, p.y])));
+  const zeilen = xs.slice(0, 200);
+  ziel.innerHTML = `<div class="tabwrap"><table><thead><tr><th>${art === "zeit" ? "Zeitpunkt" : "Messpunkt"}</th>${reihen.map((r) => `<th class="zahl">${esc(r.name)}</th>`).join("")}</tr></thead><tbody>`
+    + zeilen.map((x) => `<tr><td data-l="${art === "zeit" ? "Zeitpunkt" : "Messpunkt"}">${esc(xText(x))}</td>${reihen.map((r, k) => `<td class="zahl" data-l="${esc(r.name)}">${karten[k].has(x) ? esc(zahlText(karten[k].get(x))) : '<span class="leise">—</span>'}</td>`).join("")}</tr>`).join("")
+    + "</tbody></table></div>" + (xs.length > 200 ? `<p class="mut">200 von ${xs.length} Werten gezeigt.</p>` : "");
+  tabellenForm(ziel);
+}
+
+// ── Ergebnisse, die andere schicken (werkstatt.zeigen) ────────────────────────────────
+function zeigen(d) {
+  document.body.classList.add("nur-ergebnis"); ansicht(true);
+  $("neu").hidden = true; $("liste").innerHTML = ""; $("skript").innerHTML = ""; ergebnisLeeren();
+  letztesErgebnis = { daten: d.daten };
+  const form = formVon(d.daten), sym = { text: "file-text", kurve: "chart-line", tabelle: "table", liste: "list", objekt: "braces", wert: "braces" }[form];
+  const n = Array.isArray(d.daten) ? d.daten.length : istObjekt(d.daten) ? Object.keys(d.daten).length : typeof d.daten === "string" ? d.daten.replace(/\s+$/, "").split("\n").length : 1; // der Zeilenumbruch am Ende zählt nicht als Zeile
+  const zusammen = {
+    text: `Text · ${n} ${n === 1 ? "Zeile" : "Zeilen"}`,
+    kurve: `Diagramm · ${istPunkte(d.daten) ? "1 Reihe" : Object.keys(d.daten).length + " Reihen"}`,
+    tabelle: `Tabelle · ${n} ${n === 1 ? "Zeile" : "Zeilen"}`,
+    liste: `Liste · ${n} ${n === 1 ? "Eintrag" : "Einträge"}`,
+    objekt: `Übersicht · ${n} ${n === 1 ? "Angabe" : "Angaben"}`,
+    wert: "Wert",
+  }[form];
+  satz(zusammen);
+  const text = ablagetext({ daten: d.daten });
+  $("ergebnis").innerHTML = `<div class="zeigen-kopf">${kachel(sym, "akz", "gross")}<div class="skript-text"><h2>${esc(deutsch(d.titel))}</h2>${d.notiz ? `<p>${esc(d.notiz)}</p>` : ""}</div>`
+    + (text && form !== "text" ? `<button type="button" class="zweit klein kopie nur-sym" data-kopie="alles" title="Kopieren" aria-label="Kopieren">${symbol("copy")}<span class="beschriftung">Kopieren</span></button>` : "") + `</div><div id="daten"></div>`;
+  zeichnen($("daten"), d.daten, 0, true); // die Zahl der Zeilen steht schon im Satz oben
+}
+
+// ── Protokoll ──────────────────────────────────────────────────────────────────
+App.auf("ui/notifications/tool-input", (p) => { eingabe = (p && p.arguments) || {}; });
+App.auf("ui/notifications/tool-result", async (r) => {
+  bekommen = true; suchNr++; // eine schon laufende Suche darf das Ergebnis nicht überschreiben
+  if (r && r.isError) {
+    suchen();
+    const f = skriptFehler(((r.content || [])[0] || {}).text);
+    ansicht(true); $("skript").innerHTML = "";
+    $("ergebnis").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: f.titel, text: f.text, klein: true }) + "</div>";
+    satz(f.weg ? "Skript nicht gefunden" : "Das hat nicht geklappt", "schlecht");
+    return;
+  }
+  const d = App.daten(r);
+  if (!d) return suchen();
+  if (d.art === "zeigen") return zeigen(d);
+  if (d.art === "liste") {
+    if (eingabe.q) $("q").value = eingabe.q;
+    if (eingabe.wirkung) wirkungFilter = eingabe.wirkung;
+    if (eingabe.ort) { bekannteOrte = new Set([...(bekannteOrte || []), eingabe.ort]); filterZeigen(); $("ort").value = eingabe.ort; }
+    filterZeigen();
+    return liste(d);
+  }
+  await suchen();
+  if (d.art === "skript") return skript(d);
+  if (d.art === "lauf") { await oeffnen(d.id, eingabe.argumente); lauf(d); }
+});
+$("skript").innerHTML = leerStart();
+App.start("fyos-werkstatt").then(() => setTimeout(() => { if (!bekommen) suchen(); }, 1500)).catch(() => {});
+</script>
+</body>
+</html>

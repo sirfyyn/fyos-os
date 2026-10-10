@@ -1,0 +1,1000 @@
+/*
+ * os.css — Gestaltung des OS.
+ *
+ * Eine Quelle für Kulisse, Glas, Fensterkopf und Neon-Akzent. Shell, Startbildschirm, native Flächen und
+ * die Einstellungen benutzen dieselben Klassen — nichts davon wird anderswo nachgebaut.
+ * Leistung (ein lange offenes OS soll nicht träge werden):
+ *   - Bewegt wird nur über `transform` (läuft auf der Grafikkarte, kein Neuzeichnen je Bild).
+ *   - Keine Mischmodi und keine Hintergrund-Unschärfe über der bewegten Kulisse: Die Kulisse ist
+ *     schon unscharf, Glas ist hier eine getönte, durchscheinende Fläche. `os-glas-blur` (echte
+ *     Unschärfe) nur für Ebenen über scharfem Inhalt, die kurz offen sind (Start, Menüs).
+ *   - `data-ruhe` an der Kulisse hält alles an (die Shell setzt es, wenn die Kulisse verdeckt ist,
+ *     bei Untätigkeit und im Hintergrund-Tab).
+ * Einstellbar über Attribute und Variablen auf <html> (lib/os/kulisse.ts):
+ *   data-os-stil="lava|ruhig|aus", data-os-farben="neon|aurora|glut",
+ *   --os-lava (0..1), --os-raster (0..1), --os-scan (0|1), --os-tempo (1 = normal), --os-glas-blur.
+ */
+
+/* Alles in der Ebene `components`: Tailwind-Hilfsklassen (hidden, rounded-none, m-0 …) gewinnen
+   damit an einzelnen Stellen. */
+@layer components {
+
+
+:root {
+  --os-neon-1: #22d3ee; /* Cyan */
+  --os-neon-2: #e879f9; /* Magenta */
+  --os-neon-3: #8b5cf6; /* Violett */
+  --os-neon-4: #fb923c; /* Glut */
+  --os-lava: 0.55;
+  --os-raster: 0.5;
+  --os-scan: 1;
+  --os-tempo: 1;
+  --os-glas-blur: 22px;
+  --os-glas: color-mix(in oklab, var(--color-bg) 64%, transparent);
+  --os-glas-tief: color-mix(in oklab, var(--color-bg) 80%, transparent);
+  --os-glas-rand: color-mix(in oklab, var(--color-fg) 11%, transparent);
+  --os-radius: 20px;
+  /* Ecken der Kacheln — im OS gleich den Fenstern. */
+  --kachel-radius: 1rem;
+}
+html[data-theme="light"] {
+  --os-neon-1: #06b6d4;
+  --os-neon-2: #d946ef;
+  --os-neon-3: #7c3aed;
+  --os-neon-4: #f97316;
+  --os-glas: color-mix(in oklab, #ffffff 68%, transparent);
+  --os-glas-tief: color-mix(in oklab, #ffffff 82%, transparent);
+  --os-glas-rand: color-mix(in oklab, #0f172a 10%, transparent);
+}
+html[data-os-farben="aurora"] { --os-neon-1: #34d399; --os-neon-2: #22d3ee; --os-neon-3: #6366f1; --os-neon-4: #a3e635; }
+html[data-os-farben="glut"] { --os-neon-1: #fb7185; --os-neon-2: #f59e0b; --os-neon-3: #ef4444; --os-neon-4: #e879f9; }
+
+/* ── Kulisse: Lavalampe (weiche, langsam treibende Farbflecken) + leises Neon-Raster ────────── */
+.os-kulisse {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% 115%, color-mix(in oklab, var(--os-neon-3) 22%, var(--color-bg)) 0%, transparent 62%),
+    var(--color-bg);
+}
+.os-kulisse .os-blob {
+  position: absolute;
+  width: 56vmax;
+  height: 56vmax;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: var(--os-lava);
+  will-change: transform;
+  animation: os-lava-1 calc(48s * var(--os-tempo)) ease-in-out infinite alternate;
+}
+html[data-theme="light"] .os-kulisse .os-blob { opacity: calc(var(--os-lava) * 0.5); }
+.os-kulisse .b1 { top: -22vmax; left: -14vmax; background: radial-gradient(circle at 35% 35%, var(--os-neon-2), transparent 62%); }
+.os-kulisse .b2 {
+  top: 6vmax;
+  right: -20vmax;
+  background: radial-gradient(circle at 55% 45%, var(--os-neon-1), transparent 60%);
+  animation-name: os-lava-2;
+  animation-duration: calc(62s * var(--os-tempo));
+}
+.os-kulisse .b3 {
+  bottom: -26vmax;
+  left: 16vmax;
+  background: radial-gradient(circle, var(--os-neon-3), transparent 62%);
+  animation-name: os-lava-3;
+  animation-duration: calc(74s * var(--os-tempo));
+}
+.os-kulisse .b4 {
+  top: 28%;
+  left: 36%;
+  width: 34vmax;
+  height: 34vmax;
+  opacity: calc(var(--os-lava) * 0.55);
+  background: radial-gradient(circle, var(--os-neon-4), transparent 64%);
+  animation-name: os-lava-4;
+  animation-duration: calc(56s * var(--os-tempo));
+}
+@keyframes os-lava-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(18vw, 14vh) scale(1.25); }
+  100% { transform: translate(6vw, 34vh) scale(0.9); }
+}
+@keyframes os-lava-2 {
+  0% { transform: translate(0, 0) scale(1.1); }
+  50% { transform: translate(-22vw, 20vh) scale(0.85); }
+  100% { transform: translate(-8vw, -10vh) scale(1.2); }
+}
+@keyframes os-lava-3 {
+  0% { transform: translate(0, 0) scale(0.9); }
+  50% { transform: translate(14vw, -26vh) scale(1.3); }
+  100% { transform: translate(-16vw, -8vh) scale(1); }
+}
+@keyframes os-lava-4 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-18vw, -12vh) scale(1.4); }
+  100% { transform: translate(12vw, 16vh) scale(0.8); }
+}
+/* Cyberpunk: Synthwave-Boden aus Neonlinien, darüber eine leuchtende Horizontlinie. */
+.os-kulisse .os-raster {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: -12%;
+  height: 56%;
+  overflow: hidden;
+  opacity: var(--os-raster);
+  transform: perspective(520px) rotateX(64deg);
+  transform-origin: bottom;
+  mask-image: linear-gradient(to top, #000 8%, transparent 82%);
+  -webkit-mask-image: linear-gradient(to top, #000 8%, transparent 82%);
+}
+/* Die Linien laufen über `transform` (eine Rasterhöhe, dann nahtlos von vorn) — kein Neuzeichnen. */
+.os-kulisse .os-raster::before {
+  content: "";
+  position: absolute;
+  inset: -64px 0 0 0;
+  background-image:
+    linear-gradient(to top, color-mix(in oklab, var(--os-neon-1) 50%, transparent) 1px, transparent 1px),
+    linear-gradient(to right, color-mix(in oklab, var(--os-neon-2) 38%, transparent) 1px, transparent 1px);
+  background-size: 64px 64px;
+  will-change: transform;
+  animation: os-raster calc(9s * var(--os-tempo)) linear infinite;
+}
+@keyframes os-raster { from { transform: translateY(0); } to { transform: translateY(64px); } }
+/* Horizont als weiches Leuchtband ohne Kante: die harte 1-px-Linie schien durch das Glas der Kacheln und
+   Fenster und sah dort wie ein Darstellungsfehler aus. */
+.os-kulisse .os-horizont {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(44% - 40px);
+  height: 80px;
+  opacity: calc(var(--os-raster) * 0.55);
+  background:
+    radial-gradient(ellipse 60% 50% at 30% 50%, color-mix(in oklab, var(--os-neon-2) 45%, transparent), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 70% 50%, color-mix(in oklab, var(--os-neon-1) 45%, transparent), transparent 70%);
+  filter: blur(18px);
+}
+.os-kulisse .os-scan {
+  position: absolute;
+  inset: 0;
+  opacity: calc(var(--os-scan) * 0.5);
+  background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 3px);
+}
+.os-kulisse .os-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 52%, color-mix(in oklab, var(--color-bg) 72%, transparent) 100%);
+}
+html[data-os-stil="ruhig"] .os-kulisse *,
+html[data-os-stil="ruhig"] .os-kulisse *::before { animation: none; }
+/* Angehalten, nicht entfernt: beim Weiterlaufen springt nichts. */
+.os-kulisse[data-ruhe] *,
+.os-kulisse[data-ruhe] *::before { animation-play-state: paused; }
+html[data-os-stil="aus"] .os-kulisse > :not(.os-vignette) { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .os-kulisse *,
+  .os-kulisse *::before { animation: none !important; }
+}
+
+/* ── Apple-Schicht: Systemschrift, Akzent, Menüs ──────────────────────────────────────
+   Chrome des OS in der Systemschrift (SF am Mac), Auswahl in Systemblau
+   (bzw. passend zu den Kulissen-Farben), Menüs kompakt wie unter macOS. */
+:root {
+  --os-akzent: #0a84ff;
+  --os-leiste-hoehe: 1.75rem;
+  --os-schrift: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter", "Segoe UI", system-ui, sans-serif;
+  --os-menue-bg: color-mix(in oklab, var(--color-bg) 84%, transparent);
+  --os-ampel-rot: #ff5f57;
+  --os-ampel-gelb: #febc2e;
+  --os-ampel-gruen: #28c840;
+}
+html[data-theme="light"] { --os-akzent: #007aff; --os-menue-bg: color-mix(in oklab, #f6f6f6 86%, transparent); }
+html[data-os-farben="aurora"] { --os-akzent: #30b0c7; }
+html[data-os-farben="glut"] { --os-akzent: #ff6b3d; }
+@media (pointer: coarse) { :root { --os-leiste-hoehe: 2.5rem; } }
+
+[data-shell] {
+  font-family: var(--os-schrift);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: -0.003em;
+}
+/* Zwei-Finger-Wischen gehört den Bildschirmen, nicht „Zurück“ im Browser. */
+html:has([data-shell]), body:has([data-shell]) { overscroll-behavior: none; }
+/* Bedienteile: kein Markieren, kein iOS-Callout beim Langdruck */
+.os-leiste[aria-label="Menüleiste"], .os-dock-bereich, .os-kopf, .os-kachel, .os-platz-name { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* ── Glas ──────────────────────────────────────────────────────────────────────────────────── */
+.os-glas {
+  background: var(--os-glas);
+  border: 1px solid var(--os-glas-rand);
+  border-radius: var(--os-radius);
+  box-shadow: 0 18px 50px -22px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.os-glas-tief { background: var(--os-glas-tief); }
+/* Echte Unschärfe nur für kurz offene Ebenen über scharfem Inhalt (Start, Menüs, Kontrollzentrum). */
+.os-glas-blur {
+  backdrop-filter: blur(var(--os-glas-blur)) saturate(160%);
+}
+.os-titel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-fg-muted);
+}
+.os-knopf {
+  display: inline-flex;
+  min-width: 1.9rem;
+  min-height: 1.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: var(--color-fg-muted);
+  transition: background-color 0.15s, color 0.15s;
+}
+.os-knopf:hover { background: color-mix(in oklab, var(--color-fg) 8%, transparent); color: var(--color-fg); }
+.os-knopf:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+@media (pointer: coarse) { .os-knopf { min-width: 2.5rem; min-height: 2.5rem; } }
+/* Fläche allein im Tab: „‹ Name“ führt zurück ins OS */
+.os-allein-zurueck { gap: 0.2rem; padding: 0 0.65rem 0 0.4rem; font-size: 0.8125rem; font-weight: 600; color: var(--color-fg); }
+.os-allein-kopf .os-app-titel .os-fenstertitel { color: var(--color-fg); }
+
+/* ── Menüleiste ────────────────────────────────────────────────────────────────────────────── */
+/* Nur die echte Menüleiste: Seiten (Listen, Kalender …) nennen ihre Werkzeugleisten ebenfalls .os-leiste, und die feste Höhe
+   ließ sie am Handy über die Liste ragen. */
+.os-leiste[aria-label="Menüleiste"] {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  height: var(--os-leiste-hoehe);
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-fg);
+  background: color-mix(in oklab, var(--color-bg) 42%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-fg) 6%, transparent);
+  backdrop-filter: blur(24px) saturate(170%);
+}
+.os-leiste-punkt {
+  display: inline-flex;
+  height: calc(var(--os-leiste-hoehe) - 0.3rem);
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.6rem;
+  border-radius: 0.375rem;
+  white-space: nowrap;
+  color: inherit;
+  transition: background-color 0.1s;
+}
+.os-leiste-punkt:hover, .os-leiste-an { background: color-mix(in oklab, var(--color-fg) 12%, transparent); }
+.os-leiste-punkt:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: -2px; }
+.os-leiste-logo { padding: 0 0.7rem; }
+.os-leiste-vorne {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0.5rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  order: 1;
+}
+/* „Was vorne ist“ steht wie am Mac direkt hinter dem Logo, vor den Menüs. */
+.os-leiste[aria-label="Menüleiste"] nav > :first-child { order: 0; }
+.os-leiste[aria-label="Menüleiste"] nav > .os-leiste-punkt:not(:first-child) { order: 2; }
+.os-leiste-uhr { padding: 0 0.6rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.os-leiste-wartet { font-weight: 550; }
+.os-zahl {
+  display: inline-flex;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-error, #ff453a);
+}
+
+/* Das FYOS-Zeichen: eine leuchtende Kugel in den Farben der Kulisse. */
+.os-logo {
+  display: inline-block;
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 28%, rgb(255 255 255 / 0.85), transparent 34%),
+    conic-gradient(from 210deg, var(--os-neon-1), var(--os-neon-3), var(--os-neon-2), var(--os-neon-4), var(--os-neon-1));
+  box-shadow: 0 0 10px -1px color-mix(in oklab, var(--os-neon-1) 70%, transparent), inset 0 0 0 1px rgb(255 255 255 / 0.25);
+}
+.os-logo-gross { width: 1.9rem; height: 1.9rem; }
+
+/* ── Menüs (Rechtsklick, Menüleiste, ⋯) ────────────────────────────────────────────────────── */
+.os-menue-liste {
+  position: fixed;
+  min-width: 15rem;
+  max-width: min(22rem, calc(100vw - 1rem));
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+  padding: 0.3125rem;
+  border-radius: 0.75rem;
+  font-family: var(--os-schrift);
+  font-size: 0.8125rem;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
+  box-shadow: 0 12px 40px -8px rgb(0 0 0 / 0.5), 0 0 0 0.5px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.07);
+  backdrop-filter: blur(30px) saturate(180%);
+  outline: none;
+  animation: os-menue-auf 120ms cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-user-select: none;
+  user-select: none;
+}
+@keyframes os-menue-auf { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+.os-menue-zeile {
+  display: flex;
+  min-height: 1.5rem;
+  cursor: default;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.625rem 0 0.25rem;
+  border-radius: 0.375rem;
+  white-space: nowrap;
+}
+@media (pointer: coarse) { .os-menue-zeile { min-height: 2.5rem; font-size: 0.95rem; } }
+.os-menue-gewaehlt { color: #fff; background: var(--os-akzent); }
+.os-menue-aus { opacity: 0.38; }
+.os-menue-gefahr { color: #ff453a; }
+.os-menue-gefahr.os-menue-gewaehlt { color: #fff; background: #ff453a; }
+.os-menue-haken { width: 1rem; flex-shrink: 0; text-align: center; font-size: 0.75rem; font-weight: 700; }
+.os-menue-kuerzel { margin-left: 1.5rem; flex-shrink: 0; opacity: 0.55; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.os-menue-gewaehlt .os-menue-kuerzel { opacity: 0.85; }
+.os-menue-pfeil { margin-left: 1rem; flex-shrink: 0; opacity: 0.7; }
+.os-menue-trenner { height: 1px; margin: 0.3125rem 0.625rem; background: color-mix(in oklab, var(--color-fg) 13%, transparent); }
+.os-menue-titel { padding: 0.25rem 0.625rem 0.125rem 1.25rem; font-size: 0.72rem; font-weight: 600; color: var(--color-fg-muted); }
+@media (prefers-reduced-motion: reduce) { .os-menue-liste { animation: none; } }
+
+/* ── Fenster: Kopf mit Ampel, Auftritt, Größengriff ───────────────────────────────────────── */
+.os-fokus {
+  position: relative;
+  box-shadow:
+    0 0 38px -14px color-mix(in oklab, var(--os-neon-1) 50%, transparent),
+    0 22px 60px -24px rgb(0 0 0 / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+.os-fokus::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--os-neon-1) 80%, transparent), transparent 38%, transparent 62%, color-mix(in oklab, var(--os-neon-2) 80%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.os-kopf {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.375rem 0 0.875rem;
+  border-bottom: 1px solid var(--os-glas-rand);
+}
+/* Fensterkopf: Ampel links, Titel genau in der Mitte, ⋯ rechts.
+   Er klebt oben, solange vom Fenster etwas zu sehen ist (die section clippt
+   statt zu scrollen, sonst wirkt sticky nicht). */
+[data-fenster] > .os-kopf {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 1fr) minmax(0, auto) minmax(4.5rem, 1fr);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-radius: var(--os-radius) var(--os-radius) 0 0;
+  background: var(--os-glas-tief);
+  backdrop-filter: blur(14px);
+}
+[data-fenster] > .os-kopf > .os-knopf { justify-self: end; }
+.os-fenstertitel {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-fg-muted);
+}
+.os-fokus .os-fenstertitel, aside .os-fenstertitel { color: var(--color-fg); }
+aside .os-fenstertitel { flex: 1; text-align: left; }
+
+.os-ampel { display: flex; align-items: center; gap: 0.5rem; }
+.os-ampel > button {
+  position: relative;
+  display: inline-flex;
+  width: 0.78rem;
+  height: 0.78rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-fg) 22%, transparent);
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.18);
+  transition: background-color 0.15s, filter 0.15s;
+}
+/* Größere Trefferfläche als der gezeichnete Kreis */
+.os-ampel > button::after { content: ""; position: absolute; inset: -0.35rem; }
+.os-fokus .os-ampel-rot, .os-ampel:hover .os-ampel-rot { background: var(--os-ampel-rot); }
+.os-fokus .os-ampel-gelb, .os-ampel:hover .os-ampel-gelb { background: var(--os-ampel-gelb); }
+.os-fokus .os-ampel-gruen, .os-ampel:hover .os-ampel-gruen { background: var(--os-ampel-gruen); }
+.os-ampel svg { width: 100%; height: 100%; opacity: 0; fill: none; stroke: rgb(0 0 0 / 0.6); stroke-width: 1.3; stroke-linecap: round; }
+.os-ampel svg .voll { fill: rgb(0 0 0 / 0.6); stroke: none; }
+.os-ampel:hover svg, .os-ampel > button:focus-visible svg { opacity: 1; }
+.os-ampel > button:active { filter: brightness(0.85); }
+.os-ampel > button:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .os-ampel { gap: 0.8rem; }
+  .os-ampel > button { width: 1rem; height: 1rem; }
+  .os-ampel > button::after { inset: -0.6rem -0.35rem; }
+  .os-ampel svg { opacity: 1; }
+}
+
+/* Fenster dichter als das übrige Glas: die Kulisse (Horizont, Raster) scheint nicht durch Inhalte. */
+.os-fenster { background: color-mix(in oklab, var(--color-bg) 86%, transparent); }
+html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 88%, transparent); }
+.os-fenster { animation: os-auftritt 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes os-auftritt {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.os-menue { animation: os-auftritt 160ms cubic-bezier(0.22, 1, 0.36, 1); }
+.os-menuepunkt {
+  display: flex;
+  width: 100%;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.25rem;
+  border-radius: 0.6rem;
+  font-size: 0.8125rem;
+  text-align: left;
+  color: var(--color-fg);
+}
+.os-menuepunkt:hover { background: color-mix(in oklab, var(--color-fg) 7%, transparent); }
+.os-menuepunkt:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+/* Ecke zum Größe-Ziehen: unsichtbar bis zum Darüberfahren, dann zwei feine Linien. */
+.os-griff {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 0.15s;
+  background:
+    linear-gradient(135deg, transparent 0 55%, color-mix(in oklab, var(--color-fg) 45%, transparent) 55% 61%, transparent 61% 72%, color-mix(in oklab, var(--color-fg) 45%, transparent) 72% 78%, transparent 78%);
+  border-bottom-right-radius: var(--os-radius);
+}
+.os-fenster:hover .os-griff,
+.os-griff:focus-visible { opacity: 1; }
+.os-griff:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: -2px; }
+/* Kanten zum Ziehen: rechts die Breite, unten die Höhe; beim Darüberfahren eine feine Linie in Akzentfarbe. */
+.os-kante { position: absolute; z-index: 2; touch-action: none; }
+.os-kante::after { content: ""; position: absolute; border-radius: 999px; background: var(--os-akzent); opacity: 0; transition: opacity 0.15s; }
+.os-kante:hover::after { opacity: 0.55; }
+.os-kante-r { top: 2.75rem; right: 0; bottom: 1.5rem; width: 0.45rem; cursor: ew-resize; }
+.os-kante-r::after { top: 30%; bottom: 30%; right: 1px; width: 2px; }
+.os-kante-u { left: 1rem; right: 1.5rem; bottom: 0; height: 0.45rem; cursor: ns-resize; }
+.os-kante-u::after { left: 30%; right: 30%; bottom: 1px; height: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .os-fenster, .os-menue { animation: none; }
+}
+.os-bildschirmname {
+  border-radius: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--color-fg);
+  transition: background-color 0.15s;
+}
+.os-bildschirmname:hover { background: color-mix(in oklab, var(--color-fg) 8%, transparent); }
+
+/* ── Dock ──────────────────────────────────────────────────────────────────────────────────── */
+.os-dock-bereich {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.75rem calc(0.6rem + env(safe-area-inset-bottom));
+}
+.os-punkte { display: flex; align-items: center; gap: 0.1rem; }
+.os-punkt {
+  display: inline-flex;
+  width: 1rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.os-punkt::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-fg) 32%, transparent);
+  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s;
+}
+.os-punkt:hover::before { background: color-mix(in oklab, var(--color-fg) 65%, transparent); }
+.os-punkt:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+/* Trefferfläche größer als der Punkt (wie die Ampel): ~2.3rem hoch, ohne dass die Punkte auseinanderrücken */
+.os-punkt { position: relative; }
+.os-punkt::after { content: ""; position: absolute; inset: -0.55rem -0.05rem; }
+/* Namensschild: über dem Punkt beim Zeigen oder mit der Tastatur, damit klar ist, wohin ein Klick führt */
+.os-punkt-name {
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  left: 50%;
+  translate: -50% 0.2rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklab, var(--color-bg) 82%, transparent);
+  border: 1px solid var(--os-glas-rand);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+  backdrop-filter: blur(12px);
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, translate 0.12s;
+  z-index: 5;
+}
+.os-punkt:hover .os-punkt-name,
+.os-punkt:focus-visible .os-punkt-name { opacity: 1; translate: -50% 0; }
+@media (pointer: coarse) { .os-punkt-name { display: none; } }
+.os-punkt-an { width: 1.6rem; }
+.os-punkt-an::before { width: 1.1rem; background: var(--color-fg); }
+.os-punkt-neu {
+  display: inline-flex;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-left: 0.2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-fg-muted);
+  opacity: 0.6;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+.os-punkt-neu:hover { opacity: 1; background: color-mix(in oklab, var(--color-fg) 12%, transparent); }
+@media (pointer: coarse) {
+  .os-punkt { height: 2.25rem; width: 1.4rem; }
+  .os-punkt-neu { width: 2rem; height: 2rem; }
+}
+.os-dock {
+  display: flex;
+  max-width: 100%;
+  align-items: flex-end;
+  gap: 0.3rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 1.4rem;
+  background: color-mix(in oklab, var(--color-bg) 40%, transparent);
+  backdrop-filter: blur(26px) saturate(170%);
+}
+.os-dock-fenster { display: flex; min-width: 0; align-items: flex-end; gap: 0.3rem; overflow-x: auto; overflow-y: visible; scrollbar-width: none; padding-top: 1rem; margin-top: -1rem; }
+.os-dock-trenner { width: 1px; height: 2.4rem; margin: 0 0.2rem 0.3rem; flex-shrink: 0; background: color-mix(in oklab, var(--color-fg) 18%, transparent); }
+.os-dock-symbol {
+  position: relative;
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8rem;
+  transform-origin: bottom center;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s;
+}
+.os-dock-symbol .os-symbol { width: 2.75rem; height: 2.75rem; border-radius: 0.72rem; }
+.os-dock-fyos {
+  background:
+    radial-gradient(120% 120% at 30% 10%, color-mix(in oklab, var(--os-neon-3) 45%, #10131c), #07080d);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 4px 12px -4px rgb(0 0 0 / 0.6);
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0.125rem;
+  border-radius: 0.72rem;
+}
+@media (hover: hover) {
+  .os-dock-symbol:hover { transform: translateY(-0.35rem) scale(1.14); }
+}
+.os-dock-symbol:active { filter: brightness(0.82); }
+.os-dock-symbol:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-dock-min .os-symbol { opacity: 0.45; filter: saturate(0.6); }
+.os-dock-name {
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 0.6rem);
+  left: 50%;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.45rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid var(--os-glas-rand);
+  box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(20px);
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.12s, transform 0.12s;
+}
+.os-dock-symbol:hover .os-dock-name { opacity: 1; transform: translate(-50%, 0); }
+.os-dock-licht {
+  position: absolute;
+  bottom: -0.32rem;
+  left: 50%;
+  width: 0.25rem;
+  height: 0.25rem;
+  margin-left: -0.125rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-fg) 70%, transparent);
+}
+.os-dock-min .os-dock-licht { background: color-mix(in oklab, var(--color-fg) 30%, transparent); }
+.os-dock-fokus .os-dock-licht { background: var(--color-fg); box-shadow: 0 0 6px var(--os-neon-1); }
+@media (max-width: 767px) {
+  .os-dock-symbol { width: 2.6rem; height: 2.6rem; }
+  .os-dock-symbol .os-symbol, .os-dock-fyos { width: 2.4rem; height: 2.4rem; }
+}
+
+/* Symbole: farbige Kacheln je Fläche (Farbton --h), mit Glanz oben wie App-Symbole. */
+.os-symbol {
+  display: inline-flex;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.95rem;
+  color: #fff;
+  /* Wie ein App-Symbol: satte Bereichsfarbe, oben heller, feiner Innenrand, weicher Schatten. */
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.28), transparent 60%),
+    linear-gradient(180deg, hsl(var(--h, 230) 82% 62%), hsl(calc(var(--h, 230) + 8) 78% 44%));
+  box-shadow:
+    inset 0 0 0 0.5px rgb(255 255 255 / 0.28),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12),
+    0 1px 1.5px rgb(0 0 0 / 0.18),
+    0 8px 16px -8px rgb(0 0 0 / 0.5);
+}
+.os-symbol > svg {
+  width: 56%;
+  height: 56%;
+  stroke-width: 1.9;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+}
+.os-symbol-grafit {
+  color: #3a3a3c;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.9), transparent 70%),
+    linear-gradient(180deg, #e9e9ee, #a9a9b2);
+}
+.os-symbol-grafit > svg { filter: none; }
+.os-symbol-agent {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.28), transparent 60%),
+    linear-gradient(145deg, var(--os-neon-2), var(--os-neon-3) 55%, var(--os-neon-1));
+}
+
+/* ── Bildschirme: nebeneinander, Wischen folgt, Übersicht ─────────────────────────────────── */
+.os-band {
+  display: flex;
+  height: 100%;
+  transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+  touch-action: pan-y;
+}
+.os-band-zieht { transition: none; }
+.os-platz { position: relative; flex: 0 0 100%; min-width: 0; height: 100%; }
+.os-platz > .os-bildschirm { width: 100%; height: 100%; overflow: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .os-band { transition: none; }
+}
+/* Übersicht wie Mission Control: jeder Bildschirm in voller Größe gerechnet, nur verkleinert gezeigt
+   (zoom — kein Neuaufbau, eingebettete Seiten laden nicht neu). */
+.os-uebersicht .os-band {
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 3rem 1.75rem;
+  padding: 1.5rem;
+  transform: none !important;
+  transition: none;
+  overflow: auto;
+}
+.os-uebersicht .os-platz {
+  flex: 0 0 auto;
+  width: calc(var(--os-w) * var(--os-s));
+  height: calc(var(--os-h) * var(--os-s));
+  cursor: pointer;
+  animation: os-karte 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes os-karte { from { opacity: 0; transform: scale(1.12); } to { opacity: 1; transform: none; } }
+.os-uebersicht .os-platz > .os-bildschirm {
+  width: var(--os-w);
+  height: var(--os-h);
+  zoom: var(--os-s);
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: calc(1rem / var(--os-s));
+  background: color-mix(in oklab, var(--color-bg) 35%, transparent);
+  box-shadow: 0 0 0 calc(1px / var(--os-s)) var(--os-glas-rand), 0 calc(20px / var(--os-s)) calc(50px / var(--os-s)) calc(-20px / var(--os-s)) rgb(0 0 0 / 0.7);
+  transition: box-shadow 0.15s;
+}
+.os-uebersicht .os-platz:hover > .os-bildschirm { box-shadow: 0 0 0 calc(2px / var(--os-s)) color-mix(in oklab, var(--color-fg) 50%, transparent); }
+.os-uebersicht .os-platz-an > .os-bildschirm { box-shadow: 0 0 0 calc(3px / var(--os-s)) var(--os-akzent), 0 0 calc(40px / var(--os-s)) color-mix(in oklab, var(--os-akzent) 40%, transparent); }
+.os-platz-name {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 50%;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.15rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-fg);
+  transform: translateX(-50%);
+}
+.os-platz-name:hover { background: color-mix(in oklab, var(--color-fg) 10%, transparent); }
+.os-platz-name:focus-visible { outline: 2px solid var(--os-akzent); }
+.os-uebersicht .os-platz-neu { width: calc(var(--os-w) * var(--os-s) * 0.32); animation-delay: 60ms; }
+.os-platz-neu > button {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 2px dashed color-mix(in oklab, var(--color-fg) 22%, transparent);
+  color: var(--color-fg-muted);
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+.os-platz-neu > button:hover { border-color: var(--os-akzent); color: var(--color-fg); background: color-mix(in oklab, var(--os-akzent) 10%, transparent); }
+@media (prefers-reduced-motion: reduce) { .os-uebersicht .os-platz { animation: none; } }
+
+/* Pfeile am Rand, nur beim Darüberfahren sichtbar */
+.os-pfeil {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  display: inline-flex;
+  width: 2.25rem;
+  height: 3.5rem;
+  margin-top: -1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  font-size: 1.4rem;
+  color: var(--color-fg);
+  background: var(--os-glas);
+  border: 1px solid var(--os-glas-rand);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+[data-shell]:hover .os-pfeil { opacity: 0.45; }
+.os-pfeil:hover, .os-pfeil:focus-visible { opacity: 1 !important; }
+.os-pfeil:focus-visible { outline: 2px solid var(--os-akzent); }
+@media (pointer: coarse) { .os-pfeil { display: none; } }
+
+/* ── Kontrollzentrum ───────────────────────────────────────────────────────────────────────── */
+.os-kz {
+  position: absolute;
+  top: calc(var(--os-leiste-hoehe) + 0.4rem);
+  z-index: 60;
+  display: grid;
+  width: min(20rem, calc(100vw - 1rem));
+  max-height: calc(100% - var(--os-leiste-hoehe) - 1rem);
+  overflow: auto;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 1.25rem;
+  font-size: 0.8125rem;
+  background: var(--os-menue-bg);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
+  box-shadow: 0 20px 60px -16px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.07);
+  backdrop-filter: blur(34px) saturate(180%);
+}
+.os-kz-kachel { padding: 0.7rem 0.75rem; border-radius: 0.9rem; background: color-mix(in oklab, var(--color-fg) 6%, transparent); }
+.os-kz-titel { margin: 0 0 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-fg-muted); }
+.os-segment {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.6rem;
+  background: color-mix(in oklab, var(--color-fg) 8%, transparent);
+}
+.os-segment > button { min-height: 1.75rem; padding: 0 0.4rem; border-radius: 0.5rem; font-size: 0.78rem; color: var(--color-fg); transition: background-color 0.15s; }
+.os-segment > button:hover { background: color-mix(in oklab, var(--color-fg) 6%, transparent); }
+.os-segment > .os-segment-an { background: color-mix(in oklab, var(--color-fg) 18%, transparent); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); font-weight: 600; }
+.os-segment > button:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+.os-farbe { width: 1.4rem; height: 1.4rem; border-radius: 999px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25); transition: transform 0.15s; }
+.os-farbe:hover { transform: scale(1.1); }
+.os-farbe-an { box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 3.5px var(--color-fg); }
+.os-farbe:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 3px; }
+.os-regler { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--color-fg-muted); }
+.os-regler input { width: 100%; accent-color: var(--os-akzent); }
+.os-taste {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+  font-family: var(--os-schrift);
+  font-size: 0.78rem;
+  background: color-mix(in oklab, var(--color-fg) 9%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in oklab, var(--color-fg) 14%, transparent);
+}
+
+/* ── Start (wie Launchpad) ─────────────────────────────────────────────────────────────────── */
+.os-kachel {
+  display: flex;
+  min-height: 6.5rem;
+  cursor: default;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 0.35rem;
+  border-radius: 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-fg);
+  transition: background-color 0.15s;
+}
+.os-kachel .os-symbol { transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1); }
+.os-kachel:hover { background: color-mix(in oklab, var(--color-fg) 6%, transparent); }
+.os-kachel:hover .os-symbol { transform: scale(1.06); }
+.os-kachel:active .os-symbol { transform: scale(0.94); filter: brightness(0.85); }
+.os-kachel:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-chip {
+  display: inline-flex;
+  min-height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--os-glas-rand);
+  font-size: 0.8125rem;
+  color: var(--color-fg);
+  background: color-mix(in oklab, var(--color-fg) 5%, transparent);
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.os-chip:hover { background: color-mix(in oklab, var(--color-fg) 10%, transparent); }
+.os-chip:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-chip-fokus { border-color: var(--os-akzent); background: color-mix(in oklab, var(--os-akzent) 16%, transparent); }
+}
+
+/* ── App-Drawer: gerahmtes Panel, ~2/5 der Breite, über dem Dock ─────────────────────
+   Dahinter nur ein Hauch Abdunklung, der Schreibtisch bleibt zu sehen. */
+.os-start { background: rgb(0 0 0 / 0.12); animation: os-start-schleier 160ms ease-out; }
+.os-start-panel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  width: clamp(21rem, 40vw, 46rem);
+  max-height: min(44rem, calc(100% - 7.5rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem 1rem 0.5rem;
+  border-radius: 1.4rem;
+  background: color-mix(in oklab, var(--color-bg) 72%, transparent);
+  backdrop-filter: blur(40px) saturate(1.8);
+  box-shadow:
+    inset 0 0 0 0.5px rgb(255 255 255 / 0.22),
+    0 0 0 0.5px rgb(0 0 0 / 0.5),
+    0 30px 70px -20px rgb(0 0 0 / 0.6);
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  animation: os-start-auf 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-theme="light"] .os-start-panel {
+  background: color-mix(in oklab, #f5f5f7 80%, transparent);
+  box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.7), 0 0 0 0.5px rgb(0 0 0 / 0.15), 0 30px 70px -20px rgb(0 0 0 / 0.35);
+}
+.os-start-suche {
+  min-height: 2.5rem;
+  width: 100%;
+  padding: 0 0.9rem;
+  border-radius: 0.7rem;
+  border: 0.5px solid var(--os-glas-rand);
+  background: color-mix(in oklab, var(--color-fg) 6%, transparent);
+  font-size: 0.95rem;
+  outline: none;
+}
+.os-start-suche:focus { box-shadow: 0 0 0 3px color-mix(in oklab, var(--os-akzent) 45%, transparent); border-color: var(--os-akzent); }
+.os-start-inhalt { flex: 1; min-height: 0; overflow: auto; padding: 0 0.15rem 0.75rem; display: flex; flex-direction: column; gap: 1.25rem; scrollbar-width: thin; }
+.os-start-panel .os-kachel .os-symbol { width: 3rem; height: 3rem; border-radius: 0.8rem; }
+@keyframes os-start-auf { from { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.96); } }
+@keyframes os-start-schleier { from { opacity: 0; } }
+@media (max-width: 767px) {
+  .os-start-panel { width: calc(100% - 1.5rem); bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); max-height: calc(100% - 6.5rem); }
+}
+@media (prefers-reduced-motion: reduce) { .os-start, .os-start-panel { animation: none; } }
+
+/* ── Arbeitsbildschirm endlos, Pfeil zum Startbildschirm ───────────────────────────────── */
+/* Das Raster füllt zuerst den sichtbaren Bildschirm; darunter geht es weiter (os-weiter). */
+.os-raster-flaeche { flex: 1 0 auto; min-height: calc(100dvh - var(--os-leiste-hoehe) - 9rem); }
+.os-weiter {
+  display: grid;
+  place-items: center;
+  min-height: 55vh;
+  margin: 0 1.25rem 1.25rem;
+  border-radius: var(--os-radius, 1rem);
+  color: transparent;
+  font-size: 0.85rem;
+  transition: color 0.2s, background 0.2s;
+}
+[data-shell][data-zieht] .os-weiter,
+.os-weiter:hover { color: var(--color-fg-subtle); }
+[data-shell][data-zieht] .os-weiter { background: color-mix(in oklab, var(--color-fg) 4%, transparent); outline: 1px dashed var(--os-glas-rand); }
+.os-hoch {
+  position: sticky;
+  z-index: 5;
+  top: 0.4rem;
+  align-self: center;
+  height: 2rem;
+  margin-bottom: -2rem; /* schwebt, schiebt nichts */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.95rem 0 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 550;
+  background: color-mix(in oklab, var(--color-bg) 70%, transparent);
+  backdrop-filter: blur(24px) saturate(1.8);
+  box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.22), 0 8px 22px -8px rgb(0 0 0 / 0.55);
+  opacity: 0;
+  transform: translateY(-0.7rem) scale(0.92);
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), background 0.15s, color 0.15s;
+}
+.os-hoch svg { width: 1rem; height: 1rem; }
+.os-hoch-da, .os-hoch:focus-visible { opacity: 1; transform: none; pointer-events: auto; }
+.os-hoch:hover { color: #fff; background: color-mix(in oklab, var(--os-akzent) 88%, transparent); }
+@media (prefers-reduced-motion: reduce) { .os-hoch { transition: opacity 0.1s; transform: none; } }
+
+/* ── Handy-Ziele: Bedienelemente der Shell mindestens 44 px (Ampel, Punkte, Menüleiste) ──
+   Greift bei Touch ODER schmalem Fenster (die Prüfung lief ohne Touch-Emulation bei 390 px). */
+@media (pointer: coarse), (max-width: 767px) {
+  .os-leiste-punkt { position: relative; min-width: 2.75rem; justify-content: center; }
+  .os-leiste-punkt::after { content: ""; position: absolute; inset: -0.2rem 0; }
+  .os-ampel { gap: 1.1rem; }
+  .os-ampel > button { width: 1rem; height: 1rem; }
+  .os-ampel > button::after { inset: -0.9rem -0.5rem; }
+  .os-ampel svg { opacity: 1; }
+  .os-punkt { height: 2.75rem; width: 1.6rem; }
+  .os-punkt-an { width: 2rem; }
+  .os-punkt::after { inset: 0 -0.1rem; }
+  .os-punkt-neu { width: 2.75rem; height: 2.75rem; }
+}

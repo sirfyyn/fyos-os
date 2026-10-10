@@ -1,0 +1,50 @@
+/*
+ * os-eingebettet.css — Seiten im Fenster des OS.
+ *
+ * Eine Seite, die im OS in einem Fenster
+ * läuft (`html.fyos-embedded`, gesetzt in BaseLayout), sieht aus wie das OS: Systemschrift statt
+ * Mono-Versalien, runde Glas-Kästen statt eckiger Karten, Akzent des OS.
+ * Dieselbe Seite allein im Browser bleibt, wie sie ist.
+ * Bewusst über Tokens und die gemeinsamen Klassen (Tailwind-Rahmen) — keine Seite muss
+ * dafür angefasst werden. Code und Protokolle (pre, code, [data-mono]) behalten ihre Schrift.
+ */
+html.fyos-embedded.fyos-embedded[data-theme] {
+  --radius-card: 0.85rem;
+  --color-bg-elevated: color-mix(in oklab, var(--color-fg) 5%, transparent);
+  --color-card: color-mix(in oklab, var(--color-fg) 5%, transparent);
+  --color-card-hover: color-mix(in oklab, var(--color-fg) 9%, transparent);
+  --color-border: color-mix(in oklab, var(--color-fg) 9%, transparent);
+  --color-accent: var(--os-akzent);
+  --color-accent-soft: color-mix(in oklab, var(--os-akzent) 20%, transparent);
+  font-family: var(--os-schrift);
+  -webkit-font-smoothing: antialiased;
+}
+html.fyos-embedded body { font-family: var(--os-schrift); }
+
+/* Beschriftungen: ruhig wie am Mac statt Versalien in Mono */
+html.fyos-embedded .uppercase {
+  text-transform: none;
+  letter-spacing: 0;
+}
+html.fyos-embedded .font-mono:not(pre, code, pre *, code *, [data-mono], [data-mono] *) {
+  font-family: var(--os-schrift);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kästen: rund und aus Glas */
+html.fyos-embedded [class~="border"]:not([class*="rounded"]):not(table, tr, td, th, hr, input[type="checkbox"]) {
+  border-radius: var(--radius-card);
+}
+html.fyos-embedded button[class~="border"]:not([class*="rounded"]),
+html.fyos-embedded a[class~="border"]:not([class*="rounded"]),
+html.fyos-embedded select[class~="border"]:not([class*="rounded"]),
+html.fyos-embedded input[class~="border"]:not([class*="rounded"]) {
+  border-radius: 0.55rem;
+}
+html.fyos-embedded input:not([type="checkbox"], [type="radio"], [type="range"]),
+html.fyos-embedded select,
+html.fyos-embedded textarea {
+  border-radius: 0.55rem;
+}
+/* Schmale Bildlaufleisten wie am Mac */
+html.fyos-embedded { scrollbar-width: thin; }

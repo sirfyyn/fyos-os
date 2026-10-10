@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Raumplan mit Lichtern</title>
+<desc id="d">Ein Grundriss mit vier Räumen (Wohnzimmer, Küche, Arbeitszimmer, Schlafzimmer), Lichtpunkten, einem Anwesenheitspunkt im Arbeitszimmer und einer Leiste mit Szenen.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="40" y="30" width="400" height="290" rx="6"/>
+<rect class="ln" x="40" y="30" width="400" height="290" rx="6"/>
+<path class="ln" d="M240 30v290M40 175h400"/>
+<text class="mut" x="56" y="54">Wohnzimmer</text>
+<text class="mut" x="256" y="54">Küche</text>
+<text class="mut" x="56" y="199">Arbeitszimmer</text>
+<text class="mut" x="256" y="199">Schlafzimmer</text>
+<circle class="wrm" cx="100" cy="100" r="13"/><circle class="wrm" cx="170" cy="130" r="13"/>
+<circle class="wrm" cx="320" cy="100" r="13"/>
+<circle class="bar" cx="110" cy="250" r="13"/><circle class="ln" cx="110" cy="250" r="13"/>
+<circle class="bar" cx="330" cy="250" r="13"/><circle class="ln" cx="330" cy="250" r="13"/>
+<circle class="acc" cx="170" cy="270" r="9"/><circle class="ln" cx="170" cy="270" r="15" opacity=".4"/>
+<text class="mut" x="190" y="275">du bist hier</text>
+<rect class="fl" x="470" y="30" width="150" height="290" rx="10"/>
+<rect class="ln" x="470" y="30" width="150" height="290" rx="10"/>
+<text class="ink" x="488" y="58" font-weight="700">Szenen</text>
+<rect class="bar" x="486" y="74" width="118" height="34" rx="17"/><text class="ink" x="506" y="96">Abend</text>
+<rect class="bar" x="486" y="118" width="118" height="34" rx="17"/><text class="ink" x="506" y="140">Film</text>
+<rect class="bar" x="486" y="162" width="118" height="34" rx="17"/><text class="ink" x="506" y="184">Arbeiten</text>
+<rect class="bar" x="486" y="206" width="118" height="34" rx="17"/><text class="ink" x="506" y="228">Alles aus</text>
+<text class="mut" x="488" y="276">Kamera: Eingang</text>
+<rect class="bar" x="486" y="284" width="118" height="26" rx="6"/>
+<text class="mut" x="40" y="350">Gelb = Licht an, Punkt = Anwesenheit (nur belegt ja/nein)</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

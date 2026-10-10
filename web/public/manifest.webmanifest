@@ -1,0 +1,28 @@
+{
+  "name": "FYOS",
+  "short_name": "FYOS",
+  "description": "FYOS — For Your Own Sake: das eigene System im Browser.",
+  "start_url": "/os/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1c1815",
+  "background_color": "#1c1815",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Agent-Chat",
+      "short_name": "Chat",
+      "url": "/os/?offen=agent",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

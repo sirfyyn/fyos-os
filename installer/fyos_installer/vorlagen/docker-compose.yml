@@ -1,0 +1,59 @@
+# FYOS als Einzelplatz, erzeugt vom FYOS-Installer.
+# Starten: docker compose build && docker compose up -d   Danach {{oeffentliche_url}} öffnen.
+# Werte in .env (Vorlage der Distribution: deploy/compose/env.example).
+services:
+  web:
+    image: ${FYOS_BILD_WEB:?FYOS_BILD_WEB fehlt in .env}
+    ports:
+      - "${FYOS_PORT:-8080}:8080"
+    environment:
+      FYOS_HUB_UPSTREAM: http://hub:8080
+      FYOS_AGENT_UPSTREAM: http://agent:18789
+    depends_on: [hub, agent]
+    restart: unless-stopped
+
+  hub:
+    # Eigenes Bild: Hub der Distribution plus die gewählten Plugin-Pakete (hub/Dockerfile).
+    build:
+      context: ./hub
+      args:
+        FYOS_INDEX_URL: ${FYOS_PAKETINDEX:-}
+    image: ${FYOS_BILD_HUB_EIGEN:-fyos-hub-eigen:lokal}
+    environment:
+      MCP_HUB_CONFIG_PATH: /etc/fyos-hub/config.yaml
+      REDIS_URL: redis://redis:6379/0
+      FYOS_OEFFENTLICH_URL: ${FYOS_OEFFENTLICH_URL:-http://localhost:8080}
+      # Zeitzone des Hubs: Tageszähler und Zeitfenster der Takte, z. B. TZ=Europe/Berlin in .env
+      TZ: ${TZ:-UTC}
+{{hub_umgebung}}
+    volumes:
+      - ./hub-config.yaml:/etc/fyos-hub/config.yaml:ro
+    depends_on: [redis]
+    restart: unless-stopped
+
+  agent:
+    image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}
+    environment:
+      HOME: /home/node
+      FYOS_CONFIG: /etc/fyos/fyos.yaml
+      FYOS_HUB_URL: http://hub:8080/mcp
+      FYOS_MODELL_BASIS_URL: ${FYOS_MODELL_BASIS_URL}
+      FYOS_MODELL_NAME: ${FYOS_MODELL_NAME}
+      FYOS_MODELL_SCHLUESSEL: ${FYOS_MODELL_SCHLUESSEL}
+      OPENCLAW_GATEWAY_TOKEN: ${FYOS_AGENT_TOKEN}
+      # Erlaubter Ursprung der Control UI im Fenster der Shell (fyos-agent: gateway.oeffentliche_url)
+      FYOS_OEFFENTLICH_URL: ${FYOS_OEFFENTLICH_URL:-http://localhost:8080}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./fyos.yaml:/etc/fyos/fyos.yaml:ro
+      - agent-zustand:/home/node/.openclaw
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+
+volumes:
+  agent-zustand:

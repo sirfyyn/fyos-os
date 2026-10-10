@@ -1,0 +1,107 @@
+# Prüfen bei jedem Push, Bilder bauen auf main.
+# Repo-Variablen: FYOS_RUNNER (Runner-Etikett), FYOS_REGISTRY (z. B. registry.example.com/org),
+# optional FYOS_REGISTRY_HOSTS (add-hosts für buildx, z. B. "registry.example.com=192.0.2.10").
+# Anmeldung an Registry und Paketindex: Secrets REGISTRY_USER/REGISTRY_TOKEN (Token mit write:package; Gitea gibt dem
+# Laufzeit-Token GITEA_TOKEN keine Paketrechte). Fehlen sie, versucht der Lauf das Laufzeit-Token (packages: write).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ gitea.workflow }}-${{ gitea.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pruefen:
+    runs-on: ${{ vars.FYOS_RUNNER }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sauberkeit
+        run: python3 tools/sauber.py .
+      - name: Hub-Tests
+        run: |
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install -q -e "hub[test]"
+          /tmp/venv/bin/python -m pytest hub/tests -q
+      - name: Werkzeug-Tests
+        run: /tmp/venv/bin/python -m pytest tools -q
+      - name: Installer-Tests
+        run: |
+          /tmp/venv/bin/pip install -q -e "installer[test]"
+          /tmp/venv/bin/python -m pytest installer/tests -q
+      - name: Shell-Tests und Bau
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npx vitest run
+          npx astro build
+
+  paket:
+    # fyos-hub als Python-Paket in die Paket-Registry (PyPI-API des Git-Servers), damit Plugin-Repos
+    # `uv pip install --index <Index> fyos-hub` aus demselben Index ziehen (docs/ERWEITERN.md, Abschnitt 9.4).
+    # Version: <pyproject-Version>.dev<Laufnummer>.
+    needs: pruefen
+    if: gitea.ref == 'refs/heads/main' && gitea.event_name == 'push'
+    runs-on: ${{ vars.FYOS_RUNNER }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      # setuptools ab 77 nimmt LICENSE* und NOTICE* aus dem Ordner des Pakets in Wheel und Sdist. Die Dateien liegen in der
+      # Wurzel des Repos, deshalb kommen sie vor dem Bau nach hub/ (pypi.yml unter .github/workflows macht dasselbe).
+      - name: LICENSE und NOTICE ins Paket kopieren
+        run: cp LICENSE NOTICE hub/
+      - name: Bauen und hochladen
+        working-directory: hub
+        run: |
+          python3 -m venv /tmp/paket
+          /tmp/paket/bin/pip install -q build twine
+          basis="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
+          sed -i "s/^version = \".*\"/version = \"${basis}.dev${{ gitea.run_number }}\"/" pyproject.toml
+          /tmp/paket/bin/python -m build --wheel --sdist
+          host="${FYOS_REGISTRY%%/*}"; besitzer="${FYOS_REGISTRY#*/}"
+          /tmp/paket/bin/twine upload --non-interactive \
+            --repository-url "https://${host}/api/packages/${besitzer}/pypi" \
+            -u "$REGISTRY_USER" -p "$REGISTRY_TOKEN" dist/*
+        env:
+          FYOS_REGISTRY: ${{ vars.FYOS_REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER || gitea.actor }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GITEA_TOKEN }}
+
+  bauen:
+    needs: pruefen
+    if: gitea.ref == 'refs/heads/main' && gitea.event_name == 'push'
+    runs-on: ${{ vars.FYOS_RUNNER }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        teil: [web, hub]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+      - name: Anmelden
+        run: |
+          host="${FYOS_REGISTRY%%/*}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$host" -u "$REGISTRY_USER" --password-stdin
+        env:
+          FYOS_REGISTRY: ${{ vars.FYOS_REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER || gitea.actor }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GITEA_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.teil }}
+          file: ${{ matrix.teil }}/Dockerfile
+          add-hosts: ${{ vars.FYOS_REGISTRY_HOSTS }}
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ vars.FYOS_REGISTRY }}/fyos-os/${{ matrix.teil }}:main
+            ${{ vars.FYOS_REGISTRY }}/fyos-os/${{ matrix.teil }}:${{ gitea.sha }}

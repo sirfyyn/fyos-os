@@ -1,0 +1,11 @@
+---
+/**
+ * /os — die Shell: Startbildschirm, Arbeitsbildschirme aus Fenstern, Dock, Agent-Dock.
+ */
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Shell from '~/components/os/Shell';
+---
+
+<BaseLayout bare>
+  <div class="h-full"><Shell client:only="solid-js" /></div>
+</BaseLayout>

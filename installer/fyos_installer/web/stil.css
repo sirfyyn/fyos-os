@@ -1,0 +1,133 @@
+:root {
+  --bg: #f4f1ea; --flaeche: #fffdf8; --leiste: #e9e3d6; --text: #2b2a27; --leise: #6f695d;
+  --akzent: #3f7d6e; --akzent-text: #ffffff; --warm: #c9824a; --linie: #d8d1c2; --fehler: #b3412e; --ok: #3f7d6e;
+  --schatten: 0 1px 2px rgba(40, 34, 20, .08), 0 6px 20px rgba(40, 34, 20, .06);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1c1a; --flaeche: #26251f; --leiste: #34322c; --text: #ece7dc; --leise: #a49d8e;
+    --akzent: #5fb3a0; --akzent-text: #14231f; --warm: #e0a06b; --linie: #45423a; --fehler: #ee8a74; --ok: #5fb3a0;
+    --schatten: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .3);
+  }
+}
+* { box-sizing: border-box; }
+html { font-size: 17px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.55;
+  font-family: ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:focus-visible { outline: 3px solid var(--warm); outline-offset: 2px; border-radius: 6px; }
+.sprung { position: absolute; left: -999px; top: 0; background: var(--flaeche); padding: .5rem 1rem; z-index: 10; }
+.sprung:focus { left: 8px; top: 8px; }
+.kopf {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 2rem;
+  max-width: 1040px; margin: 0 auto; padding: 1.25rem 20px .5rem;
+}
+.marke { display: flex; align-items: baseline; gap: .6rem; }
+.marke strong { font-size: 1.35rem; letter-spacing: .02em; }
+.marke .zusatz { color: var(--leise); font-size: .85rem; }
+.punkt { width: .8rem; height: .8rem; border-radius: 50%; background: var(--akzent); align-self: center; }
+.schritte { display: flex; flex-wrap: wrap; gap: .35rem; list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.schritte li {
+  counter-increment: s; font-size: .8rem; color: var(--leise); padding: .2rem .65rem; border-radius: 999px;
+  border: 1px solid transparent;
+}
+.schritte li::before { content: counter(s) ". "; }
+.schritte li.aktiv { color: var(--text); border-color: var(--linie); background: var(--flaeche); font-weight: 600; }
+.schritte li.fertig { color: var(--akzent); }
+main { max-width: 1040px; margin: 0 auto; padding: 1rem 20px 7rem; outline: none; }
+h1 { font-size: 1.9rem; line-height: 1.2; margin: .6rem 0 .4rem; }
+h2 { font-size: 1.2rem; margin: 1.6rem 0 .5rem; }
+h3 { font-size: 1.05rem; margin: 0 0 .25rem; }
+p { margin: .4rem 0 .8rem; }
+.leise { color: var(--leise); }
+.einleitung { font-size: 1.1rem; max-width: 46rem; }
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86rem; }
+code { background: var(--leiste); padding: .05rem .35rem; border-radius: 5px; }
+pre {
+  background: var(--leiste); padding: .9rem 1rem; border-radius: 10px; overflow: auto; margin: .4rem 0 1rem;
+  white-space: pre-wrap; word-break: break-word;
+}
+.fuss {
+  position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px); border-top: 1px solid var(--linie);
+}
+.fuss .innen { max-width: 1040px; margin: 0 auto; padding: .75rem 20px; display: flex; gap: .75rem; align-items: center; }
+.fuss .abstand { flex: 1; color: var(--leise); font-size: .85rem; }
+button, .knopf {
+  font: inherit; cursor: pointer; border: 1px solid var(--linie); background: var(--flaeche); color: var(--text);
+  padding: .55rem 1.2rem; border-radius: 999px; text-decoration: none; display: inline-block;
+}
+button:hover, .knopf:hover { border-color: var(--leise); }
+button.haupt, .knopf.haupt { background: var(--akzent); border-color: var(--akzent); color: var(--akzent-text); font-weight: 600; }
+button[disabled] { opacity: .5; cursor: not-allowed; }
+.auswahl-gitter { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 1.2rem 0; }
+.wahl {
+  display: block; text-align: left; padding: 1.1rem 1.2rem; border-radius: var(--radius); background: var(--flaeche);
+  border: 2px solid var(--linie); box-shadow: var(--schatten); width: 100%;
+}
+.wahl:has(input:checked) { border-color: var(--akzent); }
+.wahl input { margin-right: .3rem; accent-color: var(--akzent); }
+.wahl .kurz { display: block; }
+.wahl .titel { font-weight: 700; display: block; }
+.wahl .kurz { color: var(--leise); font-size: .9rem; }
+.karte {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 1.4rem; background: var(--flaeche);
+  border: 2px solid var(--linie); border-radius: var(--radius); padding: 1.1rem; margin: 1rem 0; box-shadow: var(--schatten);
+}
+.karte.an { border-color: var(--akzent); }
+@media (max-width: 760px) { .karte { grid-template-columns: 1fr; } }
+.galerie { position: relative; align-self: start; }
+.galerie img, .platz {
+  width: 100%; aspect-ratio: 8 / 5; object-fit: contain; display: block; border-radius: 10px; background: var(--leiste);
+}
+.platz { display: grid; place-items: center; color: var(--leise); font-size: .85rem; }
+.galerie .steuer { display: flex; align-items: center; justify-content: center; gap: .5rem; margin-top: .4rem; }
+.galerie .steuer button { padding: .1rem .7rem; }
+.galerie .zahl { font-size: .8rem; color: var(--leise); min-width: 3.5rem; text-align: center; }
+.kopfzeile { display: flex; gap: .7rem; align-items: flex-start; }
+.kopfzeile input[type=checkbox] { width: 1.3rem; height: 1.3rem; margin-top: .25rem; accent-color: var(--akzent); }
+.marken { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 0; }
+.marke-klein { font-size: .75rem; padding: .05rem .55rem; border-radius: 999px; background: var(--leiste); color: var(--leise); }
+.marke-klein.pflicht { background: var(--akzent); color: var(--akzent-text); }
+.erklaerung p { margin: .3rem 0 .6rem; }
+.erklaerung ul, .voraus ul { padding-left: 1.2rem; margin: .3rem 0 .6rem; }
+.voraus { font-size: .88rem; color: var(--leise); }
+.voraus strong { color: var(--text); }
+fieldset { border: 1px solid var(--linie); border-radius: var(--radius); padding: .6rem 1.1rem 1rem; margin: 1rem 0; background: var(--flaeche); }
+legend { font-weight: 700; padding: 0 .4rem; }
+.feld { display: grid; gap: .15rem; margin: .7rem 0; }
+.feld label { font-weight: 600; font-size: .92rem; }
+.feld .hilfe { font-size: .82rem; color: var(--leise); }
+.feld input, .feld select {
+  font: inherit; padding: .5rem .7rem; border-radius: 9px; border: 1px solid var(--linie); background: var(--bg); color: var(--text);
+  max-width: 34rem; width: 100%;
+}
+.fehlertext { font-size: .82rem; color: var(--fehler); min-height: 0; }
+.fehlertext:empty { display: none; }
+.pflichtstern { color: var(--warm); }
+.meldung { padding: .7rem 1rem; border-radius: 10px; margin: 1rem 0; border: 1px solid var(--linie); background: var(--flaeche); }
+.meldung.fehler { border-color: var(--fehler); }
+.meldung.fehler strong { color: var(--fehler); }
+.meldung.ok { border-color: var(--ok); }
+.meldung.warnung { border-color: var(--warm); }
+.meldung ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+.abnahme { margin-top: .6rem; font-size: .9rem; }
+.abnahme.durchgefallen strong { color: var(--fehler); }
+table.dateien { border-collapse: collapse; width: 100%; font-size: .9rem; }
+table.dateien td, table.dateien th { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--linie); vertical-align: top; }
+details { margin: .3rem 0; }
+summary { cursor: pointer; }
+.collage { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 1rem 0; }
+.collage figure {
+  margin: 0; background: var(--leiste); border-radius: 12px; padding: .5rem; border: 1px solid var(--linie);
+}
+.collage img { width: 100%; border-radius: 8px; display: block; }
+.collage figcaption { text-align: center; font-size: .85rem; color: var(--leise); padding-top: .3rem; }
+.protokoll { min-height: 14rem; max-height: 26rem; }
+.zeile-fehler { color: var(--fehler); }
+.willkommen { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); align-items: center; }
+@media (max-width: 760px) { .willkommen { grid-template-columns: 1fr; } }
+.willkommen img { width: 100%; border-radius: 12px; box-shadow: var(--schatten); }
+@media (prefers-reduced-motion: no-preference) { .karte, .wahl { transition: border-color .15s; } }

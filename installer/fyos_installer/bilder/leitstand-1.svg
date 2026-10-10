@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Leitstand mit Vorgängen</title>
+<desc id="d">Eine Zentrale mit der Liste "Braucht dich" (Freigabe, Entscheidung), laufenden Vorgängen mit Fortschrittsbalken und dem Zustand der Agenten-Schleifen.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="40" y="26" width="560" height="348" rx="12"/>
+<rect class="ln" x="40" y="26" width="560" height="348" rx="12"/>
+<rect class="bar" x="41" y="27" width="558" height="28" rx="11"/>
+<text class="ink" x="278" y="46">Leitstand</text>
+<text class="ink" x="60" y="84" font-weight="700">Braucht dich</text>
+<rect class="bar" x="60" y="96" width="520" height="44" rx="8"/><rect class="wrm" x="60" y="96" width="7" height="44" rx="3"/>
+<text class="ink" x="80" y="123">Freigabe: Neustart des Dienstes »agent«</text>
+<rect class="acc" x="470" y="106" width="96" height="24" rx="12"/><text class="fl" x="486" y="123" font-size="12">Freigeben</text>
+<rect class="bar" x="60" y="148" width="520" height="44" rx="8"/><rect class="wrm" x="60" y="148" width="7" height="44" rx="3"/>
+<text class="ink" x="80" y="175">Entscheidung: Backup-Ziel wählen</text>
+<text class="mut" x="470" y="175">2 Optionen</text>
+<text class="ink" x="60" y="228" font-weight="700">Laufende Vorgänge</text>
+<text class="mut" x="60" y="254">Updates prüfen</text><rect class="bar" x="220" y="244" width="200" height="10" rx="5"/><rect class="acc" x="220" y="244" width="140" height="10" rx="5"/>
+<text class="mut" x="60" y="282">Wochenrunde aufräumen</text><rect class="bar" x="220" y="272" width="200" height="10" rx="5"/><rect class="acc" x="220" y="272" width="60" height="10" rx="5"/>
+<text class="ink" x="440" y="228" font-weight="700">Schleifen</text>
+<circle class="acc" cx="448" cy="250" r="5"/><text class="ink" x="462" y="255">Arbeit: läuft</text>
+<circle class="mut" cx="448" cy="278" r="5"/><text class="ink" x="462" y="283">Erkunden: pausiert</text>
+<text class="mut" x="60" y="330">Die Schleifen halten an, sobald du aktiv wirst.</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

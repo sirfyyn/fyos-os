@@ -1,0 +1,75 @@
+# FYOS-Hub — Beispielkonfiguration
+#
+# Alles ist optional. Ohne Datei laedt der Hub jedes installierte Plugin der Entry-Point-Gruppe `mcp_hub.plugins`
+# mit seinen Vorgaben. Ein Eintrag unter `plugins:` braucht es nur fuer Konfiguration, Geheimnisse oder
+# `enabled: false`. Ein Eintrag ohne `module` bezieht das Plugin aus der Entry-Point-Gruppe (Name = Entry-Point-Name).
+#
+# Pfad der Datei: Umgebung MCP_HUB_CONFIG_PATH (Vorgabe ./config.yaml).
+host: 0.0.0.0
+port: 8080
+path: /mcp
+
+circuit_breaker:
+  enabled: true
+  failure_threshold: 5
+  timeout_sec: 30
+  half_open_max_calls: 3
+
+plugins:
+  # Referenz-Plugins: nur zum Ausprobieren, im Alltag aus.
+  - name: echo
+    enabled: false
+  - name: math
+    enabled: false
+
+  # Audit-Protokoll aller Werkzeugaufrufe. Ohne Qdrant (QDRANT_URL leer) arbeitet es im Ringpuffer;
+  # mit Qdrant und einem Embedding-Dienst (FYOS_EMBED_URL) gibt es Vektorsuche ueber die Historie.
+  - name: audit
+    config:
+      collection_name: mcp_audit_log
+
+  # Ereignisse der Werkzeugaufrufe auf Redis-Streams. Ohne REDIS_URL bleiben sie im Speicher des Prozesses.
+  - name: event_bus_publisher
+
+  # Arbeitsanleitungen (SKILL.md je Ordner). Quellen: Liste von Verzeichnissen.
+  - name: skills
+    config:
+      quellen:
+        - /opt/fyos/skills
+
+  # Angemeldete Skripte eines Repos (Kopfblock WERKSTATT) finden und mit Trockenlauf ausfuehren.
+  - name: werkstatt
+    config:
+      repo: /opt/fyos/repo
+      # favoriten: [ops/plattenplatz]
+
+  # Werkzeugkasten: Plugins, Werkzeuge, Apps und Protokolle des Hubs ansehen.
+  - name: mcp
+    # config:
+    #   privat_plugins: [meinplugin]
+
+  # Anordnung der Shell (offene Fenster) als Werkzeuge.
+  - name: shell
+
+  # Kleine Beispiel-App (Notizzettel mit Oberflaeche).
+  - name: beispiel_app
+
+  # Kopplung an OpenClaw (Brücke fyos-bruecke im Agenten): Ereignisse, Workboard, Skills, Cron, Nutzung.
+  # Ohne FYOS_AGENT_URL ist es aus. Werte sonst aus der Umgebung (FYOS_AGENT_URL, FYOS_AGENT_TOKEN,
+  # FYOS_VORGAENGE_URL, FYOS_VORGANG_LINK); siehe docs/KOPPLUNG-OPENCLAW.md.
+  - name: openclaw
+    # config:
+    #   gateway_url: http://agent:18789
+    #   board: fyos
+    #   abgleich_s: 60
+    #   # Grenzen je Takt (cron, skills, abgleich, karten): außerhalb des Fensters oder über dem Tageslimit läuft
+    #   # der Takt nicht. Die Uhrzeiten gelten in der Zeitzone des Hubs (TZ).
+    #   takt_grenzen:
+    #     abgleich: { max_pro_tag: 500, fenster: "06:00-23:00" }
+
+  # Ein Plugin aus einem eigenen Paket (uv pip install fyos-plugin-finanzen) laedt ohne Eintrag.
+  # Mit Eintrag laesst sich seine Konfiguration setzen, z. B.:
+  # - name: finance
+  #   config:
+  #     finanzen_url: http://finanzen:8080
+  #   secrets: [FYOS_FINANZEN_AUTH_HEADER]

@@ -1,0 +1,1313 @@
+/* ═══ FYOS-Apps — gemeinsames Aussehen aller ui://-Oberflächen ═══════════════════════
+ *
+ * Ziel: gut gestaltet, mit Symbolen für alles. Ruhig, klar, fertig wie eine
+ * App am Mac: eine Kopfzeile (App-Kachel, Titel, Zustandssatz, Aktionen), Abschnitte mit Symbol,
+ * Listen in abgesetzten Gruppen, große ruhige Zahlen, Symbole an Zeilen, Knöpfen und Zuständen —
+ * und leere, ladende und fehlgeschlagene Ansichten, die nie wie „alles in Ordnung" aussehen.
+ *
+ * Drei Welten, ein Stil:
+ *   · FYOS-Fenster — Glas über einer Kulisse; die App ist durchsichtig, Karten sind helles/dunkles Glas.
+ *   · Claude-Chat und andere Hosts — deckender Grund (#fff / #262624); die Karten brauchen eigene Tönung.
+ *   · Handy (390 px) — eine Spalte, größere Ziele.
+ * Gestaltungswerte kommen als Variablen der MCP-Apps-Spezifikation (2026-01-26, hostContext.styles.variables);
+ * die Shell übergibt sie aus ihren Farben, Hosts ohne Variablen bekommen die Vorgaben hier.
+ *
+ * Eine Quelle, keine Kopien: der Hub setzt diese Datei beim Ausliefern an die Markierung STIL im <style>
+ * jeder App (mcp_hub/plugins/_oberflaeche.py). Die App-eigenen Regeln danach regeln nur ihr Layout.
+ *
+ * Inhalt: 1 Gestaltungswerte · 2 Grund · 3 Symbole und Kacheln · 4 Knöpfe · 5 Eingaben · 6 Kopf und Abschnitte
+ *         7 Gruppen und Zeilen · 8 Zahlen, Balken, Marken · 9 Rückmeldung (Satz, Hinweis, Zustand, Laden)
+ *         10 Tabellen und Text · 11 Schmal und Berührung · 12 Größenstufen des Rahmens (data-stufe)
+ *         13 Eine Scrollebene in der Shell (data-rahmen="frei")
+ *
+ * Reservierte Klassennamen (diese Datei besetzt sie; Apps benutzen sie, definieren sie aber nicht neu —
+ * `python3 scripts/mcp-apps-pruefstand/klassen.py --apps` meldet Kollisionen; Eigenes: Unterklasse `.chip.ohne`
+ * oder eigener Name; nur additiv ergänzen, nie umbenennen oder entfernen):
+ *   Gerüst      app · kopf · kopf-text · kopf-satz · fenster · abschnitt · augenbraue · system
+ *   Karten      karte (Container „karte“, @container karte) · kachel · tippkarte · gruppe · stapel · raster · mitte · oben
+ *   Zeilen      zeilen · zeile · zeile-text · zeile-titel · zeile-unter · zeile-ende · weiter · kv · tabwrap · tab
+ *   Zahlen      zahl · zahl-gross · zahl-unter · gross · riesig · kennzahl · kennzahlen · anzahl · balken · punkt
+ *   Marken      chip · marke · akz · an · ja · nein · gut · ok · schlecht · gestoert · warn · warnung · gefahr · info ·
+ *               blau · gruen · gelb · rot · grau · mut · klein · klein-text · fett · rund · frei
+ *   Knöpfe      haupt · leise · zweit · loeschen · schreiben · lesen · nur-lesen · link · knopf-sym · knoepfe (+ `.rechts`) ·
+ *               leiste · aktionen · gesperrt · drehen
+ *   Reiter      reiter (tablist: volle Breite, gleich breit; `.kompakt` = nach Inhalt, `.voll` erzwingt volle Breite)
+ *   Aufklappen  sektion (details.sektion) · weiter in `.zeile[aria-expanded]` · fussnote · ico
+ *   Eingaben    feld · wahl · kipp · beschriftung
+ *   Rückmeldung satz · satz-text · hinweis · zustand · fehler · leer · laedt · laeuft · wartet · skelett · voll · weg · fuss · kompakt
+ *               antrag · wirkungen (Rückfrage vor einer Wirkung, nur über App.beantragen und App.plan)
+ *   Größe       blick-weg (im Blick ausgeblendet)
+ *   Zeit        zeit (<time class="zeit">, nur über App.zeit.stempel)
+ *               frische · veraltet (Stand der Daten eines Panels, nur über App.frische)
+ */
+
+/* ── 1. Gestaltungswerte ───────────────────────────────────────────────────────────────────────
+ * Nur Schlüssel der Spezifikation; der Host setzt sie inline auf <html> und gewinnt damit.
+ * Dunkel ist Vorgabe (die Apps tragen data-theme="dark"), hell darunter. Die Vorgaben funktionieren auf
+ * durchsichtigem UND auf deckendem Grund: Flächen sind getönt (nicht weiß), Linien sind sichtbar. */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-background-primary: transparent;
+  --color-background-secondary: color-mix(in oklab, oklch(95% 0.008 240) 5.5%, transparent);
+  --color-background-tertiary: color-mix(in oklab, oklch(95% 0.008 240) 10%, transparent);
+  --color-background-inverse: oklch(95% 0.008 240);
+  --color-background-ghost: transparent;
+  --color-background-info: color-mix(in oklab, #5ba3d4 16%, transparent);
+  --color-background-success: color-mix(in oklab, #6fa888 16%, transparent);
+  --color-background-warning: color-mix(in oklab, #c89a5e 16%, transparent);
+  --color-background-danger: color-mix(in oklab, #c77575 16%, transparent);
+  --color-background-disabled: color-mix(in oklab, oklch(95% 0.008 240) 3%, transparent);
+  --color-text-primary: oklch(95% 0.008 240);
+  --color-text-secondary: oklch(72% 0.015 240);
+  --color-text-tertiary: oklch(66% 0.012 240);
+  --color-text-inverse: oklch(17% 0.026 240);
+  --color-text-ghost: oklch(72% 0.015 240);
+  --color-text-info: #5ba3d4;
+  --color-text-danger: #d98686;
+  --color-text-success: #74b48f;
+  --color-text-warning: #d3a466;
+  --color-text-disabled: oklch(66% 0.012 240);
+  --color-border-primary: color-mix(in oklab, oklch(95% 0.008 240) 20%, transparent);
+  --color-border-secondary: color-mix(in oklab, oklch(95% 0.008 240) 12%, transparent);
+  --color-border-tertiary: color-mix(in oklab, oklch(95% 0.008 240) 8%, transparent);
+  --color-border-inverse: oklch(17% 0.026 240);
+  --color-border-ghost: transparent;
+  --color-border-info: color-mix(in oklab, #5ba3d4 45%, transparent);
+  --color-border-danger: color-mix(in oklab, #c77575 45%, transparent);
+  --color-border-success: color-mix(in oklab, #6fa888 45%, transparent);
+  --color-border-warning: color-mix(in oklab, #c89a5e 45%, transparent);
+  --color-border-disabled: color-mix(in oklab, oklch(95% 0.008 240) 6%, transparent);
+  --color-ring-primary: #22d3ee;
+  --color-ring-secondary: #e879f9;
+  --color-ring-inverse: oklch(17% 0.026 240);
+  --color-ring-info: #5ba3d4;
+  --color-ring-danger: #c77575;
+  --color-ring-success: #6fa888;
+  --color-ring-warning: #c89a5e;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", Consolas, monospace;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-text-xs-size: 12px;
+  --font-text-sm-size: 13px;
+  --font-text-md-size: 14px;
+  --font-text-lg-size: 16px;
+  --font-heading-xs-size: 11px;
+  --font-heading-sm-size: 15px;
+  --font-heading-md-size: 18px;
+  --font-heading-lg-size: 22px;
+  --font-heading-xl-size: 28px;
+  --font-heading-2xl-size: 34px;
+  --font-heading-3xl-size: 44px;
+  --font-text-xs-line-height: 1.45;
+  --font-text-sm-line-height: 1.5;
+  --font-text-md-line-height: 1.5;
+  --font-text-lg-line-height: 1.5;
+  --font-heading-xs-line-height: 1.3;
+  --font-heading-sm-line-height: 1.35;
+  --font-heading-md-line-height: 1.3;
+  --font-heading-lg-line-height: 1.2;
+  --font-heading-xl-line-height: 1.12;
+  --font-heading-2xl-line-height: 1;
+  --font-heading-3xl-line-height: 1;
+  --border-radius-xs: 6px;
+  --border-radius-sm: 10px;
+  --border-radius-md: 14px;
+  --border-radius-lg: 18px;
+  --border-radius-xl: 22px;
+  --border-radius-full: 9999px;
+  --border-width-regular: 1px;
+  --shadow-hairline: inset 0 1px 0 color-mix(in oklab, #ffffff 6%, transparent);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.28);
+  --shadow-md: 0 10px 28px -14px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 22px 54px -24px rgb(0 0 0 / 0.7);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  /* Hell: Flächen sind eine leise DUNKLE Tönung — auf deckendem Weiß sieht man sie, auf hellem Glas stören sie nicht
+     (weiße Flächen wären auf weißem Grund unsichtbar). die Shell überschreibt sie mit weißem Glas. */
+  --color-background-secondary: color-mix(in oklab, oklch(20% 0.03 250) 4.2%, transparent);
+  --color-background-tertiary: color-mix(in oklab, oklch(20% 0.03 250) 8%, transparent);
+  --color-background-inverse: oklch(15% 0.02 240);
+  --color-background-info: color-mix(in oklab, #2c7ab8 11%, transparent);
+  --color-background-success: color-mix(in oklab, #4d8a6a 12%, transparent);
+  --color-background-warning: color-mix(in oklab, #b07f3e 13%, transparent);
+  --color-background-danger: color-mix(in oklab, #a14545 10%, transparent);
+  --color-background-disabled: color-mix(in oklab, oklch(15% 0.02 240) 4%, transparent);
+  --color-text-primary: oklch(16% 0.02 240);
+  --color-text-secondary: oklch(40% 0.018 240);
+  --color-text-tertiary: oklch(50% 0.014 240);
+  --color-text-inverse: oklch(99% 0.006 240);
+  --color-text-ghost: oklch(40% 0.018 240);
+  --color-text-info: #256fa8;
+  --color-text-danger: #a14545;
+  --color-text-success: #3f7a5b;
+  --color-text-warning: #96672a;
+  --color-text-disabled: oklch(50% 0.014 240);
+  --color-border-primary: color-mix(in oklab, oklch(15% 0.02 240) 22%, transparent);
+  --color-border-secondary: color-mix(in oklab, oklch(15% 0.02 240) 13%, transparent);
+  --color-border-tertiary: color-mix(in oklab, oklch(15% 0.02 240) 9%, transparent);
+  --color-border-inverse: oklch(99% 0.006 240);
+  --color-border-info: color-mix(in oklab, #2c7ab8 40%, transparent);
+  --color-border-danger: color-mix(in oklab, #a14545 40%, transparent);
+  --color-border-success: color-mix(in oklab, #4d8a6a 40%, transparent);
+  --color-border-warning: color-mix(in oklab, #b07f3e 40%, transparent);
+  --color-border-disabled: color-mix(in oklab, oklch(15% 0.02 240) 6%, transparent);
+  --color-ring-primary: #0891b2;
+  --color-ring-secondary: #c026d3;
+  --color-ring-inverse: oklch(99% 0.006 240);
+  --color-ring-info: #2c7ab8;
+  --color-ring-danger: #a14545;
+  --color-ring-success: #4d8a6a;
+  --color-ring-warning: #b07f3e;
+  --shadow-hairline: inset 0 1px 0 color-mix(in oklab, #ffffff 70%, transparent);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.1);
+  --shadow-md: 0 10px 26px -16px rgb(15 23 42 / 0.28);
+  --shadow-lg: 0 22px 50px -26px rgb(15 23 42 / 0.32);
+}
+
+/* Kurznamen für die App-Regeln — alle aus den Variablen oben, darum folgen sie Host und Thema. */
+:root {
+  --bg: var(--color-background-primary);
+  --fg: var(--color-text-primary);
+  --mut: var(--color-text-secondary);
+  --leise: var(--color-text-tertiary);
+  --flaeche: var(--color-background-secondary);
+  --flaeche-2: var(--color-background-tertiary);
+  --deck: var(--color-text-inverse); /* deckende Grundfarbe des Themas: Schrift auf Vollfarbe, mattes Glas */
+  --line: var(--color-border-tertiary);
+  --line-2: var(--color-border-secondary);
+  --line-3: var(--color-border-primary);
+  --akz: var(--color-text-info);
+  --gut: var(--color-text-success);
+  --warn: var(--color-text-warning);
+  --schlecht: var(--color-text-danger);
+  --neon: var(--color-ring-primary);
+  --neon-2: var(--color-ring-secondary);
+  --schrift: var(--font-sans);
+  --mono: var(--font-mono);
+  --r-s: var(--border-radius-sm);
+  --r-m: var(--border-radius-md);
+  --r-l: var(--border-radius-lg);
+  --r-voll: var(--border-radius-full);
+  --tempo: 0.18s;
+  --kurve: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --abstand: 14px; /* Lücke zwischen Karten und Gruppen */
+}
+
+/* ── 2. Grund ──────────────────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--fg) 20%, transparent) transparent;
+}
+body {
+  margin: 0;
+  padding: 20px clamp(16px, 4.2vw, 26px) 28px;
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--schrift);
+  font-size: var(--font-text-md-size);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1;
+  animation: fy-auftritt 0.4s var(--kurve) both;
+}
+@keyframes fy-auftritt { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes fy-dreh { to { transform: rotate(360deg); } }
+@keyframes fy-puls { 50% { opacity: 0.45; } }
+@keyframes fy-schimmer { to { background-position: -200% 0; } }
+::selection { background: color-mix(in oklab, var(--neon) 32%, transparent); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background: color-mix(in oklab, var(--fg) 20%, transparent) padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in oklab, var(--fg) 32%, transparent); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+:where(h1, h2, h3, h4, p, ul, ol, dl, figure) { margin: 0; }
+:where(h1) {
+  font-size: var(--font-heading-lg-size);
+  line-height: var(--font-heading-lg-line-height);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.018em;
+}
+:where(h3) {
+  margin: 0 0 6px;
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.005em;
+}
+a { color: var(--akz); text-decoration: none; text-underline-offset: 3px; }
+a:hover { text-decoration: underline; }
+:where(b, strong) { font-weight: var(--font-weight-semibold); }
+/* Monospace nur für echte Kennungen (Namen, Adressen, Befehle) — sonst die Systemschrift. */
+:where(code, kbd, samp) { font-family: var(--mono); font-size: 0.86em; }
+:where(code) {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--fg) 7%, transparent);
+  overflow-wrap: anywhere;
+}
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 5px;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--mut);
+}
+pre {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  background: color-mix(in oklab, var(--fg) 5%, transparent);
+  font: 12px/1.6 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+pre code { padding: 0; background: none; }
+hr { height: 1px; margin: 20px 0; border: 0; background: var(--line); }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+
+/* ── 3. Symbole und Kacheln ────────────────────────────────────────────────────────────────── */
+/* Symbol: <svg class="ico" data-symbol="name"> — der Hub setzt die Linien ein (_oberflaeche.py). Größe folgt der Schrift. */
+.ico {
+  width: 1.2em;
+  height: 1.2em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.2em;
+  overflow: visible;
+}
+/* Kachel: Symbol auf getönter Fläche — vor Zeilen, Zuständen und Abschnitten.
+   .kachel.gut/.warn/.schlecht/.akz/.grau tönen nach Bedeutung, .kachel.app trägt die Farbe der App (--h wie im OS). */
+.kachel {
+  --k: var(--mut);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--k) 15%, transparent);
+  color: var(--k);
+  font-size: 17px;
+}
+.kachel :where(.ico) { width: 1em; height: 1em; vertical-align: 0; }
+.kachel:is(.gut, .gruen) { --k: var(--gut); }
+.kachel:is(.warn, .gelb) { --k: var(--warn); }
+.kachel:is(.schlecht, .rot) { --k: var(--schlecht); }
+.kachel:is(.akz, .blau, .info) { --k: var(--akz); }
+.kachel.grau { --k: var(--mut); }
+.kachel.grau:not(.app) { background: color-mix(in oklab, var(--fg) 8%, transparent); }
+.kachel.klein { width: 26px; height: 26px; border-radius: 8px; font-size: 14px; }
+.kachel.gross { width: 44px; height: 44px; border-radius: 13px; font-size: 22px; }
+.kachel.riesig { width: 60px; height: 60px; border-radius: 18px; font-size: 30px; }
+.kachel.rund { border-radius: 50%; }
+.kachel.app {
+  color: #fff;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.28), transparent 60%),
+    linear-gradient(180deg, hsl(var(--h, 230) 82% 62%), hsl(calc(var(--h, 230) + 8) 78% 44%));
+  box-shadow:
+    inset 0 0 0 0.5px rgb(255 255 255 / 0.28),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12),
+    0 1px 1.5px rgb(0 0 0 / 0.18),
+    0 8px 16px -8px rgb(0 0 0 / 0.5);
+}
+.kachel.app :where(.ico) { stroke-width: 1.9; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22)); }
+
+/* ── 4. Knöpfe: Pillen aus Glas; .haupt = Hauptaktion, .leise = ohne Fläche, .gefahr = Wirkung auf Bestehendes ── */
+:where(button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-voll);
+  background: var(--flaeche);
+  box-shadow: var(--shadow-hairline);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--tempo), border-color var(--tempo), color var(--tempo),
+    box-shadow var(--tempo), opacity var(--tempo), transform 0.12s;
+}
+:where(button) > .ico { font-size: 16px; }
+:where(button):hover:not(:disabled) {
+  background: var(--flaeche-2);
+  border-color: color-mix(in oklab, var(--akz) 45%, var(--line-2));
+}
+:where(button):active:not(:disabled) { transform: scale(0.97); }
+:where(button):disabled { opacity: 0.45; cursor: not-allowed; }
+.voll,
+.haupt {
+  border-color: transparent;
+  background: var(--akz);
+  color: var(--deck);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 8px 20px -10px color-mix(in oklab, var(--akz) 75%, transparent),
+    inset 0 1px 0 color-mix(in oklab, #ffffff 22%, transparent);
+}
+.voll:hover:not(:disabled),
+.haupt:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--akz) 88%, var(--fg));
+  border-color: transparent;
+}
+.zweit,
+.leise { background: transparent; box-shadow: none; }
+.leise { border-color: transparent; color: var(--mut); }
+.leise:hover:not(:disabled) { color: var(--fg); background: color-mix(in oklab, var(--fg) 7%, transparent); border-color: transparent; }
+.nein,
+.gefahr {
+  color: var(--schlecht);
+  border-color: color-mix(in oklab, var(--schlecht) 38%, transparent);
+  background: color-mix(in oklab, var(--schlecht) 7%, transparent);
+}
+.nein:hover:not(:disabled),
+.gefahr:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--schlecht) 65%, transparent);
+  background: color-mix(in oklab, var(--schlecht) 13%, transparent);
+}
+.gefahr.voll { background: var(--schlecht); color: #fff; border-color: transparent; }
+.klein { min-height: 30px; padding: 0 12px; font-size: 12.5px; gap: 5px; }
+.klein > .ico { font-size: 14px; }
+.link {
+  min-height: 30px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--akz);
+}
+.link:hover:not(:disabled) { background: none; border-color: transparent; text-decoration: underline; }
+/* Runder Symbolknopf (Aktualisieren): das Symbol dreht sich, solange der Knopf gesperrt ist. */
+.rund {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+.rund > .ico { font-size: 17px; }
+.drehen:disabled { opacity: 0.8; cursor: progress; }
+.drehen:disabled .ico { animation: fy-dreh 0.9s linear infinite; }
+/* Knopfreihe: App.knoepfe(…) / App.bestaetigung(…) bauen sie samt „beschäftigt“-Zustand (Symbol dreht, Knöpfe gesperrt). */
+.knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.knoepfe > .rechts { margin-left: auto; }
+/* Reiter: Gruppe aneinanderhängender Knöpfe. Als Tab-Leiste (role="tablist") oder mit .voll füllt sie die ganze Breite, jeder Reiter
+   gleich viel Platz; wird es am Handy zu eng, läuft die Leiste seitlich über (die Brücke holt den Gewählten ins Bild).
+   Als Segment in einer Zeile oder neben einer Überschrift (role="group"/"radiogroup") bleibt sie so breit wie ihr Inhalt;
+   .kompakt erzwingt das auch für eine Tab-Leiste. */
+.reiter {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 2px;
+  padding: 3px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  border: 1px solid var(--line);
+  border-radius: var(--r-voll);
+  background: var(--flaeche);
+  scrollbar-width: none;
+}
+.reiter::-webkit-scrollbar { display: none; }
+.reiter[role="tablist"]:not(.kompakt),
+.reiter.voll { display: flex; width: 100%; }
+.reiter[role="tablist"]:not(.kompakt) > button,
+.reiter.voll > button { flex: 1 0 0; min-width: max-content; }
+.reiter button {
+  min-height: 30px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--mut);
+}
+.reiter button:hover:not(:disabled) { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); }
+.reiter button.an,
+.reiter button[aria-selected="true"] {
+  background: var(--flaeche-2);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm), var(--shadow-hairline);
+}
+/* Chip: Pille zum Antippen (Filter, Szenen) */
+.chip {
+  min-height: 32px;
+  padding: 0 13px;
+  border-color: var(--line-2);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+}
+.chip.an,
+.chip[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--akz) 60%, transparent);
+  background: color-mix(in oklab, var(--akz) 16%, transparent);
+  color: var(--fg);
+}
+
+/* ── 5. Eingaben ───────────────────────────────────────────────────────────────────────────── */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+  min-height: 38px;
+  min-width: 0;
+  padding: 0 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--flaeche);
+  box-shadow: var(--shadow-hairline);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  transition: border-color var(--tempo), box-shadow var(--tempo), background-color var(--tempo);
+}
+:where(textarea) { padding: 9px 14px; line-height: 1.5; resize: vertical; }
+:where(input, select, textarea)::placeholder { color: var(--leise); opacity: 1; }
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):hover { border-color: var(--line-3); }
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus,
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus-visible {
+  outline: none;
+  border-color: color-mix(in oklab, var(--neon) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--neon) 20%, transparent);
+  /* nur die Farbe: die Kurzschreibweise `background` würde den Pfeil der Auswahl und die Lupe der Suche löschen */
+  background-color: var(--flaeche-2);
+}
+:where(input, select, textarea):disabled { opacity: 0.5; cursor: not-allowed; }
+:where(select) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%23a3adbb' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+}
+:where(select) option { background: var(--deck); color: var(--fg); }
+:where(input[type="search"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-left: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='7' cy='7' r='4.6' fill='none' stroke='%23a3adbb' stroke-width='1.5'/%3E%3Cpath d='m10.5 10.5 3 3' stroke='%23a3adbb' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 13px center;
+  background-size: 15px;
+}
+:where(input[type="search"])::-webkit-search-cancel-button { -webkit-appearance: none; }
+:where(input[type="number"]) { font-variant-numeric: tabular-nums; }
+/* Häkchen */
+:where(input[type="checkbox"]:not([role="switch"])) {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1.5px solid var(--line-3);
+  border-radius: 6px;
+  background: var(--flaeche);
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: background-color var(--tempo), border-color var(--tempo);
+}
+:where(input[type="checkbox"]:not([role="switch"]))::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border: solid var(--deck);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg) scale(0);
+  transition: transform 0.15s var(--kurve);
+}
+:where(input[type="checkbox"]:not([role="switch"])):checked { background: var(--akz); border-color: var(--akz); }
+:where(input[type="checkbox"]:not([role="switch"])):checked::after { transform: rotate(-45deg) scale(1); }
+:where(input[type="checkbox"]):focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+/* Kippschalter: <button class="kipp" role="switch" aria-checked> und <input type="checkbox" role="switch"> */
+.kipp,
+input[type="checkbox"][role="switch"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 46px;
+  min-width: 46px;
+  height: 28px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-voll);
+  background: color-mix(in oklab, var(--fg) 14%, transparent);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.18);
+  cursor: pointer;
+  transition: background-color 0.22s var(--kurve), border-color 0.22s, box-shadow 0.22s, opacity 0.2s;
+}
+.kipp::after,
+input[type="checkbox"][role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f5f7fa;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+  transition: transform 0.24s var(--kurve);
+}
+.kipp[aria-checked="true"],
+input[type="checkbox"][role="switch"]:checked {
+  border-color: transparent;
+  background: var(--gut);
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 0.18);
+}
+.kipp[aria-checked="true"]::after,
+input[type="checkbox"][role="switch"]:checked::after { transform: translateX(18px); background: #ffffff; }
+.kipp:hover:not(:disabled),
+input[type="checkbox"][role="switch"]:hover:not(:disabled) { border-color: var(--line-3); }
+.kipp:active:not(:disabled)::after,
+input[type="checkbox"][role="switch"]:active:not(:disabled)::after { width: 24px; }
+.kipp[aria-checked="true"]:active:not(:disabled)::after,
+input[type="checkbox"][role="switch"]:checked:active:not(:disabled)::after { transform: translateX(14px); }
+.kipp:disabled,
+input[type="checkbox"][role="switch"]:disabled { opacity: 0.4; cursor: not-allowed; }
+.kipp.laeuft { opacity: 0.6; cursor: progress; animation: fy-puls 1.1s ease-in-out infinite; }
+.kipp:focus-visible,
+input[type="checkbox"][role="switch"]:focus-visible { outline: 2px solid var(--neon); outline-offset: 3px; border-radius: var(--r-voll); }
+/* Beschriftung neben einem Häkchen */
+label.wahl,
+.wahl {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  font-size: 13.5px;
+  color: var(--mut);
+  cursor: pointer;
+  user-select: none;
+}
+.feld { display: grid; gap: 6px; font-size: 12.5px; font-weight: var(--font-weight-medium); color: var(--mut); }
+.feld :where(input, select, textarea) { width: 100%; color: var(--fg); font-weight: var(--font-weight-normal); }
+/* Werkzeugleiste: Suche, Auswahl, Häkchen in einer Reihe */
+.leiste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.leiste > :where(input[type="search"], input[type="text"]) { flex: 1 1 200px; }
+
+/* ── 6. Kopf und Abschnitte ────────────────────────────────────────────────────────────────── */
+/* Kopf: die Kopf-Marke der App wird zu Kachel, Titel, Zustandssatz und Aktionen (_oberflaeche.py).
+   In der Shell zeigt das Fenster Symbol und Titel selbst — dort bleiben nur Zustandssatz und Aktionen. */
+.kopf {
+  display: flex;
+  align-items: center;
+  gap: 12px 14px;
+  margin-bottom: 20px;
+}
+.kopf .kachel.app { width: 46px; height: 46px; border-radius: 13px; font-size: 24px; }
+.kopf-text { min-width: 0; flex: 1 1 auto; }
+.kopf h1 { overflow-wrap: anywhere; }
+.kopf-satz {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--mut);
+  overflow-wrap: anywhere;
+}
+.kopf-satz .punkt { align-self: center; }
+.aktionen { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: none; margin-left: auto; }
+.aktionen:empty { display: none; }
+/* Kennung (Kachel + Titel): nur außerhalb von FYOS sichtbar — im OS zeigt das Fenster beides. Bis der Host
+   geantwortet hat (data-host fehlt), bleibt der Kopf unsichtbar, damit beim Umschalten nichts springt. */
+.kopf .kachel.app,
+.kopf h1 { display: none; }
+html[data-host="fremd"] .kopf .kachel.app { display: inline-flex; }
+html[data-host="fremd"] .kopf h1 { display: block; }
+html:not([data-host]) .kopf { opacity: 0; }
+.kopf { transition: opacity 0.2s; }
+html:not([data-host="fremd"]) .kopf { margin-bottom: 16px; }
+html:not([data-host="fremd"]) .kopf-satz { margin-top: 0; font-size: 14px; }
+
+/* Abschnitt: Überschrift mit Symbol und Zahl, darunter Gruppen oder Karten */
+.abschnitt { margin-top: 26px; }
+.abschnitt:first-child,
+.kopf + .abschnitt { margin-top: 0; }
+:where(h2) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 26px 0 10px;
+  padding: 0 2px;
+  font-family: var(--schrift);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  color: var(--mut);
+}
+:where(h2) > .ico { font-size: 15px; color: var(--leise); }
+.abschnitt > :where(h2) { margin-top: 0; }
+:where(h2) :where(.mut, .info) {
+  font-family: var(--schrift);
+  font-size: 12px;
+  font-weight: var(--font-weight-normal);
+  color: var(--leise);
+}
+:where(h2) .anzahl {
+  min-width: 20px;
+  padding: 0 7px;
+  border-radius: var(--r-voll);
+  background: color-mix(in oklab, var(--fg) 8%, transparent);
+  font-size: 11.5px;
+  font-weight: var(--font-weight-medium);
+  line-height: 19px;
+  text-align: center;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+:where(h2) .rechts { margin-left: auto; font-weight: var(--font-weight-normal); }
+:where(h3).klein { font-size: 13px; color: var(--mut); }
+.stapel { display: grid; gap: var(--abstand); }
+.raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--abstand);
+  align-items: start;
+}
+
+/* ── 7. Gruppen und Zeilen ─────────────────────────────────────────────────────────────────── */
+/* Karte: helles/dunkles Glas auf dem Grund. Gruppe: Karte ohne Innenabstand, darin Zeilen mit feiner Trennung. */
+.karte,
+.gruppe {
+  min-width: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  background: var(--flaeche);
+  box-shadow: var(--shadow-hairline);
+}
+.karte { padding: 16px 18px; }
+/* Karte = Container (Breite): Inhalt richtet sich nach der Karte, nicht nach dem Fenster. Die Karte nimmt ihre Breite von außen
+   (Block, Grid-Spalte, Flex mit eigener Breite) — ihr Inhalt macht sie nicht breiter. Eigene Regeln einer App dürfen
+   `@container (max-width: …)` benutzen (gemeint ist die nächste Karte) oder `@container karte (…)`. */
+.karte { container: karte / inline-size; } /* die Regeln für schmale Karten stehen unten in 11 */
+.karte > :where(h2):first-child { margin-top: 0; }
+.gruppe { overflow: hidden; }
+.zeilen { list-style: none; margin: 0; padding: 0; }
+.zeilen > * + *,
+.gruppe > .zeile + .zeile,
+.gruppe > * + .zeile,
+.zeile + .zeile { border-top: 1px solid var(--line); }
+/* Zeile: [Kachel] Titel + Unterzeile … Wert/Schalter. Als <button class="zeile"> oder <a class="zeile"> antippbar. */
+.zeile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 10px 14px;
+  min-width: 0;
+}
+.zeile.oben { align-items: flex-start; }
+.zeile > .kachel { align-self: flex-start; margin-top: 1px; }
+.zeile.mitte > .kachel { align-self: center; margin-top: 0; }
+.zeile-text { min-width: 0; flex: 1 1 auto; }
+.zeile-titel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 14.5px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.zeile-unter {
+  display: block;
+  margin-top: 1px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--mut);
+  overflow-wrap: anywhere;
+}
+.zeile-unter.gut { color: var(--gut); }
+.zeile-unter.warn { color: var(--warn); }
+.zeile-unter.schlecht { color: var(--schlecht); font-weight: var(--font-weight-medium); }
+.zeile-ende {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+button.zeile,
+a.zeile {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  text-decoration: none;
+  white-space: normal;
+  justify-content: flex-start;
+}
+button.zeile:hover:not(:disabled),
+a.zeile:hover { background: color-mix(in oklab, var(--fg) 5%, transparent); border-color: transparent; text-decoration: none; }
+button.zeile:active:not(:disabled) { transform: none; background: color-mix(in oklab, var(--fg) 8%, transparent); }
+/* Die Gruppe beschneidet ihren Inhalt: der Fokusring einer Zeile liegt deshalb innen, sonst fehlt er an Rand und Ecken */
+.gruppe > button.zeile:focus-visible,
+.gruppe > a.zeile:focus-visible { outline-offset: -2px; }
+.zeile.an { background: color-mix(in oklab, var(--akz) 11%, transparent); }
+.zeile > .weiter { flex: none; margin-left: auto; font-size: 16px; color: var(--leise); }
+.zeile .zeile-ende .weiter { font-size: 16px; color: var(--leise); }
+/* Aufklappbare Zeile: `button.zeile[aria-expanded]` mit einem Pfeil „chevron-right“ (class="weiter") — er dreht sich nach unten,
+   sobald die Zeile offen ist (App.aufklappen(zeile, true) oder aria-expanded="true"). Kein Symbolwechsel nötig. */
+.zeile[aria-expanded] .weiter { transition: transform var(--tempo) var(--kurve); }
+.zeile[aria-expanded="true"] .weiter { transform: rotate(90deg); }
+/* Tippkarte: eine Zeile als eigene Karte (Szenen, Auswahl). Gleiche Teile wie .zeile: Kachel, .zeile-text, .zeile-ende. */
+button.tippkarte,
+a.tippkarte {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 11px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 9px 14px 9px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-m);
+  background: var(--flaeche);
+  box-shadow: var(--shadow-hairline);
+  color: var(--fg);
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  text-decoration: none;
+  white-space: normal;
+}
+button.tippkarte:hover:not(:disabled),
+a.tippkarte:hover { background: var(--flaeche-2); border-color: color-mix(in oklab, var(--akz) 40%, var(--line-2)); text-decoration: none; }
+button.tippkarte:active:not(:disabled) { transform: scale(0.98); }
+.tippkarte.an { border-color: color-mix(in oklab, var(--akz) 55%, transparent); background: color-mix(in oklab, var(--akz) 12%, var(--flaeche)); }
+
+/* ── 8. Zahlen, Balken, Marken ─────────────────────────────────────────────────────────────── */
+/* Zahlen: groß, ruhig, gleich breit */
+.kennzahlen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
+  gap: 12px;
+}
+.kennzahl {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px 15px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  background: var(--flaeche);
+  box-shadow: var(--shadow-hairline);
+}
+.augenbraue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--schrift);
+  font-size: 12.5px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  color: var(--mut);
+}
+.augenbraue > .ico { font-size: 15px; color: var(--leise); }
+.zahl-gross {
+  font-size: var(--font-heading-2xl-size);
+  line-height: 1.05;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.028em;
+  font-variant-numeric: tabular-nums;
+}
+.zahl-gross small { margin-left: 3px; font-size: 0.48em; font-weight: var(--font-weight-medium); letter-spacing: 0; color: var(--mut); }
+.zahl-gross.gut { color: var(--gut); }
+.zahl-gross.warn { color: var(--warn); }
+.zahl-gross.schlecht { color: var(--schlecht); }
+.zahl-unter { font-size: 12.5px; line-height: 1.4; color: var(--mut); }
+.tab { font-variant-numeric: tabular-nums; }
+/* Relative Zeit (App.zeit.stempel): „vor 5 Min.“, die volle Zeit steht im title */
+time.zeit { font-variant-numeric: tabular-nums; white-space: nowrap; }
+time.zeit:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+/* Frische (App.frische): wie alt sind die Daten dieses Panels? Ab der Schwelle steht „veraltet“ dabei — als Text, nie nur als Farbe. */
+.frische { font-size: 12px; line-height: 1.4; color: var(--mut); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.frische.veraltet { color: var(--warn); font-weight: var(--font-weight-semibold); }
+time.frische:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+
+/* Balken: Auslastung, Rangfolge. Die Füllung folgt der Bedeutung. */
+.balken {
+  --b: var(--akz);
+  position: relative;
+  height: 7px;
+  overflow: hidden;
+  border-radius: var(--r-voll);
+  background: color-mix(in oklab, var(--fg) 11%, transparent);
+}
+.balken > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  width: var(--w, 0%);
+  min-width: 3px;
+  border-radius: inherit;
+  background: var(--b);
+  transition: width 0.5s var(--kurve);
+}
+.balken.gut { --b: var(--gut); }
+.balken.warn { --b: var(--warn); }
+.balken.schlecht { --b: var(--schlecht); }
+.balken.gross { height: 10px; }
+
+/* Statuspunkt mit leisem Schein */
+.punkt {
+  --p: var(--leise);
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--p);
+}
+.punkt:is(.gut, .gruen, .ja, .an, .frei, .laeuft) { --p: var(--gut); }
+.punkt:is(.warn, .gelb, .fenster, .wartet) { --p: var(--warn); }
+.punkt:is(.schlecht, .rot, .nein, .gestoert) { --p: var(--schlecht); }
+.punkt:is(.akz, .blau, .info) { --p: var(--akz); }
+.punkt:is(.gut, .gruen, .ja, .an, .frei, .laeuft, .warn, .gelb, .fenster, .wartet, .schlecht, .rot, .nein, .gestoert, .akz, .blau, .info) {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--p) 16%, transparent);
+}
+.punkt.weg { background: transparent; border: 1.5px dashed var(--schlecht); box-shadow: none; }
+.punkt.gross { width: 12px; height: 12px; }
+
+/* Marke: kleine getönte Pille, auf Wunsch mit Symbol */
+.marke {
+  --m: var(--mut);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 21px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-voll);
+  background: color-mix(in oklab, var(--fg) 7%, transparent);
+  color: var(--m);
+  font-size: 11.5px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.marke > .ico { font-size: 13px; }
+.marke:is(.gut, .gruen, .lesen) { --m: var(--gut); }
+.marke:is(.warn, .gelb, .schreiben, .system) { --m: var(--warn); }
+.marke:is(.schlecht, .rot, .loeschen, .gesperrt) { --m: var(--schlecht); }
+.marke:is(.akz, .blau, .info) { --m: var(--akz); }
+.marke:is(.gut, .gruen, .lesen, .warn, .gelb, .schreiben, .system, .schlecht, .rot, .loeschen, .gesperrt, .akz, .blau, .info) {
+  background: color-mix(in oklab, var(--m) 14%, transparent);
+  border-color: color-mix(in oklab, var(--m) 24%, transparent);
+}
+
+/* Schlüssel/Wert */
+dl.kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 7px 16px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+dl.kv dt { color: var(--mut); }
+dl.kv dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 420px) {
+  dl.kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  dl.kv dd { margin-bottom: 8px; }
+}
+
+/* Aufklapper */
+details > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  list-style: none;
+  color: var(--akz);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  user-select: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin: 0 2px 2px 1px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg);
+  transition: transform var(--tempo) var(--kurve);
+}
+details[open] > summary::before { transform: rotate(45deg); margin-bottom: 4px; }
+/* Aufklappbarer Bereich (App.aufklapper): Überschrift wie ein Abschnitt, Symbol und Zahl vorn, der Pfeil rechts. */
+details.sektion > summary {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 2px;
+  color: var(--mut);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+}
+details.sektion > summary::before { content: none; }
+details.sektion > summary::after {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 4px 3px auto;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  transition: transform var(--tempo) var(--kurve);
+}
+details.sektion[open] > summary::after { margin-bottom: -2px; transform: rotate(-135deg); }
+details.sektion > summary > .ico { font-size: 15px; color: var(--leise); }
+details.sektion > summary > .anzahl {
+  min-width: 20px;
+  padding: 0 7px;
+  border-radius: var(--r-voll);
+  background: color-mix(in oklab, var(--fg) 8%, transparent);
+  font-size: 11.5px;
+  font-weight: var(--font-weight-medium);
+  line-height: 19px;
+  text-align: center;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+details.sektion > summary > .rechts { margin-left: auto; font-size: 12px; font-weight: var(--font-weight-normal); color: var(--leise); }
+details.sektion > summary:has(> .rechts)::after { margin-left: 4px; }
+details.sektion > summary:hover { color: var(--fg); }
+details.sektion[open] > summary { margin-bottom: 10px; }
+/* Fußnote unter einer Gruppe */
+.fussnote { margin: 10px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--mut); }
+.fussnote .ico { margin-right: 5px; color: var(--leise); }
+
+/* ── 9. Rückmeldung: Lage-Satz, Hinweis, Zustand, Laden ───────────────────────────────────── */
+/* Lage-Satz: der eine Satz, der sagt, wie es steht — mit Symbol statt Punkt. */
+.satz {
+  --s: var(--leise);
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-l);
+  background: var(--flaeche);
+  box-shadow: var(--shadow-hairline);
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.satz > .kachel { align-self: flex-start; }
+.satz > .punkt { align-self: flex-start; margin-top: 7px; }
+.satz-text { min-width: 0; flex: 1 1 auto; }
+.satz-text > .zeile-unter { font-weight: var(--font-weight-normal); }
+.satz.gut { --s: var(--gut); background: linear-gradient(120deg, color-mix(in oklab, var(--gut) 12%, transparent), var(--flaeche) 64%); border-color: color-mix(in oklab, var(--gut) 28%, var(--line-2)); }
+.satz.warn { --s: var(--warn); background: linear-gradient(120deg, color-mix(in oklab, var(--warn) 13%, transparent), var(--flaeche) 64%); border-color: color-mix(in oklab, var(--warn) 30%, var(--line-2)); }
+.satz.schlecht { --s: var(--schlecht); background: linear-gradient(120deg, color-mix(in oklab, var(--schlecht) 13%, transparent), var(--flaeche) 64%); border-color: color-mix(in oklab, var(--schlecht) 32%, var(--line-2)); }
+.satz.akz { --s: var(--akz); background: linear-gradient(120deg, color-mix(in oklab, var(--akz) 12%, transparent), var(--flaeche) 64%); border-color: color-mix(in oklab, var(--akz) 30%, var(--line-2)); }
+
+/* Hinweis-Kasten mit Symbol */
+.hinweis {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border-warning);
+  border-radius: var(--r-m);
+  background: var(--color-background-warning);
+  font-size: 13.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.hinweis > .ico { margin-top: 2px; font-size: 16px; color: var(--warn); }
+.hinweis.fehler { border-color: var(--color-border-danger); background: var(--color-background-danger); color: var(--fg); }
+.hinweis.fehler > .ico { color: var(--schlecht); }
+.hinweis.info { border-color: var(--color-border-info); background: var(--color-background-info); }
+.hinweis.info > .ico { color: var(--akz); }
+.hinweis.gut { border-color: var(--color-border-success); background: var(--color-background-success); }
+.hinweis.gut > .ico { color: var(--gut); }
+
+/* Anfrage statt Aktion (App.beantragen): Plan als Hinweis, darunter „Ja“ und „Abbrechen“. Wirkungen = was sich dabei ändern würde. */
+.antrag { display: grid; gap: 10px; margin: 0 0 14px; }
+.antrag > .knoepfe { margin: 0; }
+.wirkungen { display: grid; gap: 2px; margin-top: 4px; font-size: 12.5px; color: var(--mut); }
+.wirkungen > span::before { content: "· "; }
+
+/* Zustand: leer, Fehler, nicht erreichbar — Symbol, Überschrift, ein Satz, ein Weg weiter. Nie eine leere Fläche. */
+.zustand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 34px 20px 30px;
+  text-align: center;
+}
+.zustand > .kachel { margin-bottom: 10px; }
+.zustand h3 { margin: 0; font-size: 16px; }
+.zustand p { max-width: 38ch; font-size: 13.5px; line-height: 1.5; color: var(--mut); }
+.zustand .knoepfe { margin-top: 12px; justify-content: center; }
+.zustand.klein { padding: 22px 16px 20px; }
+
+/* Laden: ruhiger Platzhalter, damit nichts springt. */
+.laedt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 6px;
+  color: var(--mut);
+  font-size: 13.5px;
+}
+.laedt::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid color-mix(in oklab, var(--neon) 30%, transparent);
+  border-top-color: var(--neon);
+  border-radius: 50%;
+  animation: fy-dreh 0.8s linear infinite;
+}
+.laedt.gross { justify-content: center; padding: 56px 6px; }
+.skelett {
+  display: block;
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--fg) 7%, transparent) 25%, color-mix(in oklab, var(--fg) 13%, transparent) 50%, color-mix(in oklab, var(--fg) 7%, transparent) 75%) 100% 0 / 200% 100%;
+  animation: fy-schimmer 1.3s linear infinite;
+}
+
+/* ── 10. Tabellen und Text ─────────────────────────────────────────────────────────────────── */
+.tabwrap { overflow: auto; border: 1px solid var(--line-2); border-radius: var(--r-l); background: var(--flaeche); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th,
+td { padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+tr:last-child > td { border-bottom: 0; }
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in oklab, var(--deck) 84%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--mut);
+  white-space: nowrap;
+}
+th.zahl,
+td.zahl { text-align: right; }
+tbody tr:hover > td,
+tr:hover > td { background: color-mix(in oklab, var(--fg) 3%, transparent); }
+
+.mut { color: var(--mut); font-size: 12.5px; }
+.leise { color: var(--leise); }
+.ok { color: var(--gut); }
+.fehler { color: var(--schlecht); overflow-wrap: anywhere; }
+.warnung { color: var(--warn); }
+.fett { font-weight: var(--font-weight-semibold); }
+.leer {
+  padding: 28px 8px;
+  color: var(--mut);
+  font-size: 13.5px;
+  text-align: center;
+}
+.klein-text { font-size: 12.5px; }
+.nur-lesen { /* sichtbar nur für Screenreader */
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.fuss { margin-top: 22px; text-align: center; font-size: 12px; color: var(--leise); }
+
+/* ── 11. Schmal (Handy, schmales Fenster) und Berührung ────────────────────────────────────── */
+@media (max-width: 480px) {
+  body { padding: 16px 14px 24px; }
+  :where(h1) { font-size: 21px; }
+  .kopf { gap: 10px 12px; }
+  /* Aktionen im Kopf: Knöpfe mit Symbol verlieren die Beschriftung und werden rund (der Titel steht im title-Attribut). */
+  .aktionen .knopf-sym { width: 36px; min-width: 36px; padding: 0; }
+  .aktionen .knopf-sym .beschriftung { display: none; }
+  .kopf .kachel.app { width: 42px; height: 42px; font-size: 22px; }
+  .karte { padding: 14px 15px; border-radius: var(--r-m); }
+  .gruppe,
+  .satz,
+  .kennzahl { border-radius: var(--r-m); }
+  .satz { padding: 13px 14px; }
+  .zeile { padding: 10px 12px; gap: 11px; }
+  .zahl-gross { font-size: 30px; }
+  .zustand { padding: 28px 12px 24px; }
+}
+/* Schmale Karte (Container „karte“, siehe 7): der Inhalt bricht in der Karte um, auch wenn das Fenster breit ist (Spalten, Raster). */
+@container karte (max-width: 380px) {
+  dl.kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  dl.kv dd { margin-bottom: 8px; }
+  .knoepfe > button { flex: 1 1 auto; }
+  .knoepfe > .rechts { margin-left: 0; }
+}
+@media (pointer: coarse) {
+  :where(button) { min-height: 42px; }
+  .klein,
+  .chip { min-height: 38px; }
+  .rund { width: 42px; min-width: 42px; height: 42px; }
+  .zeile { min-height: 58px; }
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select) { min-height: 42px; font-size: 16px; }
+}
+/* Handy-Ziele : Knöpfe, Chips, Reiter und Aufklapper mindestens 40 px hoch, am Touchgerät ODER bei schmaler Breite.
+ * !important, weil die Apps ihre Chips/Knöpfe im eigenen <style> mit 26–32 px setzen. Kompakte Kacheln (Dock, Widget) bleiben dicht. */
+@media (pointer: coarse), (max-width: 600px) {
+  html:not([data-stufe="kompakt"]):not([data-stufe="blick"]) :is(button:not(.zeile):not(.tippkarte), summary, .reiter button, [role="tab"],
+      select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"])) {
+    min-height: 40px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after { animation: none !important; transition: none !important; }
+}
+
+/* ── 12. Größenstufen des Rahmens ──────────────────────────────────────────────────────────────
+ * Ändert sich die Kachelgröße, soll sich auch der Inhalt anpassen. Die Brücke setzt data-stufe
+ * aus hostContext.containerDimensions (_bruecke.js, stufeAus): blick und kompakt nur in einem Rahmen mit fester Höhe
+ * (OS-Fenster, Kachel), weit ab 1100 px Breite. Wie ein Widget am Mac: klein zeigt das Wichtigste dicht, groß bleibt lesbar. */
+
+/* weit: der Inhalt steht in lesbarer Breite in der Mitte. Apps, die die Breite brauchen (Bühne, drei Spalten), tragen <body data-breite="voll">. */
+html[data-stufe="weit"] body:not([data-breite="voll"]) { padding-inline: max(26px, calc((100vw - 1180px) / 2)); }
+html[data-stufe="weit"] .raster { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+html[data-stufe="weit"] .zahl-gross { font-size: calc(var(--font-heading-2xl-size) * 1.12); }
+
+/* kompakt (und blick): enger, kleiner, nichts fällt weg */
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) { --abstand: 10px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) body { padding: 12px 14px 16px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .kopf { gap: 8px 10px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]):not([data-host="fremd"]) .kopf { margin-bottom: 10px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]):not([data-host="fremd"]) .kopf-satz { font-size: 13px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .aktionen { gap: 6px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .aktionen .knopf-sym { width: 34px; min-width: 34px; min-height: 34px; padding: 0; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .aktionen .knopf-sym .beschriftung { display: none; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .aktionen .rund { width: 34px; min-width: 34px; height: 34px; min-height: 34px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .abschnitt { margin-top: 16px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) :where(h2) { margin: 16px 0 8px; font-size: 12.5px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .karte { padding: 12px 14px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .satz { gap: 10px; padding: 10px 13px; font-size: 14px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .hinweis { padding: 8px 11px; font-size: 13px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .zeile { gap: 10px; min-height: 46px; padding: 8px 12px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .kennzahlen { gap: 8px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .kennzahl { gap: 4px; padding: 10px 12px 11px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .zahl-gross { font-size: clamp(22px, 8vw, 30px); }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .zustand { gap: 4px; padding: 18px 12px 16px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .zustand > .kachel { margin-bottom: 4px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .zustand .knoepfe { margin-top: 8px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .laedt.gross { padding: 24px 6px; }
+html:is([data-stufe="kompakt"], [data-stufe="blick"]) .fuss { margin-top: 12px; }
+
+/* blick: nur das Wichtigste — erklärende Sätze, Fußzeilen und Ränder fallen weg, Zustände werden eine Zeile hoch */
+html[data-stufe="blick"] body { padding: 10px 12px 12px; }
+html[data-stufe="blick"] :where(h2) { margin: 12px 0 6px; }
+html[data-stufe="blick"] .zustand { flex-direction: row; justify-content: center; gap: 10px; padding: 10px 8px; text-align: left; }
+html[data-stufe="blick"] .zustand > .kachel { width: 34px; height: 34px; margin: 0; border-radius: 10px; font-size: 18px; }
+html[data-stufe="blick"] .zustand h3 { font-size: 14.5px; }
+html[data-stufe="blick"] :is(.zustand p, .fuss, .blick-weg) { display: none; }
+html[data-stufe="blick"] .zustand .knoepfe { margin-top: 0; }
+html[data-stufe="blick"] .zeile { min-height: 42px; padding: 7px 11px; }
+html[data-stufe="blick"] .zeile-unter { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-stufe="blick"] .satz { padding: 9px 12px; font-size: 13.5px; }
+html[data-stufe="blick"] .satz > .kachel { width: 30px; height: 30px; border-radius: 9px; font-size: 16px; }
+
+/* ── 13. Eine Scrollebene in der Shell ─────────────────────────────────────────────────────────────
+ * Apps sollen nicht selbst scrollen müssen. In der Shell bestimmt die App
+ * im freien Rahmen ihre Höhe selbst (size-changed), das OS-Fenster wächst mit, und nur die Fläche scrollt. Darum:
+ * kein eigener Bildlauf im Dokument, das Mausrad geht an die Fläche weiter (overscroll-behavior: contain oben hielt
+ * es fest), und lange Listen werden nicht mehr auf eine Höhe gekappt (Apps heben ihre eigenen Kappen mit demselben
+ * Wähler auf). Protokolle (pre) und kurze Textkästen bleiben eigene Kästen. Im festen Rahmen (Kachel) und bei
+ * fremden Hosts gilt alles wie bisher. */
+html[data-host="fyos"][data-rahmen="frei"] { overflow: hidden; overscroll-behavior: auto; }
+html[data-host="fyos"][data-rahmen="frei"] .tabwrap { max-height: none; }
+/* Klebende Leisten (Reiter, Suche, Zeitraum): `data-klebt` an einem Element, dessen Eltern den langen Inhalt umfassen.
+   --blick-oben meldet der Host (fyos/sichtbar, _bruecke.js); Tabellenköpfe in .tabwrap schiebt die Brücke selbst. */
+html[data-host="fyos"][data-rahmen="frei"] [data-klebt] {
+  position: sticky;
+  top: var(--blick-oben, 0px);
+  z-index: 5;
+  background: color-mix(in oklab, var(--deck) 90%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}

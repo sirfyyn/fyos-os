@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Beispiel-App</title>
+<desc id="d">Ein kleines Fenster mit einer Eingabe, einem Knopf und einer Antwortzeile; daneben ein Baukasten-Hinweis, dass Plugins eigene Oberflächen liefern.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="60" y="70" width="320" height="230" rx="10"/>
+<rect class="ln" x="60" y="70" width="320" height="230" rx="10"/>
+<rect class="bar" x="61" y="71" width="318" height="28" rx="9"/>
+<text class="ink" x="148" y="90">Beispiel-App</text>
+<text class="mut" x="82" y="130">Sag etwas, die App ruft ein Werkzeug auf.</text>
+<rect class="bar" x="82" y="148" width="190" height="32" rx="8"/>
+<text class="ink" x="96" y="169">Hallo FYOS</text>
+<rect class="acc" x="284" y="148" width="76" height="32" rx="8"/>
+<text class="fl" x="300" y="169" font-weight="700">Senden</text>
+<rect class="bar" x="82" y="204" width="278" height="64" rx="8"/>
+<text class="mut" x="96" y="230">Antwort des Werkzeugs:</text>
+<text class="ink" x="96" y="254" font-weight="700">Hallo FYOS</text>
+<path class="ln" d="M380 185h60"/><path class="ln" d="M432 178l8 7-8 7"/>
+<rect class="wrm" x="450" y="130" width="140" height="110" rx="10"/>
+<text class="fl" x="476" y="170" font-weight="700">Plugin</text>
+<text class="fl" x="470" y="194">liefert Werkzeug</text>
+<text class="fl" x="470" y="214">und Oberfläche</text>
+<text class="mut" x="60" y="340">Vorlage für eigene Plugins</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

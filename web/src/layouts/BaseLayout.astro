@@ -1,0 +1,104 @@
+---
+/**
+ * BaseLayout — das schlanke Gerüst aller Seiten der Shell.
+ *
+ * - Thema (hell/dunkel) wird vor dem ersten Bild gesetzt, damit nichts aufblitzt.
+ * - `bare` (die Shell selbst): `html.fyos-bare`, die Seite füllt das Fenster.
+ * - Läuft die Seite in einem iframe (Fläche im OS-Fenster), trägt <html> die Klasse `fyos-embedded`;
+ *   Trackpad-Gesten und Kürzel des OS gehen dann an die Shell weiter (postMessage), sonst enden sie im Rahmen.
+ */
+import '~/styles/global.css';
+import { ToastRegion } from '~/components/ui/Toast';
+import SitzungsBanner from '~/components/ui/SitzungsBanner';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Ohne Rand und Gerüst: die Shell füllt das Fenster */
+  bare?: boolean;
+}
+
+const systemName = (import.meta.env.PUBLIC_FYOS_NAME as string | undefined)?.trim() || 'FYOS';
+const { title = systemName, description = `${systemName} — das eigene System im Browser`, bare = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="de" data-theme="dark" class:list={[{ 'fyos-bare': bare }]}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="theme-color" content="#1c1815" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content={systemName} />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content={systemName} />
+    <title>{title}</title>
+    <script is:inline>
+      // Gespeichertes Thema vor der Darstellung setzen (kein Aufblitzen).
+      try {
+        const t = localStorage.getItem('fyos-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch (_) { /* Vorgaben gelten */ }
+    </script>
+  </head>
+  <body class="flex h-screen flex-col">
+    <script is:inline>
+      // Fläche im Fenster des OS: Farben der Kulisse übernehmen und Gesten/Kürzel an die Shell weiterreichen.
+      try { if (window.self !== window.top) document.documentElement.classList.add('fyos-embedded'); } catch (_) {}
+      try {
+        if (document.documentElement.classList.contains('fyos-embedded')) {
+          var farben = function () {
+            try { var k = JSON.parse(localStorage.getItem('fyos.os.kulisse.v1') || 'null'); if (k && k.farben) document.documentElement.dataset.osFarben = k.farben; } catch (_) {}
+          };
+          farben();
+          // Trackpad-Gesten des OS (Bildschirm wischen, Kneifen) über einem Fenster an die Shell weiterreichen —
+          // sonst enden sie im iframe. Was hier selbst quer scrollen kann, behält die Geste.
+          var querScroll = function (el) {
+            for (var e = el; e && e !== document.documentElement; e = e.parentElement) {
+              var s = getComputedStyle(e);
+              if ((s.overflowX === 'auto' || s.overflowX === 'scroll') && e.scrollWidth > e.clientWidth + 1) return true;
+            }
+            return false;
+          };
+          window.addEventListener('wheel', function (e) {
+            var quer = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+            if (!e.ctrlKey && !(quer && !querScroll(e.target))) return;
+            if (e.ctrlKey) e.preventDefault();
+            try { window.parent.postMessage({ fyosRad: { dx: e.deltaX, dy: e.deltaY, ctrl: e.ctrlKey && !e.metaKey } }, location.origin); } catch (_) {}
+          }, { passive: false });
+          // Kürzel des OS (Shell.tsx `taste`) auch mit dem Fokus im Fenster: ⌘K, ⌘J, ⌘,, ⌘/, ⌥⌘←→↑↓, ⌥⌘1–9, F3.
+          // Nur diese — alles andere (⌘C, ⌘F, Tippen) bleibt bei der Seite.
+          window.addEventListener('keydown', function (e) {
+            if (e.defaultPrevented) return;
+            var mod = e.metaKey || e.ctrlKey;
+            var os = e.key === 'F3'
+              || (mod && e.altKey && /^(Arrow(Left|Right|Up|Down)|Digit[1-9])$/.test(e.code))
+              || (mod && !e.altKey && !e.shiftKey && /^(KeyK|KeyJ|Comma|Slash)$/.test(e.code));
+            if (!os) return;
+            e.preventDefault();
+            try { window.parent.postMessage({ fyosTaste: { key: e.key, code: e.code, meta: e.metaKey, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey } }, location.origin); } catch (_) {}
+          });
+          window.addEventListener('storage', function (e) {
+            if (e.key === 'fyos-theme' && (e.newValue === 'dark' || e.newValue === 'light')) document.documentElement.dataset.theme = e.newValue;
+            if (e.key === 'fyos.os.kulisse.v1') farben();
+          });
+        }
+      } catch (_) {}
+    </script>
+    <style is:global>
+      html.fyos-bare, html.fyos-bare body { height: 100%; overflow: hidden; }
+      html.fyos-embedded, html.fyos-embedded body { background: transparent !important; }
+    </style>
+    <SitzungsBanner client:only="solid-js" />
+    <main class="min-h-0 flex-1 overflow-auto">
+      <slot />
+    </main>
+    <ToastRegion client:only="solid-js" />
+  </body>
+</html>

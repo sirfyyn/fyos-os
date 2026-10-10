@@ -1,0 +1,5 @@
+# Hub-Bild für diese Installation, erzeugt vom FYOS-Installer:
+# Hub der Distribution plus die gewählten Plugin-Pakete.
+FROM {{hub_bild}}
+ARG FYOS_INDEX_URL=""
+{{paket_zeilen}}

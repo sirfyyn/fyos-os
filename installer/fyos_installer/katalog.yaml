@@ -1,0 +1,305 @@
+# Katalog der FYOS-Bausteine. Schema und Prüfung: katalog.py.
+# Bilder: Dateinamen unter bilder/, Namensschema <id>-<n>.svg (später gern .png, der Installer nimmt, was da ist).
+# Plugin-Pakete bringen eine eigene fyos-katalog.yaml mit demselben Aufbau mit.
+# `reife` (optional): die Stufe 1 bis 3, die der Baustein in einer Schicht erreicht (gedaechtnis, agent, takte,
+# oberflaeche; Leiter und Sätze in reife.py). Ohne Angabe bleibt die Schicht auf Stufe 1, das leisten Kern und Agent.
+version: 1
+plugin_quelle_beispiel: https://git.example.com/fyos
+bausteine:
+  - id: kern
+    titel: FYOS-Oberfläche und Hub
+    kurz: Der Desktop im Browser mit Fenstern, Dock und dem Hub als Werkzeugkasten.
+    was_daraus_wird: |
+      Du öffnest eine Adresse im Browser und siehst einen eigenen Desktop mit Fenstern, Dock, Menüleiste und Kacheln.
+      Jede Fläche ist eine kleine App, die der Hub bereitstellt; neue Apps aus Plugins erscheinen dort ohne weiteren Aufwand.
+      Der Hub ist der gemeinsame Werkzeugkasten: Er bündelt alle Fähigkeiten als Werkzeuge, die du und der Agent benutzen können.
+      Alles läuft auf deinem eigenen Rechner, ohne Anmeldung bei einem Fremddienst.
+      Mit dem Kern allein hast du eine funktionierende, aber noch leere Arbeitsfläche, auf der du später Bausteine ergänzt.
+    bilder: [kern-1.svg, kern-2.svg]
+    art: kern
+    pflicht: true
+    abhaengig_von: []
+    voraussetzungen:
+      - Docker mit Compose (für das Ziel Docker Compose) oder ein Kubernetes-Cluster
+      - Ein aktueller Browser
+    quelle: null
+    hub_plugins:
+      - { name: echo, enabled: false }
+      - { name: math, enabled: false }
+      - { name: audit }
+      - { name: event_bus_publisher }
+      - { name: skills }
+      - { name: werkstatt }
+      - { name: mcp }
+      - { name: shell }
+    konfiguration:
+      - name: port
+        titel: Port
+        typ: zahl
+        beschreibung: Port auf diesem Rechner, unter dem FYOS erreichbar sein soll
+        standard: 8080
+        pflicht: true
+        umgebung: FYOS_PORT
+      - name: oeffentliche_url
+        titel: Öffentliche Adresse
+        typ: url
+        beschreibung: Adresse, unter der du FYOS im Browser öffnest
+        standard: http://localhost:8080
+        pflicht: true
+        umgebung: FYOS_OEFFENTLICH_URL
+
+  - id: agent
+    titel: Agent-Grundlage
+    kurz: Ein persönlicher Agent im Chat, der bei Schwerem zuerst fragt.
+    was_daraus_wird: |
+      Neben dem Desktop öffnet sich ein Chatfenster, in dem du mit deinem Agenten sprichst; Name, Wesen und Sprache bestimmst du bei der Einrichtung.
+      Der Agent findet und benutzt alle Werkzeuge des Hubs, sobald Bausteine welche mitbringen.
+      Was er nicht allein entscheiden darf, etwa Löschen, Geld oder Zugangsdaten, legt er dir als Freigabe-Karte vor, die du mit einem Klick bestätigst oder ablehnst.
+      Kleines erledigt er selbst und meldet es knapp, ohne dich mit Nachrichten zu überhäufen.
+      Ruhezeiten und ein Tagesbudget für Meldungen sind eingebaut.
+    bilder: [agent-1.svg]
+    art: agent
+    pflicht: true
+    abhaengig_von: [kern]
+    voraussetzungen:
+      - Ein Sprachmodell mit OpenAI-kompatibler Schnittstelle (lokal oder gehostet)
+    quelle: null
+    konfiguration: []
+
+  - id: beispiel_app
+    titel: Beispiel-App
+    kurz: Eine kleine Demo-App, die zeigt, wie Plugins eigene Oberflächen liefern.
+    was_daraus_wird: |
+      Im Desktop erscheint ein zusätzliches Fenster mit einer einfachen Beispielfläche.
+      Sie zeigt, wie ein Plugin über den Hub eine eigene Oberfläche bekommt, die die Shell ohne zusätzlichen Code einblendet.
+      Der Agent kann die Beispielwerkzeuge aufrufen und das Ergebnis im Chat zeigen.
+      So probierst du aus, wie Werkzeuge, Fenster und Chat zusammenspielen, bevor du echte Bausteine wählst.
+      Gedacht ist die App auch als Vorlage für eigene Plugins.
+    bilder: [beispiel_app-1.svg]
+    art: plugin
+    pflicht: false
+    abhaengig_von: [kern]
+    voraussetzungen: []
+    quelle: null
+    reife: { oberflaeche: 2, agent: 2 }
+    hub_plugins:
+      - { name: beispiel_app }
+    konfiguration: []
+
+  - id: finanzen
+    titel: Finanzen mit MoneyMoney
+    kurz: Kontostände, Umsätze und Monatsplan als App; der Agent kennt deine Zahlen.
+    was_daraus_wird: |
+      Du bekommst eine Finanz-App mit Kontoständen, einer Umsatzliste und einem Monatsplan, in dem bezahlte und ausgesetzte Posten abgehakt werden.
+      Die Daten kommen aus MoneyMoney auf deinem Mac, der sie ein- bis zweimal täglich an deine Installation schickt.
+      Der Agent beantwortet Fragen wie »Was ist diesen Monat noch offen?« oder »Wofür ging diese Woche am meisten weg?«.
+      IBAN, Referenz und Notizen gibt er nicht weiter, und die Zahlen bleiben auf deinem Rechner.
+      Überweisungen löst nichts davon aus; es wird nur gelesen.
+    bilder: [finanzen-1.svg]
+    art: plugin
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - macOS mit MoneyMoney für den Export
+      - Der Datendienst für Monatsplan und Webhooks muss erreichbar sein (siehe README des Plugins)
+    quelle: { paket: fyos-plugin-finanzen, repo: fyos-plugin-finanzen }
+    reife: { oberflaeche: 2, agent: 2, gedaechtnis: 2 }
+    konfiguration:
+      - name: finanzen_url
+        titel: Adresse des Monatsplan-Dienstes
+        typ: url
+        beschreibung: Adresse des Monatsplan-Dienstes (leer lassen für die Vorgabe des Plugins)
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_FINANZEN_URL
+      - name: life_url
+        titel: Adresse des MoneyMoney-Dienstes
+        typ: url
+        beschreibung: Adresse des Dienstes, der die MoneyMoney-Daten annimmt
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_FINANZEN_LIFE_URL
+      - name: auth_header
+        titel: Zugangs-Kopfzeile
+        typ: geheim
+        beschreibung: "Kopfzeile »Name: Wert« für interne Aufrufe an die beiden Dienste"
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_FINANZEN_AUTH_HEADER
+
+  - id: haus
+    titel: Haus, Licht und Anwesenheit
+    kurz: Licht, Szenen, Anwesenheit und Kameras über Home Assistant.
+    was_daraus_wird: |
+      Du bekommst einen Raumplan mit deinen Lichtern, Szenen und Favoriten, die du anklickst oder dem Agenten zurufst.
+      Der Agent versteht Sätze wie »Licht an« und schaltet im Raum, in dem du gerade bist, sofern die Anwesenheit bekannt ist; sonst fragt er nach.
+      Kamerabilder und Bewegungsmeldungen erscheinen als Kacheln, ohne dass Aufnahmen die Installation verlassen.
+      Als Anbindung dient dein vorhandenes Home Assistant.
+      Wetter und Raumbelegung liegen als Werkzeuge bereit, auf die auch andere Apps zugreifen können.
+    bilder: [haus-1.svg]
+    art: plugin
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Eine laufende Home-Assistant-Installation, die der Hub erreicht
+      - Ein Langzeit-Zugriffstoken aus Home Assistant
+      - Für Kameras optional Frigate
+    quelle: { paket: fyos-plugin-haus, repo: fyos-plugin-haus }
+    reife: { oberflaeche: 2, agent: 2, gedaechtnis: 2 }
+    konfiguration:
+      - name: ha_url
+        titel: Adresse von Home Assistant
+        typ: url
+        beschreibung: Adresse von Home Assistant
+        standard: http://homeassistant.local:8123
+        pflicht: true
+        umgebung: FYOS_HAUS_HA_URL
+      - name: ha_token
+        titel: Zugriffstoken
+        typ: geheim
+        beschreibung: Langzeit-Zugriffstoken (Profil in Home Assistant, Abschnitt Sicherheit)
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_HAUS_HA_TOKEN
+
+  - id: konten
+    titel: Persönliche Konten und Medien
+    kurz: Passwort-Tresor, Mail, Kalender, Fotos, Medien und Bestellungen an einem Ort.
+    was_daraus_wird: |
+      Auf dem Desktop erscheinen Flächen für Mail, Kalender, Fotos, Medien und Bestellungen, die deine bestehenden Konten anzapfen.
+      Der Agent trägt dann Termine ein, fasst Mails zusammen oder sucht Fotos, wenn du ihn darum bittest.
+      Ein Konten-Überblick zeigt, welche Verbindung gerade gültig ist und wo eine Anmeldung erneuert werden muss.
+      Zugangsdaten liegen im Tresor und im Hub, nicht im Chatverlauf.
+      Jede Verbindung schaltest du einzeln ein; ohne Eintrag bleibt sie unberührt.
+    bilder: [konten-1.svg]
+    art: plugin
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Zugänge zu den Diensten, die du verbinden willst (Mail, Kalender, Fotos)
+      - Ein Passwort-Tresor oder die Bereitschaft, einen anzulegen
+    quelle: { paket: fyos-plugin-konten, repo: fyos-plugin-konten }
+    reife: { oberflaeche: 2, agent: 2, gedaechtnis: 2 }
+    konfiguration:
+      - name: tresor_url
+        titel: Adresse des Tresors
+        typ: url
+        beschreibung: Adresse deines Passwort-Tresors
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_KONTEN_TRESOR_URL
+      - name: tresor_token
+        titel: Tresor-Token
+        typ: geheim
+        beschreibung: Zugriffstoken für den Tresor
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_KONTEN_TRESOR_TOKEN
+
+  - id: betrieb
+    titel: Betrieb mit Cluster, Git und CI
+    kurz: Cluster, Code-Hosting und Builds im Blick und per Agent bedienbar.
+    was_daraus_wird: |
+      Du bekommst ein Steuerpult für deinen Kubernetes-Cluster mit Knoten, Workloads, Logs und Update-Zustand.
+      Dazu kommen Git-Repositories und Build-Läufe der CI, sodass du an einer Stelle siehst, was grün ist und was hängt.
+      Der Agent liest Zustände und Logs selbst und schlägt bei Problemen einen Neustart oder einen Rückweg vor.
+      Alles Schreibende läuft über die Freigabe, zum Beispiel ein Löschen oder ein Hochziehen von Versionen.
+      Gedacht ist der Baustein für alle, die einen eigenen Server oder Cluster betreiben.
+    bilder: [betrieb-1.svg]
+    art: plugin
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Zugriff per kubeconfig auf einen Kubernetes-Cluster
+      - Optional ein Git-Hosting (Gitea oder GitLab) mit API-Token
+    quelle: { paket: fyos-plugin-betrieb, repo: fyos-plugin-betrieb }
+    reife: { oberflaeche: 2, agent: 2, gedaechtnis: 2 }
+    konfiguration:
+      - name: kubeconfig_pfad
+        titel: Pfad der kubeconfig
+        typ: text
+        beschreibung: Pfad der kubeconfig im Hub-Container (die Datei selbst bindest du später ein)
+        standard: /etc/fyos-hub/kubeconfig
+        pflicht: false
+        umgebung: FYOS_BETRIEB_KUBECONFIG
+      - name: git_url
+        titel: Adresse des Git-Hostings
+        typ: url
+        beschreibung: Adresse deines Git-Hostings
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_BETRIEB_GIT_URL
+      - name: git_token
+        titel: Git-Token
+        typ: geheim
+        beschreibung: API-Token des Git-Hostings
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_BETRIEB_GIT_TOKEN
+
+  - id: eigenes_modell
+    titel: Eigenes Sprachmodell und Messkette
+    kurz: Ein selbst betriebenes Modell mit Rechnerübersicht und Messläufen.
+    was_daraus_wird: |
+      Statt eines gehosteten Dienstes betreibst du ein eigenes Sprachmodell auf eigener Hardware und siehst seinen Zustand in einer App.
+      Eine Übersicht zeigt, welches Profil gerade läuft, wie schnell es antwortet und wie ausgelastet der Rechner ist.
+      Die Messkette fährt Vergleichsläufe, sammelt die Ergebnisse und stellt Profile nebeneinander, bevor du eines umstellst.
+      Der Agent erklärt den Zustand und schlägt Umstellungen vor, die du freigibst.
+      Der Baustein ist für Fortgeschrittene gedacht, die Rechenzeit und Speicher gezielt einsetzen wollen.
+    bilder: [eigenes_modell-1.svg]
+    art: plugin
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Ein eigener Rechner mit GPU und ssh-Zugang
+      - Ein Modellserver mit OpenAI-kompatibler Schnittstelle
+    quelle: { paket: fyos-plugin-modell, repo: fyos-plugin-modell }
+    reife: { oberflaeche: 2, agent: 2, gedaechtnis: 2 }
+    konfiguration:
+      - name: rechner_host
+        titel: Rechner des Modells
+        typ: text
+        beschreibung: Name des Rechners, auf dem das Modell läuft (ssh-Kurzname)
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_MODELL_RECHNER
+      - name: pult_url
+        titel: Adresse des Steuerpults
+        typ: url
+        beschreibung: Adresse des Steuerpults des Modellservers
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_MODELL_PULT_URL
+
+  - id: leitstand
+    titel: Leitstand, Vorgänge und Agenten-Schleifen
+    kurz: Eine Zentrale für Entscheidungen, Freigaben, Vorgänge und Routinearbeit des Agenten.
+    was_daraus_wird: |
+      Du bekommst eine Zentrale, die zeigt, was auf dich wartet: Entscheidungen, Freigaben und offene Vorgänge in einer Liste.
+      Der Agent legt Vorgänge an, arbeitet sie ab und meldet den Stand, ohne dass du nachfragen musst.
+      Freigaben beantwortest du mit einem Klick oder direkt im Chat.
+      Agenten-Schleifen erledigen Routinearbeit in der Zeit, in der du nicht aktiv bist, und halten an, sobald du dich meldest.
+      Ein Verlauf zeigt jederzeit, was getan wurde und warum.
+    bilder: [leitstand-1.svg]
+    art: plugin
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Keine äußeren Dienste; Vorgänge und Verlauf liegen im Hub
+    quelle: { paket: fyos-plugin-leitstand, repo: fyos-plugin-leitstand }
+    reife: { oberflaeche: 3, agent: 3, gedaechtnis: 3, takte: 2 }
+    konfiguration:
+      - name: vorgaenge_url
+        titel: Adresse des Vorgangs-Dienstes
+        typ: url
+        beschreibung: Adresse eines vorhandenen Vorgangs-Dienstes (leer lassen für die Vorgabe des Plugins)
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_LEITSTAND_VORGAENGE_URL
+      - name: vorgaenge_token
+        titel: Vorgangs-Token
+        typ: geheim
+        beschreibung: Zugriffstoken für den Vorgangs-Dienst
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_LEITSTAND_VORGAENGE_TOKEN

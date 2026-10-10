@@ -1,0 +1,148 @@
+/*
+ * os-handhabung.css — wie sich Ziehen und Ablegen im OS anfühlt (lib/os/ziehen.ts). Drei Dinge machen das:
+ *   1. Die Ziele zeigen sich, sobald etwas gezogen wird: Die Bildschirm-Punkte blühen zu Schildern mit Namen auf,
+ *      „+" und der Agent bekommen einen Rand. Man muss nicht wissen, wohin es gehen kann — man sieht es.
+ *   2. Das Ziel unter dem Zeiger federt an (leichtes Überschwingen) und sagt in einer Zeile, was beim Loslassen
+ *      passiert („Auf „Bildschirm 2" verschieben", „Objekt öffnen", „Agent dazu fragen").
+ *   3. Angekommen leuchtet der Zielpunkt einmal auf.
+ * `[data-zieht]` setzt die Shell, solange ein Zug läuft (nicht beim Größe-Ziehen).
+ */
+
+/* Federn: ein wenig über das Ziel hinaus und zurück (wie macOS beim Aufspringen) */
+:root { --os-feder: cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ── Zugbild: eine Glaspille statt eines Fotos des Fensterkopfs ─────────────────────────────── */
+.os-zugbild {
+  position: fixed;
+  top: -200px;
+  left: -200px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font: 500 0.8125rem/1.2 system-ui, sans-serif;
+  color: #fff;
+  background: color-mix(in oklab, var(--os-akzent) 88%, #000);
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Hinweis über dem Ziel ───────────────────────────────────────────────────────────────────── */
+.os-zug-hinweis {
+  position: fixed;
+  z-index: 60;
+  translate: -50% calc(-100% - 0.6rem);
+  padding: 0.3rem 0.75rem;
+  border-radius: 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid color-mix(in oklab, var(--os-akzent) 55%, var(--os-glas-rand));
+  box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  pointer-events: none;
+  animation: os-hinweis-auf 220ms var(--os-feder) both;
+}
+@keyframes os-hinweis-auf { from { opacity: 0; scale: 0.85; } }
+
+/* ── Bildschirm-Punkte blühen beim Ziehen auf ───────────────────────────────────────────────── */
+[data-shell][data-zieht] .os-punkte { gap: 0.3rem; }
+[data-shell][data-zieht] .os-punkt {
+  width: auto;
+  height: 1.9rem;
+  padding: 0 0.7rem 0 0.55rem;
+  gap: 0.4rem;
+  border: 1px solid var(--os-glas-rand);
+  background: color-mix(in oklab, var(--color-bg) 62%, transparent);
+  backdrop-filter: blur(16px);
+  animation: os-aufbluehen 320ms var(--os-feder) both;
+  transition: transform 0.25s var(--os-feder), border-color 0.15s, background-color 0.15s, box-shadow 0.2s;
+}
+[data-shell][data-zieht] .os-punkt::after { inset: -0.3rem -0.15rem; }
+[data-shell][data-zieht] .os-punkt-name {
+  position: static;
+  translate: none;
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  opacity: 1;
+  color: var(--color-fg-muted);
+}
+[data-shell][data-zieht] .os-punkt-an .os-punkt-name { color: var(--color-fg); }
+[data-shell][data-zieht] .os-punkt-an::before { width: 0.4rem; }
+[data-shell][data-zieht] .os-punkt-neu {
+  width: 1.9rem;
+  height: 1.9rem;
+  opacity: 1;
+  border: 1px dashed var(--os-glas-rand);
+  animation: os-aufbluehen 320ms var(--os-feder) both;
+}
+@keyframes os-aufbluehen { from { opacity: 0.4; scale: 0.7; } }
+
+/* Ziel unter dem Zeiger: federt an, Akzentrand */
+.os-punkt.os-ziel-an,
+.os-punkt-neu.os-ziel-an {
+  transform: translateY(-0.2rem) scale(1.08);
+  border-color: var(--os-akzent) !important;
+  background: color-mix(in oklab, var(--os-akzent) 18%, var(--color-bg)) !important;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--os-akzent) 28%, transparent);
+}
+.os-punkt.os-ziel-an .os-punkt-name { color: var(--color-fg); }
+.os-punkt.os-ziel-an::before { background: var(--os-akzent); }
+
+/* Angekommen: einmal aufleuchten */
+.os-punkt.os-puls::before { animation: os-puls 900ms ease-out; }
+@keyframes os-puls {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--os-akzent) 70%, transparent); background: var(--os-akzent); }
+  100% { box-shadow: 0 0 0 0.6rem transparent; }
+}
+
+/* ── Agent: Symbol und Seitenleiste nehmen Dinge an ─────────────────────────────────────────── */
+[data-shell][data-zieht] .os-dock-symbol[aria-label="Agent"] {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--os-akzent) 35%, transparent);
+  transition: transform 0.25s var(--os-feder), box-shadow 0.2s;
+}
+.os-dock-symbol.os-ziel-an {
+  transform: translateY(-0.45rem) scale(1.2);
+  box-shadow: 0 0 0 3px var(--os-akzent), 0 0 24px color-mix(in oklab, var(--os-akzent) 55%, transparent) !important;
+}
+aside.os-ziel-an {
+  box-shadow: inset 0 0 0 2px var(--os-akzent), 0 0 40px -10px color-mix(in oklab, var(--os-akzent) 60%, transparent);
+}
+
+/* ── Übersicht: Karte als Ziel ──────────────────────────────────────────────────────────────── */
+.os-uebersicht .os-platz.os-ziel-an { transform: scale(1.04); transition: transform 0.25s var(--os-feder); }
+.os-uebersicht .os-platz.os-ziel-an > .os-bildschirm {
+  box-shadow: 0 0 0 calc(3px / var(--os-s)) var(--os-akzent), 0 0 calc(50px / var(--os-s)) color-mix(in oklab, var(--os-akzent) 50%, transparent);
+}
+
+/* ── Fenster als Ziel: leicht anheben statt nur Rahmen ──────────────────────────────────────── */
+[data-shell][data-zieht] .os-fenster { transition: transform 0.25s var(--os-feder), box-shadow 0.2s; }
+[data-shell][data-zieht] .os-fenster.os-fokus { transform: scale(1.006); }
+
+/* ── Dock: ein eben geöffnetes Fenster lässt sein Symbol zweimal hüpfen (wie am Mac beim App-Start) ──
+ * Es hüpft das Bild im Knopf, nicht der Knopf: dessen transform gehört dem Hover. */
+.os-dock-huepf .os-symbol { animation: os-huepf 0.85s cubic-bezier(0.3, 0, 0.3, 1); }
+@keyframes os-huepf {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-0.9rem); }
+  50% { transform: translateY(0); }
+  70% { transform: translateY(-0.4rem); }
+  85% { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-zug-hinweis,
+  [data-shell][data-zieht] .os-punkt,
+  [data-shell][data-zieht] .os-punkt-neu,
+  .os-punkt.os-puls::before,
+  .os-dock-huepf .os-symbol { animation: none; }
+  .os-punkt.os-ziel-an, .os-punkt-neu.os-ziel-an, .os-dock-symbol.os-ziel-an,
+  .os-uebersicht .os-platz.os-ziel-an, [data-shell][data-zieht] .os-fenster.os-fokus { transform: none; }
+}

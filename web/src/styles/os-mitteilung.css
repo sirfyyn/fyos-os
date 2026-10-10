@@ -1,0 +1,285 @@
+/*
+ * os-mitteilung.css — Mitteilungen oben rechts im OS.
+ *
+ * Wie eine Mitteilung am Mac: Glas mit Unschärfe, das Symbol der App links, darüber in Versalien
+ * „<Agent> zeigt dir“, der Name der App fett, zwei Zeilen Vorschau, „Öffnen“ in der Akzentfarbe.
+ * Bis zu drei stehen untereinander (die neueste oben und ganz, die älteren kompakt). Gehört zu
+ * components/os/Mitteilungen.tsx; Stapel- und Zeitlogik steht in lib/os/mitteilungen.ts.
+ *
+ * Eigene Datei, damit os.css unberührt bleibt. Weil diese Datei
+ * vor oder nach global.css geladen werden kann, steht die Reihenfolge der Ebenen gleich am Anfang —
+ * dieselbe wie bei Tailwind —, sonst gewänne `components` gegen `base` und `utilities`.
+ * Farben, Glas und Schrift kommen aus den Variablen des OS (os.css): hell und dunkel von selbst.
+ */
+@layer theme, base, components, utilities;
+
+@layer components {
+
+/* ── Behälter: unter der Menüleiste, rechts; die Karten fangen Klicks, der Rest bleibt durchlässig ── */
+.os-mitteilungen {
+  position: absolute;
+  top: calc(var(--os-leiste-hoehe, 1.75rem) + 0.5rem);
+  right: 0.75rem;
+  /* über dem Kontrollzentrum (60), unter den Menüs (100+, Portal) */
+  z-index: 62;
+  display: flex;
+  width: min(23rem, calc(100% - 1.5rem));
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+@media (max-width: 767px) {
+  .os-mitteilungen { right: 0.5rem; left: 0.5rem; width: auto; }
+}
+
+/* ── Karte ─────────────────────────────────────────────────────────────────────────────────── */
+.os-mitteilung {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem 0.75rem 0.7rem;
+  border-radius: 1.15rem;
+  font-family: var(--os-schrift, system-ui, sans-serif);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
+  box-shadow: 0 20px 50px -16px rgb(0 0 0 / 0.6), 0 0 0 0.5px rgb(0 0 0 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.07);
+  backdrop-filter: blur(34px) saturate(180%);
+  cursor: pointer;
+  outline: none;
+  pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  transform-origin: top right;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+  /* nur „von“: das Ziel ist der Ruhezustand der Karte */
+  animation: os-mitteilung-ein 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* Auf hellem Glas trägt ein leichter Schatten; der dunkle wäre dort ein grauer Balken unter der Karte. */
+html[data-theme="light"] .os-mitteilung {
+  box-shadow: 0 12px 32px -14px rgb(0 0 0 / 0.3), 0 0 0 0.5px rgb(0 0 0 / 0.12), inset 0 0 0 0.5px rgb(255 255 255 / 0.6);
+}
+@keyframes os-mitteilung-ein {
+  from { opacity: 0; transform: translate3d(1.5rem, -0.75rem, 0) scale(0.96); }
+}
+@keyframes os-mitteilung-ein-ruhig {
+  from { opacity: 0; }
+}
+.os-mitteilung:focus-visible {
+  outline: 2px solid var(--os-akzent);
+  outline-offset: 2px;
+}
+/* Aus: kurz ausblenden und nach rechts oben wegschieben, danach nimmt Mitteilungen.tsx sie heraus */
+.os-mitteilung.os-mitteilung-weg {
+  opacity: 0;
+  transform: translate3d(1rem, -0.25rem, 0) scale(0.98);
+  transition-duration: 0.2s;
+  pointer-events: none;
+}
+
+/* Symbol der App (Kachel wie im Dock, nur kleiner) */
+.os-mitteilung .os-mitteilung-symbol {
+  width: 2.6rem;
+  height: 2.6rem;
+  margin-top: 0.1rem;
+  border-radius: 0.68rem;
+}
+
+.os-mitteilung-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Kopf: „<AGENT> ZEIGT DIR“ und die Zeit; bei Hover oder Fokus tritt ⋯ / × an die Stelle der Zeit */
+.os-mitteilung-kopf {
+  display: flex;
+  min-height: 1.45rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+.os-mitteilung-ueber {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.os-mitteilung-zeit {
+  margin-left: auto;
+  padding-right: 0.1rem;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-fg-muted);
+  transition: opacity 0.15s;
+}
+.os-mitteilung-knoepfe {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.5rem;
+  display: inline-flex;
+  gap: 0.2rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.os-mitteilung:hover .os-mitteilung-knoepfe,
+.os-mitteilung:focus-within .os-mitteilung-knoepfe {
+  opacity: 1;
+  pointer-events: auto;
+}
+.os-mitteilung:hover .os-mitteilung-zeit,
+.os-mitteilung:focus-within .os-mitteilung-zeit {
+  opacity: 0;
+}
+.os-mitteilung-knopf {
+  display: inline-grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-fg-muted);
+  background: color-mix(in oklab, var(--color-fg) 11%, transparent);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.os-mitteilung-knopf:hover { color: var(--color-fg); background: color-mix(in oklab, var(--color-fg) 20%, transparent); }
+.os-mitteilung-knopf:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+.os-mitteilung .os-mitteilung-knopf svg { width: 0.9rem; height: 0.9rem; }
+
+/* Name der App (fett) und was dazugehört (leiser), höchstens zwei Zeilen */
+.os-mitteilung-titel {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.os-mitteilung-titel strong { font-weight: 650; }
+.os-mitteilung-unter { font-weight: 400; color: var(--color-fg-muted); }
+
+.os-mitteilung-vorschau {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: color-mix(in oklab, var(--color-fg) 84%, transparent);
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.os-mitteilung-fehler {
+  margin: 0.1rem 0 0;
+  font-size: 0.75rem;
+  color: color-mix(in oklab, var(--color-error, #ff453a) 62%, var(--color-fg));
+}
+
+/* Knöpfe: „Öffnen“ in der Akzentfarbe, „Schließen“ ruhig daneben */
+.os-mitteilung-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.os-mitteilung-oeffnen,
+.os-mitteilung-schliessen {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.8rem;
+  border: 0;
+  border-radius: 0.6rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s, background-color 0.15s;
+}
+.os-mitteilung-oeffnen {
+  color: #fff;
+  /* mit etwas Schwarz abgedunkelt: weiße Schrift bleibt in allen Farbwelten lesbar */
+  background: color-mix(in oklab, var(--os-akzent) 76%, #000);
+}
+.os-mitteilung-oeffnen:hover { filter: brightness(1.12); }
+.os-mitteilung-oeffnen:disabled { opacity: 0.65; cursor: progress; }
+.os-mitteilung .os-mitteilung-oeffnen svg { width: 0.85rem; height: 0.85rem; }
+.os-mitteilung-schliessen {
+  color: var(--color-fg);
+  background: color-mix(in oklab, var(--color-fg) 10%, transparent);
+}
+.os-mitteilung-schliessen:hover { background: color-mix(in oklab, var(--color-fg) 17%, transparent); }
+.os-mitteilung-oeffnen:focus-visible,
+.os-mitteilung-schliessen:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+
+/* ── Ältere Mitteilungen: kompakt unter der neuesten ───────────────────────────────────────────
+   Nur Kopf und Titel, ohne Vorschau und Knöpfe — so bleibt der Stapel klein, am Handy vor allem.
+   Ein Klick auf die Karte öffnet, ⋯ und × kommen beim Darüberfahren. Die Reihenfolge im DOM ist
+   die des Stapels (neueste zuerst); der Hinweis mit „Rückgängig“ ist ein div und zählt nicht mit. */
+.os-mitteilungen > article.os-mitteilung ~ article.os-mitteilung {
+  align-items: center;
+  padding-block: 0.55rem;
+}
+.os-mitteilungen > article.os-mitteilung ~ article.os-mitteilung .os-mitteilung-symbol {
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0;
+  border-radius: 0.55rem;
+}
+.os-mitteilungen > article.os-mitteilung ~ article.os-mitteilung .os-mitteilung-titel { -webkit-line-clamp: 1; }
+.os-mitteilungen > article.os-mitteilung ~ article.os-mitteilung :is(.os-mitteilung-vorschau, .os-mitteilung-aktionen) {
+  display: none;
+}
+
+/* ── Rückmeldung mit „Rückgängig“ (nach „stumm“ und „ausschalten“) ─────────────────────────── */
+.os-mitteilung.os-mitteilung-hinweis {
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem 0.55rem 0.8rem;
+  cursor: default;
+}
+.os-mitteilung .os-mitteilung-hinweis-symbol { width: 1.05rem; height: 1.05rem; flex-shrink: 0; color: var(--color-fg-muted); }
+.os-mitteilung-hinweis-text { min-width: 0; flex: 1; }
+.os-mitteilung-rueckgaengig {
+  flex-shrink: 0;
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  /* Akzent, zum Text hin gedreht: gut lesbar auf hellem und auf dunklem Glas */
+  color: color-mix(in oklab, var(--os-akzent) 62%, var(--color-fg));
+  background: color-mix(in oklab, var(--os-akzent) 14%, transparent);
+  cursor: pointer;
+}
+.os-mitteilung-rueckgaengig:hover { background: color-mix(in oklab, var(--os-akzent) 24%, transparent); }
+.os-mitteilung-rueckgaengig:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+
+/* ── Zeigegerät ohne Maus: Knöpfe immer sichtbar und größer ────────────────────────────────── */
+@media (hover: none) {
+  .os-mitteilung-knoepfe { position: static; opacity: 1; pointer-events: auto; }
+  .os-mitteilung:hover .os-mitteilung-zeit,
+  .os-mitteilung:focus-within .os-mitteilung-zeit { opacity: 1; }
+}
+@media (pointer: coarse) {
+  .os-mitteilung-knopf { width: 2rem; height: 2rem; }
+  .os-mitteilung-oeffnen, .os-mitteilung-schliessen { min-height: 2.4rem; padding: 0 1rem; }
+  .os-mitteilung-rueckgaengig { padding: 0.45rem 0.7rem; }
+}
+
+/* ── Weniger Bewegung: nur einblenden, nichts fährt ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .os-mitteilung { animation: os-mitteilung-ein-ruhig 0.2s ease-out backwards; transition: opacity 0.2s ease; }
+  .os-mitteilung.os-mitteilung-weg { transform: none; }
+}
+
+}

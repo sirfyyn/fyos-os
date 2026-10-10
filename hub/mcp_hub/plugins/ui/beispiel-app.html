@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notizzettel</title>
+<style>/*STIL*/
+  .notiz-neu { display: flex; gap: 10px; margin: 0 0 14px; }
+  .notiz-neu input { flex: 1 1 auto; min-width: 0; }
+  .notiz { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+  .notiz + .notiz { margin-top: 8px; }
+  .notiz-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .notiz-zeit { font-size: 12px; color: var(--mut); }
+</style>
+</head>
+<body>
+<!--KOPF-->
+  <button id="neu" class="rund drehen" title="Aktualisieren" aria-label="Aktualisieren"><svg class="ico" data-symbol="refresh-cw"></svg></button>
+<!--/KOPF-->
+<main>
+  <form class="notiz-neu" id="formular" autocomplete="off">
+    <input id="text" type="text" maxlength="500" placeholder="Neue Notiz" aria-label="Neue Notiz" enterkeyhint="send">
+    <button type="submit" class="haupt"><svg class="ico" data-symbol="plus"></svg>Hinzufügen</button>
+  </form>
+  <div id="liste"><div class="laedt">Lädt …</div></div>
+</main>
+<script>
+/*BRUECKE*/
+const $ = (id) => document.getElementById(id);
+const { esc, symbol, zustand, satz } = App;
+const rufen = (name, args) => App.rufen("beispiel_app__" + name, args);
+
+let notizen = [];
+let bekommen = false;
+
+function zeichnen() {
+  satz(notizen.length ? `${notizen.length} Notiz${notizen.length === 1 ? "" : "en"} auf dem Zettel` : "Der Zettel ist leer", notizen.length ? "gut" : "");
+  if (!notizen.length) {
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "package", titel: "Keine Notizen", text: "Schreib oben eine Notiz auf.", klein: true }) + "</div>";
+    return;
+  }
+  $("liste").innerHTML = notizen.map((n) =>
+    `<div class="karte notiz"><span class="notiz-text">${esc(n.text)}<br><span class="notiz-zeit">${esc(App.zeit.vor(n.zeit * 1000))}</span></span>`
+    + `<button type="button" class="rund" data-aktion="loeschen" data-id="${esc(n.id)}" aria-label="Notiz löschen">${symbol("trash-2")}</button></div>`
+  ).join("");
+}
+
+function uebernehmen(d) {
+  if (d && Array.isArray(d.notizen)) { notizen = d.notizen; zeichnen(); }
+}
+
+async function laden() {
+  try { uebernehmen(await rufen("zeigen")); bekommen = true; }
+  catch (e) { $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Fehler", text: App.fehlertext(e), klein: true }) + "</div>"; }
+}
+
+$("formular").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const text = $("text").value.trim();
+  if (!text) return;
+  try { uebernehmen(await rufen("hinzufuegen", { text })); $("text").value = ""; }
+  catch (e) { satz(App.fehlertext(e), "schlecht"); }
+});
+
+App.bei("loeschen", async (el) => {
+  try { uebernehmen(await rufen("loeschen", { id: el.dataset.id })); }
+  catch (e) { satz(App.fehlertext(e), "schlecht"); }
+});
+$("neu").addEventListener("click", laden);
+
+App.auf("ui/notifications/tool-result", (r) => { const d = App.daten(r); if (d && d.notizen) { bekommen = true; uebernehmen(d); } });
+App.start("fyos-beispiel-app").then(() => setTimeout(() => { if (!bekommen) laden(); }, 1500)).catch(() => {});
+</script>
+</body>
+</html>

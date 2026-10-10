@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Desktop mit Fenstern und Dock</title>
+<desc id="d">Ein Desktop im Browser mit Menüleiste, zwei überlappenden Fenstern (Zentrale mit Kacheln, Notizen) und einem Dock mit sechs Symbolen.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="bar" x="6" y="6" width="628" height="26" rx="10"/>
+<text class="ink" x="22" y="24" font-weight="700">FYOS</text>
+<text class="mut" x="80" y="24">Ablage  Ansicht  Fenster</text>
+<text class="mut" x="560" y="24">09:41</text>
+<g>
+<rect class="fl" x="40" y="56" width="330" height="220" rx="10"/>
+<rect class="ln" x="40" y="56" width="330" height="220" rx="10"/>
+<rect class="bar" x="41" y="57" width="328" height="28" rx="9"/>
+<circle class="wrm" cx="58" cy="71" r="5"/><circle class="acc" cx="75" cy="71" r="5"/>
+<text class="ink" x="150" y="76">Zentrale</text>
+<rect class="acc" x="58" y="102" width="140" height="70" rx="8" opacity=".85"/>
+<text class="fl" x="72" y="130" font-weight="700">Heute</text>
+<text class="fl" x="72" y="152">3 Dinge offen</text>
+<rect class="wrm" x="212" y="102" width="140" height="70" rx="8" opacity=".85"/>
+<text class="fl" x="226" y="130" font-weight="700">Agent</text>
+<text class="fl" x="226" y="152">bereit</text>
+<rect class="bar" x="58" y="186" width="140" height="70" rx="8"/>
+<text class="ink" x="72" y="214" font-weight="700">Apps</text>
+<text class="mut" x="72" y="236">Hub-Werkzeuge</text>
+<rect class="bar" x="212" y="186" width="140" height="70" rx="8"/>
+<text class="ink" x="226" y="214" font-weight="700">Verlauf</text>
+<text class="mut" x="226" y="236">zuletzt benutzt</text>
+</g>
+<g>
+<rect class="fl" x="290" y="120" width="300" height="190" rx="10"/>
+<rect class="ln" x="290" y="120" width="300" height="190" rx="10"/>
+<rect class="bar" x="291" y="121" width="298" height="28" rx="9"/>
+<circle class="wrm" cx="308" cy="135" r="5"/><circle class="acc" cx="325" cy="135" r="5"/>
+<text class="ink" x="420" y="140">Notizen</text>
+<path class="ln" d="M312 176h240M312 202h200M312 228h226M312 254h150" opacity=".55"/>
+</g>
+<rect class="bar" x="170" y="334" width="300" height="46" rx="16"/>
+<rect class="ln" x="170" y="334" width="300" height="46" rx="16"/>
+<rect class="acc" x="188" y="344" width="28" height="26" rx="7"/>
+<rect class="wrm" x="228" y="344" width="28" height="26" rx="7"/>
+<rect class="mut" x="268" y="344" width="28" height="26" rx="7"/>
+<rect class="acc" x="308" y="344" width="28" height="26" rx="7" opacity=".6"/>
+<rect class="wrm" x="348" y="344" width="28" height="26" rx="7" opacity=".6"/>
+<rect class="mut" x="388" y="344" width="28" height="26" rx="7" opacity=".6"/>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

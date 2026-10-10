@@ -1,0 +1,22 @@
+---
+/**
+ * `/` — leitet auf die Shell (`/os/`): per Skript, wenn JavaScript läuft, sonst per Meta-Refresh.
+ */
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="0; url=/os/" />
+    <link rel="canonical" href="/os/" />
+    <title>Weiterleitung</title>
+    <script is:inline>
+      location.replace('/os/' + location.search + location.hash);
+    </script>
+  </head>
+  <body>
+    <p><a href="/os/">Weiter zur Shell</a></p>
+  </body>
+</html>

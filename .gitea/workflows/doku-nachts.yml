@@ -1,0 +1,19 @@
+# Doku-Vollabgleich: jede Nacht und auf Knopfdruck (Gitea: Actions, doku-nachts, "Run workflow").
+# tools/doku_pruefen.py gleicht alle Markdown-Dateien mit dem Dateibaum ab: tote Links und Anker, genannte Pfade,
+# feste Abschnitte der READMEs. Was die Doku nennt und nicht in diesem Repo liegt, steht mit Grund in .doku/ausserhalb.txt.
+# Repo-Variable: FYOS_RUNNER (Runner-Etikett), wie in ci.yml. Die Uhrzeit ist die des Git-Servers.
+name: doku-nachts
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  doku:
+    runs-on: ${{ vars.FYOS_RUNNER }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Doku gegen den Dateibaum prüfen
+        run: python3 tools/doku_pruefen.py

@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fyos-umgebung
+data:
+  oeffentlich_url: http://localhost:8080
+  erlaubte_hosts: localhost
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fyos-hub-config
+data:
+  config.yaml: |
+    # Installierte Plugin-Pakete laden ohne Eintrag (Entry-Point-Gruppe mcp_hub.plugins).
+    host: 0.0.0.0
+    port: 8080
+    path: /mcp
+    plugins:
+      - { name: echo, enabled: false }
+      - { name: math, enabled: false }
+      - name: skills
+        config:
+          quellen: [/opt/fyos/skills]
+      - name: beispiel_app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hub }
+  template:
+    metadata:
+      labels: { app: hub }
+      # /metrics: Kernzähler, Plugin-Kennzahlen, Zeitplan und die Kopplung an OpenClaw (Prometheus-Text)
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+        - name: hub
+          image: fyos-os/hub
+          ports:
+            - containerPort: 8080
+          env:
+            - { name: MCP_HUB_CONFIG_PATH, value: /etc/fyos-hub/config.yaml }
+            - { name: REDIS_URL, value: "redis://redis:6379/0" }
+            - name: FYOS_OEFFENTLICH_URL
+              valueFrom:
+                configMapKeyRef: { name: fyos-umgebung, key: oeffentlich_url, optional: true }
+            - name: FYOS_ERLAUBTE_HOSTS
+              valueFrom:
+                configMapKeyRef: { name: fyos-umgebung, key: erlaubte_hosts, optional: true }
+            # Kopplung an OpenClaw (docs/KOPPLUNG-OPENCLAW.md): Abfragen über die Brücke, Prüfung ihrer Signatur
+            - { name: FYOS_AGENT_URL, value: "http://agent:18789" }
+            - name: FYOS_AGENT_TOKEN
+              valueFrom:
+                secretKeyRef: { name: fyos-agent-gateway, key: token, optional: true }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 768Mi }
+          volumeMounts:
+            - { name: config, mountPath: /etc/fyos-hub }
+      volumes:
+        - name: config
+          configMap: { name: fyos-hub-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub
+spec:
+  selector: { app: hub }
+  ports:
+    - port: 8080
+      targetPort: 8080

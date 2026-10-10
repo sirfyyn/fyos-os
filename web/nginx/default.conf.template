@@ -1,0 +1,201 @@
+# Shell-Auslieferung: statische Seiten, dazu zwei Durchreichen.
+#
+# Der Browser spricht nur mit diesem Server:
+#   /hub-api/*  ->  ${FYOS_HUB_UPSTREAM}/hub/*       (Hub: Apps, Ressourcen, App-Aufrufe, OS-Brücke)
+#   /agent, /agent/*  ->  ${FYOS_AGENT_UPSTREAM}/agent…  (Agent-Gateway mit Präfix, inkl. WebSocket)
+#   /fyos.config.json  aus einer Datei (Laufzeit-Konfiguration, siehe README)
+#
+# Die Datei ist eine envsubst-Vorlage (nginx-Image: /etc/nginx/templates). Ersetzt werden nur
+# FYOS_HUB_UPSTREAM und FYOS_AGENT_UPSTREAM; alle anderen $-Variablen gehören nginx.
+# Es gibt keinen festen Resolver: beide Upstreams sind statische Namen, die nginx beim Start auflöst.
+# FYOS_AGENT_UPSTREAM steht ohne Pfad (http://agent:18789): die Agent-Location ist ein regulärer Ausdruck,
+# und nginx verbietet dort einen Pfad hinter proxy_pass.
+
+# Die Oberfläche des Gateways verbietet jede Einbettung (X-Frame-Options DENY, CSP frame-ancestors 'none').
+# Die Shell zeigt den Chat aber als Fenster im eigenen Ursprung. Für /agent ersetzt dieser Server deshalb
+# genau diese eine Angabe durch 'self' und lässt den Rest der CSP des Gateways stehen (deren Skript-Hashes
+# wechseln mit jeder OpenClaw-Version).
+map $upstream_http_content_security_policy $fyos_agent_csp {
+    "~^(?<fyos_csp_vor>.*)frame-ancestors 'none'(?<fyos_csp_nach>.*)$"  "${fyos_csp_vor}frame-ancestors 'self'${fyos_csp_nach}";
+    default  $upstream_http_content_security_policy;
+}
+
+server {
+    listen 8080 default_server;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    server_tokens off;
+
+    # Weiterleitungen relativ (`Location: /os/`): hinter einem Proxy kennt nginx Schema und Host nicht sicher.
+    absolute_redirect off;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/javascript application/javascript application/json
+               application/manifest+json image/svg+xml application/xml;
+
+    # Grundlegende Sicherheitsheader (ein vorgeschalteter Proxy darf weitere setzen)
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "interest-cohort=()" always;
+
+    # Gesundheitsabfrage (Container-Healthcheck, Kubernetes-Probes)
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        return 200 "ok\n";
+    }
+
+    # Laufzeit-Konfiguration: Name, Agent, externe Dienste. Fehlt die Datei, antwortet 404 und die Shell nimmt ihre Vorgaben.
+    location = /fyos.config.json {
+        alias /etc/fyos/fyos.config.json;
+        default_type application/json;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # Agent-Gateway (Chat im Dock und als Fläche), mit WebSocket-Upgrade. Pfad GENAU /agent und /agent/…,
+    # nicht /agent… (das träfe auch /agents). Der Pfad geht unverändert durch: das Gateway liefert seine
+    # Oberfläche unter gateway.controlUi.basePath=/agent aus und baut Assets und WebSocket mit diesem Präfix,
+    # ohne Präfix antwortet es 404. Diese Location steht vor den Regex-Locations für Medien und HTML, sonst
+    # landeten Bilder der Oberfläche (/agent/….svg) bei den statischen Dateien.
+    location ~ ^/agent(/|$) {
+        proxy_pass ${FYOS_AGENT_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        # Herkunft: Weiterleitungs-Köpfe glaubt das Gateway nur einem benannten Vorsatz (gateway.trustedProxies)
+        # und weist sie sonst ab (403 proxy_attribution_required). Dieser Server ist keiner: seine Adresse
+        # wechselt mit Pod oder Container. Er streicht deshalb alle Herkunftsangaben, auch die eines Proxys
+        # davor. Das Gateway sieht ihn als Absender (direct-remote) und verlangt wie bei jedem entfernten
+        # Gerät die Anmeldung. Als Weiterleitung zählt es Forwarded, X-Real-IP und jedes X-Forwarded-*.
+        proxy_set_header Forwarded "";
+        proxy_set_header X-Real-IP "";
+        proxy_set_header X-Forwarded-For "";
+        proxy_set_header X-Forwarded-Proto "";
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header X-Forwarded-Port "";
+        proxy_set_header X-Forwarded-Server "";
+        proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header X-Forwarded-Uri "";
+        proxy_set_header X-Forwarded-Method "";
+        proxy_set_header X-Forwarded-Ssl "";
+        proxy_set_header X-Forwarded-Scheme "";
+        proxy_set_header Tailscale-User-Login "";
+        proxy_set_header Tailscale-User-Name "";
+        proxy_set_header Tailscale-User-Profile-Pic "";
+        proxy_set_header Tailscale-Headers-Info "";
+        proxy_set_header Tailscale-Funnel-Request "";
+        # Einbettung nur im eigenen Ursprung (map oben). add_header hier hebt die Köpfe des server-Blocks auf;
+        # die übrigen Sicherheitsköpfe setzt das Gateway selbst.
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Content-Security-Policy $fyos_agent_csp always;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        proxy_buffering off;
+    }
+
+    # Lange zwischenspeichern: gehashte Astro-Dateien (der Dateiname enthält den Inhalts-Hash)
+    location /_astro/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        access_log off;
+    }
+
+    # Statische Medien (ohne Hash: mittlerer Cache)
+    location ~* \.(jpg|jpeg|png|gif|webp|svg|ico|woff|woff2|ttf|eot)$ {
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000" always;
+    }
+
+    # HTML nie zwischenspeichern
+    location ~* \.html$ {
+        expires -1;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    # Hub: der Browser erreicht nur diese Routen. Der Hub prüft selbst, dass ein Aufruf ein Werkzeug mit
+    # Oberfläche trifft; den vollen Aufruf-Endpunkt gibt es von außen nicht. Alle Wege sprechen HTTP/1.1
+    # mit leerem `Connection`-Kopf. `Content-Type`, Origin und Sec-Fetch-Site gehen unverändert durch:
+    # der Hub verlangt `application/json` und lehnt fremde Herkunft ab.
+    location = /hub-api/apps {
+        proxy_pass ${FYOS_HUB_UPSTREAM}/hub/apps;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 30s;
+    }
+    location = /hub-api/resource {
+        proxy_pass ${FYOS_HUB_UPSTREAM}/hub/resource$is_args$args;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 30s;
+    }
+    location = /hub-api/app-call {
+        limit_except POST { deny all; }
+        proxy_pass ${FYOS_HUB_UPSTREAM}/hub/app-call;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 300s;  # langsame Werkzeuge (bis ~5 min)
+        client_max_body_size 4m;  # größere Texte als die nginx-Vorgabe von 1 MB; der Hub begrenzt selbst
+    }
+    # OS-Brücke: der Agent wirkt auf das offene OS. `strom` (Server-Sent Events: Befehle an diesen Tab),
+    # `melden` (Sitzung, Fenster, Werkzeuge) und `antwort` (Ergebnis eines Befehls). Der Strom braucht
+    # HTTP/1.1, keinen Puffer und ein langes Lesefenster; X-Accel-Buffering geben wir selbst mit, damit
+    # auch ein nginx davor nicht puffert.
+    location = /hub-api/os/strom {
+        limit_except GET { deny all; }
+        proxy_pass ${FYOS_HUB_UPSTREAM}/hub/os/strom$is_args$args;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        add_header X-Accel-Buffering "no" always;
+        add_header Cache-Control "no-cache, no-transform" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+    location = /hub-api/os/melden {
+        limit_except POST { deny all; }
+        proxy_pass ${FYOS_HUB_UPSTREAM}/hub/os/melden;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 15s;
+        client_max_body_size 1m;
+    }
+    location = /hub-api/os/antwort {
+        limit_except POST { deny all; }
+        proxy_pass ${FYOS_HUB_UPSTREAM}/hub/os/antwort;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 15s;
+        client_max_body_size 1m;
+    }
+    location ^~ /hub-api/ { return 404; }
+
+    # Astro legt jede Route als Verzeichnis oder Datei ab. Absichtlich `=404` statt eines Datei-Rückfalls:
+    # ein Rückfall auf /404.html lieferte die Fehlerseite mit Status 200, und jede Maschine hielte die
+    # Seite dann für vorhanden.
+    location / {
+        try_files $uri $uri/ $uri.html =404;
+    }
+
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
+    }
+}

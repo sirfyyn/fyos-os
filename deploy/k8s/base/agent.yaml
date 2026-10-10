@@ -1,0 +1,88 @@
+# Der Agent: OpenClaw-Mod aus fyos-agent. Persona und Grenzen stehen in der
+# ConfigMap `fyos-agent-config` (fyos.yaml, siehe fyos-agent/fyos.example.yaml);
+# Modellzugang und Gateway-Token kommen aus Secrets, die das Overlay anlegt.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fyos-agent-config
+data:
+  fyos.yaml: |
+    agent:
+      name: Fy
+      wesen: Ruhig, präzise und zugewandt
+    besitzer:
+      name: Alex
+    sprache: Deutsch
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agent-zustand
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: agent
+spec:
+  serviceName: agent
+  replicas: 1
+  selector:
+    matchLabels: { app: agent }
+  template:
+    metadata:
+      labels: { app: agent }
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: agent
+          image: fyos-agent/openclaw
+          ports:
+            - containerPort: 18789
+          env:
+            - { name: HOME, value: /home/node }
+            - { name: FYOS_CONFIG, value: /etc/fyos/fyos.yaml }
+            - { name: FYOS_HUB_URL, value: "http://hub:8080/mcp" }
+            - name: FYOS_MODELL_BASIS_URL
+              valueFrom:
+                secretKeyRef: { name: fyos-modell, key: basis_url, optional: true }
+            - name: FYOS_MODELL_NAME
+              valueFrom:
+                secretKeyRef: { name: fyos-modell, key: name, optional: true }
+            - name: FYOS_MODELL_SCHLUESSEL
+              valueFrom:
+                secretKeyRef: { name: fyos-modell, key: schluessel, optional: true }
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: fyos-agent-gateway, key: token, optional: true }
+            # Erlaubter Ursprung der Control UI im Fenster der Shell (fyos-agent: gateway.oeffentliche_url);
+            # dieselbe Adresse wie für den Hub, gesetzt im Overlay über die ConfigMap fyos-umgebung.
+            - name: FYOS_OEFFENTLICH_URL
+              valueFrom:
+                configMapKeyRef: { name: fyos-umgebung, key: oeffentlich_url, optional: true }
+          resources:
+            requests: { cpu: 100m, memory: 1Gi }
+            limits: { memory: 4Gi }
+          volumeMounts:
+            - { name: zustand, mountPath: /home/node/.openclaw }
+            - { name: config, mountPath: /etc/fyos }
+      volumes:
+        - name: zustand
+          persistentVolumeClaim: { claimName: agent-zustand }
+        - name: config
+          configMap: { name: fyos-agent-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent
+spec:
+  selector: { app: agent }
+  ports:
+    - port: 18789
+      targetPort: 18789

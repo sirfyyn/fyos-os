@@ -1,0 +1,47 @@
+# Overlay für FYOS auf Kubernetes, erzeugt vom FYOS-Installer.
+#   kubectl create namespace {{namespace}}
+#   kubectl apply -f secrets.yaml
+#   kubectl apply -k .
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: {{namespace}}
+resources:
+  - {{k8s_basis}}
+# Ohne Namens-Hash: nach Änderungen an den ConfigMaps mit `kubectl rollout restart` neu starten.
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: fyos-agent-config
+    behavior: replace
+    files:
+      - fyos.yaml
+  - name: fyos-hub-config
+    behavior: replace
+    files:
+      - config.yaml=hub-config.yaml
+  - name: fyos-umgebung
+    behavior: replace
+    literals:
+{{umgebung_literale}}
+  - name: fyos-plugin-umgebung
+    literals:
+{{plugin_literale}}
+# Die Basis gibt ihre Bilder schon mit der Beispieladresse aus; ersetzt werden deshalb genau diese Namen.
+images:
+  - name: {{web_basis}}
+    newName: {{web_name}}
+    newTag: {{web_tag}}
+  - name: {{agent_basis}}
+    newName: {{agent_name}}
+    newTag: {{agent_tag}}
+  - name: {{hub_basis}}
+    newName: {{hub_bild_name}}
+    newTag: {{hub_bild_tag}}
+patches:
+  - target: { kind: Deployment, name: hub }
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom
+        value:
+          - configMapRef: { name: fyos-plugin-umgebung, optional: true }
+          - secretRef: { name: fyos-plugin, optional: true }

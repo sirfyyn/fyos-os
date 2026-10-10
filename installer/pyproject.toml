@@ -1,0 +1,31 @@
+[build-system]
+# 77: erste Fassung mit Lizenz als SPDX-Ausdruck (PEP 639).
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fyos-installer"
+version = "0.1.0"
+description = "Installer der Distribution FYOS (For Your Own Sake): Auswahl, Erklärung mit Bildern, Erzeugung der Auslieferung"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "sirfyyn and FYOS CONTRIBUTORS" }]  # sauber: ok
+dependencies = ["PyYAML>=6"]
+
+[project.optional-dependencies]
+tui = ["textual>=0.80"]
+bilder = ["textual-image>=0.6"]
+test = ["pytest>=8"]
+
+[project.scripts]
+fyos-install = "fyos_installer.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["fyos_installer*"]
+
+[tool.setuptools.package-data]
+fyos_installer = ["*.yaml", "bilder/*", "vorlagen/*", "vorlagen/*/*", "web/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
