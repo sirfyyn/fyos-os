@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Monatsansicht mit den Terminen des Tages</title>
+<desc id="d">Ein Monatsraster mit markiertem heutigem Tag und Punkten an Tagen mit Terminen, daneben eine Liste für heute mit einem ganztägigen Termin und zwei Terminen mit Uhrzeit sowie ein Hinweis auf die Quelle (CalDAV oder ICS-Abo).</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+.ctr{text-anchor:middle}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="40" y="30" width="380" height="290" rx="10"/>
+<rect class="ln" x="40" y="30" width="380" height="290" rx="10"/>
+<text class="ink" x="60" y="58" font-weight="700">Oktober</text>
+<g class="mut ctr">
+<text x="76" y="84">Mo</text><text x="130" y="84">Di</text><text x="184" y="84">Mi</text><text x="238" y="84">Do</text><text x="292" y="84">Fr</text><text x="346" y="84">Sa</text><text x="400" y="84">So</text>
+</g>
+<rect class="acc" x="58" y="152" width="36" height="34" rx="17"/>
+<g class="ink ctr">
+<text class="mut" x="76" y="116">28</text><text class="mut" x="130" y="116">29</text><text class="mut" x="184" y="116">30</text><text x="238" y="116">1</text><text x="292" y="116">2</text><text x="346" y="116">3</text><text x="400" y="116">4</text>
+<text x="76" y="152">5</text><text x="130" y="152">6</text><text x="184" y="152">7</text><text x="238" y="152">8</text><text x="292" y="152">9</text><text x="346" y="152">10</text><text x="400" y="152">11</text>
+<text x="76" y="188" font-weight="700" style="fill:#fffdf8">12</text><text x="130" y="188">13</text><text x="184" y="188">14</text><text x="238" y="188">15</text><text x="292" y="188">16</text><text x="346" y="188">17</text><text x="400" y="188">18</text>
+<text x="76" y="224">19</text><text x="130" y="224">20</text><text x="184" y="224">21</text><text x="238" y="224">22</text><text x="292" y="224">23</text><text x="346" y="224">24</text><text x="400" y="224">25</text>
+<text x="76" y="260">26</text><text x="130" y="260">27</text><text x="184" y="260">28</text><text x="238" y="260">29</text><text x="292" y="260">30</text><text x="346" y="260">31</text><text class="mut" x="400" y="260">1</text>
+</g>
+<circle class="wrm" cx="76" cy="196" r="3"/><circle class="wrm" cx="238" cy="196" r="3"/><circle class="wrm" cx="130" cy="232" r="3"/>
+<circle class="wrm" cx="292" cy="232" r="3"/><circle class="wrm" cx="184" cy="268" r="3"/>
+<text class="mut" x="60" y="304">Punkt = Tag mit Terminen</text>
+<rect class="fl" x="440" y="30" width="180" height="290" rx="10"/>
+<rect class="ln" x="440" y="30" width="180" height="290" rx="10"/>
+<text class="ink" x="458" y="58" font-weight="700">Heute</text>
+<rect class="bar" x="456" y="72" width="148" height="30" rx="8"/><text class="ink" x="468" y="92">ganztägig · Feiertag</text>
+<rect class="bar" x="456" y="112" width="148" height="30" rx="8"/><text class="ink" x="468" y="132">09:00 · Zahnarzt</text>
+<rect class="bar" x="456" y="152" width="148" height="30" rx="8"/><text class="ink" x="468" y="172">13:30 · Mittagessen</text>
+<text class="mut" x="458" y="214">Quellen</text>
+<rect class="acc" x="458" y="226" width="12" height="12" rx="3"/><text class="ink" x="478" y="237">CalDAV, App-Passwort</text>
+<rect class="wrm" x="458" y="250" width="12" height="12" rx="3"/><text class="ink" x="478" y="261">ICS-Abo, nur lesen</text>
+<text class="mut" x="40" y="350">Wiederholungen, Ausnahmen und Zeitzonen sind aufgelöst; neue Termine nur auf Wunsch</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

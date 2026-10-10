@@ -121,7 +121,9 @@ Dazu fragt der Hub die anmeldefreien Sonden `GET <gateway>/healthz` und `/readyz
 
 Der Vorgangs-Vertrag ist der des Vorgangs-Dienstes (`fyos-agent/plugins/fyos-freigabe-chat/board.mjs`):
 `GET /tickets?status=&limit=`, `GET /tickets/{id}`, `POST /tickets`, `POST /tickets/{id}/comments` `{actor, text}`,
-`PATCH /tickets/{id}` `{status, expected_status?, actor?, title?, description?, priority?}`.
+`PATCH /tickets/{id}` `{status, expected_status?, actor?, title?, description?, priority?}`. Wo vorhanden, dazu
+`GET /tickets/{id}/history?limit=` (neueste zuerst, `{history: [{ts, event, actor, detail}]}`); im Workboard sind
+das die Kommentare der Karte.
 
 | Vorgang | Karte (der Abgleich setzt) | Karten-Status, die als gleich gelten |
 |---|---|---|
@@ -152,6 +154,13 @@ wenn sie ein Label `vorgang:<ID>` trägt, so. Wer im **Agenten** `FYOS_VORGAENGE
 setzt, gibt etwa der Freigabe im Chat das Workboard als Vorgangs-Dienst. Im Hub selbst ignoriert das Plugin eine
 Adresse, die auf `/hub/vorgaenge` endet (sonst spiegelte es das Workboard auf sich selbst).
 
+**Andere Plugins im Hub** (Leitstand, Zentrale, „Braucht dich“) tragen keine Adresse fest ein, sondern fragen
+`mcp_hub.vorgaenge.quelle()` (Beispiel in `ERWEITERN.md` §2.13). Steht beim Plugin `openclaw` ein Vorgangs-Dienst,
+meldet es ihn dort samt Kopfzeile an, und alle fragen denselben Dienst, auch wenn er nur in seiner `config` steht und
+auch, solange die Kopplung ruht (ohne `FYOS_AGENT_URL`). Als Ablage
+meldet es sich selbst an: Die Plugins lesen und beantworten Vorgänge dann prozessintern im Workboard, ohne Umweg über
+HTTP. Ohne beides bleiben ihre Listen leer und Schreiben meldet „nicht eingerichtet“.
+
 ## 5. Einrichten
 
 **Agent** (`fyos.yaml`, Vorlage in fyos-agent):
@@ -173,6 +182,7 @@ Vorlage die Skills aus fyos-agent (`skills.load.extraDirs: ["/opt/fyos/skills"]`
 | `FYOS_AGENT_URL` | `gateway_url` | Gateway, z. B. `http://agent:18789`; leer = Kopplung aus |
 | `FYOS_AGENT_TOKEN` | `token` | das Gateway-Token: Abfragen und Prüfung der Signatur |
 | `FYOS_VORGAENGE_URL` | `vorgaenge_url` | Vorgangs-Dienst; leer = Workboard ist die Ablage |
+| `FYOS_VORGAENGE_KOPF` | `vorgaenge_kopf` | eine Kopfzeile `Name: Wert`, die jeder Aufruf beim Vorgangs-Dienst mitschickt (Spiegel und Plugins), z. B. für eine Anmeldung des Dienstes; leer = keine |
 | `FYOS_VORGANG_LINK` | `vorgang_link` | Verweis je Vorgang mit `{id}`, erscheint in Notizen und `sourceUrl` der Karte |
 | | `board` | Board der Vorgänge (Vorgabe `fyos` im Spiegel, `default` als Ablage) |
 | | `abgleich_s` | Takt des Abgleichs (Vorgabe 60, 0 = nur auf Abruf) |

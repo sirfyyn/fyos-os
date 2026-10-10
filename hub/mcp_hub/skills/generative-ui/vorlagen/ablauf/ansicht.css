@@ -1,0 +1,4 @@
+.a-diagramm { width: 100%; display: block; }
+.a-schritt.gui-klickbar:hover rect { opacity: .85; }
+.a-schritt:focus { outline: none; }
+.a-schritt:focus-visible rect { stroke-width: 2; }

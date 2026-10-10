@@ -35,7 +35,7 @@ def test_compose(katalog, tmp_path):
     assert "FYOS_HAUS_HA_URL" in compose["services"]["hub"]["environment"]
     assert "geheim" not in (out / "docker-compose.yml").read_text()
     df = (out / "hub/Dockerfile").read_text()
-    assert "FROM registry.example.com/fyos/fyos-os/hub:main" in df
+    assert f"FROM {e.OFFIZIELLE_REGISTRY}/fyos-os/hub:{e.BILD_TAG}" in df
     assert "fyos-plugin-haus @ git+https://git.example.com/fyos/fyos-plugin-haus.git" in df
     fyos = yaml.safe_load((out / "fyos.yaml").read_text())
     assert fyos["agent"]["name"] == "Fy" and fyos["besitzer"]["name"] == "Alex" and fyos["sprache_code"] == "de"
@@ -136,9 +136,19 @@ def test_registry_vorgaben(katalog, tmp_path):
     assert o["bild_web"] == "registry.example.com/org/fyos-os/web:main"
     assert o["hub_bild"] == "registry.example.com/org/fyos-os/hub:main"
     assert o["bild_agent"] == "registry.example.com/org/fyos-agent/openclaw:main"
-    assert e.vorgaben_optionen({})["bild_web"] == "registry.example.com/fyos/fyos-os/web:main"
+    assert o["hub_bild_k8s"] == "registry.example.com/org/fyos-os/hub-eigen:main"
+    # Ohne Registry die veröffentlichten Bilder im Stand der Installer-Version; nur hub-eigen braucht eine eigene.
+    v = e.vorgaben_optionen({})
+    assert e.BILD_TAG == f"v{e.__version__}"
+    assert v["bild_web"] == f"ghcr.io/sirfyyn/fyos-os/web:{e.BILD_TAG}"  # sauber: ok
+    assert v["hub_bild"] == f"ghcr.io/sirfyyn/fyos-os/hub:{e.BILD_TAG}"  # sauber: ok
+    assert v["bild_agent"] == f"ghcr.io/sirfyyn/fyos-agent/openclaw:{e.AGENT_TAG}"  # sauber: ok
+    assert v["hub_bild_k8s"] == f"{e.BEISPIEL_REGISTRY}/fyos-os/hub-eigen:{e.BILD_TAG}"
     ohne = e.erstelle_plan(katalog, [], "compose", {}, tmp_path / "o", umgebung={})
-    assert ohne.ok and any("Beispieladresse" in h for h in ohne.hinweise)
+    assert ohne.ok and not any("Beispieladresse" in h for h in ohne.hinweise)
+    k8s = e.erstelle_plan(katalog, [], "k8s", {}, tmp_path / "k", umgebung={})
+    hinweis = [h for h in k8s.hinweise if "Beispieladresse" in h]
+    assert k8s.ok and len(hinweis) == 1 and "hub_bild_k8s" in hinweis[0] and "bild_web" not in hinweis[0]
     plan = e.erstelle_plan(katalog, [], "k8s", {}, tmp_path / "r", umgebung={"FYOS_REGISTRY": "registry.example.com/org"})
     assert plan.ok
     assert not any("Beispieladresse" in h for h in plan.hinweise)
@@ -148,6 +158,22 @@ def test_registry_vorgaben(katalog, tmp_path):
                            umgebung={"FYOS_REGISTRY": "registry.example.com/org"})
     env = next(d for d in plan.dateien if d.pfad == ".env").inhalt
     assert "FYOS_BILD_WEB=eigen.example.com/w:1" in env and "FYOS_BILD_AGENT=registry.example.com/org/fyos-agent/openclaw:main" in env
+
+
+def test_bild_tag(katalog, tmp_path):
+    # FYOS_BILD_TAG setzt den Tag aller Bilder, mit und ohne eigene Registry.
+    o = e.vorgaben_optionen({"FYOS_BILD_TAG": "latest"})
+    assert o["bild_web"] == f"{e.OFFIZIELLE_REGISTRY}/fyos-os/web:latest"
+    assert o["bild_agent"] == f"{e.OFFIZIELLE_REGISTRY}/fyos-agent/openclaw:latest"
+    assert o["hub_bild_k8s"] == f"{e.BEISPIEL_REGISTRY}/fyos-os/hub-eigen:latest"
+    o = e.vorgaben_optionen({"FYOS_REGISTRY": "registry.example.com/org", "FYOS_BILD_TAG": "v9"})
+    assert o["hub_bild"] == "registry.example.com/org/fyos-os/hub:v9"
+    assert o["hub_bild_k8s"] == "registry.example.com/org/fyos-os/hub-eigen:v9"
+    plan = e.erstelle_plan(katalog, [], "k8s", {}, tmp_path / "k", umgebung={"FYOS_BILD_TAG": "latest"})
+    kust = yaml.safe_load(next(d.inhalt for d in plan.dateien if d.pfad == "kustomization.yaml"))
+    bilder = {b["newName"]: b["newTag"] for b in kust["images"]}
+    assert bilder[f"{e.OFFIZIELLE_REGISTRY}/fyos-os/web"] == "latest"
+    assert bilder[f"{e.OFFIZIELLE_REGISTRY}/fyos-agent/openclaw"] == "latest"
 
 
 def test_plugin_quelle_aus_umgebung(katalog, tmp_path):

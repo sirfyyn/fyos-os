@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gebaute Ansicht</title>
+<style>/*STIL*/
+  main { display: grid; gap: 10px; }
+  main > [hidden] { display: none; }
+  .gui-text { margin: 0 2px; font-size: 13.5px; line-height: 1.5; color: var(--mut); }
+  /* Kein eigenes color-scheme: weicht es vom Schema des Dokuments im Rahmen ab, malt der Browser eine deckende Fläche
+     statt des Glases (gesehen im OS, 10.10.). Der Rahmen erbt das Schema der App, das Innere setzt dasselbe. */
+  #rahmen { display: block; width: 100%; height: 160px; border: 0; background: transparent; }
+  .gui-liste { display: grid; gap: 8px; }
+  .gui-liste button.zeile { display: grid; gap: 2px; width: 100%; text-align: left; padding: 10px 14px; border: 1px solid var(--line-2); border-radius: var(--r-l); background: var(--flaeche); }
+  .gui-liste button.zeile:hover { border-color: var(--line-3); }
+  .gui-liste .gui-titel { font-weight: var(--font-weight-semibold); color: var(--fg); }
+  .gui-liste .gui-zeile-text { font-size: 12.5px; color: var(--mut); }
+  .gui-live { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin: 0 2px; font-size: 12.5px; color: var(--mut); }
+  .gui-live[hidden] { display: none; }
+</style>
+</head>
+<body>
+<!--KOPF-->
+  <button id="zurueck" class="zweit klein knopf-sym" type="button" hidden title="Alle Ansichten" aria-label="Alle Ansichten"><svg class="ico" data-symbol="list"></svg><span class="beschriftung">Alle</span></button>
+<!--/KOPF-->
+<main id="inhalt">
+  <div id="laden" class="laedt gross">Die Ansicht wird gebaut …</div>
+  <p id="beschreibung" class="gui-text" hidden></p>
+  <div id="live" class="gui-live" hidden><span id="stand" role="status"></span><button id="frisch" class="zweit klein" type="button">Aktualisieren</button></div>
+  <iframe id="rahmen" sandbox="allow-scripts" title="Gebaute Ansicht" hidden></iframe>
+  <div id="liste" class="gui-liste" hidden></div>
+  <div id="hinweis" hidden></div>
+</main>
+<script>/*BRUECKE*/
+// ── Gebaute Ansicht (gui) ─────────────────────────────────────────────────────────────────────────
+// Das Fragment des Agenten läuft in #rahmen: srcdoc, sandbox="allow-scripts", OHNE allow-same-origin. Es sieht weder
+// diese Seite noch die Brücke zum Host, kann also keine Hub-Werkzeuge rufen. Die CSP dieser Ressource gilt dort mit
+// (srcdoc erbt sie): Skripte nur inline und von den CDNs aus gui.py, connect-src zu — nichts geht nach außen.
+// Mit uns spricht der Rahmen nur über postMessage {typ: "gui", art: hoehe|nachricht|link|fehler}; wir prüfen jede Art.
+const $ = (id) => document.getElementById(id);
+const obj = (x) => (x && typeof x === "object" ? x : {});
+
+// Gestaltungswerte, die wir in den Rahmen reichen (dort gibt es weder _stil.css noch die Werte des Hosts).
+const WERTE = [
+  "--color-background-primary", "--color-background-secondary", "--color-background-tertiary",
+  "--color-background-info", "--color-background-danger", "--color-background-success", "--color-background-warning",
+  "--color-text-primary", "--color-text-secondary", "--color-text-tertiary",
+  "--color-text-info", "--color-text-danger", "--color-text-success", "--color-text-warning",
+  "--color-border-primary", "--color-border-secondary", "--color-border-tertiary",
+  "--color-border-info", "--color-border-danger", "--color-border-success", "--color-border-warning",
+  "--font-sans", "--font-serif", "--font-mono", "--border-radius-md", "--border-radius-lg", "--border-radius-xl",
+];
+function werte() {
+  const s = getComputedStyle(document.documentElement), aus = {};
+  for (const n of WERTE) { const v = s.getPropertyValue(n).trim(); if (v) aus[n] = v; }
+  return aus;
+}
+const thema = () => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
+
+// Bibliotheken für <script type="module"> und import() im Rahmen (wie Open Intelligent UI).
+const IMPORTE = { imports: {
+  three: "https://esm.sh/three", "three/": "https://esm.sh/three/", gsap: "https://esm.sh/gsap", "gsap/": "https://esm.sh/gsap/",
+  d3: "https://esm.sh/d3", "d3/": "https://esm.sh/d3/", "chart.js": "https://esm.sh/chart.js", "chart.js/": "https://esm.sh/chart.js/",
+} };
+
+// Design-System im Rahmen. Farbrampen und Formulare nach Open Intelligent UI (CopilotKit, MIT); dunkel ist Vorgabe
+// wie in _stil.css, hell unter [data-theme="light"].
+const RAMPEN = {   // name: [hell Fläche, hell Linie, hell Schrift, dunkel Fläche, dunkel Linie, dunkel Schrift]
+  purple: ["#EEEDFE", "#534AB7", "#3C3489", "#3C3489", "#AFA9EC", "#CECBF6"],
+  teal: ["#E1F5EE", "#0F6E56", "#085041", "#085041", "#5DCAA5", "#9FE1CB"],
+  coral: ["#FAECE7", "#993C1D", "#712B13", "#712B13", "#F0997B", "#F5C4B3"],
+  pink: ["#FBEAF0", "#993556", "#72243E", "#72243E", "#ED93B1", "#F4C0D1"],
+  gray: ["#F1EFE8", "#5F5E5A", "#444441", "#444441", "#B4B2A9", "#D3D1C7"],
+  blue: ["#E6F1FB", "#185FA5", "#0C447C", "#0C447C", "#85B7EB", "#B5D4F4"],
+  green: ["#EAF3DE", "#3B6D11", "#27500A", "#27500A", "#97C459", "#C0DD97"],
+  amber: ["#FAEEDA", "#854F0B", "#633806", "#633806", "#EF9F27", "#FAC775"],
+  red: ["#FCEBEB", "#A32D2D", "#791F1F", "#791F1F", "#F09595", "#F7C1C1"],
+};
+function rampe(vor, n, f, l, s) {
+  const sel = (x) => x.split(",").map((t) => vor + t.trim()).join(",");
+  return `${sel(`svg .c-${n}>rect,svg .c-${n}>circle,svg .c-${n}>ellipse,svg .c-${n}>polygon,svg rect.c-${n},svg circle.c-${n},svg ellipse.c-${n},svg polygon.c-${n}`)}{fill:${f};stroke:${l}}`
+    + `${sel(`svg .c-${n} text.th,svg .c-${n} text.t`)}{fill:${s}}${sel(`svg .c-${n} text.ts`)}{fill:${l}}`;
+}
+// Kein eigenes Thema: alle Farben im Rahmen sind die Werte des Hosts (werte(), stilSenden). Die Hex-Werte der Rampen
+// sind Kategorienfarben für Diagramme (je Thema ein Satz), keine Oberflächenfarben.
+const GESTALTUNG = `
+html{--p:var(--color-text-primary);--s:var(--color-text-secondary);--t:var(--color-text-tertiary);--bg2:var(--color-background-secondary);--b:var(--color-border-tertiary);color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
+*{box-sizing:border-box;margin:0}
+html,body{background:transparent}
+body{font-family:var(--font-sans);font-size:15px;line-height:1.6;color:var(--color-text-primary);-webkit-font-smoothing:antialiased;padding:2px}
+h1,h2,h3{font-weight:500;line-height:1.3;margin:0 0 .4em}h1{font-size:20px}h2{font-size:17px}h3{font-size:15px}
+p+p{margin-top:.6em}
+a{color:var(--color-text-info);text-decoration:none}a:hover{text-decoration:underline}
+button{font:inherit;font-size:14px;padding:6px 16px;border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);cursor:pointer;transition:background .15s,transform .1s}
+button:hover{background:var(--color-background-secondary)}button:active{transform:scale(.98)}button:disabled{opacity:.5;cursor:default}
+input[type=text],input[type=number],input[type=email],input[type=search],input[type=date],textarea,select{font:inherit;font-size:14px;padding:6px 12px;min-height:36px;border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-primary)}
+textarea{min-height:80px;resize:vertical}
+input::placeholder,textarea::placeholder{color:var(--color-text-tertiary)}
+input[type=range]{accent-color:var(--color-text-info)}
+input[type=checkbox],input[type=radio]{width:16px;height:16px;accent-color:var(--color-text-info)}
+:focus-visible{outline:2px solid var(--color-text-info);outline-offset:2px}
+label{color:var(--color-text-secondary);font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:6px 10px;border-bottom:1px solid var(--color-border-tertiary);text-align:left}th{font-weight:500;color:var(--color-text-secondary)}
+code,pre{font-family:var(--font-mono);font-size:13px}
+svg text.t{font:400 14px var(--font-sans);fill:var(--p)}svg text.ts{font:400 12px var(--font-sans);fill:var(--s)}svg text.th{font:500 14px var(--font-sans);fill:var(--p)}
+svg .box>rect,svg .box>circle,svg .box>ellipse{fill:var(--bg2);stroke:var(--b)}
+svg .node{cursor:pointer}svg .node:hover{opacity:.8}
+svg .arr{stroke:var(--s);stroke-width:1.5;fill:none}svg .leader{stroke:var(--t);stroke-width:.5;stroke-dasharray:4 4;fill:none}
+${Object.entries(RAMPEN).map(([n, r]) => rampe("", n, r[3], r[4], r[5]) + rampe(':root[data-theme="light"] ', n, r[0], r[1], r[2])).join("\n")}
+.gui-text{color:var(--color-text-secondary);margin:0 0 12px}
+.gui-herkunft{font-size:12.5px;color:var(--color-text-tertiary);margin-top:12px}
+.gui-karte{background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 14px}
+.gui-raster{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr))}
+.gui-leiste{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 0 10px}
+.gui-ton{display:inline-flex;align-items:center;gap:6px;padding:1px 9px;border-radius:999px;font-size:12.5px;line-height:1.6;border:1px solid var(--color-border-tertiary);color:var(--color-text-secondary);white-space:nowrap}
+.gui-ton::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.gui-ton[data-ton=gut]{color:var(--color-text-success);background:var(--color-background-success);border-color:var(--color-border-success)}
+.gui-ton[data-ton=warn]{color:var(--color-text-warning);background:var(--color-background-warning);border-color:var(--color-border-warning)}
+.gui-ton[data-ton=schlecht]{color:var(--color-text-danger);background:var(--color-background-danger);border-color:var(--color-border-danger)}
+.gui-ton[data-ton=info]{color:var(--color-text-info);background:var(--color-background-info);border-color:var(--color-border-info)}
+.gui-klickbar{cursor:pointer}.gui-klickbar:hover{background:var(--color-background-secondary)}
+#content>*{animation:gui-rein .35s ease-out both}
+#content>*:nth-child(2){animation-delay:.05s}#content>*:nth-child(3){animation-delay:.1s}#content>*:nth-child(n+4){animation-delay:.15s}
+@keyframes gui-rein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}}
+`;
+
+// Brücke im Rahmen — läuft dort als erstes Skript. Namen wie bei Open Intelligent UI, damit dessen Muster passen.
+function innenBruecke() {
+  const P = window.parent; let n = 0; const offen = new Map();
+  const frage = (art, daten) => new Promise((ok, fail) => {
+    const id = ++n; offen.set(id, { ok, fail });
+    P.postMessage(Object.assign({ typ: "gui", art, id }, daten), "*");
+    setTimeout(() => { if (offen.has(id)) { offen.delete(id); fail(new Error("Keine Antwort")); } }, 20000);
+  });
+  window.addEventListener("message", (e) => {
+    if (e.source !== P) return; const m = e.data || {};
+    if (m.typ === "gui-antwort" && offen.has(m.id)) { const p = offen.get(m.id); offen.delete(m.id); m.fehler ? p.fail(new Error(m.fehler)) : p.ok(m.ergebnis); }
+    if (m.typ === "gui-stil") {
+      const r = document.documentElement; r.dataset.theme = m.thema === "light" ? "light" : "dark";
+      for (const [k, v] of Object.entries(m.werte || {})) r.style.setProperty(k, v);
+    }
+  });
+  // Nachrichten nur nach einer Geste im Rahmen (Klick, Taste) — nie beim Laden, Takt oder Tippen in ein Feld.
+  const geste = () => !navigator.userActivation || navigator.userActivation.isActive;
+  window.sendPrompt = (x) => {
+    const text = String(x && typeof x === "object" ? x.text : x || "").trim();
+    if (!text) return Promise.reject(new Error("Kein Text"));
+    if (!geste()) return Promise.reject(new Error("Nur nach einem Klick"));
+    return frage("nachricht", { text });
+  };
+  window.openLink = (x) => {
+    const url = String(x && typeof x === "object" ? x.url : x || "");
+    if (!/^https:\/\//i.test(url)) return Promise.reject(new Error("Nur https-Adressen"));
+    return frage("link", { url });
+  };
+  window.Websandbox = { connection: { remote: { sendPrompt: (o) => window.sendPrompt(o), openLink: (o) => window.openLink(o) } } };
+  document.addEventListener("click", (e) => {
+    const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (a && /^https:/i.test(a.href)) { e.preventDefault(); window.openLink(a.href).catch(() => {}); }
+  });
+  const hoehe = () => P.postMessage({ typ: "gui", art: "hoehe", hoehe: Math.ceil(document.documentElement.getBoundingClientRect().height) }, "*");
+  addEventListener("DOMContentLoaded", () => { new ResizeObserver(hoehe).observe(document.documentElement); hoehe(); });
+  addEventListener("load", hoehe);
+  const fehler = (t) => P.postMessage({ typ: "gui", art: "fehler", text: String(t || "Fehler").slice(0, 300) }, "*");
+  addEventListener("error", (e) => fehler(e.message || (e.error && e.error.message)));
+  addEventListener("unhandledrejection", (e) => fehler(e.reason && e.reason.message || e.reason));
+  // Helfer für Vorlagen und eigene Ansichten (2026-10-10). Daten stehen als JSON in #gui-daten (Vorlagen, gui.bauen
+  // mit `daten`); hat die Ansicht eine Live-Quelle, reicht die App neue Daten nach ({typ: "gui-daten"}).
+  const NS = "http://www.w3.org/2000/svg";
+  const bauen = (doc, tag, attrs, kinder) => {
+    const e = doc ? document.createElementNS(NS, tag) : document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === "text") e.textContent = String(v);
+      else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const kind of kinder.flat(Infinity)) if (kind != null && kind !== false) e.append(kind instanceof Node ? kind : String(kind));
+    return e;
+  };
+  const TON = { gut: "c-teal", ok: "c-teal", warn: "c-amber", warnung: "c-amber", schlecht: "c-red", fehler: "c-red", info: "c-blue", aus: "c-gray", neutral: "c-gray" };
+  const zuhoerer = [];
+  window.GUI = {
+    /** Daten der Ansicht; mit `umformen` (gui.bauen) erst durch diese Funktion — z. B. Rohdaten eines Werkzeugs → Vorlage. */
+    daten() {
+      let roh = null;
+      try { const e = document.getElementById("gui-daten"); roh = e ? JSON.parse(e.textContent) : null; } catch { roh = null; }
+      return typeof window.GUI.umformen === "function" ? window.GUI.umformen(roh) : roh;
+    },
+    /** fn(daten) jetzt und bei jeder Aktualisierung aus der Live-Quelle. */
+    beiDaten(fn) { zuhoerer.push(fn); try { fn(window.GUI.daten()); } catch (err) { fehler(err && err.message); } },
+    umformen: null,
+    zahl: (n, opt) => (Number.isFinite(Number(n)) ? new Intl.NumberFormat("de-DE", opt).format(Number(n)) : "–"),
+    zeit(x, art) {
+      const d = new Date(x); if (isNaN(d)) return String(x ?? "");
+      const o = art === "tag" ? { dateStyle: "medium" } : art === "uhr" ? { timeStyle: "short" } : { dateStyle: "short", timeStyle: "short" };
+      return new Intl.DateTimeFormat("de-DE", o).format(d);
+    },
+    el: (tag, attrs, ...kinder) => bauen(false, tag, attrs, kinder),
+    svg: (tag, attrs, ...kinder) => bauen(true, tag, attrs, kinder),
+    /** Ton (gut, warn, schlecht, info, aus) → Farbrampe für SVG; unbekannt → grau. */
+    rampe: (ton) => TON[String(ton || "").toLowerCase()] || "c-gray",
+    /** Ton vereinheitlichen: gut | warn | schlecht | info | aus (für .gui-ton[data-ton]). */
+    ton(t) {
+      const r = TON[String(t || "").toLowerCase()];
+      return r === "c-teal" ? "gut" : r === "c-amber" ? "warn" : r === "c-red" ? "schlecht" : r === "c-blue" ? "info" : "aus";
+    },
+    /** Überschrift und Einleitung aus den gemeinsamen Feldern jeder Vorlage (ueberschrift, text). */
+    kopf: (d) => [d && d.ueberschrift ? window.GUI.el("h2", { text: d.ueberschrift }) : null,
+      d && d.text ? window.GUI.el("p", { class: "gui-text", text: d.text }) : null].filter(Boolean),
+    /** Herkunft und Stand der Daten (Feld herkunft) — Pflicht bei Werkzeugdaten. */
+    fuss: (d) => (d && d.herkunft ? [window.GUI.el("p", { class: "gui-herkunft", text: d.herkunft })] : []),
+    fragen: (text) => window.sendPrompt(text).catch(() => {}),
+  };
+  window.addEventListener("message", (e) => {
+    if (e.source !== P || (e.data || {}).typ !== "gui-daten") return;
+    let el = document.getElementById("gui-daten");
+    if (!el) { el = document.createElement("script"); el.type = "application/json"; el.id = "gui-daten"; document.body.prepend(el); }
+    el.textContent = JSON.stringify(e.data.daten ?? null);
+    let neu; try { neu = window.GUI.daten(); } catch (err) { fehler(err && err.message); return; }
+    for (const fn of zuhoerer) { try { fn(neu); } catch (err) { fehler(err && err.message); } }
+  });
+  // Zoom (Touchpad-Pinch kommt als Strg+Rad, dazu ⌘/Strg +/−/0) nur, wenn der Host ihn anbietet (Datei-Ansicht).
+  let zoomAn = false;
+  addEventListener("message", (e) => { if (e.source === P && (e.data || {}).typ === "gui-zoom-an") zoomAn = true; });
+  addEventListener("wheel", (e) => {
+    if (!zoomAn || !e.ctrlKey) return;
+    e.preventDefault(); P.postMessage({ typ: "gui", art: "zoom", dy: e.deltaY }, "*");
+  }, { passive: false });
+  addEventListener("keydown", (e) => {
+    const schritt = { "+": 1, "=": 1, "-": -1, "0": 0 }[e.key];
+    if (!zoomAn || !(e.ctrlKey || e.metaKey) || schritt === undefined) return;
+    e.preventDefault(); P.postMessage({ typ: "gui", art: "zoom", schritt }, "*");
+  });
+}
+
+const ohneEnde = (t, tag) => String(t || "").replace(new RegExp(`</${tag}`, "gi"), `<\\/${tag}`);
+function dokumentText(d) {
+  const w = Object.entries(werte()).map(([k, v]) => `${k}:${v}`).join(";");
+  return `<!doctype html><html lang="de" data-theme="${thema()}"><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width,initial-scale=1">`
+    + `<script type="importmap">${JSON.stringify(IMPORTE)}<\/script>`
+    + `<style>html{${w}}</style><style>${GESTALTUNG}</style>`
+    + (d.css ? `<style>${ohneEnde(d.css, "style")}</style>` : "")
+    + `<script>(${innenBruecke})();<\/script></head>`
+    + `<body><main id="content">${d.html}</main>`
+    + (d.js ? `<script>${ohneEnde(d.js, "script")}<\/script>` : "")
+    + `</body></html>`;
+}
+
+// ── Anzeigen ──────────────────────────────────────────────────────────────────────────────────────
+let gezeigt = null, bekommen = false, erwartet = false;   // erwartet: gui.bauen läuft, die fertige Ansicht kommt mit dem Ergebnis
+const rahmen = $("rahmen");
+function ladenAus() { const l = $("laden"); l.hidden = true; l.classList.remove("laedt"); }
+function hinweis(html) { ladenAus(); const h = $("hinweis"); h.innerHTML = html; h.hidden = !html; }
+
+// ── Live-Quelle: gui.zeigen {id, nur_daten} holt frische Daten, die Ansicht bekommt sie per {typ: "gui-daten"} ──
+let liveId = null, liveTakt = 0;
+function liveSetzen(id, d, stand) {
+  clearInterval(liveTakt); liveTakt = 0;
+  const q = d && d.quelle;
+  liveId = q && id && App.kann("serverTools") ? id : null;
+  $("live").hidden = !liveId;
+  if (!liveId) return;
+  $("stand").textContent = `Live aus ${q.werkzeug}` + (stand ? ` · Stand ${App.zeit.uhr ? App.zeit.uhr(stand) : new Date(stand).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : "");
+  if (q.takt) liveTakt = setInterval(() => { if (document.visibilityState === "visible") nachladen(); }, Math.max(30, q.takt) * 1000);
+}
+async function nachladen() {
+  if (!liveId) return;
+  const knopf = $("frisch"); knopf.disabled = true;
+  try {
+    const r = await App.rufen("gui__zeigen", { id: liveId, nur_daten: true });
+    if (rahmen.contentWindow) rahmen.contentWindow.postMessage({ typ: "gui-daten", daten: r && r.daten }, "*");
+    const s = (r && r.stand) || new Date().toISOString();
+    $("stand").textContent = $("stand").textContent.replace(/ · Stand .*$/, "") + ` · Stand ${new Date(s).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  } catch (err) {
+    hinweis(App.zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: "Nicht aktualisiert", text: App.fehlertext(err) }));
+  } finally { knopf.disabled = false; }
+}
+$("frisch").addEventListener("click", nachladen);
+
+function zeigen(d, id, stand) {
+  if (!d || typeof d.html !== "string" || !d.html.trim()) return false;
+  const schluessel = JSON.stringify([d.titel, d.html, d.css, d.js]);
+  if (gezeigt === schluessel) { liveSetzen(id, d, stand); return true; }   // tool-input und tool-result: nicht zweimal aufbauen
+  gezeigt = schluessel; bekommen = true;
+  ladenAus(); hinweis(""); $("liste").hidden = true;
+  liveSetzen(id, d, stand);
+  App.satz(String(d.titel || "Gebaute Ansicht"));
+  const b = $("beschreibung"); b.textContent = String(d.beschreibung || ""); b.hidden = !d.beschreibung;
+  rahmen.title = String(d.titel || "Gebaute Ansicht");
+  if (typeof d.hoehe === "number" && isFinite(d.hoehe)) rahmen.style.height = `${Math.max(120, Math.min(2400, d.hoehe))}px`;
+  rahmen.hidden = false;
+  rahmen.srcdoc = dokumentText(d);
+  return true;
+}
+
+function stilSenden() {
+  if (rahmen.contentWindow) rahmen.contentWindow.postMessage({ typ: "gui-stil", thema: thema(), werte: werte() }, "*");
+}
+// Thema und Gestaltungswerte setzt die Brücke auf <html> (data-theme, Inline-Stil) — wir reichen jede Änderung weiter.
+new MutationObserver(stilSenden).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
+
+// Zoom bietet nur der Host der Datei-Ansicht an (gui.eigenstaendig, z. B. das Panel einer Entwicklungsumgebung): er
+// meldet sich mit {typ: "gui-host", zoom: true}. Dann reichen wir Strg+Rad und ⌘/Strg +/−/0 aus dem Rahmen und von hier
+// an ihn weiter. In der Shell und in einem MCP-Apps-Client kommt diese Meldung nie — dort bleibt alles beim Browser.
+let zoomAn = false;
+const zoomSenden = (z) => { if (zoomAn) window.parent.postMessage(Object.assign({ typ: "gui-zoom" }, z), "*"); };
+const zoomRahmen = () => { if (zoomAn && rahmen.contentWindow) rahmen.contentWindow.postMessage({ typ: "gui-zoom-an" }, "*"); };
+rahmen.addEventListener("load", zoomRahmen);
+window.addEventListener("message", (e) => {
+  if (e.source !== window.parent || obj(e.data).typ !== "gui-host" || !e.data.zoom) return;
+  zoomAn = true; zoomRahmen();
+});
+window.addEventListener("wheel", (e) => { if (zoomAn && e.ctrlKey) { e.preventDefault(); zoomSenden({ dy: Number(e.deltaY) || 0 }); } }, { passive: false });
+window.addEventListener("keydown", (e) => {
+  const schritt = { "+": 1, "=": 1, "-": -1, "0": 0 }[e.key];
+  if (zoomAn && (e.ctrlKey || e.metaKey) && schritt !== undefined) { e.preventDefault(); zoomSenden({ schritt }); }
+});
+
+let letzteNachricht = 0;
+window.addEventListener("message", async (e) => {
+  if (e.source !== rahmen.contentWindow) return;   // nur unser Rahmen; der Host spricht mit der Brücke
+  const m = obj(e.data); if (m.typ !== "gui") return;
+  const antwort = (ergebnis, fehler) => { if (m.id) rahmen.contentWindow.postMessage({ typ: "gui-antwort", id: m.id, ergebnis, fehler }, "*"); };
+  if (m.art === "zoom") {
+    const schritt = [1, -1, 0].includes(m.schritt) ? m.schritt : undefined;
+    zoomSenden(schritt === undefined ? { dy: Math.max(-500, Math.min(500, Number(m.dy) || 0)) } : { schritt });
+    return;
+  }
+  if (m.art === "hoehe") {
+    const h = Number(m.hoehe); if (isFinite(h) && h > 0) rahmen.style.height = `${Math.min(4000, Math.max(60, h))}px`;
+    return;
+  }
+  if (m.art === "fehler") { hinweis(App.zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: "In der Ansicht ging etwas schief", text: String(m.text || "") })); return; }
+  if (m.art === "link") {
+    const url = String(m.url || "");
+    if (!/^https:\/\//i.test(url)) return antwort(null, "Nur https-Adressen");
+    try { await App.anfrage("ui/open-link", { url }); antwort(true); } catch (err) { antwort(null, App.fehlertext(err)); }
+    return;
+  }
+  if (m.art === "nachricht") {
+    const text = String(m.text || "").trim().slice(0, 2000);
+    if (!text) return antwort(null, "Kein Text");
+    if (Date.now() - letzteNachricht < 4000) return antwort(null, "Bitte einen Moment warten");
+    if (!App.kann("message")) return antwort(null, "Hier kann die Ansicht nichts ins Gespräch schreiben");
+    letzteNachricht = Date.now();
+    try { await App.nachricht(text); antwort(true); } catch (err) { antwort(null, App.fehlertext(err)); }
+    return;
+  }
+  antwort(null, "Unbekannt: " + String(m.art));
+});
+
+// ── Liste der letzten Ansichten (OS ohne Eingabe) ─────────────────────────────────────────────────
+function listeZeigen(d) {
+  ladenAus(); rahmen.hidden = true; $("beschreibung").hidden = true; gezeigt = null; liveSetzen(null, null);
+  const l = Array.isArray(d && d.ansichten) ? d.ansichten : [];
+  App.satz(String((d && d.satz) || "Gebaute Ansichten"));
+  if (!l.length) { hinweis(App.zustand({ symbol: "wand-sparkles", titel: "Noch keine Ansichten", text: "Der Agent baut sie mit gui.bauen, wenn ein Bild oder ein Regler mehr hilft als Text." })); return; }
+  hinweis("");
+  const box = $("liste");
+  box.innerHTML = l.map((a) => `<button type="button" class="zeile" data-aktion="oeffnen" data-id="${App.esc(a.id)}">`
+    + `<span class="gui-titel">${App.esc(a.titel || a.id)}</span>`
+    + (a.beschreibung ? `<span class="gui-zeile-text">${App.esc(a.beschreibung)}</span>` : "")
+    + (a.angelegt ? `<span class="gui-zeile-text">${App.esc(App.zeit.tag(a.angelegt, true))}</span>` : "")
+    + `</button>`).join("");
+  box.hidden = false;
+}
+async function oeffnen(id) {
+  try {
+    const d = await App.rufen("gui__zeigen", id ? { id } : {});
+    if (d && d.dokument) { zeigen(d.dokument, d.id, d.stand); $("zurueck").hidden = false; } else listeZeigen(d);
+    if (d && d.hinweis) hinweis(App.zustand({ symbol: "circle-alert", ton: "warn", klein: true, titel: "Älterer Stand", text: String(d.hinweis) }));
+  } catch (err) {
+    hinweis(App.zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: "Nicht zu laden", text: App.fehlertext(err) }));
+  }
+}
+App.bei("oeffnen", (el) => oeffnen(el.dataset.id));
+$("zurueck").addEventListener("click", () => { $("zurueck").hidden = true; oeffnen(""); });
+
+// ── Host ──────────────────────────────────────────────────────────────────────────────────────────
+App.auf("ui/notifications/tool-input-partial", (p) => {
+  const a = obj(obj(p).arguments);
+  if (!bekommen && a.titel) $("laden").textContent = `„${String(a.titel).slice(0, 120)}“ wird gebaut …`;
+});
+App.auf("ui/notifications/tool-input", (p) => {
+  const a = obj(obj(p).arguments);
+  // Steht das fertige html schon in der Eingabe (eigenes html; die Datei-Ansicht reicht das ganze Dokument), sofort
+  // zeigen. Vorlage + daten, umformen oder eine Quelle ohne eingebettete Daten baut der Hub zusammen — dann kommt die
+  // fertige Ansicht nach dem Ergebnis über gui.zeigen {id}.
+  const html = typeof a.html === "string" ? a.html : "";
+  const einfach = !!html.trim() && a.daten === undefined && !a.umformen && (!a.quelle || html.includes('id="gui-daten"'));
+  if (einfach) zeigen(a);
+  else { erwartet = true; if (a.titel) $("laden").textContent = `„${String(a.titel).slice(0, 120)}“ wird gebaut …`; }
+});
+App.auf("ui/notifications/tool-result", (r) => {
+  if (r && r.isError) {
+    hinweis(App.zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: "Die Ansicht ließ sich nicht bauen", text: String((((r.content || [])[0]) || {}).text || "").replace(/^(ValueError|RuntimeError):\s*/, "") }));
+    bekommen = true; return;
+  }
+  const d = App.daten(r);
+  if (d && d.dokument) { zeigen(d.dokument, d.id, d.stand); if (d.hinweis) hinweis(App.zustand({ symbol: "circle-alert", ton: "warn", klein: true, titel: "Älterer Stand", text: String(d.hinweis) })); }   // gui.zeigen {id}
+  else if (d && Array.isArray(d.ansichten)) { bekommen = true; listeZeigen(d); }
+  else if (d && d.id && !bekommen) { bekommen = true; oeffnen(d.id); }   // gui.bauen mit Vorlage/Quelle: fertige Ansicht holen
+});
+App.start("fyos-gui").then(() => setTimeout(() => { if (!bekommen && !erwartet) oeffnen(""); }, 1500)).catch(() => {});
+</script>
+</body>
+</html>

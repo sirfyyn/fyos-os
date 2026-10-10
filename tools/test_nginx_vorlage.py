@@ -1,4 +1,5 @@
-"""nginx-Vorlage der Shell: die Durchreiche zum Agent-Gateway. Laeuft in der CI als Werkzeug-Test (pytest tools).
+"""nginx-Vorlage der Shell: die Durchreichen zum Agent-Gateway und zu den gebauten Ansichten des Hubs. Laeuft in der CI
+als Werkzeug-Test (pytest tools).
 
 Drei Fehler machten den Chat im Fenster der Shell unbenutzbar (Testserver, 09.10.2026), keiner faellt beim Bau auf:
 das Gateway wies angehaengte Herkunftskoepfe mit 403 `proxy_attribution_required` ab, ohne das Praefix `/agent`
@@ -62,6 +63,46 @@ def test_agent_location_steht_vor_den_regex_locations_fuer_dateien():
     andere = [m.start() for m in re.finditer(r"location ~\*? ", TEXT) if m.start() != agent]
     assert andere, "keine weiteren Regex-Locations gefunden"
     assert all(agent < a for a in andere), "eine Regex-Location steht vor /agent"
+
+
+# Gebaute Ansichten (Plugin gui): /hub/gui/<id> und /hub/gui/<id>/daten gehen durch, sonst nichts unter /hub/.
+GUI_AUSDRUCK = "^/hub/gui/(?<fyos_gui_id>g-[0-9a-f]{12})(?<fyos_gui_daten>/daten)?$"
+GUI_KOPF = f'~ "{GUI_AUSDRUCK}"'
+GUI = _location(GUI_KOPF)
+
+
+def _an_den_hub(pfad: str) -> str | None:
+    """Was die Shell dem Hub für einen Pfad schickt (nginx vergleicht den dekodierten, normalisierten Pfad): Location
+    und `rewrite` nachgebildet; None, wenn die Location nicht greift. Python schreibt benannte Gruppen (?P<…>)."""
+    m = re.search(GUI_AUSDRUCK.replace("(?<", "(?P<"), pfad)
+    return f"/hub/gui/{m['fyos_gui_id']}{m['fyos_gui_daten'] or ''}" if m else None
+
+
+def test_ansichten_nur_lesend_und_umgeschrieben():
+    # nur GET (und damit HEAD); dem Hub geht die umgeschriebene Form ohne Abfrageteil zu, nicht die Anfrage, wie sie ankam
+    assert re.search(r"^\s*limit_except GET \{ deny all; \}$", GUI, re.M)
+    assert re.search(r"^\s*rewrite \^ /hub/gui/\$fyos_gui_id\$fyos_gui_daten\? break;$", GUI, re.M)
+    assert re.search(r"^\s*proxy_pass \$\{FYOS_HUB_UPSTREAM\};$", GUI, re.M)
+
+
+def test_ansichten_dem_hub_geht_nur_die_saubere_form_zu():
+    assert _an_den_hub("/hub/gui/g-0123456789ab") == "/hub/gui/g-0123456789ab"
+    assert _an_den_hub("/hub/gui/g-0123456789ab/daten") == "/hub/gui/g-0123456789ab/daten"
+    # `$` greift in PCRE wie in Python auch vor einem Zeilenumbruch am Ende (%0A im Pfad); weiter geht trotzdem nur
+    # die saubere Form
+    assert _an_den_hub("/hub/gui/g-0123456789ab\n") == "/hub/gui/g-0123456789ab"
+    for pfad in ("/hub/call", "/hub/mehr", "/hub/gui/", "/hub/gui/g-0123456789ab/", "/hub/gui/g-0123456789AB",
+                 "/hub/gui/g-0123456789abc", "/hub/gui/g-0123456789ab/daten/x", "/hub/gui/g-0123456789ab/call",
+                 "/x/hub/gui/g-0123456789ab", "/hub-api/gui/g-0123456789ab"):
+        assert _an_den_hub(pfad) is None, pfad
+
+
+def test_zum_hub_fuehren_nur_browser_weg_und_ansichten():
+    bloecke = re.findall(r"^[ \t]*location (.+?) \{\n([\s\S]*?)^[ \t]*\}", TEXT, re.M)
+    zum_hub = [kopf for kopf, rumpf in bloecke if "${FYOS_HUB_UPSTREAM}" in rumpf]
+    assert GUI_KOPF in zum_hub
+    assert all(k.startswith("= /hub-api/") for k in zum_hub if k != GUI_KOPF), zum_hub
+    assert not re.search(r"^\s*location (\^~ |= )?/hub/", TEXT, re.M)  # kein Präfix-Weg auf /hub/
 
 
 def test_nur_fyos_variablen_fuer_envsubst():

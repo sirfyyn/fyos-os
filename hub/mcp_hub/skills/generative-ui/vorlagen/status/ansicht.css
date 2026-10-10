@@ -1,0 +1,7 @@
+.s-gruppe { margin: 12px 0 6px; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); }
+.s-liste { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); list-style: none; padding: 0; margin: 0; }
+.s-eintrag { display: grid; gap: 2px; padding: 8px 12px; }
+.s-kopf { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.s-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-text { font-size: 13px; color: var(--color-text-secondary); }
+.s-eintrag.gui-klickbar:focus-visible { outline: 2px solid var(--color-text-info); }

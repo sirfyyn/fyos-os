@@ -8,7 +8,7 @@ Daraus entstehen
   * der Deeplink „In FYOS öffnen“: `oeffnen_link`.
 
 Die Glyphen stehen in ui/_symbole.json (Lucide, ISC-Lizenz). Der Kern kennt nur seine eigenen Apps (`werkstatt`,
-`mcp`, `beispiel_app`); jedes weitere Plugin meldet seine App mit `registriere_app(...)` an, meist beim Import.
+`mcp`, `gui`, `beispiel_app`); jedes weitere Plugin meldet seine App mit `registriere_app(...)` an, meist beim Import.
 """
 
 from __future__ import annotations
@@ -47,6 +47,15 @@ APPS: dict[str, dict[str, Any]] = {
         "ton": 190,
         "kategorie": "System",
     },
+    # Eine Fläche des Systems selbst, wie Werkstatt und MCP: sie zeigt, was der Agent als Ansicht baut (Diagramme,
+    # Rechner, Vergleiche) — Inhalt aus jedem Bereich, deshalb weder „Betrieb“ noch „Wissen“.
+    "gui": {
+        "titel": "Gebaute Ansicht",
+        "untertitel": "Diagramme, Rechner und Vergleiche, vom Agenten gebaut",
+        "symbol": "wand-sparkles",
+        "ton": 300,
+        "kategorie": "System",
+    },
     "beispiel_app": {
         "titel": "Notizzettel",
         "untertitel": "Kleine Beispiel-App: Notizen merken",
@@ -60,6 +69,7 @@ APPS: dict[str, dict[str, Any]] = {
 DATEIEN: dict[str, str] = {
     "werkstatt.html": "werkstatt",
     "mcp.html": "mcp",
+    "gui.html": "gui",
     "beispiel-app.html": "beispiel_app",
 }
 
@@ -68,6 +78,7 @@ DATEIEN: dict[str, str] = {
 HAUPTWERKZEUG: dict[str, str] = {
     "werkstatt": "werkstatt__suchen",
     "mcp": "mcp__uebersicht",
+    "gui": "gui__zeigen",
     "beispiel_app": "beispiel_app__zeigen",
 }
 

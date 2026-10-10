@@ -1,0 +1,14 @@
+{
+  "name": "fyos-tools",
+  "owner": { "name": "FYOS" },
+  "metadata": {
+    "description": "Mods für Claude Code, die FYOS-Flächen ins Terminal bringen (lokal aus dem Repo fyos-os)"
+  },
+  "plugins": [
+    {
+      "name": "fyos-ansicht",
+      "source": "./fyos-ansicht",
+      "description": "Zeigt vom Agenten gebaute FYOS-Ansichten (Hub-Plugin gui) rechts im Panel von Claude Code; /ansicht [id|zu]"
+    }
+  ]
+}

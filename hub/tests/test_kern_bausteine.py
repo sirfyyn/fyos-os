@@ -47,7 +47,7 @@ def test_kv_listen_hashes_streams():
 
 # ── Identitaet ──────────────────────────────────────────────────────────────
 def test_kern_register_kennt_nur_die_mitgelieferten_apps():
-    assert set(_identitaet.APPS) >= {"werkstatt", "mcp", "beispiel_app"}
+    assert set(_identitaet.APPS) >= {"werkstatt", "mcp", "gui", "beispiel_app"}
     for eintrag in _identitaet.APPS.values():
         assert eintrag["kategorie"] in _identitaet.KATEGORIEN
 

@@ -1,0 +1,33 @@
+{
+  "titel": "Status",
+  "zweck": "Viele Dinge mit ihrem Zustand (Dienste, Prüfungen, Geräte): Zählung je Zustand, nach Gruppe, Filter „nur Probleme“, Probleme zuerst, Klick fragt nach.",
+  "schema": {
+    "type": "object",
+    "required": ["eintraege"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string"},
+      "eintraege": {
+        "type": "array", "minItems": 1, "maxItems": 500,
+        "items": {"type": "object", "required": ["name", "zustand"], "properties": {
+          "name": {"type": "string"},
+          "zustand": {"type": "string", "description": "gut/ok, warn, schlecht/fehler, info, aus"},
+          "text": {"type": "string"},
+          "gruppe": {"type": "string"},
+          "frage": {"type": "string"}
+        }}
+      }
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Hub-Plugins",
+    "herkunft": "Beispielwerte",
+    "eintraege": [
+      {"name": "skills", "zustand": "ok", "gruppe": "Kern"},
+      {"name": "werkstatt", "zustand": "ok", "gruppe": "Kern"},
+      {"name": "wetter", "zustand": "warn", "text": "Zugangsdaten fehlen", "gruppe": "Zusätze", "frage": "Warum fehlen dem Plugin wetter die Zugangsdaten?"},
+      {"name": "notizen", "zustand": "fehler", "text": "Speicher nicht erreichbar", "gruppe": "Zusätze"}
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "titel": "Kennzahlen",
+  "zweck": "Wenige wichtige Zahlen auf einen Blick: Kacheln mit Wert, Einheit, Ton (gut/warn/schlecht) und optional einem kleinen Verlauf.",
+  "schema": {
+    "type": "object",
+    "required": ["kacheln"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string", "description": "Quelle und Stand, z. B. „audit.stats, 10.10. 09:03“"},
+      "kacheln": {
+        "type": "array", "minItems": 1, "maxItems": 24,
+        "items": {
+          "type": "object", "required": ["titel", "wert"],
+          "properties": {
+            "titel": {"type": "string"},
+            "wert": {"type": ["number", "string"]},
+            "einheit": {"type": "string"},
+            "nachkomma": {"type": "integer", "minimum": 0, "maximum": 4},
+            "ton": {"type": "string", "enum": ["gut", "warn", "schlecht", "info", "aus"]},
+            "hinweis": {"type": "string"},
+            "verlauf": {"type": "array", "items": {"type": "number"}, "maxItems": 200},
+            "frage": {"type": "string", "description": "Wird nach Klick ins Gespräch geschrieben"}
+          }
+        }
+      }
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Dienst heute",
+    "herkunft": "Beispielwerte",
+    "kacheln": [
+      {"titel": "Anfragen", "wert": 1284, "ton": "gut", "verlauf": [80, 95, 120, 110, 140, 160, 150]},
+      {"titel": "Antwortzeit", "wert": 1.8, "einheit": "s", "nachkomma": 1, "ton": "warn", "hinweis": "Ziel unter 1,5 s"},
+      {"titel": "Fehler", "wert": 3, "ton": "schlecht", "frage": "Welche drei Fehler gab es heute?"}
+    ]
+  }
+}

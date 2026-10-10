@@ -60,6 +60,7 @@ from .config import DEFAULT_HOST, DEFAULT_PATH, HubConfig, load_config
 from .herkunft import HerkunftMiddleware
 from .os_bruecke import os_routen
 from .plugins import _identitaet
+from .plugins.gui import ID_MUSTER, eigenstaendig
 from .registry import (
     ART,
     AUFRUFER,
@@ -143,7 +144,10 @@ mcp = _HubServer(
         "(werkstatt.beschreiben, werkstatt.ausfuehren). Skills name the Werkstatt ids they use.\n"
         "App tools (<plugin>__<name>) answer with the data and end with the line "
         "'In FYOS öffnen: <link>'. If your surface cannot show the app, pass that link on to the user "
-        "(it opens the app in FYOS with exactly this state)."
+        "(it opens the app in FYOS with exactly this state).\n"
+        "Show, don't list: when data has many values, offer a view — gui.vorlagen lists templates "
+        "(kennzahlen, balken, verlauf, tabelle, vergleich, ablauf, zeitleiste, status), gui.bauen {vorlage, quelle: "
+        "{werkzeug: '<read tool>'}} keeps it live (skill generative-ui)."
     ),
     # Spezifikation 2025-11-25: Zeichen und Adresse des Servers (Clients zeigen sie in der Konnektorliste).
     # Die Adresse ist die oeffentliche URL der Installation (FYOS_OEFFENTLICH_URL); ohne sie entfaellt das Feld.
@@ -560,7 +564,13 @@ def oeffnen_link_fuer(
     d = rt.descriptor
     if not _identitaet.link_erlaubt(d.meta, scope_from_tags(d.tags)):
         return None
-    return _identitaet.oeffnen_link(fqtn, args)
+    # Ein Plugin darf auf ein anderes Werkzeug umlenken (gui.bauen → gui.zeigen {id}); das Ziel muss selbst verlinkbar sein.
+    ziel, ziel_args = reg.oeffnen_ziel(fqtn, args)
+    if ziel != fqtn:
+        zt = reg.get_tool(ziel)
+        if zt is None or not _identitaet.link_erlaubt(zt.descriptor.meta, scope_from_tags(zt.descriptor.tags)):
+            return None
+    return _identitaet.oeffnen_link(ziel, ziel_args)
 
 
 def _mit_link(reg: PluginRegistry, fqtn: str, args: Any, result: dict[str, Any]) -> dict[str, Any]:
@@ -1005,6 +1015,52 @@ async def rest_resource(request: Request) -> JSONResponse:
     )
 
 
+def _gui_seite_fehler(meldung: str) -> Response:
+    """Kleine Fehlerseite für `GET /hub/gui/{id}`: der Text wird maskiert, nichts aus der Anfrage kommt ungeprüft hinein."""
+    import html as _html  # noqa: PLC0415
+
+    seite = (
+        '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<title>Ansicht</title><p style="font:14px system-ui">{_html.escape(meldung)}</p>'
+    )
+    return Response(seite, status_code=404, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-store"})
+
+
+async def rest_gui_seite(request: Request) -> Response:
+    """GET /hub/gui/{id} — eine gebaute Ansicht (`gui.bauen`) als ganze, eigenständige Seite.
+
+    Für Flächen ohne MCP-Apps-Host: ein Browser, das Panel einer Entwicklungsumgebung (Mod fyos-ansicht). Eine
+    Live-Quelle bringt beim Laden frische Daten mit und lädt danach über `/hub/gui/{id}/daten` nach. Nur lesend;
+    die Id muss das Muster `g-` plus 12 Hex-Zeichen haben (alles andere ist 404, bevor ein Plugin gefragt wird).
+    """
+    if _REGISTRY is None:
+        return Response("Hub startet noch.", status_code=503, media_type="text/plain; charset=utf-8")
+    i = str(request.path_params.get("id", ""))
+    if not ID_MUSTER.fullmatch(i):
+        return _gui_seite_fehler("Ansicht nicht gefunden")
+    result = await dispatch_im_thread(_REGISTRY, "gui.zeigen", {"id": i})
+    erg = result.get("result") if isinstance(result, dict) and result.get("ok") else None
+    if not isinstance(erg, dict) or not isinstance(erg.get("dokument"), dict):
+        return _gui_seite_fehler(str((result.get("error") if isinstance(result, dict) else None) or "Ansicht nicht gefunden"))
+    link = _identitaet.oeffnen_link("gui.zeigen", {"id": i})
+    seite = eigenstaendig(erg["dokument"], link, ergebnis=erg, daten_url=f"/hub/gui/{i}/daten")
+    return Response(seite, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-store"})
+
+
+async def rest_gui_daten(request: Request) -> JSONResponse:
+    """GET /hub/gui/{id}/daten — frische Daten der Live-Quelle (`gui.zeigen {id, nur_daten}`) für die Seite oben."""
+    if _REGISTRY is None:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "not_initialized"})
+    i = str(request.path_params.get("id", ""))
+    if not ID_MUSTER.fullmatch(i):
+        return JSONResponse(
+            status_code=404, content={"ok": False, "kind": "not_found", "error": "Ansicht nicht gefunden"},
+            headers={"Cache-Control": "no-store"},
+        )
+    result = await dispatch_im_thread(_REGISTRY, "gui.zeigen", {"id": i, "nur_daten": True})
+    return JSONResponse(status_code=status_fuer(result), content=result, headers={"Cache-Control": "no-store"})
+
+
 async def rest_app_call(request: Request) -> JSONResponse:
     """POST /hub/app-call {name: "<plugin>__<tool>" | tool: "<plugin>.<tool>", arguments}
 
@@ -1204,6 +1260,9 @@ def build_app(config_path: str | None = None) -> Starlette:
         Route("/hub/apps", rest_apps, methods=["GET"]),
         Route("/hub/resource", rest_resource, methods=["GET"]),
         Route("/hub/app-call", rest_app_call, methods=["POST"]),
+        # Gebaute Ansichten (Plugin gui) als eigenstaendige Seite und ihre frischen Daten: nur lesend
+        Route("/hub/gui/{id}", rest_gui_seite, methods=["GET"]),
+        Route("/hub/gui/{id}/daten", rest_gui_daten, methods=["GET"]),
         # OS-Bruecke: Browser-Kanal, ueber den ein Agent auf das offene OS wirkt (SSE + 2x POST)
         *os_routen(),
     ]

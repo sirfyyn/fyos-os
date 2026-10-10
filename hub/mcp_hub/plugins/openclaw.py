@@ -63,6 +63,15 @@ from .. import kv
 from .. import takt as _takt
 from ..audit_log import AuditEvent, schwaerzen
 from ..plugin import HubPlugin, ToolDescriptor
+from ..vorgaenge import (
+    VorgangFehlt,
+    VorgangKonflikt,
+    ablage_anmelden,
+    angemeldete_ablage,
+    angemeldeter_dienst,
+    dienst_anmelden,
+    kopf_aus,
+)
 from . import _vorgaenge as V
 
 logger = logging.getLogger(__name__)
@@ -152,6 +161,8 @@ class OpenClawPlugin(HubPlugin):
             # Die eigene Ablage als Vorgangs-Dienst hieße: das Workboard auf sich selbst spiegeln.
             logger.warning("openclaw: FYOS_VORGAENGE_URL zeigt auf die Ablage des Hubs, das Workboard bleibt die Ablage")
             self.vorgaenge_url = ""
+        # Kopfzeile für den Vorgangs-Dienst („Name: Wert“), dieselbe, die mcp_hub.vorgaenge für alle Plugins sendet
+        self.vorgaenge_kopf = kopf_aus(str(cfg.get("vorgaenge_kopf") or os.getenv("FYOS_VORGAENGE_KOPF") or ""))
         self.vorgang_link = str(cfg.get("vorgang_link") or os.getenv("FYOS_VORGANG_LINK") or "").strip()
         self.board = str(cfg.get("board") or ("fyos" if self.vorgaenge_url else "default"))
         self.abgleich_s = max(0.0, _zahl(cfg.get("abgleich_s", 60)))
@@ -198,14 +209,25 @@ class OpenClawPlugin(HubPlugin):
             logger.warning("openclaw: FYOS_AGENT_TOKEN fehlt — Ereignisse ohne Signatur, keine Abfragen am Gateway")
 
     def registry_anbinden(self, registry: Any) -> None:
-        """Vom Server gerufen: Register für die Audit-Haken; startet den Takt, wenn ein Gateway eingetragen ist."""
+        """Vom Server gerufen: Register für die Audit-Haken; startet den Takt, wenn ein Gateway eingetragen ist. Bei
+        ``mcp_hub.vorgaenge`` meldet das Plugin den eingetragenen Vorgangs-Dienst an, auch solange die Kopplung ruht
+        (ohne Gateway lesen die anderen Plugins ihn trotzdem), sonst sich selbst als Ablage (andere Plugins lesen und
+        beantworten Vorgänge dann im Workboard, ohne eine Adresse zu kennen)."""
         self._registry = registry
+        if self.vorgaenge_url:
+            dienst_anmelden(self.vorgaenge_url, self.vorgaenge_kopf)
+        elif self.modus == "ablage":
+            ablage_anmelden(self)
         if self.gateway_url and self._faden is None:
             self._faden = threading.Thread(target=self._takt, name="openclaw-takt", daemon=True)
             self._faden.start()
 
     def shutdown(self) -> None:
         self._halt.set()
+        if angemeldete_ablage() is self:
+            ablage_anmelden(None)
+        if self.vorgaenge_url and angemeldeter_dienst() == (self.vorgaenge_url, self.vorgaenge_kopf):
+            dienst_anmelden(None)
 
     def _speicher(self) -> Any:
         if self._kv is None:
@@ -275,7 +297,8 @@ class OpenClawPlugin(HubPlugin):
             raise BrueckeFehler("FYOS_VORGAENGE_URL nicht gesetzt")
         daten = json.dumps(koerper).encode() if koerper is not None else None
         req = urllib.request.Request(self.vorgaenge_url + pfad, data=daten, method=methode,
-                                     headers={"Content-Type": "application/json", "Accept": "application/json"})
+                                     headers={"Content-Type": "application/json", "Accept": "application/json",
+                                              **self.vorgaenge_kopf})
         try:
             with urllib.request.urlopen(req, timeout=zeit_s) as r:  # noqa: S310
                 roh = r.read(4 * 1024 * 1024)
@@ -617,29 +640,64 @@ class OpenClawPlugin(HubPlugin):
         status = 409 if "workboard_conflict" in text or "conflict" in text.lower() else 502
         return JSONResponse({"error": _kurz(text, 300)}, status_code=status)
 
-    def _tickets_liste(self, status: str, grenze: int) -> JSONResponse:
+    def _antwort(self, holen: Callable[[], Any], status: int = 200) -> JSONResponse:
+        """Ergebnis einer Daten-Methode als HTTP-Antwort; ihre Fehler als Status (404, 409, 400, sonst 409/502)."""
         try:
-            karten = self.karten()
+            return JSONResponse(holen(), status_code=status)
+        except VorgangFehlt as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+        except VorgangKonflikt as exc:
+            return JSONResponse({"error": str(exc), "ticket": exc.vorgang}, status_code=409)
+        except json.JSONDecodeError as exc:  # kaputte Antwort der Brücke, kein Eingabefehler
+            return self._gescheitert(exc)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
         except Exception as exc:  # noqa: BLE001
             return self._gescheitert(exc)
-        tickets = [V.vorgang_aus_karte(k) for k in karten]
+
+    def _tickets_liste(self, status: str, grenze: int) -> JSONResponse:
+        return self._antwort(lambda: {"tickets": self.ablage_liste(status, grenze), "quelle": "workboard",
+                                      "board": self.board})
+
+    def _ticket_holen(self, vid: str) -> JSONResponse:
+        def holen() -> dict[str, Any]:
+            vorgang = self.ablage_holen(vid)
+            if vorgang is None:
+                raise VorgangFehlt(f"kein Vorgang {vid}")
+            return vorgang
+        return self._antwort(holen)
+
+    def _ticket_anlegen(self, koerper: Any) -> JSONResponse:
+        return self._antwort(lambda: self.ablage_anlegen(koerper), 201)
+
+    def _ticket_kommentieren(self, vid: str, koerper: Any) -> JSONResponse:
+        return self._antwort(lambda: self.ablage_kommentieren(vid, koerper))
+
+    def _ticket_aendern(self, vid: str, koerper: Any) -> JSONResponse:
+        return self._antwort(lambda: self.ablage_aendern(vid, koerper))
+
+    # Daten-Methoden der Ablage (auch prozessintern für ``mcp_hub.vorgaenge``)
+
+    def ablage_liste(self, status: str = "", grenze: int = 50) -> list[dict[str, Any]]:
+        tickets = [V.vorgang_aus_karte(k) for k in self.karten()]
         if status:
             tickets = [t for t in tickets if t["status"] == status]
         tickets.sort(key=lambda t: -_zahl(t.get("updated_at")))
-        return JSONResponse({"tickets": tickets[:grenze], "quelle": "workboard", "board": self.board})
+        return tickets[:grenze]
 
-    def _ticket_holen(self, vid: str) -> JSONResponse:
-        try:
-            karte = V.karte_zur_id(self.karten(), vid)
-        except Exception as exc:  # noqa: BLE001
-            return self._gescheitert(exc)
+    def ablage_holen(self, vid: str) -> dict[str, Any] | None:
+        karte = V.karte_zur_id(self.karten(), vid)
+        return V.vorgang_aus_karte(karte) if karte is not None else None
+
+    def ablage_verlauf(self, vid: str, grenze: int = 20) -> list[dict[str, Any]]:
+        karte = V.karte_zur_id(self.karten(), vid)
         if karte is None:
-            return JSONResponse({"error": f"kein Vorgang {vid}"}, status_code=404)
-        return JSONResponse(V.vorgang_aus_karte(karte))
+            raise VorgangFehlt(f"kein Vorgang {vid}")
+        return V.verlauf_aus_karte(karte, grenze)
 
-    def _ticket_anlegen(self, koerper: Any) -> JSONResponse:
+    def ablage_anlegen(self, koerper: Any) -> dict[str, Any]:
         if not isinstance(koerper, dict) or not str(koerper.get("title") or "").strip():
-            return JSONResponse({"error": "title fehlt"}, status_code=400)
+            raise ValueError("title fehlt")
         status = str(koerper.get("status") or "new")
         params: dict[str, Any] = {
             "title": V._kurz(" ".join(str(koerper["title"]).split()), V.TITEL_MAX),
@@ -651,73 +709,61 @@ class OpenClawPlugin(HubPlugin):
         }
         if koerper.get("source_url"):
             params["sourceUrl"] = str(koerper["source_url"])[:2000]
-        try:
-            antwort = self.rpc("workboard.cards.create", params) or {}
-        except Exception as exc:  # noqa: BLE001
-            return self._gescheitert(exc)
+        antwort = self.rpc("workboard.cards.create", params) or {}
         with self._sperre:
             self._ablage.pop("karten", None)
         karte = antwort.get("card") if isinstance(antwort, dict) else None
-        return JSONResponse(V.vorgang_aus_karte(karte or {}), status_code=201)
+        return V.vorgang_aus_karte(karte or {})
 
-    def _ticket_kommentieren(self, vid: str, koerper: Any) -> JSONResponse:
+    def ablage_kommentieren(self, vid: str, koerper: Any) -> dict[str, Any]:
         text = str((koerper or {}).get("text") or "").strip() if isinstance(koerper, dict) else ""
         if not text:
-            return JSONResponse({"error": "text fehlt"}, status_code=400)
+            raise ValueError("text fehlt")
         akteur = _wort((koerper or {}).get("actor"), 40)
-        try:
-            karte = V.karte_zur_id(self.karten(), vid)
-            if karte is None:
-                return JSONResponse({"error": f"kein Vorgang {vid}"}, status_code=404)
-            self.rpc("workboard.cards.comment", {"id": karte["id"], "body": V._kurz(f"{akteur}: {text}" if akteur else text, 2000)})
-        except Exception as exc:  # noqa: BLE001
-            return self._gescheitert(exc)
+        karte = V.karte_zur_id(self.karten(), vid)
+        if karte is None:
+            raise VorgangFehlt(f"kein Vorgang {vid}")
+        self.rpc("workboard.cards.comment", {"id": karte["id"], "body": V._kurz(f"{akteur}: {text}" if akteur else text, 2000)})
         with self._sperre:
             self._ablage.pop("karten", None)
-        return JSONResponse({"ok": True, "id": vid})
+        return {"ok": True, "id": vid}
 
-    def _ticket_aendern(self, vid: str, koerper: Any) -> JSONResponse:
+    def ablage_aendern(self, vid: str, koerper: Any) -> dict[str, Any]:
         if not isinstance(koerper, dict):
-            return JSONResponse({"error": "Objekt erwartet"}, status_code=400)
-        try:
-            karte = V.karte_zur_id(self.karten(frisch=True), vid)
-        except Exception as exc:  # noqa: BLE001
-            return self._gescheitert(exc)
+            raise ValueError("Objekt erwartet")
+        karte = V.karte_zur_id(self.karten(frisch=True), vid)
         if karte is None:
-            return JSONResponse({"error": f"kein Vorgang {vid}"}, status_code=404)
+            raise VorgangFehlt(f"kein Vorgang {vid}")
         jetzt = V.vorgang_aus_karte(karte)
         erwartet = str(koerper.get("expected_status") or "")
         if erwartet and jetzt["status"] != erwartet:
-            return JSONResponse({"error": "status_conflict", "ticket": jetzt}, status_code=409)
-        try:
-            ziel = str(koerper.get("status") or "")
-            if ziel:
-                if ziel not in V.KARTE_FUER:
-                    return JSONResponse({"error": f"unbekannter Status {ziel}"}, status_code=400)
-                antwort = self.rpc("workboard.cards.move", {"id": karte["id"], "status": V.KARTE_FUER[ziel],
-                                                            "expectedUpdatedAt": karte.get("updatedAt")}) or {}
+            raise VorgangKonflikt("status_conflict", jetzt)
+        ziel = str(koerper.get("status") or "")
+        if ziel and ziel not in V.KARTE_FUER:
+            raise ValueError(f"unbekannter Status {ziel}")
+        if ziel:
+            antwort = self.rpc("workboard.cards.move", {"id": karte["id"], "status": V.KARTE_FUER[ziel],
+                                                        "expectedUpdatedAt": karte.get("updatedAt")}) or {}
+            karte = antwort.get("card") or karte
+            if ziel == "closed":
+                antwort = self.rpc("workboard.cards.archive", {"id": karte["id"], "archived": True}) or {}
                 karte = antwort.get("card") or karte
-                if ziel == "closed":
-                    antwort = self.rpc("workboard.cards.archive", {"id": karte["id"], "archived": True}) or {}
-                    karte = antwort.get("card") or karte
-            patch: dict[str, Any] = {}
-            if koerper.get("title"):
-                patch["title"] = V._kurz(" ".join(str(koerper["title"]).split()), V.TITEL_MAX)
-            if "description" in koerper:
-                patch["notes"] = V._kurz(str(koerper.get("description") or ""), V.NOTIZ_MAX)
-            if koerper.get("priority"):
-                patch["priority"] = V.prioritaet(koerper["priority"])
-            if patch:
-                antwort = self.rpc("workboard.cards.update", {"id": karte["id"], "patch": patch}) or {}
-                karte = antwort.get("card") or karte
-            akteur = _wort(koerper.get("actor"), 40)
-            if ziel and akteur:
-                self.rpc("workboard.cards.comment", {"id": karte["id"], "body": f"{akteur}: Status {jetzt['status']} → {ziel}"})
-        except Exception as exc:  # noqa: BLE001
-            return self._gescheitert(exc)
+        patch: dict[str, Any] = {}
+        if koerper.get("title"):
+            patch["title"] = V._kurz(" ".join(str(koerper["title"]).split()), V.TITEL_MAX)
+        if "description" in koerper:
+            patch["notes"] = V._kurz(str(koerper.get("description") or ""), V.NOTIZ_MAX)
+        if koerper.get("priority"):
+            patch["priority"] = V.prioritaet(koerper["priority"])
+        if patch:
+            antwort = self.rpc("workboard.cards.update", {"id": karte["id"], "patch": patch}) or {}
+            karte = antwort.get("card") or karte
+        akteur = _wort(koerper.get("actor"), 40)
+        if ziel and akteur:
+            self.rpc("workboard.cards.comment", {"id": karte["id"], "body": f"{akteur}: Status {jetzt['status']} → {ziel}"})
         with self._sperre:
             self._ablage.pop("karten", None)
-        return JSONResponse(V.vorgang_aus_karte(karte))
+        return V.vorgang_aus_karte(karte)
 
     # ── Spiegel: Vorgangs-Dienst → Workboard und zurück ───────────────────────────────────────
 

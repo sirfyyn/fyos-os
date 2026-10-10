@@ -238,7 +238,7 @@ class InstallerApp(App):
         ids = aufloesen(self.katalog, self.gewaehlt())
         bausteine = [self.katalog[i] for i in ids]
         o = v.vorgaben_optionen(bezug_aufloesen=True)
-        teile.append(Label("\n[b]Bezug der Pakete und Bilder[/b] (Vorgaben aus FYOS_PAKETINDEX, FYOS_PLUGIN_QUELLE, FYOS_REGISTRY)"))
+        teile.append(Label("\n[b]Bezug der Pakete und Bilder[/b] (Vorgaben aus FYOS_PAKETINDEX, FYOS_PLUGIN_QUELLE, FYOS_REGISTRY, FYOS_BILD_TAG)"))
         if any(b.paket for b in bausteine):
             teile += self._eingabe("optionen", "bezug", "Bezug: index oder git", o["bezug"])
             teile += self._eingabe("optionen", "paketindex", "Index-URL (bei Bezug index)", o["paketindex"],

@@ -14,6 +14,7 @@ Der Browser spricht nur mit diesem Server:
 | --- | --- | --- |
 | `/hub-api/apps`, `/hub-api/resource`, `/hub-api/app-call` | `${FYOS_HUB_UPSTREAM}/hub/…` | Hub-Apps listen, Oberflächen laden, Werkzeuge aufrufen |
 | `/hub-api/os/*` | `${FYOS_HUB_UPSTREAM}/hub/os/…` | OS-Brücke (nur durchgereicht, die Shell nutzt sie nicht) |
+| `/hub/gui/<id>`, `/hub/gui/<id>/daten` | `${FYOS_HUB_UPSTREAM}/hub/gui/…` | gebaute Ansichten als ganze Seite für einen Link (nur GET, Pfad bleibt; Begründung in `docs/HUB-VERTRAG.md`) |
 | `/agent`, `/agent/*` | `${FYOS_AGENT_UPSTREAM}/agent/…` | Chat des Agenten (Control UI des Gateways, mit WebSocket) |
 | `/fyos.config.json` | Datei `/etc/fyos/fyos.config.json` | Laufzeit-Konfiguration |
 | `/healthz` | nginx | Gesundheitsabfrage |

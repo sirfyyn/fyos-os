@@ -1,0 +1,4 @@
+{
+  "description": "Zeigt gebaute FYOS-Ansichten (gui.bauen/gui.zeigen über den Hub) im Panel von terminal-browser",
+  "modules": ["./register.js"]
+}

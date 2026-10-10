@@ -1,7 +1,8 @@
-# Shell-Auslieferung: statische Seiten, dazu zwei Durchreichen.
+# Shell-Auslieferung: statische Seiten, dazu drei Durchreichen.
 #
 # Der Browser spricht nur mit diesem Server:
 #   /hub-api/*  ->  ${FYOS_HUB_UPSTREAM}/hub/*       (Hub: Apps, Ressourcen, App-Aufrufe, OS-Brücke)
+#   /hub/gui/<id>[/daten]  ->  ${FYOS_HUB_UPSTREAM}/hub/gui/…  (gebaute Ansichten, nur GET, Pfad bleibt)
 #   /agent, /agent/*  ->  ${FYOS_AGENT_UPSTREAM}/agent…  (Agent-Gateway mit Präfix, inkl. WebSocket)
 #   /fyos.config.json  aus einer Datei (Laufzeit-Konfiguration, siehe README)
 #
@@ -104,6 +105,23 @@ server {
         proxy_read_timeout 1h;
         proxy_send_timeout 1h;
         proxy_buffering off;
+    }
+
+    # Gebaute Ansichten (Plugin gui): die Seite /hub/gui/<id> und ihre frischen Daten /hub/gui/<id>/daten, damit ein
+    # Ansichts-Link im Browser oder im Panel einer Entwicklungsumgebung über die Shell aufgeht. Nur lesend. Der Pfad
+    # bleibt, denn die Seite lädt ihre Daten unter /hub/gui/<id>/daten nach. `rewrite … break` schickt dem Hub genau
+    # eine dieser zwei Formen (ohne Abfrageteil) statt der Anfrage, wie sie ankam: Andere Wege unter /hub/, vor allem
+    # /hub/call, erreicht über die Shell nichts, auch nicht mit `..` oder Prozent-Kodierung im Pfad. Dieselben Daten
+    # liefert gui.zeigen schon über /hub-api/app-call, der Weg öffnet also keinen neuen Zugang. Das erzeugte Skript
+    # läuft im Hub in einem iframe mit sandbox="allow-scripts" (ohne same-origin) und eigener CSP; es erreicht weder
+    # die Shell noch das Netz.
+    location ~ "^/hub/gui/(?<fyos_gui_id>g-[0-9a-f]{12})(?<fyos_gui_daten>/daten)?$" {
+        limit_except GET { deny all; }
+        rewrite ^ /hub/gui/$fyos_gui_id$fyos_gui_daten? break;
+        proxy_pass ${FYOS_HUB_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 300s;  # eine Live-Quelle ist ein beliebiges lesendes Werkzeug (wie bei app-call bis ~5 min)
     }
 
     # Lange zwischenspeichern: gehashte Astro-Dateien (der Dateiname enthält den Inhalts-Hash)

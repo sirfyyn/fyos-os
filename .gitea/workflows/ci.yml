@@ -1,4 +1,4 @@
-# Prüfen bei jedem Push, Bilder bauen auf main.
+# Prüfen bei jedem Pull Request und auf main, Bilder bauen auf main.
 # Repo-Variablen: FYOS_RUNNER (Runner-Etikett), FYOS_REGISTRY (z. B. registry.example.com/org),
 # optional FYOS_REGISTRY_HOSTS (add-hosts für buildx, z. B. "registry.example.com=192.0.2.10").
 # Anmeldung an Registry und Paketindex: Secrets REGISTRY_USER/REGISTRY_TOKEN (Token mit write:package; Gitea gibt dem
@@ -7,8 +7,18 @@ name: ci
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+  # Laufend getestet (Entscheidungsbuch Nr. 144): täglich gegen die neuesten Pakete aus dem
+  # Index, auch ohne Commit. Rot meldet die Erkunden-Schleife als Vorgang (Bereich dist).
+  schedule:
+    - cron: "7 5 * * *"
 
+# Je Commit genau ein Lauf: Zweige prüft der PR-Lauf, main der Push-Lauf. Liefen Push- und PR-Lauf desselben Commits
+# gleichzeitig, stießen sie im selben Arbeitsordner des Runners aufeinander (`npm ci`, esbuild ETXTBSY, Lauf #34); in
+# einer gemeinsamen Gruppe brach Gitea den noch wartenden Push-Lauf ab (Lauf #35), und abgebrochene Jobs zählen im
+# Commit-Status als Fehler.
 concurrency:
   group: ${{ gitea.workflow }}-${{ gitea.ref }}
   cancel-in-progress: false

@@ -41,10 +41,28 @@ Plugin-Einstellungen, Geheimnisse oder `enabled: false`; siehe `config.example.y
 | `shell` | Anordnung der offenen Shell (Fenster, Raster) als Werkzeuge |
 | `audit` | Protokoll aller Werkzeugaufrufe (Ringpuffer, mit Qdrant Vektorsuche) |
 | `event_bus_publisher` | Ereignisse je Werkzeugaufruf auf Redis-Streams (sonst im Speicher) |
+| `gui` | Ansichten bauen: Kennzahlen, Balken, Verlauf, Tabelle … aus Vorlagen oder frei, als App und als Seite (siehe unten) |
 | `beispiel_app` | Notizzettel mit Oberfläche, Vorlage für eigene Apps |
 | `echo`, `math` | Referenz-Plugins, standardmäßig aus |
 
 Alles Weitere (Finanzen, Haus, Betrieb …) sind eigene Pakete, die sich per Entry-Point melden.
+
+## Ansichten bauen (`gui`)
+
+Das Plugin `gui` lässt den Agenten für den Moment eine bedienbare Ansicht bauen, statt nur zu antworten. `gui.vorlagen`
+listet acht Vorlagen (Kennzahlen, Balken, Verlauf, Tabelle, Vergleich, Ablauf, Zeitleiste, Status). `gui.bauen` zeigt eine
+mit Daten (`vorlage` und `daten`), auf Wunsch live aus einem lesenden Werkzeug (`quelle`), oder eine frei gebaute
+(`html`, `css`, `js`). Die Ansicht läuft in einer Sandbox ohne Netz; `gui.zeigen` holt eine gebaute wieder.
+
+Die Anleitung (Skill `generative-ui`) und die Vorlagen sind Paketdaten des Kerns (`mcp_hub/skills/generative-ui/`).
+Das Plugin `skills` findet den Skill ohne Einstellung über die Entry-Point-Gruppe `fyos.skills` (Quelle `kern`); eigene
+Vorlagen kommen mit `config: {vorlagen: <Ordner>}` dazu. Abgelegt werden höchstens 300 Ansichten in `mcp_hub.kv`: mit
+`REDIS_URL` in Redis (so lange wie dessen Persistenz), sonst im Speicher des Prozesses (dann bis zum Neustart des Hubs).
+
+Für Flächen ohne MCP-Apps-Host liefert der Hub eine Ansicht als ganze Seite: `GET /hub/gui/<id>`, dazu
+`GET /hub/gui/<id>/daten` für frische Daten einer Live-Quelle (Beschreibung in
+[`docs/HUB-VERTRAG.md`](../docs/HUB-VERTRAG.md)). Der Mod [`fyos-ansicht`](../tools/claude-code/fyos-ansicht/README.md)
+für Claude Code öffnet sie damit im Terminal-Panel.
 
 ## Ein eigenes Plugin
 

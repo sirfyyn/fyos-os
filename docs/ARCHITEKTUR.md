@@ -54,13 +54,18 @@ unter `/opt/fyos/`. Das Verhalten steht in drei Formen:
 
 Ein Plugin-Repo ist ein Python-Paket mit Entry-Point `mcp_hub.plugins` und optional
 Oberflächen (`ui://`-HTML), Skills für den Agenten und Begleitskripten. Installiert
-wird es ins Hub-Bild (`uv pip install`) oder per `module:`-Eintrag.
+wird es ins Hub-Bild (`uv pip install`) oder per `module:`-Eintrag. Plugins, die Vorgänge,
+Termine, Mails oder Dokumente zeigen, tragen keinen festen Dienst ein, sondern fragen eine gemeinsame Quelle des Hubs
+(`mcp_hub.vorgaenge`, `mcp_hub.termine`, `mcp_hub.postfach`, `mcp_hub.dokumente`; `ERWEITERN.md` §2.13 bis §2.16): ein Dienst,
+wenn einer eingetragen ist, sonst die Ablage eines Plugins.
 
 | Repo | Inhalt |
 |---|---|
 | fyos-plugin-finanzen | Finanzen mit MoneyMoney (Export auf dem Mac, Import, Werkzeuge `finance.*`) |
 | fyos-plugin-haus | Haus, Licht, Anwesenheit, Augen, Stimme, Belegung, Wetter |
 | fyos-plugin-konten | Konten, Passwort-Tresor, Medien, Fotos, Mail, Kalender, Bestellungen |
+| fyos-plugin-kalender | Kalender mit CalDAV- und ICS-Konten, meldet sich als Termin-Quelle des Hubs an (`mcp_hub.termine`) |
+| fyos-plugin-mail | Mails nur lesen, aus IMAP-Konten mit App-Passwort (Werkzeuge `mail.*`); meldet sich als Postfach-Quelle des Hubs an (`mcp_hub.postfach`, `ERWEITERN.md` §2.15) |
 | fyos-plugin-betrieb | Cluster, Git, CI, Netz und Speicher |
 | fyos-plugin-modell | eigenes Sprachmodell, Rechner, Messkette |
 | fyos-plugin-leitstand | Leitstand, Vorgänge, Agenten-Schleifen einer bestimmten Installation |

@@ -81,9 +81,13 @@ Vorgaben aus der Umgebung:
 | `FYOS_PAKETINDEX` | PyPI-kompatibler Index (zum Beispiel `https://git.example.com/api/packages/org/pypi/simple`); Plugins werden per Paketname installiert, der Index geht als `--build-arg FYOS_INDEX_URL` ins Hub-Dockerfile und steht dort vor PyPI |
 | `FYOS_PLUGIN_QUELLE` | Git-Adresse der Plugin-Repos (`optionen.bezug: git`) |
 | `FYOS_REGISTRY` | zum Beispiel `registry.example.com/org`; ergibt `<reg>/fyos-os/web:main`, `<reg>/fyos-os/hub:main`, `<reg>/fyos-agent/openclaw:main` |
+| `FYOS_BILD_TAG` | Tag aller Bilder statt `v<Version>` (ohne `FYOS_REGISTRY`) bzw. `main` (mit), zum Beispiel `latest` |
 
-`optionen.bezug` ist `index` (Vorgabe) oder `git`; ist nur eine Plugin-Quelle gesetzt, gilt `git`. Die Bilder
-(`bild_web`, `hub_bild`, `bild_agent`) sind in den Antworten und im Assistenten editierbar.
+Ohne `FYOS_REGISTRY` kommen Oberfläche, Hub und Agent-Grundlage aus den veröffentlichten Bildern unter
+`ghcr.io/sirfyyn`, im Stand der Installer-Version (Installer 0.1.1 → Tag `v0.1.1`). Nur das Hub-Bild mit den gewählten <!-- sauber: ok -->
+Plugins (`hub_bild_k8s`, Ziel Kubernetes) baut man selbst; es braucht eine eigene Registry, sonst weist der Plan darauf
+hin. `optionen.bezug` ist `index` (Vorgabe) oder `git`; ist nur eine Plugin-Quelle gesetzt, gilt `git`. Die Bilder
+(`bild_web`, `hub_bild`, `bild_agent`, `hub_bild_k8s`) sind in den Antworten und im Assistenten editierbar.
 
 #### Warum uv, und warum der eigene Index Vorrang hat
 

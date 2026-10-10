@@ -1,0 +1,6 @@
+.b-legende label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.b-legende svg { width: 11px; height: 11px; }
+.b-diagramm { width: 100%; display: block; }
+.b-zeile:focus { outline: none; }
+.b-zeile:focus-visible rect.b-grund, .b-zeile.gui-klickbar:hover rect.b-grund { fill: var(--color-background-secondary); }
+@media (prefers-reduced-motion: no-preference) { .b-diagramm rect.b-teil { transition: width .25s ease, x .25s ease; } }

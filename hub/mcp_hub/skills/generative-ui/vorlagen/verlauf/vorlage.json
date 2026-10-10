@@ -1,0 +1,38 @@
+{
+  "titel": "Verlauf",
+  "zweck": "Entwicklung über die Zeit (oder über eine Zahl): eine oder mehrere Linien mit Achsen, Fadenkreuz mit Werten, Serien ein- und ausblendbar.",
+  "schema": {
+    "type": "object",
+    "required": ["serien"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string"},
+      "einheit": {"type": "string", "description": "Einheit der y-Werte"},
+      "x": {"type": "string", "enum": ["zeit", "zahl"], "default": "zeit", "description": "zeit: x als ISO-Zeit oder Millisekunden"},
+      "y_ab_null": {"type": "boolean", "default": true},
+      "serien": {
+        "type": "array", "minItems": 1, "maxItems": 8,
+        "items": {"type": "object", "required": ["name", "punkte"], "properties": {
+          "name": {"type": "string"},
+          "ton": {"type": "string", "enum": ["gut", "warn", "schlecht", "info", "aus"]},
+          "punkte": {"type": "array", "maxItems": 5000, "items": {"type": "array", "minItems": 2, "maxItems": 2}}
+        }}
+      },
+      "marken": {
+        "type": "array", "maxItems": 20, "description": "Senkrechte Markierungen (z. B. Ausrollen)",
+        "items": {"type": "object", "required": ["x", "name"], "properties": {"x": {}, "name": {"type": "string"}}}
+      }
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Antwortzeit je Stunde",
+    "herkunft": "Beispielwerte",
+    "einheit": "s",
+    "serien": [
+      {"name": "Dienst", "ton": "info", "punkte": [["2026-10-10T06:00", 1.4], ["2026-10-10T07:00", 1.6], ["2026-10-10T08:00", 2.1], ["2026-10-10T09:00", 1.7]]},
+      {"name": "Ziel", "ton": "aus", "punkte": [["2026-10-10T06:00", 1.5], ["2026-10-10T09:00", 1.5]]}
+    ],
+    "marken": [{"x": "2026-10-10T08:15", "name": "Update eingespielt"}]
+  }
+}

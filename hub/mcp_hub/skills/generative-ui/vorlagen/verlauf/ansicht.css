@@ -1,0 +1,16 @@
+.l-legende label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.l-legende svg { width: 14px; height: 10px; }
+.l-diagramm { width: 100%; display: block; touch-action: pan-y; }
+.l-raster line { stroke: var(--color-border-tertiary); stroke-width: 1; }
+.l-achse text { font: 400 12px var(--font-sans); fill: var(--color-text-tertiary); }
+.l-linie { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.l-linie.c-teal { stroke: var(--color-text-success); } .l-linie.c-amber { stroke: var(--color-text-warning); }
+.l-linie.c-red { stroke: var(--color-text-danger); } .l-linie.c-blue { stroke: var(--color-text-info); }
+.l-linie.c-gray { stroke: var(--color-text-tertiary); stroke-dasharray: 5 4; }
+.l-linie.c-purple { stroke: #a99cf0; } .l-linie.c-pink { stroke: #ed93b1; } .l-linie.c-coral { stroke: #f0997b; }
+.l-marke line { stroke: var(--color-text-tertiary); stroke-dasharray: 3 3; }
+.l-marke text { font: 400 11.5px var(--font-sans); fill: var(--color-text-secondary); }
+.l-kreuz line { stroke: var(--color-text-secondary); stroke-width: 1; }
+.l-kreuz circle { stroke: var(--color-background-primary); stroke-width: 2; }
+.l-info { font-size: 13px; color: var(--color-text-secondary); min-height: 1.6em; font-variant-numeric: tabular-nums; }
+.l-info b { color: var(--color-text-primary); font-weight: 500; }

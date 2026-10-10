@@ -27,7 +27,8 @@ OpenClaw (Upstream)      Basisbild per Digest
 | `deploy/k8s/base/` | Kubernetes-Grundinstallation (Kustomize); Bilder und Namespace setzt ein Overlay |
 | `tools/sauber.py` | Sauberkeitsprüfung: keine privaten Netze, Adressen, Geheimnisse oder verbotenen Wörter im Repo |
 | `tools/doku_pruefen.py` | Doku-Abgleich: Links, genannte Pfade und feste Abschnitte der Markdown-Dateien stimmen mit dem Repo überein |
-| `docs/` | [Architektur](docs/ARCHITEKTUR.md), [Hub-Vertrag](docs/HUB-VERTRAG.md), [Erweitern](docs/ERWEITERN.md) |
+| `tools/claude-code/` | Mods für Claude Code: [`fyos-ansicht`](tools/claude-code/fyos-ansicht/README.md) öffnet vom Agenten gebaute Ansichten (Plugin `gui`) im Panel des Terminals |
+| `docs/` | [Architektur](docs/ARCHITEKTUR.md), [Hub-Vertrag](docs/HUB-VERTRAG.md), [Erweitern](docs/ERWEITERN.md), [Nachbau](docs/NACHBAU.md) (Plan: jede Fähigkeit selbst betreiben) |
 
 ## Loslegen
 
@@ -52,9 +53,11 @@ docker compose up -d           # danach http://localhost:8080
 ```
 
 Die Bilder baut die CI dieses Repos (`<registry>/fyos-os/web`, `<registry>/fyos-os/hub`) und die von `fyos-agent`
-(`<registry>/fyos-agent/openclaw`). Die Vorgaben zeigen auf die Beispieladresse `registry.example.com`, die sich nie
-auflösen lässt: ohne eigene Registry bricht der Start sichtbar ab, statt fremde Bilder zu ziehen. Den Installer lenkt
-`FYOS_REGISTRY=<host>/<besitzer>` auf die eigene Registry.
+(`<registry>/fyos-agent/openclaw`). Veröffentlicht liegen sie unter `ghcr.io/sirfyyn` (Tags `v<Version>` und `latest`). <!-- sauber: ok -->
+Der Installer nimmt sie ohne weitere Angabe im Stand seiner eigenen Version; `FYOS_REGISTRY=<host>/<besitzer>` lenkt
+ihn auf die eigene Registry, `FYOS_BILD_TAG` wählt einen anderen Tag. Die Vorlage `deploy/compose/env.example` zeigt
+dagegen auf die Beispieladresse `registry.example.com`, die sich nie auflösen lässt: wer sie von Hand nutzt, trägt die
+Bilder selbst ein, sonst bricht der Start sichtbar ab, statt fremde Bilder zu ziehen.
 
 Als Modell dient jeder OpenAI-kompatible Anbieter (zum Beispiel ein llama.cpp-Server, Ollama oder vLLM), lokal oder im
 eigenen Netz.
@@ -100,7 +103,8 @@ cd web && npm ci && npx vitest run && npx astro build
 Die Befehle zum Entwickeln und Testen dieses Repos nutzen pip, weil es überall da ist; mit `uv pip install` laufen sie
 genauso.
 
-Die CI (`.gitea/workflows/ci.yml`) prüft jeden Push genauso. Auf `main` lädt sie `fyos-hub` als Entwicklungsstand
+Die CI (`.gitea/workflows/ci.yml`) prüft jeden Pull Request und jeden Push auf `main` genauso (Zweige über ihren Pull
+Request, je Commit ein Lauf). Auf `main` lädt sie `fyos-hub` als Entwicklungsstand
 (`X.Y.Z.devN`) in den Paketindex des Git-Servers und baut die Bilder `web` und `hub` mit den Tags `main` und Commit.
 
 Auf GitHub laufen dieselben Prüfungen als `.github/workflows/tests.yml`, dazu ein Geheimnis-Scan mit gitleaks. Auf einen

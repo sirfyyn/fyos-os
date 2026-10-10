@@ -1,0 +1,42 @@
+{
+  "titel": "Tabelle",
+  "zweck": "Viele Einträge mit mehreren Merkmalen: sortierbar per Klick auf die Spalte, Suche, Zahlen und Zeiten deutsch formatiert, Tonspalten als Abzeichen.",
+  "schema": {
+    "type": "object",
+    "required": ["spalten", "zeilen"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string"},
+      "spalten": {
+        "type": "array", "minItems": 1, "maxItems": 12,
+        "items": {"type": "object", "required": ["schluessel"], "properties": {
+          "schluessel": {"type": "string"},
+          "name": {"type": "string"},
+          "typ": {"type": "string", "enum": ["text", "zahl", "zeit", "tag", "ton"], "default": "text", "description": "ton: Wert gut/warn/schlecht/info/aus als Abzeichen"},
+          "einheit": {"type": "string"},
+          "nachkomma": {"type": "integer", "minimum": 0, "maximum": 4}
+        }}
+      },
+      "zeilen": {"type": "array", "maxItems": 2000, "items": {"type": "object", "description": "Werte je schluessel; optional frage (Klick)"}},
+      "sortiert": {"type": "string", "description": "schluessel der Startsortierung; mit - davor absteigend"},
+      "suche": {"type": "boolean", "default": true}
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Offene Vorgänge",
+    "herkunft": "Beispielwerte",
+    "spalten": [
+      {"schluessel": "id", "name": "Vorgang"},
+      {"schluessel": "titel", "name": "Titel"},
+      {"schluessel": "zustand", "name": "Zustand", "typ": "ton"},
+      {"schluessel": "alter", "name": "Alter", "typ": "zahl", "einheit": "h"}
+    ],
+    "zeilen": [
+      {"id": "INC-101", "titel": "Antworten kommen langsam", "zustand": "warn", "alter": 5, "frage": "Was ist bei INC-101 der Stand?"},
+      {"id": "CHG-102", "titel": "Update des Hosts einspielen", "zustand": "info", "alter": 26},
+      {"id": "INC-103", "titel": "Kamera im Flur ohne Bild", "zustand": "schlecht", "alter": 49}
+    ],
+    "sortiert": "-alter"
+  }
+}

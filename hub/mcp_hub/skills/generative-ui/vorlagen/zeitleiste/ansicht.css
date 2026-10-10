@@ -1,0 +1,14 @@
+.z-tag { margin: 14px 0 6px; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); }
+.z-liste { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--color-border-tertiary); margin-left: 6px; }
+.z-eintrag { position: relative; padding: 6px 10px 8px 18px; border-radius: var(--border-radius-md); }
+.z-eintrag::before { content: ""; position: absolute; left: -7px; top: 13px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--color-background-primary); border: 2px solid var(--color-text-tertiary); box-sizing: border-box; }
+.z-eintrag[data-ton=gut]::before { border-color: var(--color-text-success); background: var(--color-text-success); }
+.z-eintrag[data-ton=warn]::before { border-color: var(--color-text-warning); background: var(--color-text-warning); }
+.z-eintrag[data-ton=schlecht]::before { border-color: var(--color-text-danger); background: var(--color-text-danger); }
+.z-eintrag[data-ton=info]::before { border-color: var(--color-text-info); }
+.z-kopf { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.z-uhr { font-size: 12.5px; color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; min-width: 3.2em; }
+.z-titel { font-weight: 500; }
+.z-text { font-size: 13.5px; color: var(--color-text-secondary); margin: 2px 0 0 calc(3.2em + 10px); }
+.z-eintrag.gui-klickbar:focus-visible { outline: 2px solid var(--color-text-info); }

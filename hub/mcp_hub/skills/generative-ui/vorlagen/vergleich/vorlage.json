@@ -1,0 +1,43 @@
+{
+  "titel": "Vergleich",
+  "zweck": "Optionen gegeneinander abwägen: Karten je Option und eine Matrix der Kriterien; bei Zahlenkriterien mit Richtung (hoch/niedrig besser) wird der beste Wert hervorgehoben, Empfehlung markiert.",
+  "schema": {
+    "type": "object",
+    "required": ["optionen"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string"},
+      "kriterien": {
+        "type": "array", "maxItems": 16,
+        "items": {"type": "object", "required": ["schluessel"], "properties": {
+          "schluessel": {"type": "string"}, "name": {"type": "string"}, "einheit": {"type": "string"},
+          "besser": {"type": "string", "enum": ["hoch", "niedrig"]}
+        }}
+      },
+      "optionen": {
+        "type": "array", "minItems": 2, "maxItems": 6,
+        "items": {"type": "object", "required": ["name"], "properties": {
+          "name": {"type": "string"},
+          "text": {"type": "string"},
+          "empfohlen": {"type": "boolean"},
+          "merkmale": {"type": "object", "description": "Wert je Kriterium-schluessel (Zahl, Text oder true/false)"},
+          "frage": {"type": "string"}
+        }}
+      }
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Zwei Speicherlösungen",
+    "herkunft": "Beispielwerte",
+    "kriterien": [
+      {"schluessel": "platz", "name": "Kapazität", "einheit": "TB", "besser": "hoch"},
+      {"schluessel": "kosten", "name": "Kosten im Monat", "einheit": "€", "besser": "niedrig"},
+      {"schluessel": "lokal", "name": "Daten bleiben zu Hause"}
+    ],
+    "optionen": [
+      {"name": "Eigener Server", "empfohlen": true, "text": "günstiger bei gleicher Kapazität", "merkmale": {"platz": 8, "kosten": 6, "lokal": true}},
+      {"name": "Mietspeicher", "merkmale": {"platz": 8, "kosten": 24, "lokal": false}}
+    ]
+  }
+}

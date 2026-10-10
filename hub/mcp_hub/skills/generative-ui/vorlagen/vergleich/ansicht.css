@@ -1,0 +1,9 @@
+.vg-karten { margin-bottom: 14px; }
+.vg-karte { display: grid; gap: 4px; align-content: start; }
+.vg-karte[data-empfohlen] { border-color: var(--color-border-success); }
+.vg-karte h3 { margin: 0; font-size: 15.5px; }
+.vg-karte p { margin: 0; font-size: 13.5px; color: var(--color-text-secondary); }
+.vg-matrix { overflow-x: auto; }
+.vg-matrix td.vg-zahl { text-align: right; font-variant-numeric: tabular-nums; }
+.vg-matrix td[data-bester] { color: var(--color-text-success); font-weight: 600; }
+.vg-matrix th[data-empfohlen] { color: var(--color-text-success); }

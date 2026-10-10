@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fyos-installer"
-version = "0.1.0"
+version = "0.1.1"
 description = "Installer der Distribution FYOS (For Your Own Sake): Auswahl, Erklärung mit Bildern, Erzeugung der Auslieferung"
 readme = "README.md"
 requires-python = ">=3.11"

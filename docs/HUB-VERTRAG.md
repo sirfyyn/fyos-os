@@ -19,6 +19,8 @@ Was der Hub (`hub/`, Paket `mcp_hub`) nach außen zusagt: HTTP-Wege, Formate, Pl
 | `/hub/apps` | GET | Flächen-Werkzeuge für die Shell (mit ETag) |
 | `/hub/resource?uri=ui://…` | GET | Oberfläche eines Plugins (mit ETag) |
 | `/hub/app-call` | POST | Flächen-Werkzeug rufen (der Weg des Browsers) |
+| `/hub/gui/<id>` | GET | eine gebaute Ansicht (Plugin `gui`) als ganze, eigenständige Seite für Flächen ohne MCP-Apps-Host; nur lesend, auch über die Shell; ungültige oder unbekannte Id: 404 |
+| `/hub/gui/<id>/daten` | GET | frische Daten der Live-Quelle dieser Ansicht (JSON wie bei `/hub/call`); nur lesend, auch über die Shell |
 | `/hub/os/strom?sitzung=&geraet=&nach=` | GET | OS-Brücke: Befehle als Server-Sent Events |
 | `/hub/os/melden` | POST | OS-Brücke: Zustand der Sitzung melden |
 | `/hub/os/antwort` | POST | OS-Brücke: Antwort auf einen Befehl |
@@ -26,7 +28,8 @@ Was der Hub (`hub/`, Paket `mcp_hub`) nach außen zusagt: HTTP-Wege, Formate, Pl
 
 ### nginx der Shell
 
-Der Browser spricht nur mit der Shell. Sie reicht genau diese Wege durch und entfernt dabei `/hub-api`:
+Der Browser spricht nur mit der Shell. Sie reicht genau diese Wege durch; unter `/hub-api` entfernt sie das Präfix,
+die gebauten Ansichten behalten ihren Pfad:
 
 ```
 /hub-api/apps          -> http://hub:8080/hub/apps
@@ -35,11 +38,21 @@ Der Browser spricht nur mit der Shell. Sie reicht genau diese Wege durch und ent
 /hub-api/os/strom      -> http://hub:8080/hub/os/strom     (proxy_buffering off, proxy_read_timeout >= 700s, HTTP/1.1)
 /hub-api/os/melden     -> http://hub:8080/hub/os/melden
 /hub-api/os/antwort    -> http://hub:8080/hub/os/antwort
+/hub/gui/<id>          -> http://hub:8080/hub/gui/<id>         (nur GET; Id g- plus 12 Hex-Zeichen)
+/hub/gui/<id>/daten    -> http://hub:8080/hub/gui/<id>/daten
 ```
 
 `/hub/call`, `/hub/mehr`, `/hub/search`, `/hub/map`, `/hub/health`, `/hub/servers`, `/metrics` und `/mcp` gehören
 **nicht** in den Browser-Weg: hinter `/hub/call` liegen alle Werkzeuge. Die Antwort von `/hub/os/strom` setzt
 `X-Accel-Buffering: no` und `Cache-Control: no-cache, no-transform`; der Proxy darf nichts puffern.
+
+Die gebauten Ansichten gehen seit 0.1.1 durch die Shell, damit ein Ansichts-Link im Browser oder im Panel einer
+Entwicklungsumgebung (Mod `fyos-ansicht`) hinter derselben Anmeldung aufgeht wie die Shell. Der Pfad bleibt, denn die
+Seite lädt ihre Daten unter `/hub/gui/<id>/daten` nach. Die Shell schreibt jede passende Anfrage auf genau eine der zwei
+Formen um (ohne Abfrageteil), bevor sie sie weiterreicht; andere Wege unter `/hub/` erreicht über sie nichts, auch nicht
+mit `..` oder Prozent-Kodierung im Pfad. Einen neuen Zugang öffnet das nicht: Dieselben Daten liefert `gui.zeigen`
+schon über `/hub-api/app-call`. Das erzeugte Skript läuft in einem iframe mit `sandbox="allow-scripts"` (ohne
+same-origin) und eigener CSP und erreicht weder die Shell noch das Netz.
 
 ## 2. Aufruf und Antwort
 
@@ -132,6 +145,7 @@ Ein Plugin ist eine Klasse `mcp_hub.plugin.HubPlugin`:
 | `health()` | nein | `{"ok": bool, …}` |
 | `routen()` | nein | eigene HTTP-Wege (Starlette-`Route`) für Dinge, die kein Werkzeug sein sollen, etwa Telemetrie eines Clients |
 | `registry_anbinden(registry)` | nein | einmal nach dem Laden aller Plugins: das Register (andere Plugins, `on_call_hooks` für Audit und Bus) |
+| `oeffnen_ziel(werkzeug, args)` | nein | lenkt den Link „In FYOS öffnen“ eines Werkzeugs um: `("<plugin>.<werkzeug>", argumente)` des Werkzeugs, das den Zustand zeigt, sonst `None`. Nötig, wenn die Eingabe nicht in einen Link passt (über 4000 Zeichen JSON); `gui.bauen` verweist so auf `gui.zeigen {id}`. Das Ziel muss selbst lesend und für das Modell sichtbar sein; bei jedem Fehler bleibt es beim eigenen Werkzeug |
 | `metrics()` | nein | Kennzahlen für `/metrics`: Zahlen der obersten und nächsten Ebene als `fyos_plugin_wert{plugin, schluessel}`, eigene Reihen unter `"_proben"` (`[{name, wert, labels?, typ? gauge\|counter, hilfe?}]`, Namen ohne `fyos_` bekommen `fyos_<plugin>_`); 30 s zwischengespeichert, also ohne teure Abfragen |
 | `zeitplan()` | nein | wiederkehrende Aufgaben für `mcp.zeitplan` und `/metrics` (`fyos_zeitplan_*`): `[{id, name, takt, beschreibung?, an?, naechster?, letzter?, letzter_status? ok\|fehler, letzter_fehler?, quelle?, max_pro_tag?, fenster?, ruht?, laeufe_heute?, uebersprungen?, protokoll?}]`, Zeiten in Unix-Sekunden, aus dem Speicher; die letzten sechs Felder liefert der Wächter `mcp_hub.takt` für Takte mit Tageslimit und Zeitfenster (`ERWEITERN.md` §2.12) |
 | `skills_beitrag()` | nein | Skills für `skills.suchen`/`skills.lesen`: `[{name, beschreibung, text \| lesen, quelle?, ausloeser?}]`; Datei-Quellen gewinnen bei gleichem Namen |

@@ -257,6 +257,24 @@ def vorgang_aus_karte(karte: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_AKTEUR_TEXT = re.compile(r"^([\w.@-]{1,40}): (.+)$", re.DOTALL)
+
+
+def verlauf_aus_karte(karte: dict[str, Any], grenze: int = 20) -> list[dict[str, Any]]:
+    """Die Kommentare einer Karte als Verlauf des Vertrags, neueste zuerst. ``akteur: text`` (so schreibt der Hub)
+    wird zu ``actor`` und ``detail``."""
+    meta = karte.get("metadata") if isinstance(karte.get("metadata"), dict) else {}
+    kommentare = [c for c in meta.get("comments") or [] if isinstance(c, dict)]
+    eintraege = []
+    for c in reversed(kommentare):  # das Workboard hängt neue Kommentare hinten an
+        body = str(c.get("body") or "")
+        treffer = _AKTEUR_TEXT.match(body)
+        akteur, text = (treffer.group(1), treffer.group(2)) if treffer else (str(c.get("author") or ""), body)
+        eintraege.append({"ts": c.get("createdAt"), "event": "comment", "actor": akteur, "detail": text,
+                          "id": c.get("id")})
+    return eintraege[:max(0, grenze)]
+
+
 def karte_zur_id(karten: list[dict[str, Any]], vorgang_id: str) -> dict[str, Any] | None:
     vid = str(vorgang_id or "").strip()
     if not vid:

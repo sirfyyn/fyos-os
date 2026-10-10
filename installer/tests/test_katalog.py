@@ -7,7 +7,10 @@ import yaml
 
 from fyos_installer import katalog as kat
 
-ERWARTET = {"kern", "agent", "beispiel_app", "finanzen", "haus", "konten", "betrieb", "eigenes_modell", "leitstand"}
+ERWARTET = {
+    "kern", "agent", "beispiel_app", "finanzen", "haus", "konten", "kalender", "mail", "betrieb", "eigenes_modell",
+    "leitstand",
+}
 
 
 def test_standardkatalog_gueltig(katalog):
@@ -18,6 +21,42 @@ def test_standardkatalog_gueltig(katalog):
     for b in katalog:
         for f in b.konfiguration:
             assert f.titel and f.titel != f.name, (b.id, f.name)
+
+
+def test_kalender_baustein(katalog):
+    k = katalog["kalender"]
+    assert (k.paket, k.repo, k.art) == ("fyos-plugin-kalender", "fyos-plugin-kalender", "plugin")
+    # die Namen, die das Plugin liest; das Passwort ist ein Geheimnis und steht nie im Klartext in der Oberfläche
+    assert {f.name: (k.umgebungsname(f), f.typ) for f in k.konfiguration} == {
+        "url": ("FYOS_KALENDER_URL", "url"),
+        "nutzer": ("FYOS_KALENDER_NUTZER", "text"),
+        "passwort": ("FYOS_KALENDER_PASSWORT", "geheim"),
+    }
+    assert k.abhaengig_von == ["kern", "agent"] and not k.pflicht
+
+
+def test_mail_baustein(katalog):
+    m = katalog["mail"]
+    assert (m.paket, m.repo, m.art) == ("fyos-plugin-mail", "fyos-plugin-mail", "plugin")
+    # die Namen, die das Plugin liest; das Passwort ist ein Geheimnis und steht nie im Klartext in der Oberfläche
+    assert {f.name: (m.umgebungsname(f), f.typ) for f in m.konfiguration} == {
+        "host": ("FYOS_MAIL_HOST", "text"),
+        "port": ("FYOS_MAIL_PORT", "zahl"),
+        "nutzer": ("FYOS_MAIL_NUTZER", "text"),
+        "passwort": ("FYOS_MAIL_PASSWORT", "geheim"),
+    }
+    assert {f.name: f.standard for f in m.konfiguration}["port"] == 993  # IMAPS
+    assert m.abhaengig_von == ["kern", "agent"] and not m.pflicht
+
+
+def test_leitstand_nennt_die_dokumente_quelle(katalog):
+    b = katalog["leitstand"]
+    felder = {f.name: (b.umgebungsname(f), f.typ, f.pflicht) for f in b.konfiguration}
+    # das Token (oder eine andere Anmeldung) ist ein Geheimnis und steht nie im Klartext in der Oberfläche
+    assert felder["dokumente_url"] == ("FYOS_DOKUMENTE_URL", "url", False)
+    assert felder["dokumente_kopf"] == ("FYOS_DOKUMENTE_KOPF", "geheim", False)
+    assert felder["dokumente_link"] == ("FYOS_DOKUMENTE_LINK", "url", False)
+    assert any("Paperless" in v for v in b.voraussetzungen)
 
 
 def test_texte_und_bilder(katalog):

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Mails lesen</title>
+<desc id="d">Ein Posteingang mit vier Mails, jede mit Absender, Uhrzeit, Betreff und Ausschnitt; ungelesene tragen einen grünen Punkt. Darunter der Hinweis, dass nur gelesen wird.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="40" y="26" width="560" height="348" rx="12"/>
+<rect class="ln" x="40" y="26" width="560" height="348" rx="12"/>
+<rect class="bar" x="41" y="27" width="558" height="28" rx="11"/>
+<text class="ink" x="278" y="46">Posteingang</text>
+<text class="mut" x="500" y="46">3 ungelesen</text>
+<rect class="bar" x="60" y="70" width="520" height="52" rx="8"/><circle class="acc" cx="80" cy="96" r="6"/>
+<text class="ink" x="100" y="92" font-weight="700">Lea Beispiel</text><text class="mut" x="528" y="92">10:42</text>
+<text class="mut" x="100" y="112">Rechnung Oktober, bitte bis Freitag prüfen</text>
+<rect class="bar" x="60" y="130" width="520" height="52" rx="8"/><circle class="acc" cx="80" cy="156" r="6"/>
+<text class="ink" x="100" y="152" font-weight="700">Hausverwaltung</text><text class="mut" x="528" y="152">09:15</text>
+<text class="mut" x="100" y="172">Heizungswartung am Dienstag</text>
+<rect class="bar" x="60" y="190" width="520" height="52" rx="8"/><circle class="acc" cx="80" cy="216" r="6"/>
+<text class="ink" x="100" y="212" font-weight="700">Sam</text><text class="mut" x="528" y="212">gestern</text>
+<text class="mut" x="100" y="232">Treffen am Samstag?</text>
+<rect class="bar" x="60" y="250" width="520" height="52" rx="8" opacity=".6"/><circle class="ln" cx="80" cy="276" r="6" opacity=".4"/>
+<text class="ink" x="100" y="272">Versandhaus</text><text class="mut" x="528" y="272">gestern</text>
+<text class="mut" x="100" y="292">Dein Paket ist unterwegs</text>
+<path class="ln" d="M60 320h520" opacity=".3"/>
+<text class="ink" x="60" y="346" font-weight="700">Nur lesen</text>
+<text class="mut" x="152" y="346">Senden, Löschen und Markieren gibt es nicht.</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

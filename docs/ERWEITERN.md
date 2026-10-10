@@ -57,6 +57,9 @@ Die Distribution bleibt allgemein. Ein Plugin muss deshalb weder `hub/`, `web/` 
 | etwas **regelmäßig** tun lassen, das Daten holt oder abgleicht | einen **Takt im Hub-Plugin**, gemeldet über `zeitplan()`; mit Tageslimit und Zeitfenster über den Wächter | §2.4, §2.12 |
 | etwas regelmäßig tun lassen, das das **Modell** braucht (zusammenfassen, schreiben) | einen **Cron-Auftrag in OpenClaw**; er erscheint in `mcp.zeitplan` neben den Takten | `KOPPLUNG-OPENCLAW.md` |
 | Arbeit **verfolgen**, die über ein Gespräch hinausgeht | **Vorgänge**; ohne Vorgangs-Dienst das Workboard von OpenClaw, das der Hub als Vorgänge zeigt | `KOPPLUNG-OPENCLAW.md` |
+| **Termine** zeigen oder anlegen, ohne selbst CalDAV zu sprechen | die **Termin-Quelle** `mcp_hub.termine`; wer Termine liefert, meldet sich als Ablage an (etwa `fyos-plugin-kalender`) | §2.14 |
+| **Mails** lesen (nur lesen), ohne selbst IMAP zu sprechen | die **Postfach-Quelle** `mcp_hub.postfach`; wer Mails liefert, meldet sich als Ablage an (etwa `fyos-plugin-mail`) | §2.15 |
+| **Dokumente** suchen, lesen und einordnen, ohne selbst Paperless zu sprechen | die **Dokumenten-Quelle** `mcp_hub.dokumente`; ein Paperless-ngx als Dienst (`FYOS_DOKUMENTE_URL`) oder ein Plugin, das sich als Ablage anmeldet | §2.16 |
 
 Ein typisches Vorhaben nutzt mehrere Punkte zugleich. „Wetter“ zum Beispiel: Hub-Plugin `wetter` (§2) mit einer App
 (§3), einem Skill (§4) und einem Katalogeintrag (§7) in einem Repo `fyos-plugin-wetter`.
@@ -403,6 +406,411 @@ oder `limit`, wenn der Takt jetzt nicht laufen dürfte), `laeufe_heute`, `uebers
 
 Die Cron-Aufträge des Agenten laufen in OpenClaw; ihre Zeiten stellt man dort ein, im Hub erscheinen sie nur. Fenster und
 Tageslimit gelten für Takte, die der Hub selbst fährt.
+
+### 2.13 Vorgänge lesen und beantworten
+
+Ein Plugin, das Vorgänge zeigt oder beantwortet (Freigaben, Rückfragen, Aufgaben), trägt keine Adresse fest ein, sondern
+fragt `mcp_hub.vorgaenge.quelle()`. Die Quelle ist je nach Installation eine von dreien:
+
+| `art` | wann | was es gibt |
+|---|---|---|
+| `dienst` | ein Vorgangs-Dienst ist eingetragen (`FYOS_VORGAENGE_URL`, Kopfzeile `FYOS_VORGAENGE_KOPF`; Ausbaustufe, ein eigener Ticketdienst) | der ganze Vorgangs-Vertrag; was der Dienst darüber hinaus kann (Verlauf, Wartelisten), reicht `roh()` durch |
+| `workboard` | kein Dienst, aber das Plugin `openclaw` läuft als Ablage (Grundstufe) | der Vertrag auf den Karten des Workboards; `verlauf()` liefert die Kommentare der Karte; Zuständige und `waiting_for` gibt es nicht |
+| `keine` | weder noch | leere Listen; Einzelabruf und Schreiben melden `NichtEingerichtet` |
+
+```python
+from mcp_hub import vorgaenge
+
+def braucht_dich(self) -> dict:
+    q = vorgaenge.quelle()                       # bei jedem Aufruf neu fragen, das ist billig
+    if not q.eingerichtet:
+        return {"satz": "Keine Ablage für Vorgänge eingerichtet.", "eintraege": []}
+    offen = q.freigaben()                        # waiting_approval, im Workboard die Spalte review
+    return {"satz": f"{len(offen)} Freigaben warten.", "quelle": q.art, "eintraege": offen}
+
+# Antworten: erst der Kommentar, dann der Status mit dem Stand, den die Oberfläche gesehen hat
+q.kommentieren(vid, "Ja, nach 22 Uhr.", actor="besitzer")
+q.aendern(vid, status="in_progress", expected_status="waiting_approval", actor="besitzer")
+q.verlauf(vid, grenze=5)                         # neueste zuerst: {ts, event, actor, detail}
+```
+
+Fehler: `VorgangFehlt` (gibt es nicht), `VorgangKonflikt` (steht inzwischen anders, mit dem aktuellen Stand in
+`.vorgang`), `ValueError` (Eingabe), `QuelleFehler` (Dienst oder Brücke antworten nicht), `NichtEingerichtet`. Felder, die
+der Vertrag nicht kennt, schickt `aendern()` nicht mit. Status: `new triage in_progress waiting_approval resolved closed`.
+Wie Workboard und Dienst zusammenhängen, steht in `KOPPLUNG-OPENCLAW.md` §4.
+
+### 2.14 Termine lesen und anlegen
+
+Ein Plugin, das Termine zeigt (Startseite, Tagesbrief, Leitstand) oder anlegt, trägt keine Adresse fest ein und spricht
+auch kein CalDAV, sondern fragt `mcp_hub.termine.quelle()`. Die Quelle ist je nach Installation eine von dreien:
+
+| `art` | wann | was es gibt |
+|---|---|---|
+| `dienst` | ein Termin-Dienst ist eingetragen (`FYOS_TERMINE_URL`, Kopfzeile `FYOS_TERMINE_KOPF`; Ausbaustufe, ein eigener Kalender-Dienst) | Termine, Kalender und Anlegen über HTTP (Vertrag unten) |
+| `ablage` | kein Dienst, aber ein Kalender-Plugin hat sich als Ablage angemeldet, etwa `fyos-plugin-kalender` (Grundstufe: CalDAV- und ICS-Konten, nichts weiter zu betreiben) | dasselbe, prozessintern |
+| `keine` | weder noch | `termine()`, `kalender()` und `anlegen()` melden `NichtEingerichtet` |
+
+Anders als bei den Vorgängen (§2.13) liefert die Quelle „keine“ **keine leere Liste**, sondern wirft. Wer Termine zeigt,
+muss drei Zustände trennen, und keiner darf wie ein anderer aussehen:
+
+```python
+from mcp_hub import termine
+
+def heute(self) -> dict:
+    try:
+        liste = termine.quelle().anstehende(1)          # bei jedem Aufruf neu fragen, das ist billig
+    except termine.NichtEingerichtet:
+        return {"zustand": "nicht eingerichtet"}        # eigener Hinweis mit dem Weg zur Einrichtung; weder rot noch „keine Termine“
+    except termine.QuelleFehler as e:
+        return {"zustand": "fehler", "fehler": str(e)}  # Quelle aus oder ohne Zugang: nie „keine Termine“
+    return {"zustand": "ok", "termine": liste}          # auch leer: die Quelle hat geantwortet, es gibt keine Termine
+
+q = termine.quelle()
+q.termine("2026-10-12", "2026-10-19", kalender="Privat")   # Fenster [von, bis); datetime, date oder ISO-Text
+q.kalender()                                               # [{id, name, konto, schreibbar}]
+q.anlegen({"titel": "Zahnarzt", "start": "2026-10-15T09:00", "ort": "Praxis"})
+```
+
+**Terminformat.** Jeder Termin ist ein `dict` mit genau diesen Feldern; Dienst und Ablage liefern ihn gleich, die Liste ist
+nach Beginn sortiert (ganztägige eines Tages zuerst), höchstens 1000 Einträge:
+
+| Feld | Inhalt |
+|---|---|
+| `id` | Kennung in der Quelle, nie leer |
+| `titel` | Titel in einer Zeile (`(ohne Titel)`, wenn die Quelle keinen nennt) |
+| `start` | ganztägig das Datum `JJJJ-MM-TT`, sonst ein Zeitstempel nach ISO 8601, mit Versatz, wenn die Quelle einen nennt |
+| `ende` | wie `start`; bei ganztägigen Terminen der Tag **nach** dem letzten Tag (wie bei iCalendar und Google) |
+| `ganztaegig` | `true` oder `false` |
+| `ort` | Ort in einer Zeile, sonst `""` |
+| `kalender` | Name des Kalenders, sonst `""` |
+| `konto` | Name des Kontos oder der Quelle dahinter, sonst `""` |
+
+Die Beschreibung eines Termins gehört nicht dazu; `anlegen()` nimmt sie nur an, wenn jemand sie ausdrücklich mitgibt.
+Eingabe für `anlegen()`: `titel`, `start`, optional `ende`, `ganztaegig`, `ort`, `beschreibung`, `kalender`. Ganztägig sind
+`start` und `ende` Tage (fehlt `ende`, ist es ein Tag); sonst haben sie eine Uhrzeit (fehlt `ende`, dauert der Termin eine
+Stunde). Unbekannte Felder und Termine über 366 Tage lehnt `pruefe_neu()` ab, bevor die Quelle etwas sieht. Ändern und
+Löschen gibt es nicht.
+
+**Wer Termine liefert.** Ein Plugin meldet sich als Ablage an und erfüllt das Protokoll `termine.Ablage` (drei Methoden,
+Daten statt HTTP). Fehlt `mcp_hub.termine` (fyos-hub 0.1.0), läuft das Plugin trotzdem, nur ohne Anmeldung:
+
+```python
+from mcp_hub.plugin import HubPlugin
+
+try:
+    from mcp_hub import termine
+except ImportError:                                  # Kern ohne Termin-Quelle
+    termine = None
+
+class KalenderPlugin(HubPlugin):
+    name = "kalender"
+
+    def registry_anbinden(self, registry) -> None:
+        if termine is not None:
+            termine.ablage_anmelden(self)
+
+    def shutdown(self) -> None:
+        if termine is not None and termine.angemeldete_ablage() is self:
+            termine.ablage_anmelden(None)
+
+    def ablage_kalender(self) -> list[dict]:                      # {id, name, konto, schreibbar}
+        ...
+
+    def ablage_termine(self, von, bis, kalender=None) -> list[dict]:   # Termine im Terminformat; von und bis mit Versatz
+        ...
+
+    def ablage_anlegen(self, termin: dict) -> dict:               # schon geprüft; liefert den Termin im Terminformat
+        ...
+```
+
+Eigene Fehler wirft das Plugin als `termine.QuelleFehler` mit einem Text, den man den Lesern zeigen kann (ohne
+Zugangsdaten). Jede andere Ausnahme reicht der Kern nur als Typ weiter („Das Kalender-Plugin meldet einen Fehler
+(KeyError)“), nie als Text.
+
+**Termin-Dienst.** Die Ausbaustufe ist ein HTTP-Dienst unter `FYOS_TERMINE_URL`; die Kopfzeile aus `FYOS_TERMINE_KOPF`
+(`Name: Wert`) geht an jede Anfrage, Umleitungen werden nicht verfolgt. Der Vertrag ist der des Kalender-Dienstes, den
+FYOS bisher betrieben hat:
+
+* `GET /api/calendar/events?who=all&days=N&start=<ISO>&end=<ISO>` antwortet mit `{"events": [{id, title, start, end,
+  all_day, location, calendar_id, calendar_name, source}], "_stub": false}`. Ein Dienst, der nur `days` versteht, liefert
+  das Fenster ab jetzt. `"_stub": true` heißt „ohne Zugang zu den Kalendern“ (`_message` sagt warum); das ist ein
+  `QuelleFehler` mit Status 503, nie eine leere Liste.
+* `GET /api/calendar/calendars` antwortet mit `{"calendars": [{id, summary, access_role}], "status": "live"}`.
+* `POST /api/calendar/events` mit `{title, start, end, all_day, location, description, calendar_id}` legt den Termin an und
+  antwortet mit `{"id": …}`. Hat der Dienst die Route nicht (404, 405, 501), meldet `anlegen()` das klar.
+
+**Umgebung** (bei jedem Aufruf gelesen):
+
+| Variable | Wirkung |
+|---|---|
+| `FYOS_TERMINE_URL` | Adresse des Termin-Dienstes; gesetzt, geht sie dem Kalender-Plugin vor |
+| `FYOS_TERMINE_KOPF` | eine Kopfzeile für den Dienst, `Name: Wert` |
+| `FYOS_ZEITZONE` | Zeitzone des Hubs (IANA-Name wie `Europe/Berlin`, oder `UTC`); ohne Angabe die des Rechners. Sie gilt für ganztägige Termine und für Zeiten ohne Versatz |
+
+Fehler: `QuelleFehler` (Dienst oder Plugin aus, ohne Zugang oder antworten nicht wie vereinbart; erbt von
+`vorgaenge.QuelleFehler`, damit ein `except` beide Quellen fängt), `NichtEingerichtet` (ein `QuelleFehler`, aber nicht
+von `vorgaenge.NichtEingerichtet`: wer „keine Vorgangs-Quelle“ fängt, soll nicht „kein Kalender“ fangen) und `ValueError`
+(Eingabe, etwa ein Fenster mit `bis` vor `von` oder über 366 Tage).
+
+### 2.15 Mails lesen
+
+Ein Plugin, das Mails zeigt (Leitstand, Tagesbrief, Startseite) oder im Gespräch vorliest, trägt keine Adresse fest ein
+und spricht auch kein IMAP, sondern fragt `mcp_hub.postfach.quelle()`. **Die Quelle liest nur**: Senden, Antworten,
+Löschen, Verschieben und Kennzeichnen gibt es nicht, und auch das Lesen lässt den Gelesen-Status, wie er war. Die Quelle
+ist je nach Installation eine von dreien:
+
+| `art` | wann | was es gibt |
+|---|---|---|
+| `dienst` | ein Mail-Dienst ist eingetragen (`FYOS_POSTFACH_URL`, Kopfzeile `FYOS_POSTFACH_KOPF`; Ausbaustufe, ein eigener Mail-Dienst) | Liste, Zähler und einzelne Mail über drei GET-Routen (Vertrag unten) |
+| `ablage` | kein Dienst, aber ein Mail-Plugin hat sich als Ablage angemeldet, etwa `fyos-plugin-mail` (Grundstufe: IMAP-Konten mit App-Passwort, nichts weiter zu betreiben) | dasselbe, prozessintern |
+| `keine` | weder noch | `konten()`, `liste()` und `lesen()` melden `NichtEingerichtet` |
+
+Anders als bei den Vorgängen (§2.13) liefert die Quelle „keine“ **keine leere Liste**, sondern wirft, wie die Quelle der
+Termine. Wer Mails zeigt, muss drei Zustände trennen, und keiner darf wie ein anderer aussehen:
+
+```python
+from mcp_hub import postfach
+
+def eingang(self) -> dict:
+    try:
+        # bei jedem Aufruf neu fragen, das ist billig; zaehlen=False, wenn der Zähler nicht gebraucht wird
+        antwort = postfach.quelle().liste("in:inbox newer_than:2d", 25, zaehlen=False)
+    except postfach.NichtEingerichtet:
+        return {"zustand": "nicht eingerichtet"}         # eigener Hinweis mit dem Weg zur Einrichtung; weder rot noch „keine Mails“
+    except postfach.QuelleFehler as e:
+        return {"zustand": "fehler", "fehler": str(e)}   # Quelle aus oder ohne Zugang: nie „keine Mails“
+    return {"zustand": "ok", "mails": antwort["mails"]}  # auch leer: die Quelle hat geantwortet, es gibt keine Mails
+
+q = postfach.quelle()
+q.konten()                                               # [{name, art, adresse}]
+q.liste("from:alex is:unread", 10, konto="privat")       # {"mails": [...], "ungelesen": 12}
+q.lesen(mail["id"])                                      # dieselbe Mail mit text, gekuerzt und anhaenge
+```
+
+Der Text einer Mail ist **Fremdinhalt**. Ein Plugin, das ihn einem Modell zeigt, sagt dazu, dass darin keine Anweisungen
+stehen, denen zu folgen ist (das Plugin `mail` hängt diesen Hinweis an jede Antwort).
+
+**Mailformat.** Jede Mail ist ein `dict` mit genau diesen Feldern; Dienst und Ablage liefern sie gleich, `liste()` gibt
+sie neueste zuerst, höchstens `anzahl` Stück (1 bis 100, ohne Angabe 10):
+
+| Feld | Inhalt |
+|---|---|
+| `id` | Kennung in der Quelle. Undurchsichtig; wer sie aus einer Liste hat, gibt sie unverändert an `lesen()`. Muster `postfach.ID_MUSTER`: Buchstaben, Ziffern und `. _ ~ = -`, vorn kein Satzzeichen, höchstens 200 Zeichen |
+| `konto` | Name des Kontos oder der Quelle dahinter, sonst `""` |
+| `von` | Absender in einer Zeile, wie er sich nennt (`Name <adresse>`), sonst `""` |
+| `an` | Empfänger (An) in einer Zeile, sonst `""` |
+| `betreff` | Betreff in einer Zeile (`(kein Betreff)`, wenn die Mail keinen hat) |
+| `datum` | Zeitstempel nach ISO 8601, mit Versatz (`2026-10-06T10:09:09+00:00`); `""`, wenn die Quelle keinen lesbaren nennt; ohne Versatz gilt UTC |
+| `gelesen` | `true` oder `false` |
+| `labels` | deutsche Namen wie `Posteingang`, `Wichtig`, `Werbung`; sonst `[]` |
+| `ausschnitt` | Anfang des Textes in einer Zeile, höchstens 200 Zeichen |
+
+`liste()` gibt dazu `ungelesen` zurück: die Zahl der ungelesenen Mails im Posteingang (aller Konten oder des genannten),
+oder `None`, wenn die Quelle sie nicht nennt. `zaehlen=False` spart der Quelle den Zähler, wenn er sie etwas kostet (beim
+Dienst ist es ein zweiter Aufruf). `lesen()` liefert dieselben Felder und dazu `text` (reiner Text; HTML-Mails als Text;
+höchstens 30000 Zeichen), `gekuerzt` (`true`, wenn der Text gekürzt wurde) und `anhaenge` (`[{name, typ, groesse}]`, nur
+Angaben, nie der Inhalt). `konten()` liefert `[{name, art, adresse}]`, die Adresse ohne Passwort.
+
+**Abfragesprache.** `abfrage` ist Gmail-artig: Begriffe, durch Leerzeichen getrennt, alle müssen zutreffen. Diese Teilmenge
+kann **jede** Quelle:
+
+| Begriff | Bedeutung |
+|---|---|
+| `from:wert` | Absender enthält `wert` (Name oder Adresse) |
+| `to:wert` | Empfänger enthält `wert` |
+| `subject:wert` | Betreff enthält `wert` |
+| `is:unread` | nur ungelesene Mails |
+| `newer_than:Nd` / `older_than:Nd` | höchstens / mindestens `N` Tage alt (`N` eine ganze Zahl, Einheit `d`) |
+| `in:inbox` | nur der Posteingang |
+| freie Wörter | jedes Wort kommt in der Mail vor: im Betreff oder im Text, je nach Quelle auch in den Adressen |
+
+`wert` ist ein Wort oder ein Ausdruck in Anführungszeichen (`subject:"zwei Wörter"`); Groß- und Kleinschreibung gilt nicht;
+eine leere Abfrage heißt `in:inbox`. Alles darüber hinaus (`-category:promotions`, `label:`, `has:attachment`, `in:sent`,
+`OR`) darf eine Quelle auswerten oder ignorieren, aber nie als Fehler zurückweisen. Der Dienst reicht die Abfrage
+unverändert an sein Gmail weiter. Das Mail-Plugin tut bei einem Gmail-Konto dasselbe; bei jedem anderen Konto übersetzt es
+die Teilmenge nach IMAP SEARCH und versteht zusätzlich `in:sent` (und `drafts`, `trash`, `spam`), `is:read`, `after:` und
+`before:`, die Einheiten `w`, `m` und `y` sowie ein Minus vor einem Begriff. Was es nicht versteht, auch `OR` und
+Klammern, liest es nicht als „und“ (das fände weniger, als gemeint ist), sondern überliest es und nennt es in seiner
+Antwort (`ignoriert`). Ohne `in:` bestimmt die Quelle, wo gesucht wird; das Mail-Plugin durchsucht die Ordner, die für das
+Konto eingetragen sind (ohne Angabe den Posteingang). Wer sich auf mehr als die Teilmenge verlässt, bindet sich an Quellen,
+die es können.
+
+**Wer Mails liefert.** Ein Plugin meldet sich als Ablage an und erfüllt das Protokoll `postfach.Ablage` (drei lesende
+Methoden, Daten statt HTTP). Fehlt `mcp_hub.postfach` (fyos-hub vor 0.1.1), läuft das Plugin trotzdem, nur ohne Anmeldung:
+
+```python
+from mcp_hub.plugin import HubPlugin
+
+try:
+    from mcp_hub import postfach
+except ImportError:                                  # Kern ohne Postfach-Quelle
+    postfach = None
+
+class MailPlugin(HubPlugin):
+    name = "mail"
+
+    def registry_anbinden(self, registry) -> None:
+        if postfach is not None:
+            postfach.ablage_anmelden(self)
+
+    def shutdown(self) -> None:
+        if postfach is not None and postfach.angemeldete_ablage() is self:
+            postfach.ablage_anmelden(None)
+
+    def ablage_konten(self) -> list[dict]:                        # {name, art, adresse}, die Adresse ohne Passwort
+        ...
+
+    def ablage_liste(self, abfrage, anzahl, konto=None) -> dict:  # {"mails": [...], "ungelesen": Zahl oder None}
+        ...
+
+    def ablage_lesen(self, id) -> dict:                           # die Mail im Mailformat mit text, gekuerzt, anhaenge
+        ...
+```
+
+Eigene Fehler wirft das Plugin als `postfach.QuelleFehler` mit einem Text, den man den Lesern zeigen kann (ohne
+Zugangsdaten), ein unbekanntes Konto als `ValueError`. Jede andere Ausnahme reicht der Kern nur als Typ weiter („Das
+Mail-Plugin meldet einen Fehler (KeyError)“), nie als Text. Ein Plugin ohne eingetragenes Konto meldet sich gar nicht erst an
+oder wirft `postfach.NichtEingerichtet`; so bleibt „kein Postfach“ unterscheidbar von „Postfach leer“.
+
+**Mail-Dienst.** Die Ausbaustufe ist ein HTTP-Dienst unter `FYOS_POSTFACH_URL`; die Kopfzeile aus `FYOS_POSTFACH_KOPF`
+(`Name: Wert`) geht an jede Anfrage, Umleitungen werden nicht verfolgt, **gefragt wird nur mit GET**. Der Vertrag ist der
+des Mail-Dienstes, den FYOS bisher betrieben hat:
+
+* `GET /api/inbox/list?q=<Abfrage>&limit=N` antwortet mit `{"status": "live", "messages": [{id, subject, from, to, date,
+  snippet, label_ids, unread}], "_stub": false}`. `q` ist die Abfrage unverändert. `"_stub": true` oder ein `status`
+  außer `live` und `refreshed` heißt „ohne Zugang zum Postfach“ (`_message` sagt warum); das ist ein `QuelleFehler` mit
+  Status 503, nie eine leere Liste.
+* `GET /api/inbox/unread-count` antwortet mit `{"inbox_unread": N, …}`. Fehlt der Zähler, bleibt die Liste gültig und
+  `ungelesen` ist `None`.
+* `GET /api/inbox/message/<id>` antwortet mit `{id, subject, from, to, date, label_ids, unread, body_plain, body_html,
+  attachments: [{filename, mime_type, size}]}`; der Kern nimmt `body_plain`, sonst den Text aus `body_html`.
+
+Der Dienst hat ein Konto, `dienst`. `date` darf im Mail-Format stehen, `label_ids` sind die Systemlabels von Gmail
+(`INBOX`, `IMPORTANT`, `CATEGORY_PROMOTIONS` …); der Kern macht daraus die deutschen Namen.
+
+**Umgebung** (bei jedem Aufruf gelesen):
+
+| Variable | Wirkung |
+|---|---|
+| `FYOS_POSTFACH_URL` | Adresse des Mail-Dienstes; gesetzt, geht sie dem Mail-Plugin vor |
+| `FYOS_POSTFACH_KOPF` | eine Kopfzeile für den Dienst, `Name: Wert` |
+
+Fehler: `QuelleFehler` (Dienst oder Plugin aus, ohne Zugang oder antworten nicht wie vereinbart; erbt von
+`vorgaenge.QuelleFehler`, damit ein `except` die Quellen zusammen fängt), `NichtEingerichtet` (ein `QuelleFehler`, aber
+nicht von `vorgaenge.NichtEingerichtet`: wer „keine Vorgangs-Quelle“ fängt, soll nicht „kein Postfach“ fangen) und
+`ValueError` (Eingabe, etwa eine ungültige Kennung, eine Anzahl außerhalb von 1 bis 100 oder ein unbekanntes Konto).
+
+### 2.16 Dokumente suchen, lesen und einordnen
+
+Ein Plugin, das Dokumente zeigt (Leitstand, Tagesbrief, Startseite), trägt keine Adresse fest ein und spricht auch kein
+Paperless, sondern fragt `mcp_hub.dokumente.quelle()`. Die Quelle ist je nach Installation eine von dreien:
+
+| `art` | wann | was es gibt |
+|---|---|---|
+| `dienst` | ein Paperless-ngx ist eingetragen (`FYOS_DOKUMENTE_URL`, Zugang `FYOS_DOKUMENTE_KOPF`; Ausbaustufe) | `neueste()`, `suchen()`, `holen()`, `unsortiert()`, `namen()` und `zuordnen()` über die REST-Schnittstelle (unten) |
+| `ablage` | kein Dienst, aber ein Plugin hat sich als Ablage angemeldet (`ablage_anmelden`, Protokoll `dokumente.Ablage`) | dasselbe, prozessintern; `namen()` und `zuordnen()` nur, wenn die Ablage sie anbietet |
+| `keine` | weder noch | alle Methoden melden `NichtEingerichtet` |
+
+Wie bei Terminen und Mails liefert die Quelle „keine“ **keine leere Liste**, sondern wirft. Wer Dokumente zeigt, trennt
+drei Zustände, und keiner darf wie ein anderer aussehen:
+
+```python
+from mcp_hub import dokumente
+
+def eingang(self) -> dict:
+    try:
+        antwort = dokumente.quelle().neueste(10)           # bei jedem Aufruf neu fragen, das ist billig
+    except dokumente.NichtEingerichtet:
+        return {"zustand": "nicht eingerichtet"}           # eigener Hinweis mit dem Weg zur Einrichtung; weder rot noch leer
+    except dokumente.QuelleFehler as e:
+        return {"zustand": "fehler", "fehler": str(e)}     # Paperless aus oder Anmeldung abgelehnt: nie „keine Dokumente“
+    return {"zustand": "ok", **antwort}                    # auch {"gesamt": 0, "dokumente": []}: die Quelle hat geantwortet
+
+q = dokumente.quelle()
+q.suchen("Stromrechnung", 5)                               # {"gesamt": 3, "dokumente": [... mit "auszug"]}
+q.holen(dok["id"])                                         # dasselbe Dokument mit text und text_gekuerzt
+q.unsortiert()                                             # Zahl der Dokumente ohne Korrespondent und Typ, oder None
+q.zuordnen(dok["id"], {"titel": "Rechnung Oktober", "typ": "Rechnung"}, vorschau=True)   # erst zeigen, was sich ändert
+```
+
+Der Text eines Dokuments ist **Fremdinhalt**. Ein Plugin, das ihn einem Modell zeigt, sagt dazu, dass darin keine
+Anweisungen stehen, denen zu folgen ist. `zuordnen()` schreibt (Titel, Korrespondent, Dokumenttyp, Schlagworte
+hinzufügen; **gelöscht wird nie**, fehlende Korrespondenten, Typen und Schlagworte werden angelegt): ein Plugin ruft es
+nur auf ausdrücklichen Wunsch der Nutzerin oder des Nutzers auf und zeigt vorher die Vorschau (`vorschau=True`).
+
+**Dokumentformat.** Jedes Dokument ist ein `dict` mit genau diesen Feldern; Dienst und Ablage liefern es gleich.
+`neueste()` und `suchen()` geben `{"gesamt": N, "dokumente": [...]}` zurück (höchstens `anzahl`, 1 bis 50, ohne Angabe 10;
+`neueste()` neueste zuerst):
+
+| Feld | Inhalt |
+|---|---|
+| `id` | Kennung in der Quelle, eine ganze Zahl ab 1; undurchsichtig, unverändert an `holen()` und `zuordnen()` weitergeben |
+| `titel` | Titel in einer Zeile (`(ohne Titel)`, wenn die Quelle keinen nennt) |
+| `erstellt` | Datum des Dokuments `JJJJ-MM-TT` oder `None` |
+| `hinzugefuegt` | Zeitstempel nach ISO 8601 mit Versatz, wann es in die Ablage kam, oder `None` |
+| `schlagworte` | Namen der Schlagworte (`[]`, wenn keine) |
+| `korrespondent`, `typ` | Namen oder `None` |
+| `datei`, `seiten` | Name der Originaldatei und Seitenzahl oder `None` |
+| `auszug` | Treffer-Auszug einer Suche in einer Zeile, die Treffer in `«…»`, sonst `None` |
+| `link` | Adresse im Browser (`http`/`https`) oder `None`, wenn `FYOS_DOKUMENTE_LINK` leer ist |
+
+`holen()` liefert dieselben Felder und dazu `text` (der erkannte Text, höchstens 20000 Zeichen) und `text_gekuerzt`.
+`namen()` liefert `{"schlagworte": [...], "korrespondenten": [...], "typen": [...]}` (sortiert), etwa für Vorschläge.
+`zuordnen()` antwortet mit `vorher` und, ohne Vorschau, `nachher` (beide im Dokumentformat) und `angelegt`, mit Vorschau
+mit `aendert` und `wird_angelegt` (zum Beispiel `["Typ Rechnung"]`).
+
+**Wer Dokumente liefert.** Ein Plugin meldet sich als Ablage an und erfüllt das Protokoll `dokumente.Ablage`:
+`ablage_neueste(anzahl)`, `ablage_suchen(abfrage, anzahl)` (beide `{"gesamt", "dokumente"}`), `ablage_holen(id)` und
+`ablage_unsortiert()`; dazu optional `ablage_namen()` und `ablage_zuordnen(id, aenderung, vorschau)`. Fehlt eine
+optionale Methode, meldet die Quelle klar „kann diese Ablage nicht“ (Status 501), statt zu raten. Anmelden und Abmelden
+wie in §2.15 (`dokumente.ablage_anmelden(self)` und, beim Beenden, `dokumente.ablage_anmelden(None)`). Fehlt
+`mcp_hub.dokumente` (fyos-hub vor 0.1.1), läuft ein Plugin trotzdem, nur ohne Anmeldung.
+
+**Paperless-ngx als Dienst.** Die Ausbaustufe ist ein Paperless-ngx unter `FYOS_DOKUMENTE_URL` (nur die Wurzel, ohne
+`/api`). Der Kern nutzt diese Routen:
+
+* `GET /api/documents/` mit `ordering=-added`, `page_size`, `fields` (neueste) oder `query` (Volltextsuche; der Text geht
+  unverändert an Paperless, dort gelten auch Feldsuchen wie `tag:rechnung`). Gelesen werden `count` und `results` mit `id`,
+  `title`, `created` (Datum oder Zeitstempel), `added`, `tags`, `correspondent`, `document_type`, `original_file_name`,
+  `page_count` und, bei einer Suche, `__search_hit__.highlights` (Markierung `<b>` oder `<span class="match">`).
+* `GET /api/documents/<id>/` für das volle Dokument (`content` ist der erkannte Text).
+* `GET /api/documents/?correspondent__isnull=1&document_type__isnull=1&page_size=1&fields=id` zählt die unsortierten.
+  Fällt der Zähler aus, bleibt die Liste gültig und `unsortiert()` ist `None`.
+* `GET /api/tags/`, `/api/correspondents/` und `/api/document_types/` mit `page_size=1000` liefern die Namen zu den
+  Kennungen; der Kern merkt sie fünf Minuten.
+* nur von `zuordnen()`: `POST /api/tags/` (und `correspondents`, `document_types`) mit `{"name": …}` für Neues und
+  `PATCH /api/documents/<id>/` mit `title`, `correspondent`, `document_type`, `tags`.
+
+Umleitungen werden nicht verfolgt (die Kopfzeile geht nur an die eingetragene Adresse). Eine abgelehnte Anmeldung
+(401/403) ist ein `QuelleFehler`: „Paperless … lehnt die Anmeldung ab (Token prüfen: FYOS_DOKUMENTE_KOPF)“, nie „keine
+Dokumente“. Das Token steht in keiner Meldung, keinem Log und keinem Ergebnis.
+
+*Paperless-Version.* Die Schnittstelle von Paperless-ngx ist stabil, ihre Dokumentation nennt für die benutzten Parameter
+keine Einführungsversion. Der Kern liest beide Formen von `created` (Datum seit API-Version 9, vorher Zeitstempel) und
+beide Markierungen der Treffer und ist **gegen Attrappen** geprüft, nicht gegen ein laufendes Paperless. Angenommen wird
+Paperless-ngx ab 2.0; wer eine ältere Version betreibt, probiert `neueste()` und `suchen()` zuerst aus.
+
+*Ein Token anlegen.* Am besten für ein eigenes Konto in Paperless, das Dokumente ansehen und (für `zuordnen()`) ändern
+und Schlagworte, Korrespondenten und Typen anlegen darf. In der Weboberfläche: oben rechts das Konto öffnen, **Mein
+Profil**, beim **Auth-Token** den Knopf zum Erzeugen drücken und das Token kopieren. Auf dem Server geht auch
+`python3 manage.py drf_create_token <Benutzername>` im Paperless-Container. Eingetragen wird es als Kopfzeile:
+`FYOS_DOKUMENTE_KOPF=Authorization: Token <Token>`. Hinter einem Proxy, der den Benutzer selbst anmeldet (Remote-User),
+steht stattdessen die Kopfzeile, die Paperless dafür liest (`PAPERLESS_ENABLE_HTTP_REMOTE_USER`, vorgegeben ist
+`Remote-User: konto`); der Hub muss dann so erreichbar sein, dass nur
+er sie setzen kann.
+
+**Umgebung** (bei jedem Aufruf gelesen):
+
+| Variable | Wirkung |
+|---|---|
+| `FYOS_DOKUMENTE_URL` | Adresse des Paperless-ngx; gesetzt, geht sie jeder Ablage vor |
+| `FYOS_DOKUMENTE_KOPF` | eine Kopfzeile für den Dienst, `Name: Wert` (geheim), meist `Authorization: Token …` |
+| `FYOS_DOKUMENTE_LINK` | Adresse desselben Paperless im Browser (kann von der oben abweichen, etwa ein Name statt der Adresse im Netz); leer = keine Links |
+
+Fehler: `QuelleFehler` (Dienst oder Plugin aus, ohne Zugang oder antworten nicht wie vereinbart; erbt von
+`vorgaenge.QuelleFehler`), `NichtEingerichtet` (ein `QuelleFehler`, aber nicht von `vorgaenge.NichtEingerichtet`) und
+`ValueError` (Eingabe: eine Abfrage unter zwei Zeichen, eine ungültige Kennung, eine Änderung ohne Inhalt, ein Name zu
+lang oder von Paperless abgelehnt).
 
 ---
 

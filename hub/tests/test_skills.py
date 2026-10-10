@@ -34,7 +34,8 @@ def plugin(tmp_path: Path) -> SkillsPlugin:
     # gleicher Name wie in der ersten Quelle: die erste hat Vorrang
     _skill(fremde, "server", "name: server\ndescription: fremd.", "")
     (fremde / "leer").mkdir(parents=True)
-    return SkillsPlugin({"quellen": [str(eigene), str(fremde)], "scan_ttl_s": 0})
+    # Ohne die Skills installierter Pakete (z. B. generative-ui aus dem Kern): hier zählen nur die beiden Quellen
+    return SkillsPlugin({"quellen": [str(eigene), str(fremde)], "scan_ttl_s": 0, "plugin_skills": False})
 
 
 def test_front_matter_ohne_kopf():
@@ -74,7 +75,7 @@ def test_lesen_und_referenz(plugin: SkillsPlugin):
 def test_quellen_aus_der_umgebung(tmp_path: Path, monkeypatch):
     _skill(tmp_path / "q", "a", "name: a\ndescription: x.", "")
     monkeypatch.setenv("FYOS_SKILLS_PATH", str(tmp_path / "q"))
-    assert SkillsPlugin({}).health()["skills"] == 1
+    assert SkillsPlugin({"plugin_skills": False}).health()["skills"] == 1
 
 
 def test_lesen_grenzen(plugin: SkillsPlugin):

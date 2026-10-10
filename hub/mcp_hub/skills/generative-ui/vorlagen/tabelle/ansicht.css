@@ -1,0 +1,9 @@
+.t-huelle { overflow-x: auto; }
+.t-huelle table { min-width: 100%; }
+.t-huelle th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; color: var(--color-text-secondary); font-weight: 500; }
+.t-huelle th button:focus-visible { outline: 2px solid var(--color-text-info); outline-offset: 2px; border-radius: 4px; }
+.t-huelle th[aria-sort] button { color: var(--color-text-primary); }
+.t-huelle td.t-zahl, .t-huelle th.t-zahl { text-align: right; font-variant-numeric: tabular-nums; }
+.t-huelle tr.gui-klickbar:focus-visible { outline: 2px solid var(--color-text-info); outline-offset: -2px; }
+.t-anzahl { font-size: 12.5px; color: var(--color-text-tertiary); }
+.t-suche { min-width: min(100%, 16rem); }

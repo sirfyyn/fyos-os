@@ -186,6 +186,27 @@ class PluginRegistry:
     def get_tool(self, fqtn: str) -> RegisteredTool | None:
         return self.tools.get(fqtn)
 
+    def oeffnen_ziel(self, fqtn: str, args: dict[str, Any] | None) -> tuple[str, dict[str, Any] | None]:
+        """Wohin „In FYOS öffnen“ für diesen Aufruf führt.
+
+        Vorgabe: dasselbe Werkzeug mit denselben Argumenten. Ein Plugin darf umlenken, indem es
+        ``oeffnen_ziel(werkzeug, args) -> (fqtn, args) | None`` anbietet — etwa wenn die Argumente zu groß für
+        einen Link sind (``gui.bauen`` trägt ganze HTML-Dokumente, verlinkt wird ``gui.zeigen {id}``). Das Ziel
+        muss ein geladenes Werkzeug sein; sonst und bei jedem Fehler bleibt es bei der Vorgabe.
+        """
+        rt = self.tools.get(fqtn)
+        fn = getattr(self.plugins.get(rt.plugin_name), "oeffnen_ziel", None) if rt is not None else None
+        if not callable(fn):
+            return fqtn, args
+        try:
+            z = fn(rt.tool_name, dict(args or {}))
+        except Exception as exc:  # noqa: BLE001 — ein Link ist Zugabe, nie ein Fehler des Aufrufs
+            logger.info("mcp_hub.registry: oeffnen_ziel %s: %s", fqtn, exc)
+            return fqtn, args
+        if isinstance(z, tuple) and len(z) == 2 and isinstance(z[0], str) and z[0] in self.tools:
+            return z[0], z[1] if isinstance(z[1], dict) else None
+        return fqtn, args
+
     def server_infos(self) -> list[ServerInfo]:
         infos: list[ServerInfo] = []
         for plugin_name, plugin in self.plugins.items():

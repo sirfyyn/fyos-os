@@ -1,0 +1,33 @@
+{
+  "titel": "Zeitleiste",
+  "zweck": "Was wann geschah: Ereignisse nach Tag gruppiert, neueste oder älteste zuerst, Ton je Ereignis, Klick fragt nach.",
+  "schema": {
+    "type": "object",
+    "required": ["ereignisse"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string"},
+      "reihenfolge": {"type": "string", "enum": ["neu", "alt"], "default": "neu"},
+      "ereignisse": {
+        "type": "array", "minItems": 1, "maxItems": 500,
+        "items": {"type": "object", "required": ["zeit", "titel"], "properties": {
+          "zeit": {"type": "string", "description": "ISO-Zeit"},
+          "titel": {"type": "string"},
+          "text": {"type": "string"},
+          "ton": {"type": "string", "enum": ["gut", "warn", "schlecht", "info", "aus"]},
+          "frage": {"type": "string"}
+        }}
+      }
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Heute im Betrieb",
+    "herkunft": "Beispielwerte",
+    "ereignisse": [
+      {"zeit": "2026-10-10T08:40:00+02:00", "titel": "Update eingespielt", "text": "alle Prüfungen grün", "ton": "gut"},
+      {"zeit": "2026-10-10T07:15:00+02:00", "titel": "Dienst langsamer", "text": "Antwortzeit 2,1 s", "ton": "warn", "frage": "Warum war der Dienst um 7:15 langsamer?"},
+      {"zeit": "2026-10-09T23:55:00+02:00", "titel": "Sicherung abgeschlossen", "ton": "info"}
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "titel": "Ablauf",
+  "zweck": "Schritte, Wege und Zusammenhänge als SVG-Ablauf: Kästen mit Pfeilen, senkrecht oder waagerecht (bricht bei wenig Breite um), Ton je Schritt, Klick fragt nach.",
+  "schema": {
+    "type": "object",
+    "required": ["schritte"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string"},
+      "richtung": {"type": "string", "enum": ["senkrecht", "waagerecht"], "default": "senkrecht"},
+      "schritte": {
+        "type": "array", "minItems": 1, "maxItems": 16,
+        "items": {"type": "object", "required": ["titel"], "properties": {
+          "titel": {"type": "string", "maxLength": 40},
+          "text": {"type": "string", "maxLength": 60},
+          "ton": {"type": "string", "enum": ["gut", "warn", "schlecht", "info", "aus"]},
+          "farbe": {"type": "string", "enum": ["purple", "teal", "coral", "pink", "gray", "blue", "green", "amber", "red"], "description": "Statt ton: Kategorienfarbe"},
+          "frage": {"type": "string"}
+        }}
+      }
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Weg einer Änderung",
+    "schritte": [
+      {"titel": "Änderung committen", "text": "gezielte Tests", "farbe": "purple"},
+      {"titel": "Pull Request", "text": "die CI läuft", "farbe": "teal"},
+      {"titel": "Merge nach main", "text": "Images werden gebaut", "farbe": "amber"},
+      {"titel": "Ausrollen", "text": "Installation aktualisieren", "farbe": "gray", "frage": "Wie rolle ich die Änderung aus?"}
+    ]
+  }
+}

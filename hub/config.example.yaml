@@ -51,6 +51,13 @@ plugins:
   # Anordnung der Shell (offene Fenster) als Werkzeuge.
   - name: shell
 
+  # Generative Oberflaechen: der Agent baut eine bedienbare Ansicht (Kennzahlen, Balken, Verlauf, Tabelle ...) aus
+  # einer Vorlage oder frei und zeigt sie als App. Die Ansichten liegen in mcp_hub.kv (Redis, wenn REDIS_URL gesetzt
+  # ist, sonst im Speicher des Prozesses). Anleitung: Skill generative-ui (Teil des Kerns).
+  - name: gui
+    # config:
+    #   vorlagen: /opt/fyos/vorlagen   # eigener Ordner statt der Vorlagen des Kerns (gleicher Aufbau)
+
   # Kleine Beispiel-App (Notizzettel mit Oberflaeche).
   - name: beispiel_app
 

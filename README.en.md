@@ -27,6 +27,7 @@ OpenClaw (upstream)      base image by digest
 | `deploy/k8s/base/` | Kubernetes base installation (Kustomize); an overlay sets images and namespace |
 | `tools/sauber.py` | Cleanliness check: no private networks, addresses, secrets or forbidden words in the repo |
 | `tools/doku_pruefen.py` | Docs check: links, named paths and fixed sections of the Markdown files match the repo |
+| `tools/claude-code/` | Mods for Claude Code: [`fyos-ansicht`](tools/claude-code/fyos-ansicht/README.md) opens views that the agent built (plugin `gui`) in the terminal's side panel |
 | `docs/` | [Architecture](docs/ARCHITEKTUR.md), [Hub contract](docs/HUB-VERTRAG.md), [Extending](docs/ERWEITERN.md) |
 
 The linked READMEs and documents are written in German.
@@ -54,9 +55,11 @@ docker compose up -d           # then http://localhost:8080
 ```
 
 The images are built by the CI of this repo (`<registry>/fyos-os/web`, `<registry>/fyos-os/hub`) and by that of
-`fyos-agent` (`<registry>/fyos-agent/openclaw`). The defaults point to the example address `registry.example.com`, which
-can never be resolved: without a registry of your own, startup fails visibly instead of pulling foreign images. The
-installer is pointed at your own registry with `FYOS_REGISTRY=<host>/<owner>`.
+`fyos-agent` (`<registry>/fyos-agent/openclaw`). Published images live at `ghcr.io/sirfyyn` (tags `v<version>` and `latest`). <!-- sauber: ok -->
+Without further settings the installer uses them at its own version; `FYOS_REGISTRY=<host>/<owner>` points it at your
+own registry, `FYOS_BILD_TAG` picks another tag. The template `deploy/compose/env.example`, by contrast, points to the
+example address `registry.example.com`, which can never be resolved: if you use it by hand, enter the images yourself,
+otherwise startup fails visibly instead of pulling foreign images.
 
 Any OpenAI-compatible provider serves as the model (for example a llama.cpp server, Ollama or vLLM), locally or on your
 own network.
@@ -103,7 +106,8 @@ cd web && npm ci && npx vitest run && npx astro build
 The commands for developing and testing this repo use pip because it is available everywhere; with `uv pip install` they
 work the same.
 
-The CI (`.gitea/workflows/ci.yml`) checks every push the same way. On `main` it uploads `fyos-hub` as a development build
+The CI (`.gitea/workflows/ci.yml`) checks every pull request and every push to `main` the same way (branches through
+their pull request, one run per commit). On `main` it uploads `fyos-hub` as a development build
 (`X.Y.Z.devN`) to the package index of the Git server and builds the images `web` and `hub` with the tags `main` and
 commit.
 

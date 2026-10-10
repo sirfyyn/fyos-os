@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-from . import abnahme
+from . import __version__, abnahme
 from .katalog import Baustein, Katalog, KatalogFehler, aufloesen, quelle_aufloesen
 from .reife import Reife, bestimme as bestimme_reife
 
@@ -38,8 +38,14 @@ VORGABE_PERSONA = {
     "sprache": "Deutsch",
 }
 VORGABE_MODELL = {"basis_url": "http://host.docker.internal:11434/v1", "name": "qwen3:8b", "schluessel": ""}
-# Ohne eigene Registry zeigen die Bilder auf eine Beispieladresse, die sich nie auflösen lässt: Ziehen schlägt
-# sichtbar fehl, statt still ein fremdes Bild gleichen Namens zu holen.
+# Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.1.1
+# zieht Oberfläche und Hub mit dem Tag v0.1.1. Das Bild der Agent-Grundlage baut fyos-agent mit eigenen Versionen.
+OFFIZIELLE_REGISTRY = "ghcr.io/sirfyyn"  # sauber: ok
+BILD_TAG = f"v{__version__}"
+AGENT_TAG = "v0.1.0"
+# Das selbst gebaute Hub-Bild (Kubernetes, mit den gewählten Plugins) gehört in die eigene Registry. Ohne sie zeigt es
+# auf eine Beispieladresse, die sich nie auflösen lässt: Schieben und Ziehen schlagen sichtbar fehl, statt still ein
+# fremdes Bild gleichen Namens zu holen.
 BEISPIEL_REGISTRY = "registry.example.com/fyos"
 # Bildnamen, wie deploy/k8s/base sie ausgibt (dort `images`: fyos-os/web → Beispieladresse). Kustomize wendet die
 # Bild-Ersetzung der Basis vor der des Overlays an; ein Overlay muss deshalb diese Namen ersetzen, nicht die kurzen.
@@ -55,15 +61,16 @@ BASIS_BILDNAMEN = {
 UV_BILD = "ghcr.io/astral-sh/uv:0.12.8"
 
 
-def _bilder(reg: str) -> dict[str, str]:
+def _bilder(reg: str, tag: str, agent_tag: str = "", eigen_reg: str = "") -> dict[str, str]:
     return {
-        "hub_bild": f"{reg}/fyos-os/hub:main", "bild_web": f"{reg}/fyos-os/web:main",
-        "bild_agent": f"{reg}/fyos-agent/openclaw:main", "hub_bild_k8s": f"{reg}/fyos-os/hub-eigen:main",
+        "hub_bild": f"{reg}/fyos-os/hub:{tag}", "bild_web": f"{reg}/fyos-os/web:{tag}",
+        "bild_agent": f"{reg}/fyos-agent/openclaw:{agent_tag or tag}",
+        "hub_bild_k8s": f"{eigen_reg or reg}/fyos-os/hub-eigen:{tag}",
     }
 
 
 VORGABE_OPTIONEN = {  # ohne Umgebung; mit Umgebung siehe vorgaben_optionen()
-    **_bilder(BEISPIEL_REGISTRY),
+    **_bilder(OFFIZIELLE_REGISTRY, BILD_TAG, AGENT_TAG, BEISPIEL_REGISTRY),
     "k8s_basis": "",
     "namespace": "fyos",
     "bezug": "",  # index | git; leer = automatisch
@@ -73,13 +80,18 @@ VORGABE_OPTIONEN = {  # ohne Umgebung; mit Umgebung siehe vorgaben_optionen()
 
 
 def vorgaben_optionen(umgebung: Mapping[str, str] | None = None, bezug_aufloesen: bool = False) -> dict[str, str]:
-    """Vorgaben der Optionen. `FYOS_REGISTRY` (zum Beispiel registry.example.com/org) bestimmt die Bildnamen,
-    `FYOS_PAKETINDEX` und `FYOS_PLUGIN_QUELLE` den Bezug der Plugin-Pakete."""
+    """Vorgaben der Optionen. Ohne Angabe die veröffentlichten Bilder (`OFFIZIELLE_REGISTRY`, Tag `v<Version>`).
+    `FYOS_REGISTRY` (zum Beispiel registry.example.com/org) lenkt alle Bilder auf die eigene Registry, dort mit dem Tag
+    `main` der eigenen CI; `FYOS_BILD_TAG` setzt den Tag aller Bilder. `FYOS_PAKETINDEX` und `FYOS_PLUGIN_QUELLE`
+    bestimmen den Bezug der Plugin-Pakete."""
     umgebung = os.environ if umgebung is None else umgebung
     o = dict(VORGABE_OPTIONEN)
     reg = umgebung.get("FYOS_REGISTRY", "").strip().strip("/")
+    tag = umgebung.get("FYOS_BILD_TAG", "").strip()
     if reg:
-        o.update(_bilder(reg))
+        o.update(_bilder(reg, tag or "main"))
+    elif tag:
+        o.update(_bilder(OFFIZIELLE_REGISTRY, tag, tag, BEISPIEL_REGISTRY))
     o["paketindex"] = umgebung.get("FYOS_PAKETINDEX", "").strip()
     o["plugin_quelle"] = umgebung.get("FYOS_PLUGIN_QUELLE", "").strip()
     if bezug_aufloesen:
@@ -589,7 +601,7 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
         plan.hinweise.append(
             f"Bilder ({', '.join(beispiel)}) zeigen noch auf die Beispieladresse {BEISPIEL_REGISTRY}: "
             "FYOS_REGISTRY auf die eigene Registry setzen (Form host/besitzer) oder die Bilder unter Optionen "
-            "eintragen, sonst lässt sich nichts ziehen."
+            "eintragen, sonst lässt sich nichts schieben oder ziehen."
         )
     for b in bausteine:
         for v in b.voraussetzungen:

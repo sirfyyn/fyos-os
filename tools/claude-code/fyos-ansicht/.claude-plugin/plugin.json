@@ -1,0 +1,8 @@
+{
+  "name": "fyos-ansicht",
+  "version": "0.1.0",
+  "description": "FYOS: gebaute Ansichten aus dem MCP-Hub (gui.bauen, gui.zeigen) rechts im Panel von Claude Code, live",
+  "author": { "name": "FYOS" },
+  "license": "Apache-2.0",
+  "keywords": ["function-hooks", "fyos", "generative-ui"]
+}
