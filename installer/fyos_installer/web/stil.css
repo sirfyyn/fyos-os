@@ -97,6 +97,10 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .voraus strong { color: var(--text); }
 fieldset { border: 1px solid var(--linie); border-radius: var(--radius); padding: .6rem 1.1rem 1rem; margin: 1rem 0; background: var(--flaeche); }
 legend { font-weight: 700; padding: 0 .4rem; }
+.stufen { margin: .8rem 0 1.1rem; }
+.stufen-wahl { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-top: .4rem; }
+.stufen .wahl { padding: .7rem .9rem; }
+.stufen .wahl.gesperrt { opacity: .55; }
 .feld { display: grid; gap: .15rem; margin: .7rem 0; }
 .feld label { font-weight: 600; font-size: .92rem; }
 .feld .hilfe { font-size: .82rem; color: var(--leise); }

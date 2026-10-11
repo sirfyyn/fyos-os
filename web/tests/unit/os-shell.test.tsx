@@ -8,9 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hub = vi.hoisted(() => vi.fn());
 const hubApps = vi.hoisted(() => vi.fn());
+const uebergabeStarten = vi.hoisted(() => vi.fn(async (..._a: unknown[]) => {}));
 vi.mock('~/lib/hub', () => ({ hub }));
 vi.mock('~/lib/mcp-apps/host', () => ({
   apps: hubApps,
+  uebergabeStarten,
   appCall: vi.fn(async () => ({ content: [{ type: 'text', text: '{}' }] })),
   appEinhaengen: vi.fn(async () => () => {}),
   aktuellesTheme: () => 'dark',
@@ -480,6 +482,28 @@ describe('Menüs, Übersicht und Gesten', () => {
     expect(await screen.findByRole('region', { name: 'Notizen' })).toBeTruthy();
   });
 
+  it('meldet sich als Sitzung der OS-Brücke und zeigt, was der Agent nachts vorgemerkt hat, mit der Uhrzeit der Entstehung', async () => {
+    const heute0312 = new Date();
+    heute0312.setHours(3, 12, 0, 0);
+    const entstanden = heute0312.getTime() / 1000;
+    const holen = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        nach: '1-0',
+        befehle: [{ id: 'b-nacht', art: 'zeigt', von: 'agent', zeigt: { ziel: 'agent', titel: 'Notizen geordnet', vorschau: '12 Notizen, 3 Themen.', art: 'mitteilung', nachgeholt: true, entstanden } }],
+      }),
+    }));
+    vi.stubGlobal('fetch', holen);
+    render(() => <Shell />);
+    expect(await screen.findByText('12 Notizen, 3 Themen.')).toBeTruthy();
+    expect(screen.getByText('Agent meldet sich')).toBeTruthy();
+    expect(document.querySelector('[data-mitteilung] time')!.textContent).toBe('heute Nacht, 03:12');
+    const [url, init] = holen.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/hub-api/os/melden');
+    expect(JSON.parse(String(init.body))).toMatchObject({ abholen: true, sichtbar: true, version: 1 });
+  });
+
   it('eine Mitteilung für eine unbekannte Fläche wird nicht gezeigt', async () => {
     render(() => <Shell />);
     window.dispatchEvent(new CustomEvent(ZEIGT_EREIGNIS, { detail: { ziel: 'seite:gibt-es-nicht', titel: 'Nichts' } }));
@@ -694,5 +718,295 @@ describe('Übergänge: Deeplink mit Eingabe, fyos:oeffnen und der App-Rahmen', (
     await waitFor(() => expect(JSON.parse(localStorage.getItem('fyos:app-pins')!)).toEqual(['leitstand__lagebild']));
     // die Kachel zeigt die Anheftung
     expect(await within(panel).findByRole('button', { name: /Lagebild/ }).then((k) => k.querySelector('.os-kachel-pin'))).toBeTruthy();
+  });
+});
+
+describe('Anwendungen statt Widgets', () => {
+  const hubApp = (name: string, titel: string, art?: string) => ({
+    name, tool: name.replace('__', '.'), title: titel, description: '', inputSchema: {}, _meta: { ui: { resourceUri: `ui://x/${name}` } }, scope: 'READ',
+    ...(art ? { art } : {}),
+  });
+  const vorhanden = (name: string) => document.querySelector(`[data-fenster="${name}"]`) as HTMLElement | null;
+  const dockDa = () => !!screen.queryByRole('navigation', { name: 'Bodenleiste' });
+  /** Eine Fläche über den Start öffnen (wie ein Klick auf ihre Kachel). */
+  const oeffnen = async (name: RegExp, region: string) => {
+    fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'FYOS' }));
+    const panel = await screen.findByRole('dialog', { name: 'FYOS' });
+    fireEvent.click(await within(panel).findByRole('button', { name }));
+    return (await screen.findByRole('region', { name: region })) as HTMLElement;
+  };
+  const anwendungOeffnen = () => oeffnen(/Dateien/, 'Dateien');
+
+  beforeEach(() => {
+    hubApps.mockResolvedValue([hubApp('dateien__liste', 'Dateien', 'anwendung'), hubApp('leitstand__lagebild', 'Lagebild', 'widget')]);
+  });
+  afterEach(() => {
+    delete (document.documentElement as { requestFullscreen?: unknown }).requestFullscreen;
+    Object.defineProperty(document, 'fullscreenElement', { value: null, configurable: true });
+  });
+
+  it('eine Anwendung öffnet groß (volle Breite, so hoch wie der Bildschirm), ein Widget bleibt Kachel', async () => {
+    render(() => <Shell />);
+    const lagebild = await oeffnen(/Lagebild/, 'Lagebild');
+    expect(lagebild.dataset.art).toBeUndefined();
+    const dateien = await anwendungOeffnen();
+    expect(dateien.dataset.art).toBe('anwendung');
+    expect(dateien.style.gridColumn).toContain('span 12');
+    expect(dateien.style.gridRow).toMatch(/span (1[0-9]|2[0-4])/);
+  });
+
+  it('der grüne Knopf eines Widgets zoomt wie bisher; der einer Anwendung heißt Vollbild', async () => {
+    render(() => <Shell />);
+    const lagebild = await oeffnen(/Lagebild/, 'Lagebild');
+    expect(within(lagebild).getByRole('button', { name: 'Lagebild zoomen' })).toBeTruthy();
+    const dateien = await anwendungOeffnen();
+    expect(within(dateien).queryByRole('button', { name: 'Dateien zoomen' })).toBeNull();
+    expect(within(dateien).getByRole('button', { name: 'Dateien im Vollbild' })).toBeTruthy();
+  });
+
+  it('grüner Knopf: Vollbild-Bildschirm — Dock weg, Anwendung maximiert, zweiter Klick bringt alles zurück', async () => {
+    render(() => <Shell />);
+    const lagebild = await oeffnen(/Lagebild/, 'Lagebild');
+    const dateien = await anwendungOeffnen();
+    expect(dockDa()).toBe(true);
+    fireEvent.click(within(dateien).getByRole('button', { name: 'Dateien im Vollbild' }));
+    await waitFor(() => expect(dockDa()).toBe(false));
+    // eigener Bildschirm: das Widget bleibt auf seinem, die Anwendung steht allein, maximiert
+    const screens = [...document.querySelectorAll('section.os-bildschirm')].filter((s) => s.querySelector('[data-fenster]'));
+    expect(screens).toHaveLength(2);
+    expect(screens[0]!.contains(lagebild)).toBe(true);
+    expect(vorhanden('app:dateien__liste')!.hasAttribute('data-max')).toBe(true);
+    expect(screens[1]!.contains(vorhanden('app:dateien__liste'))).toBe(true);
+    fireEvent.click(within(vorhanden('app:dateien__liste')!).getByRole('button', { name: 'Dateien Vollbild verlassen' }));
+    await waitFor(() => expect(dockDa()).toBe(true));
+    expect(vorhanden('app:dateien__liste')!.hasAttribute('data-max')).toBe(false);
+    expect([...document.querySelectorAll('section.os-bildschirm')].filter((s) => s.querySelector('[data-fenster]'))).toHaveLength(1);
+  });
+
+  it('⌥-Klick auf den grünen Knopf maximiert (Dock weg), noch einmal beendet es; der Bildschirm bleibt derselbe', async () => {
+    render(() => <Shell />);
+    const dateien = await anwendungOeffnen();
+    const knopf = within(dateien).getByRole('button', { name: 'Dateien im Vollbild' });
+    fireEvent.click(knopf, { altKey: true });
+    await waitFor(() => expect(dockDa()).toBe(false));
+    const fenster = vorhanden('app:dateien__liste')!;
+    expect(fenster.hasAttribute('data-max')).toBe(true);
+    expect(fenster.style.position).toBe('absolute');
+    // ohne Vollbild-Bildschirm: kein zweiter Bildschirm
+    expect([...document.querySelectorAll('section.os-bildschirm')].filter((s) => s.querySelector('[data-fenster]'))).toHaveLength(1);
+    fireEvent.click(within(fenster).getByRole('button', { name: 'Dateien im Vollbild' }), { altKey: true });
+    await waitFor(() => expect(dockDa()).toBe(true));
+    expect(vorhanden('app:dateien__liste')!.hasAttribute('data-max')).toBe(false);
+  });
+
+  it('Doppelklick auf den Kopf einer Anwendung maximiert, bei einem Widget zoomt er', async () => {
+    render(() => <Shell />);
+    const lagebild = await oeffnen(/Lagebild/, 'Lagebild');
+    fireEvent.dblClick(lagebild.querySelector('header')!);
+    expect(lagebild.hasAttribute('data-max')).toBe(false);
+    const dateien = await anwendungOeffnen();
+    fireEvent.dblClick(dateien.querySelector('header')!);
+    await waitFor(() => expect(vorhanden('app:dateien__liste')!.hasAttribute('data-max')).toBe(true));
+    // die anderen Fenster ruhen unsichtbar, bleiben aber im Dokument (ihre Apps laden nicht neu)
+    expect(vorhanden('app:leitstand__lagebild')!.style.display).toBe('none');
+  });
+
+  it('⌃⌘F schickt die vordere Anwendung in den Vollbild-Bildschirm und wieder zurück; bei einem Widget passiert nichts', async () => {
+    render(() => <Shell />);
+    await oeffnen(/Lagebild/, 'Lagebild');
+    fireEvent.keyDown(window, { key: 'f', code: 'KeyF', ctrlKey: true, metaKey: true });
+    expect(dockDa()).toBe(true);
+    await anwendungOeffnen();
+    fireEvent.keyDown(window, { key: 'ƒ', code: 'KeyF', ctrlKey: true, metaKey: true });
+    await waitFor(() => expect(dockDa()).toBe(false));
+    fireEvent.keyDown(window, { key: 'f', code: 'KeyF', ctrlKey: true, metaKey: true });
+    await waitFor(() => expect(dockDa()).toBe(true));
+    // Strg+Alt+F gilt als Entsprechung ohne ⌘
+    fireEvent.keyDown(window, { key: 'f', code: 'KeyF', ctrlKey: true, altKey: true });
+    await waitFor(() => expect(dockDa()).toBe(false));
+  });
+
+  it('das Fenstermenü: Anwendung mit Vollbild-Bildschirm und Maximieren, Widget mit „Volle Breite“', async () => {
+    render(() => <Shell />);
+    const lagebild = await oeffnen(/Lagebild/, 'Lagebild');
+    fireEvent.click(within(lagebild).getByRole('button', { name: 'Lagebild: Größe und Platz' }));
+    let texte = within(await screen.findByRole('menu')).getAllByRole('menuitem').map((p) => p.textContent ?? '');
+    expect(texte.some((t) => /(Volle|Halbe) Breite/.test(t))).toBe(true); // ein einzelnes Widget füllt die Breite schon: "Halbe Breite"
+    expect(texte.some((t) => t.includes('Vollbild'))).toBe(false);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await waitFor(() => expect(document.querySelector('[data-os-menue]')).toBeNull());
+    const dateien = await anwendungOeffnen();
+    fireEvent.click(within(dateien).getByRole('button', { name: 'Dateien: Größe und Platz' }));
+    texte = within(await screen.findByRole('menu')).getAllByRole('menuitem').map((p) => p.textContent ?? '');
+    expect(texte.some((t) => t.includes('Vollbild-Bildschirm'))).toBe(true);
+    expect(texte.some((t) => t.includes('Maximieren'))).toBe(true);
+    expect(texte.some((t) => /(Volle|Halbe) Breite/.test(t))).toBe(false);
+    await menuePunkt('Maximieren');
+    await waitFor(() => expect(vorhanden('app:dateien__liste')!.hasAttribute('data-max')).toBe(true));
+    // maximiert: die Größe ist nicht mehr frei
+    fireEvent.click(within(vorhanden('app:dateien__liste')!).getByRole('button', { name: 'Dateien: Größe und Platz' }));
+    const maximiert = within(await screen.findByRole('menu')).getAllByRole('menuitem');
+    expect(maximiert.some((p) => (p.textContent ?? '').includes('Maximierung beenden'))).toBe(true);
+    expect(maximiert.find((p) => (p.textContent ?? '').startsWith('Breite'))?.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('der Vollbild-Bildschirm ruft das Browser-Vollbild; Esc im Browser beendet beides', async () => {
+    const vollbild = vi.fn(async () => {});
+    (document.documentElement as { requestFullscreen?: unknown }).requestFullscreen = vollbild;
+    render(() => <Shell />);
+    const dateien = await anwendungOeffnen();
+    fireEvent.click(within(dateien).getByRole('button', { name: 'Dateien im Vollbild' }));
+    await waitFor(() => expect(dockDa()).toBe(false));
+    expect(vollbild).toHaveBeenCalledTimes(1);
+    // Der Browser meldet: Vollbild ist an, später (Esc) wieder aus
+    Object.defineProperty(document, 'fullscreenElement', { value: document.documentElement, configurable: true });
+    document.dispatchEvent(new Event('fullscreenchange'));
+    expect(dockDa()).toBe(false);
+    Object.defineProperty(document, 'fullscreenElement', { value: null, configurable: true });
+    document.dispatchEvent(new Event('fullscreenchange'));
+    await waitFor(() => expect(dockDa()).toBe(true));
+    expect(vorhanden('app:dateien__liste')!.hasAttribute('data-max')).toBe(false);
+  });
+
+  it('ohne Browser-Vollbild (nicht verfügbar) klappt der Vollbild-Bildschirm trotzdem', async () => {
+    render(() => <Shell />);
+    const dateien = await anwendungOeffnen();
+    fireEvent.click(within(dateien).getByRole('button', { name: 'Dateien im Vollbild' }));
+    await waitFor(() => expect(dockDa()).toBe(false));
+  });
+
+  it('eine Fläche, die man im Vollbild-Bildschirm öffnet, kommt auf einen anderen Bildschirm', async () => {
+    render(() => <Shell />);
+    const dateien = await anwendungOeffnen();
+    fireEvent.click(within(dateien).getByRole('button', { name: 'Dateien im Vollbild' }));
+    await waitFor(() => expect(dockDa()).toBe(false));
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true }); // Start
+    fireEvent.click(await screen.findByRole('button', { name: /Lagebild/ }));
+    await screen.findByRole('region', { name: 'Lagebild' });
+    expect(vorhanden('app:dateien__liste')!.hasAttribute('data-max')).toBe(true); // die Anwendung bleibt allein im Vollbild
+    expect(dockDa()).toBe(true); // der aktive Bildschirm ist jetzt der mit dem Widget
+  });
+
+  it('übersteht ein Neuladen: Vollbild-Bildschirm und Maximierung kommen aus dem Speicher zurück', async () => {
+    const a = render(() => <Shell />);
+    const dateien = await anwendungOeffnen();
+    fireEvent.click(within(dateien).getByRole('button', { name: 'Dateien im Vollbild' }));
+    await waitFor(() => expect(dockDa()).toBe(false));
+    a.unmount();
+    render(() => <Shell />);
+    await waitFor(() => expect(vorhanden('app:dateien__liste')?.hasAttribute('data-max')).toBe(true));
+    expect(dockDa()).toBe(false);
+  });
+});
+
+describe('Dinge auf Fenster von Hub-Apps (Übergaben)', () => {
+  const app = (name: string, titel: string) => ({
+    name, tool: name.replace('__', '.'), title: titel, description: '', inputSchema: {}, _meta: { ui: { resourceUri: `ui://x/${name}` } }, scope: 'READ',
+  });
+  const zug = (gut: string, typ: string) => {
+    const daten = new Map<string, string>([['text/plain', gut], [`application/x-fyos-${typ}`, gut.split('/').slice(3).join('/')]]);
+    return {
+      effectAllowed: 'all', dropEffect: 'none',
+      get types() { return [...daten.keys()]; },
+      setData: (t: string, v: string) => void daten.set(t.toLowerCase(), v),
+      getData: (t: string) => daten.get(t.toLowerCase()) ?? '',
+      setDragImage: () => {},
+    };
+  };
+  const notiz = () => zug('fyos://notiz/n-1', 'notiz');
+  const datei = () => zug('fyos://datei/Projekt/Plan.md', 'datei');
+  const fenster = async (titel: string) => (await screen.findByRole('region', { name: titel })) as HTMLElement;
+
+  beforeEach(() => {
+    uebergabeStarten.mockReset();
+    uebergabeStarten.mockResolvedValue(undefined);
+    history.replaceState(null, '', '/os/?offen=app:dateien__liste,app:haus__favoriten');
+    hubApps.mockResolvedValue([app('dateien__liste', 'Dateien'), app('haus__favoriten', 'Haus'), app('beispiel_app__zeigen', 'Notizzettel')]);
+    registriereFlaechen({
+      dinge: {
+        notiz: { name: 'Notiz', flaeche: 'app:beispiel_app__zeigen', lesen: 'beispiel_app__lesen', felder: ['text'] },
+        datei: { name: 'Datei', flaeche: 'app:dateien__liste', lesen: 'dateien__lesen', idArgument: 'pfad' },
+      },
+      uebergaben: [
+        { quelle: 'notiz', ziel: 'app:dateien__liste', werkzeug: 'dateien__schreiben', abbildung: { pfad: 'Notizen/{id}.md' }, wirkung: 'Als Markdown-Datei in „Dateien“ ablegen' },
+      ],
+    });
+  });
+  afterEach(() => history.replaceState(null, '', '/os/'));
+
+  it('über dem Fenster steht, was passiert, bevor man loslässt', async () => {
+    render(() => <Shell />);
+    const dateien = await fenster('Dateien');
+    fireEvent.dragOver(dateien, { dataTransfer: notiz() });
+    expect(await screen.findByText('Als Markdown-Datei in „Dateien“ ablegen')).toBeTruthy();
+  });
+
+  it('eine Notiz auf „Dateien“ stellt die Übergabe zu: Ziel, Übergabe und Ding gehen an den Host', async () => {
+    render(() => <Shell />);
+    const dateien = await fenster('Dateien');
+    const d = notiz();
+    fireEvent.dragOver(dateien, { dataTransfer: d });
+    fireEvent.drop(dateien, { dataTransfer: d });
+    await waitFor(() => expect(uebergabeStarten).toHaveBeenCalledTimes(1));
+    expect(uebergabeStarten).toHaveBeenCalledWith(
+      'app:dateien__liste',
+      expect.objectContaining({ werkzeug: 'dateien__schreiben', wirkung: 'Als Markdown-Datei in „Dateien“ ablegen' }),
+      expect.objectContaining({ art: 'ding', typ: 'notiz', id: 'n-1' }),
+    );
+  });
+
+  it('ohne Übergabe bleibt nur der Agent: Hinweis „dazu fragen“, beim Loslassen geht die Frage an ihn', async () => {
+    const gehoert: AgentFragenDetail[] = [];
+    const hoerer = (e: Event) => void gehoert.push((e as CustomEvent<AgentFragenDetail>).detail);
+    window.addEventListener(AGENT_FRAGEN, hoerer);
+    try {
+      render(() => <Shell />);
+      const haus = await fenster('Haus');
+      const d = notiz();
+      fireEvent.dragOver(haus, { dataTransfer: d });
+      expect(await screen.findByText(/dazu fragen/)).toBeTruthy();
+      fireEvent.drop(haus, { dataTransfer: d });
+      await waitFor(() => expect(gehoert).toHaveLength(1));
+      expect(gehoert[0]!.text).toContain('Notiz n-1');
+      expect(gehoert[0]!.text).toContain('„Haus“');
+      expect(uebergabeStarten).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(AGENT_FRAGEN, hoerer);
+    }
+  });
+
+  it('ein Ding auf das Fenster seiner eigenen App löst keine Übergabe aus', async () => {
+    render(() => <Shell />);
+    const dateien = await fenster('Dateien');
+    const d = datei();
+    fireEvent.dragOver(dateien, { dataTransfer: d });
+    fireEvent.drop(dateien, { dataTransfer: d });
+    expect(uebergabeStarten).not.toHaveBeenCalled();
+  });
+
+  it('scheitert die Vorbereitung, sagt die Shell kurz warum', async () => {
+    uebergabeStarten.mockRejectedValue(new Error('Notiz „n-1“ lässt sich nicht lesen: keine Notiz'));
+    render(() => <Shell />);
+    const dateien = await fenster('Dateien');
+    const d = notiz();
+    fireEvent.dragOver(dateien, { dataTransfer: d });
+    fireEvent.drop(dateien, { dataTransfer: d });
+    expect(await screen.findByText(/lässt sich nicht lesen/)).toBeTruthy();
+  });
+
+  it('eine Notiz auf den leeren Schreibtisch öffnet die Hub-App, in der sie lebt', async () => {
+    history.replaceState(null, '', '/os/');
+    render(() => <Shell />);
+    fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'Neuer Bildschirm' }));
+    const leer = (await screen.findByText('Dieser Bildschirm ist leer.')).parentElement!;
+    // die Hub-Apps kommen asynchron; erst wenn „Notizzettel“ im Start steht, kennt die Shell seine Fläche
+    fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'FYOS' }));
+    const panel = await screen.findByRole('dialog', { name: 'FYOS' });
+    await within(panel).findByRole('button', { name: /Notizzettel/ });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    const d = notiz();
+    fireEvent.dragOver(leer, { dataTransfer: d });
+    fireEvent.drop(leer, { dataTransfer: d });
+    expect(await screen.findByRole('region', { name: 'Notizzettel' })).toBeTruthy();
   });
 });

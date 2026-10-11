@@ -32,6 +32,8 @@ bausteine:
       - { name: werkstatt }
       - { name: mcp }
       - { name: shell }
+      - { name: os }
+      - { name: dateien }
     konfiguration:
       - name: port
         titel: Port

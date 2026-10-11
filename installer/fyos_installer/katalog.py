@@ -22,10 +22,12 @@ from .reife import MAX_STUFE, SCHICHTEN
 PAKET = Path(__file__).resolve().parent
 BILDER = PAKET / "bilder"
 STANDARD_KATALOG = PAKET / "katalog.yaml"
+KANAL_KATALOG = PAKET / "katalog_kanaele.yaml"  # Chat-Kanäle des Agenten (Art `kanal`, kanaele.py)
+STUFEN_KATALOG = PAKET / "katalog_stufen.yaml"  # Stufe je Fähigkeit: Grundstufe, Ausbaustufe, aus (stufen.py)
 KATALOG_DATEINAME = "fyos-katalog.yaml"
 ENTRY_POINT_GRUPPE = "fyos.katalog"
 
-ARTEN = ("kern", "agent", "plugin")
+ARTEN = ("kern", "agent", "plugin", "kanal")
 FELD_TYPEN = ("text", "geheim", "url", "zahl", "wahl")
 BILD_ENDUNGEN = (".png", ".webp", ".jpg", ".jpeg", ".svg")  # Rangfolge: Screenshot vor Skizze
 BILD_TYPEN = {
@@ -86,6 +88,7 @@ class Katalog:
         in `hinweise` vermerkt. Gleiche id im selben Katalog ist ein Fehler."""
         self.bausteine: dict[str, Baustein] = {}
         self.hinweise: list[str] = []
+        self.faehigkeiten: dict[str, Any] = {}  # id -> stufen.Faehigkeit; füllt stufen.verbinde (lade_standard)
         for b in bausteine:
             alt = self.bausteine.get(b.id)
             if alt is not None:
@@ -371,11 +374,16 @@ def lade_standard(extra: list[str] | None = None, plugins: bool = True) -> Katal
     """Katalog des Installers, dazu Kataloge installierter Plugins und die Quellen aus `--katalog`."""
     daten = yaml.safe_load(STANDARD_KATALOG.read_text(encoding="utf-8"))
     bausteine = parse(daten, "installer", BILDER)
+    bausteine += parse(yaml.safe_load(KANAL_KATALOG.read_text(encoding="utf-8")), "installer", BILDER)
     if plugins:
         bausteine += plugin_kataloge()
     for q in extra or []:
         bausteine += lade_quelle(q)
-    return Katalog(bausteine, str(daten.get("plugin_quelle_beispiel", "")))
+    katalog = Katalog(bausteine, str(daten.get("plugin_quelle_beispiel", "")))
+    from . import stufen  # erst hier: stufen.py baut auf diesem Modul auf
+
+    stufen.verbinde(katalog, stufen.lade_datei(STUFEN_KATALOG))
+    return katalog
 
 
 # ---------------------------------------------------------------- Auflösung

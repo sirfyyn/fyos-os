@@ -105,6 +105,17 @@ def test_zum_hub_fuehren_nur_browser_weg_und_ansichten():
     assert not re.search(r"^\s*location (\^~ |= )?/hub/", TEXT, re.M)  # kein Präfix-Weg auf /hub/
 
 
+def test_dateien_nur_get_und_put_ohne_puffer():
+    # Hoch- und Herunterladen einer Datei: genau dieser Weg, nur GET und PUT, der Körper wird durchgereicht statt
+    # zwischengespeichert; die Größe begrenzt der Hub (FYOS_DATEIEN_MAX_MB), nicht eine zweite, stille Grenze im nginx
+    d = _location("= /hub-api/dateien/datei")
+    assert re.search(r"^\s*limit_except GET PUT \{ deny all; \}$", d, re.M)
+    assert re.search(r"^\s*proxy_pass \$\{FYOS_HUB_UPSTREAM\}/hub/dateien/datei\$is_args\$args;$", d, re.M)
+    assert re.search(r"^\s*proxy_request_buffering off;$", d, re.M)
+    assert re.search(r"^\s*client_max_body_size 0;$", d, re.M)
+    assert TEXT.index("location = /hub-api/dateien/datei") < TEXT.index("location ^~ /hub-api/ { return 404; }")
+
+
 def test_nur_fyos_variablen_fuer_envsubst():
     # Das Bild ersetzt nur FYOS_-Variablen (NGINX_ENVSUBST_FILTER); eigene nginx-Variablen duerfen so nicht heissen
     for name in re.findall(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)", TEXT):

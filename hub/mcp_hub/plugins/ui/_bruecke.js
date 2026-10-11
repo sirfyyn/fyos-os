@@ -26,6 +26,14 @@
 //   Ereignisse  bei(aktion, fn) — Klick auf ein Element mit data-aktion="…" (auch auf spaeter eingesetzte)
 //   Host        host ("fyos" im OS, "fremd" in Chat-Clients u. a., "" bis der Host geantwortet hat) · link()
 //               kann(fähigkeit) · nachricht(text) (ui/message, nur nach Klick) · modellKontext({text, daten}) (still)
+//   Dateien     oeffnen(url) — Adresse im Browser öffnen (ui/open-link, wirft bei Ablehnung) · hochladen(pfad, datei, {ueberschreiben}) —
+//               Datei über den Host in die Dateiablage legen (nur Plugin dateien in der FYOS-Shell; kann("fyosDateien"))
+//   Übergaben   ziehbar(el, {typ, id, label, selektor}) — macht ein Ding (Typ aus plugins/_dinge.py) ziehbar, auch aus dem Fenster
+//               heraus bis zu Dock, Agent, Schreibtisch und anderen Apps; mit selektor gilt es für alle passenden Elemente unter el
+//               (typ, id, label: Text oder Funktion(Element); ohne Angabe data-typ, data-id, data-label) · gibt „lösen“ zurück
+//               ablage(ort, {nimmt, danach, ja, bei}) — nimmt Dinge der Typen in nimmt an, die auf dieses Fenster fallen: Plan und Rückfrage
+//               (beantragen) erscheinen in ort, erst „Ja“ führt das Werkzeug der Übergabe aus; danach(ergebnis, ding) · gibt „lösen“ zurück
+//               kann("fyosUebergaben"): nur in der FYOS-Shell. Auf Dinge, die man dir zeigt (fyos/oeffne): auf("fyos/oeffne", ({typ, id}) => …)
 //   Takt        takt(ms, fn) — fn regelmäßig, nur solange sichtbar, beim Wiederauftauchen sofort; gibt „anhalten“ zurück
 //   Größe       stufe ("blick" · "kompakt" · "normal" · "weit", aus containerDimensions; Ereignis „app-stufe“) ·
 //               anzahl({blick, kompakt, normal, weit}) → wie viele Einträge in dieser Stufe
@@ -40,7 +48,7 @@ const App = (() => {
   // Frist für eine Anfrage an den Host: Antwortet er nicht (Host hängt, Anfrage ging verloren), bliebe „Lädt …“ für immer
   // stehen. Anfragen wie der Start und „Link öffnen“ beantwortet ein Host sofort, darum 15 s; ein Werkzeugaufruf darf
   // länger dauern (Cluster, Ausführen in der Werkstatt) und hat 120 s. Eine späte Antwort wird danach verworfen.
-  const FRIST_MS = 15000, FRIST_WERKZEUG_MS = 120000;
+  const FRIST_MS = 15000, FRIST_WERKZEUG_MS = 120000, FRIST_HOCHLADEN_MS = 600000;
   function senden(msg) { window.parent.postMessage(msg, "*"); }
   function anfrage(method, params, frist) {
     const id = ++n; senden({ jsonrpc: "2.0", id, method, params });
@@ -528,6 +536,73 @@ const App = (() => {
     if (o.daten && typeof o.daten === "object") p.structuredContent = o.daten;
     anfrage("ui/update-model-context", p).catch(() => {});
   }
+  /** Adresse im Browser öffnen (ui/open-link): wirft, wenn der Host sie ablehnt. Wie ein Klick auf einen Link: nur nach einer Geste. */
+  async function oeffnen(url) {
+    const r = await anfrage("ui/open-link", { url: String(url || "") });
+    if (r && r.isError) throw new Error("Der Host hat die Adresse nicht geöffnet.");
+  }
+  /** Datei in die Dateiablage legen — nur in der App „Dateien“ in der FYOS-Shell: die App selbst darf nicht zum Hub (Sandbox ohne Ursprung),
+   *  darum nimmt der Host die Datei entgegen und schickt sie. datei: File oder Blob; o.ueberschreiben ersetzt eine vorhandene.
+   *  Antwort `{ok: true, result}` oder `{ok: false, kind, error}` (kind: existiert · zu_gross · …); wirft nur, wenn der Host ausfällt. */
+  async function hochladen(pfad, datei, o = {}) {
+    if (!kann("fyosDateien")) throw new Error("Hochladen geht hier nicht — nur in der FYOS-Shell.");
+    return anfrage("fyos/datei-hochladen", { pfad: String(pfad || ""), datei, ueberschreiben: !!o.ueberschreiben }, FRIST_HOCHLADEN_MS);
+  }
+  // ── Übergaben: Dinge ziehen und annehmen ──────────────────────────────────────────────────────────
+  // Die Ziehsprache der Shell (web/src/lib/os/ziehen.ts): ein Ding ist `fyos://<typ>/<id>` im Zug, dazu der Schlüssel
+  // `application/x-fyos-<typ>` (damit ein Ziel schon beim Darüberfahren weiß, was kommt) und der Name zum Anzeigen. Zieht die
+  // App heraus, sagt sie es dem Host (`fyos/zug`): die Fenster darunter geben ihre Zeiger frei und die Ziele zeigen ihren Hinweis.
+  // Fällt ein Ding auf das Fenster dieser App, schickt der Host `fyos/uebergabe` mit dem fertigen Zielwerkzeug und seinen
+  // Argumenten (Felder des Dings schon eingesetzt) — `ablage` stellt daraus eine Anfrage, nichts läuft ohne Plan und „Ja“.
+  const TYP_MUSTER = /^[a-z][a-z0-9-]{0,31}$/;
+  function auf(method, fn) { (hoerer[method] || (hoerer[method] = [])).push(fn); return () => { hoerer[method] = hoerer[method].filter((f) => f !== fn); }; }
+  function ziehbar(wurzel, o = {}) {
+    if (!wurzel || !wurzel.addEventListener) throw new Error("ziehbar: ein Element wird gebraucht");
+    const wert = (v, el, vorgabe) => String((typeof v === "function" ? v(el) : v) ?? vorgabe ?? "");
+    const wo = (ziel) => {
+      const el = ziel && ziel.closest ? (o.selektor ? ziel.closest(o.selektor) : wurzel) : null;
+      return el && wurzel.contains(el) ? el : null;
+    };
+    const ding = (el) => {
+      const typ = wert(o.typ, el, el.dataset.typ), id = wert(o.id, el, el.dataset.id);
+      if (!TYP_MUSTER.test(typ) || !id || id.includes("\n")) return null;
+      return { typ, id, label: wert(o.label, el, el.dataset.label) || id };
+    };
+    // Ein Element zieht nur, wenn es beim Anfassen schon `draggable` ist: bei Delegation setzen wir das, sobald der Zeiger darüber fährt.
+    const anfassen = (e) => { const el = wo(e.target); if (el && ding(el) && !el.draggable) el.draggable = true; };
+    const start = (e) => {
+      const el = wo(e.target), d = el && ding(el), dt = e.dataTransfer;
+      if (!d || !dt) return;
+      const uri = `fyos://${d.typ}/${d.id}`;
+      dt.setData("text/plain", uri); dt.setData("text/uri-list", uri);
+      dt.setData("application/x-fyos-" + d.typ, d.id); dt.setData("text/x-fyos-label", d.label);
+      dt.effectAllowed = "copyMove";
+      if (kann("fyosUebergaben")) melden("fyos/zug", { typ: d.typ, id: d.id, label: d.label });
+    };
+    const ende = () => { if (kann("fyosUebergaben")) melden("fyos/zug", { typ: null }); };
+    wurzel.addEventListener("mouseover", anfassen); wurzel.addEventListener("focusin", anfassen);
+    wurzel.addEventListener("dragstart", start); wurzel.addEventListener("dragend", ende);
+    if (!o.selektor) anfassen({ target: wurzel });
+    return () => {
+      wurzel.removeEventListener("mouseover", anfassen); wurzel.removeEventListener("focusin", anfassen);
+      wurzel.removeEventListener("dragstart", start); wurzel.removeEventListener("dragend", ende);
+    };
+  }
+  function ablage(ort, o = {}) {
+    if (!ort || !ort.replaceChildren) throw new Error("ablage: ein Element für die Rückfrage wird gebraucht");
+    const nimmt = Array.isArray(o.nimmt) ? o.nimmt : [];
+    return auf("fyos/uebergabe", async (u) => {
+      if (!u || typeof u.typ !== "string" || (nimmt.length && !nimmt.includes(u.typ))) return;
+      if (o.bei) return o.bei(u);
+      if (typeof u.werkzeug !== "string" || !u.werkzeug) return;
+      try {
+        const r = beantragen({ werkzeug: u.werkzeug, args: u.argumente || {}, ort, ja: o.ja || "Übernehmen", symbol: "check" });
+        setTimeout(() => { try { ort.scrollIntoView({ block: "nearest" }); } catch {} }, 80);
+        const ergebnis = await r;
+        if (ergebnis != null && o.danach) await o.danach(ergebnis, u);
+      } catch (e) { if (o.fehler) o.fehler(e, u); else satz(fehlertext(e), "schlecht"); }
+    });
+  }
   /** fn alle `ms` aufrufen, aber nur, solange die App zu sehen ist; wird sie wieder sichtbar und ist der letzte Lauf älter
    *  als `ms`, sofort. Ein Lauf zur Zeit (fn darf ein Promise liefern). Gibt eine Funktion zum Anhalten zurück. */
   function takt(ms, fn) {
@@ -544,10 +619,10 @@ const App = (() => {
   }
 
   return {
-    kann, nachricht, modellKontext, takt,
+    kann, nachricht, modellKontext, takt, oeffnen, hochladen, ziehbar, ablage,
     start, anfrage, melden, werkzeug, rufen, daten, fehlertext,
     // mehrere Hörer je Methode (alle werden gerufen); gibt eine Funktion zurück, die den Hörer wieder abmeldet
-    auf: (method, fn) => { (hoerer[method] || (hoerer[method] = [])).push(fn); return () => { hoerer[method] = hoerer[method].filter((f) => f !== fn); }; },
+    auf,
     bei: (aktion, fn) => { aktionen[aktion] = fn; },
     esc, symbol, kachel, marke, zustand, satz, link, zeit, zahl,
     knopf: (o) => knopf(o, false), knoepfe, bestaetigung, aufklapper, offenMerken, aufklappen,

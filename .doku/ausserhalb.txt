@@ -38,3 +38,4 @@ config.yaml          # Konfiguration des Hubs (Vorlage: hub/config.example.yaml)
 secrets.yaml         # vom Installer für Kubernetes erzeugt
 secrets.example.yaml
 antworten.yaml       # Antworten für den Installer ohne Oberfläche
+agent/Dockerfile     # vom Installer erzeugt: Agent-Bild plus Pakete der gewählten Chat-Kanäle

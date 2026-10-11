@@ -18,6 +18,8 @@ export const MAX_STAPEL = 3;
 export const GLEICH_MS = 60_000;
 /** So lange bleibt eine Mitteilung stehen (pausiert beim Darüberfahren und im Hintergrund-Tab). */
 export const ANZEIGE_MS = 10_000;
+/** Nachgeholtes (der Agent hat es gemeldet, als niemand da war) bleibt länger: es wird zum ersten Mal gelesen. */
+export const ANZEIGE_NACHGEHOLT_MS = 30_000;
 
 export interface ZeigtDaten {
   /** Fläche, z. B. `app:notizen__liste` */
@@ -32,6 +34,12 @@ export interface ZeigtDaten {
   eingabe: Record<string, unknown> | null;
   /** Deeplink zum Kopieren */
   link: string | null;
+  /** `mitteilung`: der Agent meldet sich von selbst (os.mitteilen), statt das Ergebnis einer App zu zeigen */
+  art?: 'mitteilung';
+  /** Der Agent hat es gemeldet, als niemand an der Shell war; die Shell zeigt es erst jetzt */
+  nachgeholt?: boolean;
+  /** Wann es entstanden ist (ms seit 1970); nur bei Nachgeholtem */
+  entstanden?: number;
 }
 
 export interface Mitteilung {
@@ -57,6 +65,8 @@ export function zeigtPruefen(roh: unknown): ZeigtDaten | null {
   if (!ziel) return null;
   const app = text(r.app, 120);
   const eingabe = r.eingabe && typeof r.eingabe === 'object' && !Array.isArray(r.eingabe) ? (r.eingabe as Record<string, unknown>) : null;
+  // Der Hub schreibt `entstanden` in Unix-Sekunden; hier rechnen wir in Millisekunden.
+  const sekunden = typeof r.entstanden === 'number' && Number.isFinite(r.entstanden) && r.entstanden > 0 ? r.entstanden : null;
   return {
     ziel,
     app,
@@ -65,6 +75,9 @@ export function zeigtPruefen(roh: unknown): ZeigtDaten | null {
     vorschau: text(r.vorschau, 400),
     eingabe,
     link: text(r.link, 2000),
+    ...(r.art === 'mitteilung' ? { art: 'mitteilung' as const } : {}),
+    ...(r.nachgeholt === true ? { nachgeholt: true } : {}),
+    ...(r.nachgeholt === true && sekunden !== null ? { entstanden: Math.round(sekunden * 1000) } : {}),
   };
 }
 
@@ -78,7 +91,12 @@ export function stabilJson(x: unknown): string {
   return JSON.stringify(x) ?? 'null';
 }
 
-export const schluesselVon = (z: ZeigtDaten): string => `${z.ziel}|${z.eingabe ? stabilJson(z.eingabe) : ''}`;
+/**
+ * Gleiche Mitteilung = gleiche Fläche mit gleicher Eingabe. Eigene Meldungen des Agenten (`os.mitteilen`) gehen
+ * meist an dieselbe Fläche (den Chat), unterscheiden sich aber im Titel: zwei Nachtergebnisse ersetzen sich nicht.
+ */
+export const schluesselVon = (z: ZeigtDaten): string =>
+  `${z.ziel}|${z.eingabe ? stabilJson(z.eingabe) : ''}${z.art === 'mitteilung' ? `|${z.titel}` : ''}`;
 
 let zaehler = 0;
 
@@ -101,6 +119,25 @@ export function zeitText(seit: number, jetzt: number): string {
   if (min < 60) return `vor ${Math.max(1, min)} min`;
   const h = Math.round(min / 60);
   return h < 24 ? `vor ${h} Std.` : 'gestern';
+}
+
+const uhrzeit = (d: Date): string => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const tagBeginn = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+/**
+ * Wann etwas entstanden ist, wenn es später gezeigt wird: „heute Nacht, 03:12“ (zwischen 22 und 6 Uhr), sonst
+ * „heute, 14:05“ oder „gestern, 09:30“; älter als zwei Tage mit Datum. Ortszeit des Geräts.
+ */
+export function nachholZeit(entstanden: number, jetzt: number): string {
+  const e = new Date(entstanden);
+  const tage = Math.round((tagBeginn(new Date(jetzt)) - tagBeginn(e)) / 86_400_000);
+  const stunde = e.getHours();
+  const nacht = stunde >= 22 || stunde < 6;
+  // Heute früh um 3 und gestern Abend um 23 Uhr sind aus Sicht von heute früh beide „heute Nacht“.
+  if (nacht && (tage === 0 || (tage === 1 && stunde >= 22))) return `heute Nacht, ${uhrzeit(e)}`;
+  if (tage <= 0) return `heute, ${uhrzeit(e)}`;
+  if (tage === 1) return `gestern, ${uhrzeit(e)}`;
+  return `${e.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}, ${uhrzeit(e)}`;
 }
 
 // ── Einstellung: stumm / aus ──────────────────────────────────────────────────────────────────

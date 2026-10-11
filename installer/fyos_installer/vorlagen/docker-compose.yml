@@ -25,14 +25,18 @@ services:
       FYOS_OEFFENTLICH_URL: ${FYOS_OEFFENTLICH_URL:-http://localhost:8080}
       # Zeitzone des Hubs: Tageszähler und Zeitfenster der Takte, z. B. TZ=Europe/Berlin in .env
       TZ: ${TZ:-UTC}
+      # Dateiablage (Plugin dateien, App „Dateien“): Ordner im Volume, größte Datei in MB
+      FYOS_DATEIEN: /data/dateien
+      FYOS_DATEIEN_MAX_MB: ${FYOS_DATEIEN_MAX_MB:-25}
 {{hub_umgebung}}
     volumes:
       - ./hub-config.yaml:/etc/fyos-hub/config.yaml:ro
+      - dateien:/data/dateien
     depends_on: [redis]
     restart: unless-stopped
 
   agent:
-    image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}
+    {{agent_bild}}
     environment:
       HOME: /home/node
       FYOS_CONFIG: /etc/fyos/fyos.yaml
@@ -43,6 +47,7 @@ services:
       OPENCLAW_GATEWAY_TOKEN: ${FYOS_AGENT_TOKEN}
       # Erlaubter Ursprung der Control UI im Fenster der Shell (fyos-agent: gateway.oeffentliche_url)
       FYOS_OEFFENTLICH_URL: ${FYOS_OEFFENTLICH_URL:-http://localhost:8080}
+{{agent_umgebung}}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -57,3 +62,5 @@ services:
 
 volumes:
   agent-zustand:
+  # Die Dateiablage; Ordner des Hosts statt Volume: `/pfad/zur/ablage:/data/dateien` (Besitzer: uid 1000)
+  dateien:

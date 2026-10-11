@@ -14,7 +14,8 @@ Das Plugin zeigt, wie eine App im Hub aussieht:
 
 Werkzeuge:
     beispiel_app.zeigen        Notizen anzeigen (öffnet die App)
-    beispiel_app.hinzufuegen   Notiz anfügen (nur Oberfläche)
+    beispiel_app.lesen         eine Notiz zu ihrer Kennung (nur Oberfläche; macht die Notiz zu einem ziehbaren Ding)
+    beispiel_app.hinzufuegen   Notiz anfügen (nur Oberfläche, mit Trockenlauf)
     beispiel_app.loeschen      Notiz entfernen (nur Oberfläche)
 
 Die Notizen liegen in `mcp_hub.kv` (Redis, sonst im Speicher des Prozesses).
@@ -23,14 +24,15 @@ Die Notizen liegen in `mcp_hub.kv` (Redis, sonst im Speicher des Prozesses).
 from __future__ import annotations
 
 import json
+import re
 import time
 import uuid
 from pathlib import Path
 from typing import Any
 
 from .. import kv
-from ..plugin import HubPlugin, ResourceDescriptor, ToolDescriptor
-from . import _identitaet
+from ..plugin import HubPlugin, ResourceDescriptor, ToolDescriptor, build_dry_run_result, is_dry_run
+from . import _dinge, _identitaet
 from ._identitaet import identitaet
 from ._oberflaeche import oberflaeche
 
@@ -39,8 +41,29 @@ UI_DATEI = "beispiel-app.html"
 SCHLUESSEL = "fyos:beispiel_app:notizen"
 NOTIZEN_MAX = 50
 TEXT_MAX = 500
+#: Feld `titel` einer Notiz: die erste Zeile, so lang höchstens
+TITEL_MAX = 60
 
 _identitaet.registriere_app("beispiel_app", _identitaet.APPS["beispiel_app"], datei=UI_DATEI, hauptwerkzeug="beispiel_app__zeigen")
+
+# Eine Notiz ist ein ziehbares Ding: `lesen` liefert sie zu ihrer Kennung, `titel` und `dateiname` berechnet dieses Werkzeug,
+# damit Übergaben anderer Apps (etwa „als Datei ablegen“) sie nur einsetzen müssen (plugins/_dinge.py).
+_dinge.registriere_ding("notiz", "Notiz", flaeche="beispiel_app", lesen="beispiel_app.lesen", felder=("text", "titel", "dateiname"))
+# Was der Notizzettel annimmt: eine Datei wird zu einem Verweis auf dem Zettel (die Datei selbst bleibt, wo sie ist).
+_dinge.registriere_uebergabe("datei", "beispiel_app", "beispiel_app.hinzufuegen", {"text": "Datei {id}"}, "Als Notiz auf dem Zettel merken")
+
+
+def titel_der(text: str) -> str:
+    """Erste Zeile einer Notiz, gekürzt (für Anzeige und Hinweise)."""
+    zeile = (text.strip().splitlines() or [""])[0].strip()
+    return zeile if len(zeile) <= TITEL_MAX else zeile[: TITEL_MAX - 1].rstrip() + "…"
+
+
+def dateiname_der(text: str) -> str:
+    """Ein Dateiname ohne Endung aus der ersten Zeile: nur Buchstaben, Ziffern, Leerzeichen, „-“, „_“ und „.“ im Innern."""
+    roh = re.sub(r"[^\w .-]", " ", titel_der(text).replace("…", ""))
+    name = re.sub(r"\s+", " ", roh).strip(" .-_")
+    return name[:50].strip(" .-_") or "Notiz"
 
 
 class BeispielAppPlugin(HubPlugin):
@@ -95,12 +118,31 @@ class BeispielAppPlugin(HubPlugin):
                 meta=self._meta(),
             ),
             ToolDescriptor(
-                name="hinzufuegen",
-                title="Notiz hinzufügen",
-                description="Hängt eine Notiz an den Notizzettel (höchstens 50 Notizen, je 500 Zeichen).",
+                name="lesen",
+                title="Notiz lesen",
+                description="Liefert eine Notiz zu ihrer Kennung (id aus beispiel_app.zeigen) samt Titel und Dateiname.",
                 input_schema={
                     "type": "object",
-                    "properties": {"text": {"type": "string", "minLength": 1, "maxLength": TEXT_MAX}},
+                    "properties": {"id": {"type": "string"}},
+                    "required": ["id"],
+                    "additionalProperties": False,
+                },
+                tags=["beispiel_app", "flaeche", "read"],
+                meta=self._meta(nur_app=True),
+            ),
+            ToolDescriptor(
+                name="hinzufuegen",
+                title="Notiz hinzufügen",
+                description=(
+                    "Hängt eine Notiz an den Notizzettel (höchstens 50 Notizen, je 500 Zeichen). Mit __dry_run__ zeigt es nur, "
+                    "was geschähe. bestaetigt: true bestätigt eine Rückfrage der Oberfläche (der Zettel verlangt es nicht)."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string", "minLength": 1, "maxLength": TEXT_MAX},
+                        "bestaetigt": {"type": "boolean", "description": "die Oberfläche hat nachgefragt und der Mensch hat zugestimmt"},
+                    },
                     "required": ["text"],
                     "additionalProperties": False,
                 },
@@ -138,8 +180,10 @@ class BeispielAppPlugin(HubPlugin):
         args = args or {}
         if method == "zeigen":
             return self.zeigen()
+        if method == "lesen":
+            return self.lesen(args.get("id"))
         if method == "hinzufuegen":
-            return self.hinzufuegen(args.get("text"))
+            return self.hinzufuegen(args.get("text"), trocken=is_dry_run(args))
         if method == "loeschen":
             return self.loeschen(args.get("id"))
         raise ValueError(f"beispiel_app hat kein Werkzeug {method!r}")
@@ -149,12 +193,30 @@ class BeispielAppPlugin(HubPlugin):
         satz = f"{len(notizen)} Notiz{'en' if len(notizen) != 1 else ''} auf dem Zettel." if notizen else "Der Zettel ist leer."
         return {"satz": satz, "anzahl": len(notizen), "notizen": notizen}
 
-    def hinzufuegen(self, text: Any) -> dict[str, Any]:
+    def lesen(self, id_: Any) -> dict[str, Any]:
+        if not isinstance(id_, str) or not id_:
+            raise ValueError("id fehlt")
+        for n in self._lesen():
+            if n["id"] == id_:
+                text = str(n.get("text", ""))
+                return {"id": n["id"], "text": text, "titel": titel_der(text), "dateiname": dateiname_der(text), "zeit": n.get("zeit")}
+        raise ValueError(f"keine Notiz {id_!r}")
+
+    def hinzufuegen(self, text: Any, trocken: bool = False) -> dict[str, Any]:
         if not isinstance(text, str) or not text.strip():
             raise ValueError("text fehlt")
         liste = self._lesen()
         if len(liste) >= NOTIZEN_MAX:
             raise ValueError(f"Der Zettel ist voll ({NOTIZEN_MAX} Notizen) — erst eine löschen")
+        if trocken:
+            return build_dry_run_result(
+                would_execute=f"Notiz „{titel_der(text)}“ auf den Zettel schreiben",
+                expected_side_effects=[f"{SCHLUESSEL}: eine Notiz mehr ({len(liste) + 1} von {NOTIZEN_MAX})"],
+                estimated_cost=1,
+                plugin=self.name,
+                method="hinzufuegen",
+                args_preview={"text": text.strip()[:80]},
+            )
         liste.append({"id": uuid.uuid4().hex[:8], "text": text.strip()[:TEXT_MAX], "zeit": int(time.time())})
         self._schreiben(liste)
         return {"ok": True, "anzahl": len(liste), "notizen": liste}

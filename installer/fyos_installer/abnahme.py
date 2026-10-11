@@ -27,6 +27,8 @@ from __future__ import annotations
 import http.client
 import json
 import re
+import subprocess
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -197,10 +199,11 @@ class Abnahme:
     basis: str
     gegenprobe: Befund
     proben: list[Befund]
+    kanaele: list[Befund] = field(default_factory=list)  # nur wenn Kanäle gewählt sind (kanal_proben)
 
     @property
     def bestanden(self) -> bool:
-        return self.gegenprobe.ok and all(b.ok for b in self.proben)
+        return self.gegenprobe.ok and all(b.ok for b in self.proben) and all(b.ok for b in self.kanaele)
 
     @property
     def abgelehnt(self) -> int:
@@ -208,19 +211,28 @@ class Abnahme:
 
     def zusammenfassung(self) -> str:
         n = len(self.proben)
-        if self.bestanden:
-            return f"Abnahme bestanden: alle {n} verbotenen Anfragen wurden abgelehnt."
         if not self.gegenprobe.ok:
             return (f"Abnahme NICHT bestanden: Die erlaubte Gegenprobe scheiterte ({self.gegenprobe.text}); "
                     "die Ablehnungen sind so nicht aussagekräftig.")
-        return f"Abnahme NICHT bestanden: {self.abgelehnt} von {n} verbotenen Anfragen wurden abgelehnt."
+        if self.abgelehnt < n:
+            return f"Abnahme NICHT bestanden: {self.abgelehnt} von {n} verbotenen Anfragen wurden abgelehnt."
+        satz = f"alle {n} verbotenen Anfragen wurden abgelehnt"
+        if self.kanaele:
+            aktiv = sum(1 for b in self.kanaele if b.urteil == "aktiv")
+            aus = sum(1 for b in self.kanaele if b.urteil == "aus")
+            if not all(b.ok for b in self.kanaele):
+                return (f"Abnahme NICHT bestanden: {satz}, aber {sum(1 for b in self.kanaele if not b.ok)} von "
+                        f"{len(self.kanaele)} gewählten Kanälen sind im Agenten nicht aktiv.")
+            satz += f"; Kanäle: {aktiv} aktiv" + (f", {aus} vorbereitet und aus" if aus else "")
+        return f"Abnahme bestanden: {satz}."
 
     def zeilen(self) -> list[str]:
         z = [f"== Abnahme: verbotene Anfragen an {self.basis} müssen abgelehnt werden",
              f"Gegenprobe: {self.gegenprobe.titel}: {self.gegenprobe.text}"]
         z += [f"Probe {i}: {b.titel}: {b.text}" for i, b in enumerate(self.proben, 1)]
+        z += [f"Kanal: {b.titel}: {b.text}" for b in self.kanaele]
         z.append(self.zusammenfassung())
-        for b in [self.gegenprobe, *self.proben]:
+        for b in [self.gegenprobe, *self.proben, *self.kanaele]:
             if not b.ok:
                 z.append(f"  - {b.titel}: {b.text}")
                 if b.wirkung:
@@ -232,7 +244,8 @@ class Abnahme:
     def als_dict(self) -> dict[str, Any]:
         return {
             "bestanden": self.bestanden, "basis": self.basis, "zusammenfassung": self.zusammenfassung(),
-            "befunde": [self.gegenprobe.als_dict(), *[b.als_dict() for b in self.proben]],
+            "befunde": [self.gegenprobe.als_dict(), *[b.als_dict() for b in self.proben],
+                        *[b.als_dict() for b in self.kanaele]],
         }
 
 
@@ -249,6 +262,102 @@ def pruefen(adresse: str, sender: Sender = senden) -> Abnahme:
         gegenprobe=urteil_gegenprobe(GEGENPROBE, stelle(GEGENPROBE)),
         proben=[urteil_probe(p, stelle(p)) for p in PROBEN],
     )
+
+
+# ---------------------------------------------------------------- Kanäle
+
+KANAL_TITEL = {"matrix": "Matrix", "telegram": "Telegram", "whatsapp": "WhatsApp"}
+# Läuft im Container des Agenten (Node ist dort): fragt die Brücke des Agenten nach ihrem Stand und gibt nur die
+# Wahrheitswerte der Kanäle aus (an, ziel, bereit). Das Gateway-Token liest das Skript aus der eigenen Umgebung und
+# gibt es nie aus.
+KANAL_ABFRAGE_JS = (
+    "const t=process.env.OPENCLAW_GATEWAY_TOKEN||'';const p=process.env.OPENCLAW_GATEWAY_PORT||18789;"
+    "fetch('http://127.0.0.1:'+p+'/plugins/fyos-bruecke/v1/rpc',{method:'POST',"
+    "headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},"
+    "body:JSON.stringify({method:'fyos.bruecke.status'})})"
+    ".then((r)=>r.json()).then((j)=>console.log(JSON.stringify((j.payload||{}).kanaele??null)))"
+    ".catch(()=>console.log('null'))"
+)
+KANAL_VERSUCHE = 12  # der Agent braucht nach dem Start einen Moment, bis das Gateway antwortet
+KANAL_PAUSE_S = 5.0
+
+KanalAbfrage = Callable[[], "dict[str, Any] | None"]
+
+
+def kanal_abfrage_compose(verzeichnis: Any, lauf: Callable = subprocess.run) -> KanalAbfrage:
+    """Fragt den laufenden Agenten (Docker Compose im `verzeichnis`) nach dem Stand seiner Kanäle; None: keine Antwort
+    oder ein Agent, dessen Brücke noch keine Kanäle meldet."""
+
+    def abfrage() -> dict[str, Any] | None:
+        try:
+            r = lauf(["docker", "compose", "exec", "-T", "agent", "node", "-e", KANAL_ABFRAGE_JS],
+                     cwd=verzeichnis, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if r.returncode != 0:
+            return None
+        zeilen = [z for z in (r.stdout or "").splitlines() if z.strip()]
+        try:
+            stand = json.loads(zeilen[-1]) if zeilen else None
+        except ValueError:
+            return None
+        return stand if isinstance(stand, dict) else None
+
+    return abfrage
+
+
+def urteil_kanal(kanal: str, soll_aktiv: bool, stand: dict[str, Any] | None) -> Befund:
+    """Ein Kanal im Urteil: `aktiv` (der Agent hat ihn an und die Adresse des Besitzers), `aus` (vorbereitet, noch
+    nicht eingeschaltet; das ist gewollt, wenn Werte fehlen) oder nicht in Ordnung."""
+    titel = f"Kanal {KANAL_TITEL.get(kanal, kanal)}"
+    id_ = f"kanal_{kanal}"
+    if not soll_aktiv:
+        return Befund(id_, titel, True, "aus", "vorbereitet, aber aus: es fehlen noch Werte (siehe Hinweise des Installers)")
+    hilfe = ("Im Zielordner `docker compose logs agent` lesen; der Kanal startet nur mit seinen Werten aus .env und dem "
+             f"Paket im Bild (agent/Dockerfile), und in fyos.yaml muss kanaele.{kanal} true sein.")
+    if stand is None:
+        return Befund(id_, titel, False, "unklar",
+                      "keine Auskunft vom Agenten (läuft er? ältere Bilder melden ihre Kanäle noch nicht)", hilfe=hilfe)
+    e = stand.get(kanal)
+    if not isinstance(e, dict):
+        return Befund(id_, titel, False, "unklar", "der Agent kennt diesen Kanal nicht", hilfe=hilfe)
+    if e.get("bereit") is True:
+        return Befund(id_, titel, True, "aktiv", "aktiv im Agenten (eingeschaltet, Adresse des Besitzers gesetzt)")
+    if e.get("an") is not True:
+        return Befund(id_, titel, False, "unklar", "im Agenten nicht eingeschaltet", hilfe=hilfe)
+    return Befund(id_, titel, False, "unklar",
+                  "im Agenten eingeschaltet, aber die Adresse des Besitzers fehlt in seiner Umgebung", hilfe=hilfe)
+
+
+def kanal_proben(
+    kanaele: dict[str, bool], abfrage: KanalAbfrage, *, versuche: int = KANAL_VERSUCHE,
+    pause_s: float = KANAL_PAUSE_S, schlaf: Callable[[float], None] = time.sleep,
+) -> list[Befund]:
+    """Je gewähltem Kanal ein Befund. `kanaele` ordnet den Namen zu, ob der Installer ihn eingeschaltet hat. Gefragt wird
+    der Agent nur, wenn mindestens ein Kanal an sein soll; er bekommt einige Versuche, weil er nach dem Start noch
+    hochfährt."""
+    if not kanaele:
+        return []
+    stand: dict[str, Any] | None = None
+    if any(kanaele.values()):
+        for i in range(max(1, versuche)):
+            stand = abfrage()
+            if stand is not None:
+                break
+            if i + 1 < versuche:
+                schlaf(pause_s)
+    return [urteil_kanal(k, soll, stand) for k, soll in kanaele.items()]
+
+
+def kanal_hinweis(ziel: str, kanaele: list[str]) -> str:
+    """Satz für Zusammenfassung und Anleitung: die Abnahme prüft auch, ob die gewählten Kanäle im Agenten aktiv sind."""
+    namen = ", ".join(KANAL_TITEL.get(k, k) for k in kanaele)
+    if ziel == "compose":
+        return (f"Abnahme der Kanäle ({namen}): Nach dem Start fragt der Installer den Agenten, ob sie aktiv sind. "
+                "Wiederholen: `fyos-install --abnahme http://localhost:<Port> --kanaele "
+                f"{','.join(kanaele)}` im Zielordner.")
+    return (f"Abnahme der Kanäle ({namen}): läuft nur bei Docker Compose von selbst. Sonst zeigt das Protokoll des "
+            "Agenten, ob ein Kanal startet (zum Beispiel `kubectl logs deploy/agent` bzw. `docker compose logs agent`).")
 
 
 def hinweis(port: int, ziel: str) -> str:

@@ -1,0 +1,123 @@
+# Chat-Kanäle des Agenten (Teil des Installer-Katalogs, siehe katalog.py: lade_standard).
+# Ein Kanal ist ein Baustein der Art `kanal`: Er hat kein Hub-Plugin, sondern schaltet einen Kanal des Agenten ein
+# (fyos.yaml: kanaele.<name>) und reicht dessen Werte als Umgebung an den Agenten, nie an den Hub (kanaele.py).
+# Fehlt ein Wert, bleibt der Kanal vorbereitet und aus; der Installer sagt, was noch einzutragen ist.
+version: 1
+bausteine:
+  - id: kanal_telegram
+    titel: Kanal Telegram
+    kurz: Dein Agent schreibt dir in Telegram, und du bestätigst Freigaben dort.
+    was_daraus_wird: |
+      Du schreibst deinem Agenten in Telegram, wie du es mit einem Menschen tätest, und er antwortet dort.
+      Braucht er eine Freigabe, landet die Frage auch in Telegram, und du bestätigst sie dort.
+      Nur du darfst ihm schreiben: Der Bot nimmt Direktnachrichten von deiner Telegram-ID an und sonst nichts, Gruppen sind aus.
+      Der Bot ist dein eigener, du legst ihn in Telegram selbst an.
+      Der Kanal kann die Einstellungen des Agenten nicht ändern.
+    bilder: [kanal_telegram-1.svg]
+    art: kanal
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Ein Telegram-Konto und ein eigener Bot (in Telegram bei BotFather mit /newbot angelegt)
+      - Die numerische Telegram-ID des Besitzers, nicht der Benutzername
+      - Der Agent erreicht api.telegram.org
+    quelle: null
+    konfiguration:
+      - name: bot_token
+        titel: Token des Bots
+        typ: geheim
+        beschreibung: Das Token, das BotFather beim Anlegen des Bots nennt (Form 123456:ABC…)
+        standard: ""
+        pflicht: false
+        umgebung: OPENCLAW_TELEGRAM_TOKEN
+      - name: besitzer_id
+        titel: Deine Telegram-ID
+        typ: text
+        beschreibung: Die numerische ID deines Telegram-Kontos; nur von ihr nimmt der Agent Nachrichten an
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_APPROVER_TELEGRAM_ID
+
+  - id: kanal_whatsapp
+    titel: Kanal WhatsApp
+    kurz: Dein Agent schreibt dir in WhatsApp; du koppelst einmal per QR-Code und bestätigst Freigaben mit einer Antwort.
+    was_daraus_wird: |
+      Du schreibst deinem Agenten in WhatsApp, und er antwortet dir dort.
+      Freigaben des Agenten kommen ebenfalls als WhatsApp-Nachricht, und du bestätigst mit einer Antwort.
+      Einmal nach dem Start koppelst du den Agenten wie WhatsApp Web mit einem QR-Code; das machst du selbst am Telefon, der Installer kann es nicht für dich tun.
+      Nur deine Nummer darf ihm schreiben, Gruppen sind aus.
+      Die Kopplung liegt im Zustandsordner des Agenten und übersteht Neustarts, solange dieser Ordner erhalten bleibt.
+      WhatsApp verbietet Automatisierung nicht ausdrücklich, kann aber ein Konto sperren; nimm am besten eine eigene Nummer für den Agenten.
+    bilder: [kanal_whatsapp-1.svg]
+    art: kanal
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Ein Telefon mit WhatsApp zum Einlesen des QR-Codes (einmal nach dem Start)
+      - Deine Nummer in internationaler Schreibweise, zum Beispiel +49…
+      - Das Bild des Agenten wird um das Paket @openclaw/whatsapp erweitert (beim Bauen ist Internet nötig)
+    quelle: null
+    konfiguration:
+      - name: besitzer_nummer
+        titel: Deine WhatsApp-Nummer
+        typ: text
+        beschreibung: Internationale Schreibweise mit + und Landesvorwahl; nur von dieser Nummer nimmt der Agent Nachrichten an
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_APPROVER_WHATSAPP_NUMBER
+      - name: eigene_nummer
+        titel: Der Agent nutzt meine eigene Nummer
+        typ: wahl
+        beschreibung: "ja: Du koppelst mit deiner eigenen WhatsApp-Nummer und schreibst dir selbst (»Notizen an mich«); nein: der Agent hat eine eigene Nummer"
+        optionen: ["nein", "ja"]
+        standard: "nein"
+        pflicht: false
+        umgebung: FYOS_WHATSAPP_EIGENE_NUMMER
+
+  - id: kanal_matrix
+    titel: Kanal Matrix
+    kurz: Dein Agent schreibt dir über Matrix, auf deinem eigenen Server, und du bestätigst Freigaben im Chat.
+    was_daraus_wird: |
+      Du schreibst deinem Agenten in einer Matrix-Direktnachricht, und er antwortet dort.
+      Freigaben kommen als Matrix-Nachricht, und du bestätigst sie im Chat.
+      Der Chat läuft über deinen eigenen Heimserver, kein Fremddienst muss mitlesen.
+      Nur deine Matrix-Kennung darf ihm schreiben, der Agent tritt keinen Räumen von selbst bei.
+      Der Agent verschlüsselt nicht Ende zu Ende; das Gespräch ist so geschützt wie dein Heimserver.
+    bilder: [kanal_matrix-1.svg]
+    art: kanal
+    pflicht: false
+    abhaengig_von: [kern, agent]
+    voraussetzungen:
+      - Ein Matrix-Heimserver, den der Agent erreicht
+      - Ein Konto für den Agenten auf diesem Heimserver und dessen Zugriffstoken
+      - Das Bild des Agenten wird um das Paket @openclaw/matrix erweitert (beim Bauen ist Internet nötig)
+    quelle: null
+    konfiguration:
+      - name: homeserver
+        titel: Adresse des Heimservers
+        typ: url
+        beschreibung: Adresse deines Matrix-Heimservers, zum Beispiel https://matrix.example.org
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_MATRIX_HOMESERVER
+      - name: benutzer
+        titel: Matrix-Kennung des Agenten
+        typ: text
+        beschreibung: Das Konto des Agenten in der Form @name:server
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_MATRIX_BENUTZER
+      - name: zugriffstoken
+        titel: Zugriffstoken des Agenten
+        typ: geheim
+        beschreibung: Zugriffstoken des Agenten-Kontos (in deinem Matrix-Client unter Einstellungen, Hilfe und Über, oder per Anmelde-Schnittstelle)
+        standard: ""
+        pflicht: false
+        umgebung: OPENCLAW_MATRIX_TOKEN
+      - name: besitzer_id
+        titel: Deine Matrix-Kennung
+        typ: text
+        beschreibung: Deine Kennung in der Form @name:server; nur von ihr nimmt der Agent Nachrichten an
+        standard: ""
+        pflicht: false
+        umgebung: FYOS_APPROVER_MATRIX_ID

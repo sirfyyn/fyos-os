@@ -16,7 +16,7 @@ Was der Hub (`hub/`, Paket `mcp_hub`) nach außen zusagt: HTTP-Wege, Formate, Pl
 | `/hub/servers` | GET | geladene Plugins mit Werkzeugzahl |
 | `/hub/call` | POST | beliebiges Werkzeug rufen (nur innen, nie nach außen) |
 | `/hub/mehr` | POST | gekürztes Ergebnis vertiefen (`ergebnis_id`, `pfad`, `felder`, `filter`, `suche`, `limit`, `cursor`) |
-| `/hub/apps` | GET | Flächen-Werkzeuge für die Shell (mit ETag) |
+| `/hub/apps` | GET | Flächen-Werkzeuge für die Shell (mit ETag); neben `apps` und `count` das Register der ziehbaren Dinge (`dinge`) und ihrer Übergaben (`uebergaben`, ERWEITERN.md §3.7) |
 | `/hub/resource?uri=ui://…` | GET | Oberfläche eines Plugins (mit ETag) |
 | `/hub/app-call` | POST | Flächen-Werkzeug rufen (der Weg des Browsers) |
 | `/hub/gui/<id>` | GET | eine gebaute Ansicht (Plugin `gui`) als ganze, eigenständige Seite für Flächen ohne MCP-Apps-Host; nur lesend, auch über die Shell; ungültige oder unbekannte Id: 404 |
@@ -24,6 +24,7 @@ Was der Hub (`hub/`, Paket `mcp_hub`) nach außen zusagt: HTTP-Wege, Formate, Pl
 | `/hub/os/strom?sitzung=&geraet=&nach=` | GET | OS-Brücke: Befehle als Server-Sent Events |
 | `/hub/os/melden` | POST | OS-Brücke: Zustand der Sitzung melden |
 | `/hub/os/antwort` | POST | OS-Brücke: Antwort auf einen Befehl |
+| `/hub/dateien/datei?pfad=` | GET, PUT | Dateiablage (Plugin `dateien`): eine Datei herunterladen oder anzeigen (GET, `laden=1` erzwingt Herunterladen) und hochladen (PUT, der Körper ist der Inhalt, `ueberschreiben=1` ersetzt eine vorhandene); Abschnitt „Dateien“ unten |
 | `/hub/<eigener Weg>` | je Plugin | Wege aus Plugins (`routen()`, Abschnitt 4), nach denen des Kerns; etwa `/hub/openclaw/ereignisse` und `/hub/vorgaenge/tickets…` (KOPPLUNG-OPENCLAW.md) |
 
 ### nginx der Shell
@@ -38,6 +39,7 @@ die gebauten Ansichten behalten ihren Pfad:
 /hub-api/os/strom      -> http://hub:8080/hub/os/strom     (proxy_buffering off, proxy_read_timeout >= 700s, HTTP/1.1)
 /hub-api/os/melden     -> http://hub:8080/hub/os/melden
 /hub-api/os/antwort    -> http://hub:8080/hub/os/antwort
+/hub-api/dateien/datei -> http://hub:8080/hub/dateien/datei    (nur GET und PUT, proxy_request_buffering off, Größe begrenzt der Hub)
 /hub/gui/<id>          -> http://hub:8080/hub/gui/<id>         (nur GET; Id g- plus 12 Hex-Zeichen)
 /hub/gui/<id>/daten    -> http://hub:8080/hub/gui/<id>/daten
 ```
@@ -90,6 +92,32 @@ falschem Inhaltstyp, 503 `not_initialized` solange der Hub startet.
 - `/hub/call`, `/hub/mehr`, `/hub/app-call`, `/hub/os/melden`, `/hub/os/antwort` verlangen
   `Content-Type: application/json` (415 sonst).
 
+### Dateien herunter- und hochladen
+
+Das Plugin `dateien` hat neben den Werkzeugen einen eigenen Weg für den Inhalt von Dateien (Werkzeug-Antworten sind
+JSON und für große oder binäre Inhalte der falsche Träger). Er liegt in `routen()` des Plugins und gilt nur, wenn
+`FYOS_DATEIEN` auf einen Ordner zeigt (sonst 501 `nicht_eingerichtet`).
+
+- `GET /hub/dateien/datei?pfad=<Pfad>[&laden=1]` liefert die Datei. Der Pfad ist relativ zur Ablage, mit `/` getrennt;
+  `..`, Verknüpfungen und der Verwaltungsordner `.fyos` kommen nicht durch (400), eine fehlende Datei ist 404. Weil die
+  Dateien Fremdinhalt sind und aus dem Ursprung der Shell kommen, zeigt der Browser nur an, was nichts ausführen kann:
+  Bilder (mit `Content-Security-Policy: sandbox`), PDF, Audio, Video und Text (immer als `text/plain`). Alles andere,
+  auch HTML, kommt als Anhang (`Content-Disposition: attachment`, `application/octet-stream`); jede Antwort trägt
+  `X-Content-Type-Options: nosniff`. `laden=1` erzwingt den Anhang.
+- `PUT /hub/dateien/datei?pfad=<Pfad>[&ueberschreiben=1]` legt die Datei an; der Körper ist der Inhalt (jeder
+  Inhaltstyp, kein JSON). Fehlende Ordner entstehen mit. Eine vorhandene Datei wird nur mit `ueberschreiben=1`
+  ersetzt (sonst 409 `existiert`), die alte Fassung bleibt als frühere Fassung erhalten. Zu groß (`FYOS_DATEIEN_MAX_MB`,
+  Vorgabe 25) ist 413 `zu_gross`; der Hub bricht beim Lesen des Körpers ab, sobald es zu viel wird. Die Antwort ist
+  `{"ok": true, "result": {pfad, groesse, ersetzt, version_gesichert, url}}`.
+
+Beide Wege laufen **nicht** durch das Werkzeugregister: sie stehen nicht im Audit der Werkzeuge, und es gibt keinen
+Trockenlauf. Den Schutz der Werkzeuge ersetzt der Herkunftsschutz (schreibend wie `POST`: kein fremdes `Origin`, kein
+`Sec-Fetch-Site: cross-site`; ein `PUT` mit `application/octet-stream` löst von fremden Seiten zudem einen Preflight aus,
+den der Hub nie beantwortet) und die Anmeldung vor der Shell. Eine App im Sandbox-iframe hat den Ursprung `null` und darf
+darum nicht selbst hochladen; die Shell nimmt die Datei per Nachricht `fyos/datei-hochladen` entgegen und schickt sie
+aus ihrem eigenen Ursprung (`App.hochladen` in der Brücke, nur für die App „Dateien“). Der Hub ist für **einen** Prozess
+je Ablage gebaut (Fassungen und Papierkorb sind nicht für zwei gleichzeitige Schreiber gedacht).
+
 ### ETag
 
 `/hub/apps` und `/hub/resource` senden `ETag` und `Cache-Control: private, no-cache`; `If-None-Match` führt zu 304.
@@ -123,9 +151,19 @@ Befehle (`data` von `event: befehl`):
 {"id": "b-…", "art": "zeigen",     "ziel": "app:<plugin>__<werkzeug>", "eingabe": {…}|null, "von": "agent"}
 {"id": "b-…", "art": "ausfuehren", "werkzeug": "<name>", "argumente": {…}, "von": "agent"}
 {"id": "b-…", "art": "zeigt",      "zeigt": {ziel, app, titel, untertitel, symbol, ton, vorschau, eingabe, link,
-                                               audio: {modus, klang, sprechen}, [art: "mitteilung", dringlichkeit]},
+                                               audio: {modus, klang, sprechen}, [art: "mitteilung", dringlichkeit],
+                                               [nachgeholt: true, entstanden: <Unix-Sekunden>]},
                                     "von": "agent"}              (keine Antwort)
 ```
+
+**Nachholen.** `os.mitteilen` stellt zu, wenn jemand vor einer offenen Shell sitzt (sichtbar, in den letzten 10 min
+benutzt). Sonst antwortet es `{"zugestellt": false, "vorgemerkt": true, "rueckfall": "vorgemerkt"}` und legt die
+Mitteilung in die Redis-Liste `fyos:os:ausstehend` (höchstens 20 Einträge, 24 h Lebensdauer). Die nächste Meldung
+(`POST /hub/os/melden`) oder Verbindung (`GET /hub/os/strom`) einer Sitzung, vor der jemand sitzt, liefert sie aus:
+ältester zuerst, jede genau einmal (atomare Entnahme, auch mit mehreren Hub-Replikaten und Geräten), als `zeigt` mit
+`nachgeholt: true` und `entstanden`, ohne Hinweiston und ohne Vorlesen. Was beim Ausliefern älter als 24 h ist, wird
+verworfen. `OS_NACHHOLEN=aus` (oder die Plugin-Config `nachholen: false`) schaltet das Vormerken ab; dann antwortet
+`os.mitteilen` wieder mit `rueckfall: "kanal"`. Ablauf und Betrieb: [`NACHTARBEIT.md`](NACHTARBEIT.md).
 
 Flächen-IDs: `agent`, `seite:<name>`, `app:<plugin>__<werkzeug>`, `nativ:<name>`. Aufrufer-Namen, die als Agent
 gelten, stehen in `OS_AGENT_AUFRUFER` (Komma, `name*` = Präfix; Vorgabe `agent*`); `OS_AGENT_ZEIGT=aus` schaltet
@@ -186,8 +224,10 @@ Ein Plugin, das nicht lädt, reißt den Hub nicht mit; `/hub/health` nennt den G
 
 `_oberflaeche.oberflaeche(datei, ui_verzeichnis)` liest die HTML-Datei aus einem Pfad oder aus `<paket>/ui/`
 (Paketname als Text). Platzhalter für Stil, Brücke und Kopf der App werden eingesetzt.
-`_identitaet.registriere_app(schluessel, eintrag, datei=, hauptwerkzeug=)` trägt Titel, Symbol, Farbton und Kategorie
-(`System`, `Betrieb`, `Wissen`, `Beispiele`) ein; die Shell zeigt die App dann in Dock und Kacheln.
+`_identitaet.registriere_app(schluessel, eintrag, datei=, hauptwerkzeug=, art=)` trägt Titel, Symbol, Farbton und Kategorie
+(`System`, `Betrieb`, `Wissen`, `Beispiele`) ein; die Shell zeigt die App dann in Dock und Kacheln. `art` ist `"widget"`
+(Vorgabe, Kachel im Raster) oder `"anwendung"` (öffnet groß, maximierbar, eigener Vollbild-Bildschirm); sie steht als `art` in
+`meta["app"]` und oben an jeder App in `GET /hub/apps`. Mehr dazu in `ERWEITERN.md` §3.5.
 
 ## 5. Anmeldung
 

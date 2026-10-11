@@ -30,6 +30,10 @@
  */
 import { meldeSitzungAbgelaufen } from '~/lib/api/transport';
 import { imOsOeffnen, osZielAus } from '~/lib/os/oeffnen';
+import { registriereFlaechen, registrierteDinge, type DingArt, type Uebergabe } from '~/lib/os/register';
+import { uebergabeVorbereiten, type DingLesen, type GezogenesDing } from '~/lib/os/uebergaben';
+import { aktuellerZug, hinweisWeg, zugBeginnt, zugEndet } from '~/lib/os/ziehen';
+import { anApp, kanalAnmelden, kanalBereit } from './eingehaengt';
 import { gesichterMerken } from './gesicht';
 import { zustandMerken } from './zustand';
 
@@ -113,12 +117,14 @@ let laufend: Promise<McpApp[]> | null = null;
 
 /** Alle Flaechen-Werkzeuge des Hubs (mit und ohne Oberflaeche), fuer WebMCP und Panes. Gleichzeitige Aufrufe teilen sich einen Abruf. */
 export function werkzeugeImHub(): Promise<McpApp[]> {
-  laufend ??= hubAnfrage<{ apps?: McpApp[] }>('/apps')
+  laufend ??= hubAnfrage<{ apps?: McpApp[]; dinge?: Record<string, DingArt>; uebergaben?: Uebergabe[] }>('/apps')
     .then((d) => {
       const liste = d.apps ?? [];
       for (const a of liste) bekannt.set(a.name, a);
       // Symbol und Farbe aus dem Hub gelten ab jetzt überall (Dock, Start, Fensterkopf, Katalog)
       gesichterMerken(liste);
+      // Welche Dinge die Apps zeigen und was beim Ablegen eines Dings auf eine App geschieht (Ziehen, lib/os/ziehen.ts)
+      if (d.dinge || d.uebergaben) registriereFlaechen({ dinge: d.dinge ?? {}, uebergaben: d.uebergaben ?? [] });
       return liste;
     })
     .finally(() => {
@@ -159,6 +165,58 @@ export async function appCall(name: string, args: Record<string, unknown>, art: 
     ...(nachricht ? { _meta: nachricht } : {}),
   };
 }
+
+/** Ein Ding über sein lesendes Werkzeug laden (für Übergaben): die Daten als Tabelle, ein Fehler des Hubs wirft. */
+export const dingLesen: DingLesen = async (werkzeug, argumente) => {
+  const r = await appCall(werkzeug, argumente);
+  if (r.isError) throw new Error(r.content[0]?.text || 'Fehler');
+  return r.structuredContent ?? {};
+};
+
+/**
+ * Ein Ding ist auf das Fenster einer Hub-App gefallen, die es per Übergabe annimmt: Argumente des Zielwerkzeugs vorbereiten
+ * (Ding lesen, Felder einsetzen) und der App zustellen (`fyos/uebergabe`). Die App zeigt den Plan des Werkzeugs und fragt;
+ * hier ändert sich nichts. Wirft mit einem Satz für Menschen, wenn die Vorbereitung scheitert.
+ */
+export async function uebergabeStarten(flaecheId: string, u: Uebergabe, gezogen: GezogenesDing): Promise<void> {
+  const v = await uebergabeVorbereiten(u, registrierteDinge(gezogen.typ), gezogen, dingLesen);
+  anApp(flaecheId, 'fyos/uebergabe', v);
+}
+
+/** Antwort von `dateiHochladen`: bei Erfolg `result` (Pfad, Größe, ersetzt …), sonst `kind` (etwa `existiert`, `zu_gross`) und `error`. */
+export type HochladenErgebnis = { ok: boolean; result?: Record<string, unknown>; kind?: string; error?: string };
+
+/**
+ * Eine Datei in die Dateiablage legen (Plugin `dateien`, REST-Weg `PUT /hub-api/dateien/datei`). Die App im Sandbox-iframe
+ * hat den Ursprung „null“ und darf schreibend nicht selbst zum Hub: der Hub lehnt `Origin: null` ab. Darum nimmt der Host
+ * die Datei per postMessage entgegen (`fyos/datei-hochladen`) und schickt sie aus dem Ursprung der Shell.
+ * Eine vorhandene Datei wird nur mit `ueberschreiben` ersetzt; sonst antwortet der Hub 409 (`kind: existiert`).
+ */
+export async function dateiHochladen(pfad: string, daten: Blob, ueberschreiben = false): Promise<HochladenErgebnis> {
+  const q = new URLSearchParams({ pfad });
+  if (ueberschreiben) q.set('ueberschreiben', '1');
+  const r = await fetch(`${HUB_API}/dateien/datei?${q.toString()}`, {
+    method: 'PUT',
+    credentials: 'include',
+    redirect: 'manual',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: daten,
+  });
+  const typ = r.headers?.get?.('content-type') ?? '';
+  if (r.type === 'opaqueredirect' || r.status === 401 || typ.includes('text/html')) {
+    meldeSitzungAbgelaufen();
+    throw new Error(SITZUNG_FEHLER);
+  }
+  const d = (await r.json().catch(() => undefined)) as { ok?: boolean; result?: Record<string, unknown>; kind?: string; error?: string } | undefined;
+  if (d === undefined || typeof d !== 'object') {
+    return { ok: false, kind: r.status === 413 ? 'zu_gross' : 'fehler', error: r.status === 413 ? 'Die Datei ist zu groß.' : `HTTP ${r.status}` };
+  }
+  if (r.ok && d.ok) return { ok: true, result: d.result };
+  return { ok: false, kind: d.kind ?? 'fehler', error: d.error ?? `HTTP ${r.status}` };
+}
+
+/** Adresse im Hub, die nur das Plugin `dateien` aus seiner App öffnen darf (Anzeigen und Herunterladen einer Datei). */
+export const DATEI_ADRESSE = '/hub-api/dateien/datei?';
 
 /**
  * Inhaltsregeln (CSP) für das Sandbox-iframe der App. Die Apps des Hubs holen nichts von
@@ -483,7 +541,13 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
           // Schluessel nach dem offiziellen Schema:
           // serverTools statt tools; toolInfo.tool ist ein vollstaendiges MCP-Tool.
           // `message` nur, wo der Einbetter Nachrichten wirklich weitergibt (im OS an den Agenten).
-          hostCapabilities: { serverTools: {}, openLinks: {}, ...(o.onMessage ? { message: {} } : {}), updateModelContext: {} },
+          // `fyosDateien`: nur die App „Dateien“ kann über den Host Dateien hochladen und ihre Adressen öffnen.
+          hostCapabilities: {
+            serverTools: {}, openLinks: {}, ...(o.onMessage ? { message: {} } : {}), updateModelContext: {},
+            ...(plugin === 'dateien' ? { fyosDateien: {} } : {}),
+            // `fyosUebergaben`: Dinge aus der App ziehen (`fyos/zug`) und Dinge annehmen, die auf ihr Fenster fallen (`fyos/uebergabe`)
+            fyosUebergaben: {},
+          },
           hostContext: {
             toolInfo: { tool: { name: o.app.name, description: o.app.description, inputSchema: { type: 'object', ...o.app.inputSchema } } },
             theme: o.theme(),
@@ -501,6 +565,8 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
       case 'ui/notifications/initialized':
         melden('ui/notifications/tool-input', { arguments: o.args });
         if (o.ergebnis) melden('ui/notifications/tool-result', o.ergebnis);
+        // Was schon auf die App wartet (ein Ding, das auf ihr noch nicht geöffnetes Fenster fiel), geht jetzt hin
+        if (o.schluessel) kanalBereit(o.schluessel);
         sichtbarZuletzt = -1; // die App hört jetzt zu: Ausschnitt einmal frisch melden
         sichtbarPlanen();
         return;
@@ -541,7 +607,10 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
       }
       case 'ui/open-link': {
         if (!anfrage) return;
-        const url = String(p.url ?? '');
+        let url = String(p.url ?? '');
+        // Die App „Dateien“ kennt den Ursprung der Shell nicht (opak): sie nennt den Weg zur Datei relativ, der Host
+        // setzt ihn auf die eigene Adresse. Nur dieser eine Weg und nur für dieses Plugin.
+        if (plugin === 'dateien' && url.startsWith(DATEI_ADRESSE)) url = `${window.location.origin}${url}`;
         if (!/^https?:\/\//i.test(url)) return antwort({ isError: true });
         // Eine Adresse von fyos (gleicher Ursprung, auch https://fyos.example/os?offen=…) öffnet ein Fenster im OS.
         // Fremde Adressen und Seiten ohne OS (allein im Tab) öffnen wie bisher einen Tab — aber nur nach einer
@@ -552,6 +621,35 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
         if (!nutzergeste()) return antwort({ isError: true });
         window.open(url, '_blank', 'noopener');
         return antwort({});
+      }
+      case 'fyos/zug': {
+        // Die App zieht ein Ding (`App.ziehbar`) oder lässt los (`typ: null`). Sie darf nur Dinge melden, die ihr Plugin selbst
+        // angemeldet hat: sonst könnte eine App sich als Quelle eines fremden Typs ausgeben.
+        if (p.typ === null) {
+          if (aktuellerZug()?.quelle === iframe.contentWindow) {
+            zugEndet();
+            hinweisWeg();
+          }
+          return;
+        }
+        const typ = typeof p.typ === 'string' ? p.typ : '';
+        const heimat = registrierteDinge(typ)?.flaeche?.replace(/^app:/, '').split('__')[0];
+        if (heimat && heimat === plugin) zugBeginnt({ art: typ, quelle: iframe.contentWindow });
+        return;
+      }
+      case 'fyos/datei-hochladen': {
+        // Nur die App „Dateien“, nur mit Antwortweg. Die Datei kommt als File/Blob per postMessage; ein Fehler des Hubs
+        // (Datei da, zu groß …) ist ein gewöhnliches Ergebnis `{ok: false, kind, error}`, nur Ausfälle sind Fehler.
+        if (!anfrage) return;
+        if (plugin !== 'dateien') return abgelehnt('Hochladen gibt es nur in der App „Dateien“');
+        const pfad = typeof p.pfad === 'string' ? p.pfad : '';
+        if (!pfad || pfad.length > 400 || !(p.datei instanceof Blob)) return abgelehnt('Pfad und Datei werden gebraucht');
+        try {
+          antworten(id, await dateiHochladen(pfad, p.datei, p.ueberschreiben === true));
+        } catch (err) {
+          abgelehnt(String((err as Error).message || err));
+        }
+        return;
       }
       case 'ui/message': {
         if (!anfrage) return;
@@ -571,6 +669,8 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
     }
   };
   window.addEventListener('message', hoerer);
+  // Die Shell erreicht die App über diesen Kanal (Ding zeigen, Übergabe zustellen; lib/mcp-apps/eingehaengt.ts)
+  const kanalAb = o.schluessel ? kanalAnmelden(o.schluessel, { melden }) : undefined;
 
   // Sichtbarer Ausschnitt (o.sichtbar): beim Bildlauf der Fläche, je Bild höchstens einmal und nur bei Änderung
   const scrollZiel: EventTarget = scroller ?? window;
@@ -606,6 +706,12 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
     // sichern kann. Wir schicken die Anfrage und warten nicht: das iframe geht gleich, die Antwort braucht niemand.
     try { senden({ jsonrpc: '2.0', id: 'abbau', method: 'ui/resource-teardown', params: {} }); } catch { /* iframe schon weg */ }
     window.removeEventListener('message', hoerer);
+    kanalAb?.();
+    // Verschwindet die App mitten im Ziehen, bleibt kein Zug hängen
+    if (aktuellerZug()?.quelle === iframe.contentWindow) {
+      zugEndet();
+      hinweisWeg();
+    }
     beobachter.disconnect();
     groessenBeobachter?.disconnect();
     if (geplant) cancelAnimationFrame(geplant);

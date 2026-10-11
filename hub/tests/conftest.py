@@ -8,9 +8,21 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 
 def pytest_configure(config):
     os.environ.setdefault("MCP_HUB_AUDIT_SKIP_QDRANT", "1")
     # Tests laufen ohne Redis, Qdrant und Embedding-Dienst, egal was die Umgebung des Rechners setzt.
     for name in ("REDIS_URL", "QDRANT_URL", "FYOS_EMBED_URL", "HUB_SUCHE_EMBED_URL", "FYOS_OIDC_ISSUER"):
         os.environ.pop(name, None)
+
+
+@pytest.fixture(autouse=True)
+def _kein_kanal_zum_agenten():
+    """Der Weg einer dringenden Mitteilung in den Chat ist global angemeldet; kein Test erbt ihn vom vorigen."""
+    from mcp_hub import os_bruecke
+
+    os_bruecke.kanal_anmelden(None)
+    yield
+    os_bruecke.kanal_anmelden(None)

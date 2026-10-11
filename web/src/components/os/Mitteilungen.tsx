@@ -14,7 +14,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import '~/styles/os-mitteilung.css';
 import type { Flaeche } from '~/lib/os/flaechen';
-import { ANZEIGE_MS, zeitText, type Mitteilung } from '~/lib/os/mitteilungen';
+import { ANZEIGE_MS, ANZEIGE_NACHGEHOLT_MS, nachholZeit, zeitText, type Mitteilung } from '~/lib/os/mitteilungen';
 import { agentName } from '~/lib/config';
 import { menue, menueOeffnen, type MenuePunkt } from '~/lib/os/menue';
 import { deeplink } from '~/lib/os/oeffnen';
@@ -96,7 +96,7 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
   const pausiert = () => ueber() || menueOffen() || laeuft() || !!fehler() || !p.sichtbar();
 
   // ── Von selbst ausblenden (pausiert beim Darüberfahren, im Hintergrund-Tab, bei offenem Menü) ──
-  let rest = ANZEIGE_MS;
+  let rest = z.nachgeholt ? ANZEIGE_NACHGEHOLT_MS : ANZEIGE_MS;
   let seit = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const schliessen = () => {
@@ -154,6 +154,10 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
   };
 
   const titel = () => z.titel || flaeche()?.titel || 'App';
+  /** „Agent meldet sich“ bei eigenen Meldungen (os.mitteilen), „Agent zeigt dir“ beim Ergebnis einer App */
+  const meldet = () => z.art === 'mitteilung';
+  /** Nachgeholt: wann es entstanden ist („heute Nacht, 03:12“), sonst wie lange her */
+  const zeit = () => (z.nachgeholt && z.entstanden ? nachholZeit(z.entstanden, p.jetzt()) : zeitText(p.m.seit, p.jetzt()));
 
   return (
     <article
@@ -164,7 +168,7 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
       data-kontext="inhalt"
       tabindex="0"
       role="group"
-      aria-label={`${agentName()} zeigt dir ${titel()}. Enter öffnet, Escape schließt.`}
+      aria-label={`${agentName()} ${meldet() ? 'meldet sich' : 'zeigt dir'} ${titel()}. Enter öffnet, Escape schließt.`}
       onPointerEnter={() => setUeber(true)}
       onPointerLeave={() => setUeber(false)}
       onFocusIn={() => setUeber(true)}
@@ -185,8 +189,8 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
       <Symbol id={z.ziel} gruppe={flaeche()?.gruppe} class="os-mitteilung-symbol" />
       <div class="os-mitteilung-text">
         <div class="os-mitteilung-kopf">
-          <span class="os-mitteilung-ueber">{agentName()} zeigt dir</span>
-          <time class="os-mitteilung-zeit">{zeitText(p.m.seit, p.jetzt())}</time>
+          <span class="os-mitteilung-ueber">{agentName()} {meldet() ? 'meldet sich' : 'zeigt dir'}</span>
+          <time class="os-mitteilung-zeit" classList={{ 'os-mitteilung-nachgeholt': !!z.nachgeholt }}>{zeit()}</time>
           <span class="os-mitteilung-knoepfe">
             <button type="button" class="os-mitteilung-knopf" aria-label="Weitere Aktionen" aria-haspopup="menu" title="Weitere Aktionen" onClick={menueAuf}>
               <Glyphe name="ellipsis" />

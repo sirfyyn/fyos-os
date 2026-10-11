@@ -114,10 +114,19 @@ def standard_pruefer(plan: Plan, popen: Callable = subprocess.Popen) -> Callable
     return pruefen
 
 
-def _abnahme(plan: Plan, log: Protokoll, pruefen: Callable[[str], abn.Abnahme]) -> abn.Abnahme | None:
-    """Die Abnahme gegen die gerade gestartete Shell (lokaler Port). Sie darf den Start nie kippen."""
+def _abnahme(
+    plan: Plan, log: Protokoll, pruefen: Callable[[str], abn.Abnahme],
+    kanaele: Callable[[Plan], list[abn.Befund]] | None = None,
+) -> abn.Abnahme | None:
+    """Die Abnahme gegen die gerade gestartete Shell (lokaler Port), bei gewählten Chat-Kanälen dazu die Frage an den
+    Agenten, ob sie aktiv sind. Sie darf den Start nie kippen."""
     try:
         ergebnis = pruefen(f"http://127.0.0.1:{plan.port}")
+        if plan.kanaele:
+            if kanaele is None:
+                def kanaele(p: Plan) -> list[abn.Befund]:
+                    return abn.kanal_proben(p.kanaele, abn.kanal_abfrage_compose(p.verzeichnis))
+            ergebnis.kanaele = kanaele(plan)
     except Exception as e:  # noqa: BLE001 - ein Fehler hier ist eine Meldung, kein Abbruch der Installation
         log(f"Die Abnahme konnte nicht laufen: {e}")
         return None
@@ -137,6 +146,7 @@ def ausfuehren(
     schlaf: Callable[[float], None] = time.sleep,
     uhr: Callable[[], float] = time.monotonic,
     abnahme: Callable[[str], abn.Abnahme] | None = None,
+    kanal_abnahme: Callable[[Plan], list[abn.Befund]] | None = None,
 ) -> Ergebnis:
     if not plan.ausfuehrbar:
         return Ergebnis(False, "Dieses Ziel wird vom Installer nicht gestartet.")
@@ -166,7 +176,7 @@ def ausfuehren(
         if letzter.get("web") and letzter.get("hub"):
             text = f"FYOS läuft: {plan.url}"
             log(text)
-            ab = _abnahme(plan, log, abnahme or abn.pruefen)
+            ab = _abnahme(plan, log, abnahme or abn.pruefen, kanal_abnahme)
             if ab is not None:
                 text += f". {ab.zusammenfassung()}"
             return Ergebnis(True, text, plan.url, ab)

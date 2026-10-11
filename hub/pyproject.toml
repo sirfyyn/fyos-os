@@ -43,6 +43,8 @@ shell = "mcp_hub.plugins.shell:ShellPlugin"
 beispiel_app = "mcp_hub.plugins.beispiel_app:BeispielAppPlugin"
 openclaw = "mcp_hub.plugins.openclaw:OpenClawPlugin"
 gui = "mcp_hub.plugins.gui:GuiPlugin"
+os = "mcp_hub.plugins.os:OsPlugin"
+dateien = "mcp_hub.plugins.dateien:DateienPlugin"
 
 # Skills aus Paketen: Der Kern bringt den Skill `generative-ui` samt Vorlagen als Paketdaten mit
 # (mcp_hub/skills/); das Plugin `skills` findet sie ueber diese Gruppe (Quelle `kern`).

@@ -110,6 +110,11 @@ html[data-theme="light"] .os-mitteilung {
   text-transform: uppercase;
   color: var(--color-fg-muted);
 }
+/* Nachgeholt („heute Nacht, 03:12“): die Uhrzeit der Entstehung zählt, nicht „jetzt“ */
+.os-mitteilung-zeit.os-mitteilung-nachgeholt {
+  font-weight: 600;
+  color: var(--color-fg);
+}
 .os-mitteilung-zeit {
   margin-left: auto;
   padding-right: 0.1rem;

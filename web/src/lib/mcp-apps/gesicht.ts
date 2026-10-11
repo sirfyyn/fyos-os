@@ -23,6 +23,11 @@ export interface AppGesicht {
   /** Farbton 0–359 (HSL, wie in lib/os/symbole.ts) */
   ton: number;
   kategorie: string;
+  /**
+   * Was die App in der Shell ist: ein `widget` (Kachel im Raster, viele nebeneinander) oder eine `anwendung` (öffnet groß,
+   * maximierbar, eigener Vollbild-Bildschirm). Der Hub setzt sie bei `registriere_app(art=…)`; ohne Angabe gilt `widget`.
+   */
+  art: 'widget' | 'anwendung';
   /** Fertiges SVG-Bild des Hubs (data:image/svg+xml), falls wir die Glyphe selbst nicht kennen */
   icon?: string;
   /** true = Felder vom Hub; false = aus Name und Beschreibung abgeleitet */
@@ -48,6 +53,7 @@ interface HubFelder {
   symbol?: unknown;
   ton?: unknown;
   kategorie?: unknown;
+  art?: unknown;
   icon?: unknown;
 }
 
@@ -61,6 +67,7 @@ function hubFelder(app: McpApp): HubFelder {
     symbol: oben.symbol ?? meta.symbol,
     ton: oben.ton ?? meta.ton,
     kategorie: oben.kategorie ?? meta.kategorie,
+    art: oben.art ?? meta.art,
     icon: oben.icon ?? meta.icon,
   };
 }
@@ -148,6 +155,7 @@ export function gesichtVon(app: McpApp, opt: { gruppe?: boolean; info?: string }
     symbol: hubSymbol ?? glyphe(id),
     ton: hubTon ?? farbton(id),
     kategorie: kategorieFuer(app),
+    art: h.art === 'anwendung' ? 'anwendung' : 'widget',
     icon,
     vomHub: !!(text(h.titel, 80) && hubUntertitel && (hubSymbol || icon) && hubTon !== undefined),
   };

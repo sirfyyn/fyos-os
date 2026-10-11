@@ -5,6 +5,10 @@
  * ⋯ rechts) und eine Ecke zum Ziehen der Größe, die am 12er-Raster einrastet. ⋯, Rechtsklick auf
  * den Kopf und Umschalt+F10 öffnen dasselbe Menü (Größe, Platz, Bildschirm, neu laden, im Tab
  * öffnen, schließen) — gebaut vom Raster, gezeichnet von components/os/Menue.tsx.
+ *
+ * Widget oder Anwendung (Flaeche.anwendung): Ein Widget ist eine Kachel, sein grüner Knopf zoomt zwischen voller und halber
+ * Breite. Eine Anwendung öffnet groß; ihr grüner Knopf schickt sie in den Vollbild-Bildschirm (lib/os/bildschirme.ts),
+ * ⌥-Klick und Doppelklick auf den Kopf maximieren sie (`Fenster.max`, das Raster legt sie über den ganzen Bildschirm).
  */
 import { Show, createSignal, lazy, onCleanup, onMount, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
@@ -16,7 +20,7 @@ import { nativZu, type NativProps } from '~/lib/os/nativ';
 import { fremdesThemaAnwenden } from '~/lib/os/thema';
 import { ausHerkunft } from '~/lib/os/uebergang';
 import {
-  aktuellerZug, gutArt, gutLesen, gutSetzen, hinweisWeg, hinweisZeigen, wasPassiert, zugBeginnt, zugBild, zugEndet,
+  ablageAufApp, aktuellerZug, gutArt, gutLesen, gutSetzen, hinweisWeg, hinweisZeigen, wasPassiert, zugBeginnt, zugBild, zugEndet,
   zustellungAbholen, type Gut,
 } from '~/lib/os/ziehen';
 import { AppAktionen, AppTitel } from './AppRahmen';
@@ -68,8 +72,15 @@ export function Inhalt(p: { f: Flaeche; ziehen: boolean; oeffne: (id: string) =>
     );
   }
   if (p.f.art === 'hubapp') {
+    // Zieht die App selbst (App.ziehbar), bleibt ihr Zeiger an: sonst bricht der Browser den Zug in ihr ab, sobald sie ihn meldet
+    let appBox: HTMLDivElement | undefined;
+    const appZeiger = () => {
+      const quelle = aktuellerZug()?.quelle;
+      const eigen = !!quelle && !!appBox && quelle === appBox.querySelector('iframe')?.contentWindow;
+      return { 'pointer-events': p.ziehen && !eigen ? ('none' as const) : ('auto' as const) };
+    };
     return (
-      <div class={fest ? 'h-full overflow-auto' : 'flex-1'} style={zeiger()}>
+      <div ref={appBox} class={fest ? 'h-full overflow-auto' : 'flex-1'} style={appZeiger()}>
         <AppEingebettet name={p.f.appName!} wachsen={!fest} fuellen={fest} start={p.start} schluessel={p.f.id} />
       </div>
     );
@@ -143,6 +154,12 @@ export interface FensterProps {
   onAblegen: (g: Gut) => void;
   onVerschieben: (richtung: -1 | 1) => void;
   oeffne: (id: string) => void;
+  /** Anwendungen: maximieren (ganzer Arbeitsbereich) oder die Maximierung beenden — ⌥-Klick auf den grünen Knopf, Doppelklick auf den Kopf */
+  onMaximieren?: () => void;
+  /** Anwendungen: in den Vollbild-Bildschirm wechseln oder ihn verlassen — grüner Knopf, ⌃⌘F */
+  onVollbild?: () => void;
+  /** Dieses Fenster steht auf einem Vollbild-Bildschirm */
+  vollbild?: boolean;
 }
 
 /** Ereignis „Fenster neu laden“ (aus Menüs): `detail` ist die ID der Fläche. */
@@ -179,8 +196,21 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
     if (!m || !ich) return 10;
     return Math.round((ich.getBoundingClientRect().height + m.luecke) / (m.zeile + m.luecke));
   };
-  /** Grüner Knopf und Doppelklick auf den Kopf: volle Breite ↔ halbe (wie „Zoomen“ am Mac). */
+  /** Widget: grüner Knopf und Doppelklick auf den Kopf schalten volle Breite ↔ halbe (wie „Zoomen“ am Mac). */
   const zoomen = () => p.onGroesse({ spalten: p.spalten >= SPALTEN ? 6 : SPALTEN });
+  /** Anwendung (nicht auf dem Handy, dort steht ohnehin ein Fenster da): Vollbild-Bildschirm, maximieren. */
+  const anwendung = () => !!p.f.anwendung && !p.schmal;
+  /** Grüner Knopf einer Anwendung: Vollbild-Bildschirm; mit ⌥ maximieren (auf dem Vollbild-Bildschirm verlässt jeder Klick ihn). */
+  const gruenKlick = (e: MouseEvent) => {
+    if (!anwendung()) return zoomen();
+    if (e.altKey && !p.vollbild) p.onMaximieren?.();
+    else p.onVollbild?.();
+  };
+  const gruenTitel = (): string => {
+    if (!anwendung()) return p.spalten >= SPALTEN ? 'Halbe Breite' : 'Volle Breite';
+    if (p.vollbild) return 'Vollbild verlassen (⌃⌘F)';
+    return p.w.max ? 'Vollbild-Bildschirm (⌃⌘F) — ⌥-Klick: Maximierung beenden' : 'Vollbild-Bildschirm (⌃⌘F) — ⌥-Klick: maximieren';
+  };
 
   // Größe ziehen: Zeigerposition → Spalten/Zeilen, rastet live ein. Die Ecke ändert beides, die rechte Kante nur die
   // Breite, die untere nur die Höhe (wie am Mac).
@@ -231,7 +261,7 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
   /** Ändert sich der Startzustand (neuer Link mit Eingabe auf eine offene App), lädt die App neu. */
   // `fest` wechselt füllen ↔ wachsen und baut den Inhalt neu — nur bei Apps und nativen Flächen (Seiten füllen immer)
   const wachsend = () => p.f.art === 'hubapp' || p.f.art === 'nativ';
-  const inhaltSchluessel = () => `${stand()}:${p.w.start ? JSON.stringify(p.w.start) : ''}:${wachsend() && p.w.fest ? 'fest' : ''}`;
+  const inhaltSchluessel = () => `${stand()}:${p.w.start ? JSON.stringify(p.w.start) : ''}:${wachsend() && (p.w.fest || p.w.max) ? 'fest' : ''}`;
   const menueKnopfBau = (): JSX.Element => (
     <button
       ref={menueKnopf}
@@ -251,8 +281,10 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
       ref={ich}
       aria-label={p.f.titel}
       data-fenster={p.f.id}
+      data-art={p.f.anwendung ? 'anwendung' : undefined}
+      data-max={p.w.max ? '' : undefined}
       class="os-glas os-fenster relative flex min-w-0 flex-col overflow-clip"
-      classList={{ 'os-fokus': p.fokus || ueber(), 'select-none': groesseZiehen() }}
+      classList={{ 'os-fokus': p.fokus || ueber(), 'select-none': groesseZiehen(), 'os-max': !!p.w.max && !p.schmal }}
       style={p.lage}
       onPointerDown={() => p.onFokus()}
       onDragOver={(e) => {
@@ -262,7 +294,9 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
         e.stopPropagation(); // der Schreibtisch darunter soll seinen Hinweis nicht drüberlegen
         if (e.dataTransfer) e.dataTransfer.dropEffect = art === 'fenster' ? 'move' : 'copy';
         setUeber(true);
-        if (ich) hinweisZeigen(ich, art === 'fenster' ? 'Davor einordnen' : wasPassiert(art, 'schreibtisch'));
+        // Fenster einer Hub-App: nimmt sie das Ding per Übergabe an, steht ihre Wirkung da; sonst nur „Agent fragen“
+        const app = istApp() ? ablageAufApp(art, p.f.id) : null;
+        if (ich) hinweisZeigen(ich, art === 'fenster' ? 'Davor einordnen' : app ? app.text : wasPassiert(art, 'schreibtisch'));
       }}
       onDragLeave={(e) => {
         if (e.relatedTarget instanceof Node && ich?.contains(e.relatedTarget)) return;
@@ -288,7 +322,11 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
         data-kontext={`fenster:${p.f.id}`}
         aria-label={`${p.f.titel} — Titelleiste. Ziehen ordnet um, Alt+Umschalt+Pfeil verschiebt, Umschalt+F10 öffnet das Menü.`}
         onKeyDown={taste}
-        onDblClick={(e) => { if (!(e.target as Element).closest('button')) zoomen(); }}
+        onDblClick={(e) => {
+          if ((e.target as Element).closest('button')) return;
+          if (anwendung() && !p.vollbild) p.onMaximieren?.();
+          else if (!anwendung()) zoomen();
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -311,7 +349,13 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
             <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 6h6" /></svg>
           </button>
           <Show when={!p.schmal}>
-            <button type="button" class="os-ampel-gruen no-touch" aria-label={`${p.f.titel} zoomen`} title={p.spalten >= SPALTEN ? 'Halbe Breite' : 'Volle Breite'} onClick={zoomen}>
+            <button
+              type="button"
+              class="os-ampel-gruen no-touch"
+              aria-label={anwendung() ? `${p.f.titel} ${p.vollbild ? 'Vollbild verlassen' : 'im Vollbild'}` : `${p.f.titel} zoomen`}
+              title={gruenTitel()}
+              onClick={gruenKlick}
+            >
               <svg viewBox="0 0 12 12" aria-hidden="true"><path class="voll" d="M3.6 8.4V4.8l3.6 3.6zM8.4 3.6v3.6L4.8 3.6z" /></svg>
             </button>
           </Show>
@@ -337,11 +381,11 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
       {/* Inhalt: Rechtsklick hier gehört der Fläche (Text kopieren usw.), nicht dem OS */}
       <div class="flex min-h-0 flex-1 flex-col" data-kontext="inhalt">
         <Show when={inhaltSchluessel()} keyed>
-          {(_) => <Inhalt f={p.f} ziehen={p.ziehen} oeffne={p.oeffne} schmal={p.schmal} start={p.w.start} fest={!!p.w.fest} />}
+          {(_) => <Inhalt f={p.f} ziehen={p.ziehen} oeffne={p.oeffne} schmal={p.schmal} start={p.w.start} fest={!!p.w.fest || !!p.w.max} />}
         </Show>
       </div>
 
-      <Show when={!p.schmal}>
+      <Show when={!p.schmal && !p.w.max}>
         <button
           type="button"
           class="os-griff"

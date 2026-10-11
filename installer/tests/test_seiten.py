@@ -20,9 +20,18 @@ def test_seiten_rendern(katalog, tmp_path, abnahme_von):
     # Formen gerendert werden, die der Server wirklich schickt.
     plan = erzeugen.erstelle_plan(katalog, ["beispiel_app"], "compose", {}, tmp_path / "ziel")
     assert plan.ok, plan.fehler
+    # Ein Plan mit Stufen je Fähigkeit: Kubernetes nimmt den Ausbau vor, Termine sind auf die Grundstufe umgestellt.
+    mit_stufen = erzeugen.erstelle_plan(
+        katalog, ["kalender", "leitstand", "post"], "k8s",
+        {"stufen": {"termine": "grund"}, "optionen": {"paketindex": "https://pypi.example.com/simple"},
+         "felder": {"leitstand": {"vorgaenge_url": "http://vorgaenge.example.com"}}},
+        tmp_path / "ziel2", umgebung={},
+    )
+    assert mit_stufen.ok, mit_stufen.fehler
     beispiele = tmp_path / "beispiele.json"
     beispiele.write_text(json.dumps({
         "plan": plan.als_dict(),
+        "plan_stufen": mit_stufen.als_dict(),
         "abnahme_ok": abnahme_von(True).als_dict(),
         "abnahme_nein": abnahme_von(False).als_dict(),
     }))

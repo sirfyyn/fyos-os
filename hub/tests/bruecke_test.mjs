@@ -45,11 +45,24 @@ const App = vm.runInContext('App', ctx);
 // ── Attrappe: Host. Sammelt die Werkzeugaufrufe der App und antwortet, wie der Test es vorgibt ───────────
 const aufrufe = [];
 let werkzeugFn = async () => ({});
-function antworten(id, result) {
-  for (const fn of fensterHoerer.message || []) fn({ source: eltern, data: { jsonrpc: '2.0', id, result } });
+function antworten(id, result, error) {
+  for (const fn of fensterHoerer.message || []) fn({ source: eltern, data: { jsonrpc: '2.0', id, ...(error ? { error } : { result }) } });
 }
+// Andere Anfragen an den Host (ui/initialize, ui/open-link, fyos/datei-hochladen …): Methode → Funktion(params) → Ergebnis
+const hostAntworten = {}, hostAnfragen = [], hostMeldungen = [];
+// Benachrichtigungen des Host an die App (ohne `id`), etwa fyos/uebergabe
+const vomHost = (methode, params) => { for (const fn of fensterHoerer.message || []) fn({ source: eltern, data: { jsonrpc: '2.0', method: methode, params } }); };
 eltern.postMessage = (m) => {
-  if (m.method !== 'tools/call') return;
+  if (m.method !== 'tools/call') {
+    if (m.id == null && m.method) hostMeldungen.push({ methode: m.method, params: m.params });
+    if (m.id == null || !m.method) return;
+    hostAnfragen.push({ methode: m.method, params: m.params });
+    Promise.resolve().then(() => (hostAntworten[m.method] || (() => { throw new Error('nicht unterstützt: ' + m.method); }))(m.params)).then(
+      (r) => antworten(m.id, r),
+      (e) => antworten(m.id, undefined, { code: -32000, message: String((e && e.message) || e) }),
+    );
+    return;
+  }
   const { name, arguments: args } = m.params;
   aufrufe.push({ name, args });
   Promise.resolve().then(() => werkzeugFn(name, args)).then(
@@ -293,6 +306,157 @@ const antrag = (ort, text = 'hallo', extra = {}) => App.beantragen({ werkzeug: '
   pruefe('Antrag: Knopftexte sind maskiert', !ort.innerHTML.includes('<script>') && !ort.innerHTML.includes('<b>') && ort.innerHTML.includes('&lt;script&gt;'), ort.innerHTML);
   klick('antrag-nein');
   await erg;
+}
+
+{ // Dateien: Hochladen über den Host und Adressen öffnen (nur mit der Fähigkeit des Hosts)
+  gleich('hochladen vor dem Start: ohne Fähigkeit', await grund(App.hochladen('a.md', {})), 'Hochladen geht hier nicht — nur in der FYOS-Shell.');
+  hostAntworten['ui/initialize'] = () => ({ hostInfo: { name: 'fyos-web' }, hostCapabilities: { openLinks: {}, fyosDateien: {} }, hostContext: {} });
+  await App.start('test');
+  pruefe('kann(fyosDateien) nach dem Start', App.kann('fyosDateien') === true);
+
+  hostAntworten['fyos/datei-hochladen'] = (p) => ({ ok: true, result: { pfad: p.pfad } });
+  hostAnfragen.length = 0;
+  const blob = { size: 3 };
+  const r = await App.hochladen('Ordner/a.md', blob, { ueberschreiben: true });
+  pruefe('hochladen: Ergebnis des Hosts', r && r.ok === true && r.result.pfad === 'Ordner/a.md', JSON.stringify(r));
+  const q = hostAnfragen.find((a) => a.methode === 'fyos/datei-hochladen');
+  pruefe('hochladen: Pfad, Datei und ueberschreiben gehen an den Host', q && q.params.pfad === 'Ordner/a.md' && q.params.datei === blob && q.params.ueberschreiben === true, JSON.stringify(q));
+  await App.hochladen('b.md', blob);
+  gleich('hochladen: ueberschreiben ist ohne Wunsch false', hostAnfragen.filter((a) => a.methode === 'fyos/datei-hochladen')[1].params.ueberschreiben, false);
+
+  hostAntworten['fyos/datei-hochladen'] = () => ({ ok: false, kind: 'existiert', error: 'gibt es schon' });
+  const e = await App.hochladen('a.md', blob);
+  pruefe('hochladen: Fehler des Hubs ist ein Ergebnis, kein Wurf', e.ok === false && e.kind === 'existiert');
+  hostAntworten['fyos/datei-hochladen'] = () => { throw new Error('Anmeldung abgelaufen'); };
+  gleich('hochladen: Ausfall des Hosts wirft', await grund(App.hochladen('a.md', blob)), 'Anmeldung abgelaufen');
+
+  hostAntworten['ui/open-link'] = () => ({});
+  hostAnfragen.length = 0;
+  await App.oeffnen('/hub-api/dateien/datei?pfad=a.pdf');
+  gleich('oeffnen: Adresse geht an den Host', hostAnfragen[0].params.url, '/hub-api/dateien/datei?pfad=a.pdf');
+  hostAntworten['ui/open-link'] = () => ({ isError: true });
+  pruefe('oeffnen: Ablehnung wirft', /nicht geöffnet/.test((await grund(App.oeffnen('x'))) || ''));
+}
+{ // Übergaben: ziehbar meldet den Zug an den Host, ablage stellt eine Anfrage statt etwas zu tun
+  const dt = () => ({ daten: {}, effectAllowed: '', setData(k, v) { this.daten[k] = v; } });
+  const bau = (dataset) => {
+    const kind = { dataset, draggable: false };
+    kind.closest = (s) => (s === '[data-typ]' ? kind : null);
+    const hoerer = {};
+    const wurzel = {
+      hoerer, addEventListener: (a, fn) => { (hoerer[a] ||= []).push(fn); }, removeEventListener: (a, fn) => { hoerer[a] = (hoerer[a] || []).filter((f) => f !== fn); },
+      contains: (x) => x === kind || x === wurzel, closest: () => wurzel,
+    };
+    return { kind, wurzel, feuer: (a, e) => { for (const fn of hoerer[a] || []) fn(e); } };
+  };
+
+  hostAntworten['ui/initialize'] = () => ({ hostInfo: { name: 'fyos-web' }, hostCapabilities: { openLinks: {} }, hostContext: {} });
+  await App.start('test');
+  pruefe('kann(fyosUebergaben) fehlt in fremden Hosts', App.kann('fyosUebergaben') === false);
+  let z = bau({ typ: 'datei', id: 'Projekt/Plan.md', label: 'Plan.md' });
+  let los = App.ziehbar(z.wurzel, { selektor: '[data-typ]' });
+  hostMeldungen.length = 0;
+  let d = dt();
+  z.feuer('dragstart', { target: z.kind, dataTransfer: d });
+  gleich('ziehbar: auch ohne Fähigkeit ist der Zug beschriftet', d.daten['text/plain'], 'fyos://datei/Projekt/Plan.md');
+  gleich('ziehbar: ohne Fähigkeit keine Meldung an den Host', hostMeldungen.length, 0);
+
+  hostAntworten['ui/initialize'] = () => ({ hostInfo: { name: 'fyos-web' }, hostCapabilities: { openLinks: {}, fyosUebergaben: {} }, hostContext: {} });
+  await App.start('test');
+  pruefe('kann(fyosUebergaben) in der Shell', App.kann('fyosUebergaben') === true);
+  los();
+  z = bau({ typ: 'datei', id: 'Projekt/Plan.md', label: 'Plan.md' });
+  los = App.ziehbar(z.wurzel, { selektor: '[data-typ]' });
+  pruefe('ziehbar: vor dem Anfassen nicht ziehbar', z.kind.draggable === false);
+  z.feuer('mouseover', { target: z.kind });
+  pruefe('ziehbar: der Zeiger darüber macht das Element ziehbar', z.kind.draggable === true);
+  hostMeldungen.length = 0;
+  d = dt();
+  z.feuer('dragstart', { target: z.kind, dataTransfer: d });
+  gleich('ziehbar: Adresse des Dings', d.daten['text/plain'], 'fyos://datei/Projekt/Plan.md');
+  gleich('ziehbar: Adressliste', d.daten['text/uri-list'], 'fyos://datei/Projekt/Plan.md');
+  gleich('ziehbar: Schlüssel mit dem Typ (damit Ziele es beim Darüberfahren erkennen)', d.daten['application/x-fyos-datei'], 'Projekt/Plan.md');
+  gleich('ziehbar: Anzeigename', d.daten['text/x-fyos-label'], 'Plan.md');
+  gleich('ziehbar: kopieren oder verschieben', d.effectAllowed, 'copyMove');
+  pruefe('ziehbar: der Host erfährt den Zug', JSON.stringify(hostMeldungen) === JSON.stringify([{ methode: 'fyos/zug', params: { typ: 'datei', id: 'Projekt/Plan.md', label: 'Plan.md' } }]), JSON.stringify(hostMeldungen));
+  z.feuer('dragend', { target: z.kind });
+  pruefe('ziehbar: Ende des Zugs geht an den Host', JSON.stringify(hostMeldungen[1]) === JSON.stringify({ methode: 'fyos/zug', params: { typ: null } }), JSON.stringify(hostMeldungen));
+
+  // Ungültiges zieht nicht: Typ in falscher Schreibweise, fehlende Kennung, Zeilenumbruch in der Kennung
+  for (const dataset of [{ typ: 'Bad Typ', id: 'x' }, { typ: 'datei', id: '' }, { typ: 'datei', id: 'a\nb' }, { id: 'x' }]) {
+    const u = bau(dataset);
+    const lose = App.ziehbar(u.wurzel, { selektor: '[data-typ]' });
+    hostMeldungen.length = 0;
+    const dd = dt();
+    u.feuer('dragstart', { target: u.kind, dataTransfer: dd });
+    pruefe(`ziehbar: ${JSON.stringify(dataset)} zieht nicht`, Object.keys(dd.daten).length === 0 && hostMeldungen.length === 0);
+    lose();
+  }
+  // Werte aus Funktionen
+  const f = bau({});
+  App.ziehbar(f.wurzel, { selektor: '[data-typ]', typ: () => 'notiz', id: (el) => 'n-1', label: () => 'Milch' });
+  hostMeldungen.length = 0;
+  d = dt();
+  f.feuer('dragstart', { target: f.kind, dataTransfer: d });
+  gleich('ziehbar: Typ, Kennung und Name aus Funktionen', d.daten['text/plain'], 'fyos://notiz/n-1');
+  gleich('ziehbar: der Name steht im Zug', d.daten['text/x-fyos-label'], 'Milch');
+  los();
+  pruefe('ziehbar: lösen entfernt die Hörer', Object.values(z.wurzel.hoerer).every((l) => l.length === 0));
+  pruefe('ziehbar: ohne Element ein Fehler', /Element/.test((await grund((async () => App.ziehbar(null))())) || ''));
+
+  // ablage: der Host stellt ein vorbereitetes Zielwerkzeug zu; die App fragt, erst „Ja“ führt aus
+  const ding = (typ = 'notiz') => ({ typ, id: 'n-1', label: 'Milch', werkzeug: 'dateien__schreiben', argumente: { pfad: 'Notizen/Milch.md', inhalt: 'Milch\n' }, wirkung: 'Als Markdown-Datei ablegen' });
+  aufrufe.length = 0;
+  werkzeugFn = async (name, args) => (args.__dry_run__ ? planDaten('Milch') : { ok: true, pfad: args.pfad, bestaetigt: args.bestaetigt });
+  const ort = platz();
+  const fertig = [];
+  const ab = App.ablage(ort, { nimmt: ['notiz'], ja: 'Datei anlegen', danach: (r, dd) => { fertig.push({ r, dd }); } });
+  vomHost('fyos/uebergabe', ding('datei')); // anderer Typ: nicht angenommen
+  await tick();
+  gleich('ablage: ein Typ, den die App nicht nimmt, bleibt unbeachtet', aufrufe.length, 0);
+  vomHost('fyos/uebergabe', ding());
+  await tick();
+  gleich('ablage: erst nur der Trockenlauf', aufrufe.length, 1);
+  pruefe('ablage: Trockenlauf mit den fertigen Argumenten', aufrufe[0].name === 'dateien__schreiben' && aufrufe[0].args.pfad === 'Notizen/Milch.md' && aufrufe[0].args.__dry_run__ === true, JSON.stringify(aufrufe[0]));
+  pruefe('ablage: Plan und Ja-Knopf stehen in ort', ort.innerHTML.includes('Datei anlegen') && ort.innerHTML.includes('notiz: neu angelegt'), ort.innerHTML);
+  gleich('ablage: vor dem Ja ist nichts passiert', fertig.length, 0);
+  klick('antrag-ja');
+  await tick();
+  gleich('ablage: nach dem Ja läuft das Werkzeug wirklich', aufrufe.length, 2);
+  pruefe('ablage: echter Lauf mit Bestätigung', aufrufe[1].args.bestaetigt === true && !('__dry_run__' in aufrufe[1].args), JSON.stringify(aufrufe[1]));
+  pruefe('ablage: danach bekommt Ergebnis und Ding', fertig.length === 1 && fertig[0].r.pfad === 'Notizen/Milch.md' && fertig[0].dd.id === 'n-1', JSON.stringify(fertig));
+  // Abbrechen: nichts läuft
+  aufrufe.length = 0; fertig.length = 0;
+  vomHost('fyos/uebergabe', ding());
+  await tick();
+  klick('antrag-nein');
+  await tick();
+  gleich('ablage: Abbrechen führt nichts aus (nur der Trockenlauf lief)', aufrufe.length, 1);
+  gleich('ablage: Abbrechen ruft danach nicht', fertig.length, 0);
+  // Ohne Werkzeug oder mit Fehler des Hubs
+  aufrufe.length = 0;
+  vomHost('fyos/uebergabe', { typ: 'notiz', id: 'n-1' });
+  await tick();
+  gleich('ablage: ohne Werkzeug passiert nichts', aufrufe.length, 0);
+  ab();
+  vomHost('fyos/uebergabe', ding());
+  await tick();
+  gleich('ablage: nach dem Lösen hört sie nicht mehr', aufrufe.length, 0);
+  // eigener Fehler- und bei-Hörer
+  const fehlerRuf = [];
+  werkzeugFn = async () => { throw new Error('ValueError: Die Datei gibt es schon'); };
+  const ab2 = App.ablage(ort, { fehler: (e) => fehlerRuf.push(String(e.message)) });
+  vomHost('fyos/uebergabe', ding());
+  await tick();
+  gleich('ablage: Fehler des Trockenlaufs geht an den Fehler-Hörer', fehlerRuf[0], 'Die Datei gibt es schon');
+  ab2();
+  const eigene = [];
+  const ab3 = App.ablage(ort, { nimmt: ['notiz'], bei: (u) => eigene.push(u.id) });
+  vomHost('fyos/uebergabe', ding());
+  await tick();
+  gleich('ablage: eigener bei-Hörer ersetzt die Anfrage', eigene[0], 'n-1');
+  ab3();
+  pruefe('ablage: ohne Element ein Fehler', /Element/.test((await grund((async () => App.ablage(null))())) || ''));
 }
 } catch (e) { fehler.push(`Abbruch: ${(e && e.stack) || e}`); }
 

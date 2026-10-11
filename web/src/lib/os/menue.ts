@@ -91,5 +91,7 @@ export function lage(x: number, y: number, b: number, h: number, vw: number, vh:
 export const IST_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 export const mod = (rest: string): string => (IST_MAC ? `⌘${rest}` : `Strg+${rest}`);
 export const modAlt = (rest: string): string => (IST_MAC ? `⌥⌘${rest}` : `Strg+Alt+${rest}`);
+/** ⌃⌘ (Vollbild-Bildschirm): auf Windows und Linux Strg+Alt, weil dort die Windows-Taste dem System gehört */
+export const ctrlMod = (rest: string): string => (IST_MAC ? `⌃⌘${rest}` : `Strg+Alt+${rest}`);
 /** ⌥⇧ (Fenster im Kopf rücken): auf Windows und Linux „Alt+Umschalt“ statt Mac-Zeichen */
 export const altUmschalt = (rest: string): string => (IST_MAC ? `⌥⇧${rest}` : `Alt+Umschalt+${rest}`);

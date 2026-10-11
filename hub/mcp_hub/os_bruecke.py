@@ -17,6 +17,30 @@ Der Hub kann mit mehreren Replikaten laufen. Nichts liegt im Prozessspeicher —
     fyos:os:zeigt:<id>:<h>   „Agent zeigt“-Dedupe (gleiche App + Eingabe)       10 min
     fyos:os:zeigt-rate:<id>  Zähler „Agent zeigt“ je Sitzung                    10 min
     fyos:os:ende:<id>        Zeitmarke des Abschieds (Uhr des Browsers)          120 s
+    fyos:os:ausstehend       Liste vorgemerkter Mitteilungen (niemand da)        24 h, höchstens 20 Einträge
+
+## Nachholen: Mitteilungen für später
+
+`Bruecke.mitteilen` stellt zu, wenn jemand vor einer offenen Shell sitzt. Ist niemand da (nachts, unterwegs), legt sie
+die Mitteilung in die Liste `fyos:os:ausstehend` (`vorgemerkt: true`, `rueckfall: "vorgemerkt"`) — nichts geht verloren,
+nichts weckt jemanden. Sobald eine Sitzung gemeldet wird, vor der jemand sitzt (sichtbar, in den letzten 10 min benutzt:
+`melden`, und beim Verbindungsaufbau des Stroms), werden sie ausgeliefert: ältester zuerst, jede genau einmal (die
+Entnahme `LPOP` ist atomar, auch bei mehreren Replikaten und mehreren Geräten), als `zeigt`-Befehl mit
+`nachgeholt: true` und `entstanden` (Unix-Sekunden der Entstehung, damit die Shell „heute Nacht, 03:12“ schreiben
+kann). Nachgeholtes spielt keinen Ton und liest nichts vor. Die Liste hält höchstens 20 Einträge (die ältesten fallen
+heraus), läuft nach 24 h ab, und was beim Ausliefern älter als 24 h ist, wird verworfen. `OS_NACHHOLEN=aus` oder die
+Config `nachholen: false` schaltet es ab (dann gilt wieder `rueckfall: "kanal"`).
+
+## Kanal: Dringendes sofort in den Chat
+
+Ist niemand da und die Mitteilung `dringlichkeit: "hoch"`, wartet sie nicht auf die Shell: `Bruecke.mitteilen` schickt sie
+sofort über den Agenten in den Chat-Kanal des Besitzers (Telegram, WhatsApp oder Matrix, wie im Agenten eingerichtet; der
+Agent hält die Sitzungen und sendet, der Hub kennt keine Zugänge). Der Weg ist die Brücken-Methode `fyos.kanal.mitteilen`
+(Plugin `openclaw`, `kanal_anmelden`); Antwort `zugestellt: true, weg: "kanal", kanal: <name>`, nichts wird vorgemerkt.
+Dieselbe Mitteilung geht höchstens einmal je 10 min hinaus, insgesamt höchstens 6 je 10 min (`zu_viele`: dann wird
+vorgemerkt). Fehlt der Weg (keine Kopplung, kein Kanal eingerichtet) oder scheitert er, bleibt es beim Vormerken, die
+Antwort trägt `kanal_fehler`. `niedrig` und `normal` warten wie bisher auf die Shell. `OS_KANAL=aus` oder die Config
+`kanal: false` schaltet den Weg ab.
 
 ## Wire-Protokoll v1 (Browser <-> Hub)
 
@@ -58,7 +82,8 @@ Befehle (data von `event: befehl`; `alter_s` = Alter beim Ausliefern):
     {"id": "b-…", "art": "ausfuehren", "werkzeug": "os_fenster", "argumente": {…}, "von": "agent", "alter_s": 0.3}
     {"id": "b-…", "art": "zeigt",     "zeigt": {ziel, app, titel, untertitel, symbol, ton, vorschau, eingabe, link,
                                                 audio: {modus, klang, sprechen},
-                                                [art: "mitteilung", dringlichkeit]},
+                                                [art: "mitteilung", dringlichkeit],
+                                                [nachgeholt: true, entstanden: <Unix-Sekunden>]},
                                       "von": "agent", "alter_s": 0.3}        (keine Antwort)
 
 `ton` ist der Farbton des Symbols (0–360), kein Klang. Klang steht in `audio`: die Meldung trägt
@@ -122,6 +147,7 @@ SCHL_BEFEHL = PRAEFIX + "befehl:"
 SCHL_ZEIGT = PRAEFIX + "zeigt:"
 SCHL_RATE = PRAEFIX + "zeigt-rate:"
 SCHL_ENDE = PRAEFIX + "ende:"
+SCHL_AUSSTEHEND = PRAEFIX + "ausstehend"
 
 SITZUNG_TTL_S = 90  # Ablauf einer Sitzung ohne Meldung
 ENDE_MARKE_S = 120  # so lange gilt „diese Sitzung hat sich verabschiedet“ (Wettlauf beim Schließen)
@@ -142,6 +168,13 @@ AGENT_ZEIGT_DEDUPE_S = 600
 AGENT_ZEIGT_RATE_MAX = 6
 AGENT_ZEIGT_RATE_S = 600
 AGENT_AUFRUFER_VORGABE = ("agent*",)
+
+KANAL_DEDUPE_S = 600  # dieselbe dringende Mitteilung geht höchstens einmal je 10 min in den Chat
+KANAL_RATE_MAX = 6  # und höchstens so viele je 10 min (das Telefon des Besitzers ist kein Ablageort)
+KANAL_TEXT_MAX = 1000
+
+AUSSTEHEND_TTL_S = 24 * 3600  # so lange wartet eine vorgemerkte Mitteilung auf jemanden
+AUSSTEHEND_MAX = 20  # höchstens so viele warten; die ältesten fallen heraus
 
 MELDUNG_MAX_BYTES = 512 * 1024
 ANTWORT_MAX_BYTES = 256 * 1024
@@ -165,6 +198,20 @@ GERAETE_ARTEN = ("computer", "telefon", "tablet")
 # Gerät: der Tab meldet, was der Benutzer dort gewählt hat und ob Kopfhörer drin sind.
 AUDIO_MODI = ("stumm", "ton", "zurueckhaltend", "interaktiv")
 DRINGLICHKEITEN = ("niedrig", "normal", "hoch")
+
+#: Der Weg einer dringenden Mitteilung in den Chat-Kanal des Besitzers: eine Funktion `(text) -> dict` (Antwort der
+#: Brücke des Agenten, mit `kanal`). Das Plugin `openclaw` meldet sie an, solange die Kopplung an den Agenten steht.
+_kanal_weg: Callable[[str], dict[str, Any]] | None = None
+
+
+def kanal_anmelden(weg: Callable[[str], dict[str, Any]] | None) -> None:
+    """Meldet den Weg zum Chat-Kanal an (None: abmelden)."""
+    global _kanal_weg
+    _kanal_weg = weg
+
+
+def angemeldeter_kanal() -> Callable[[str], dict[str, Any]] | None:
+    return _kanal_weg
 
 _STEUERZEICHEN = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
 _LEERRAUM = re.compile(r"\s{2,}")
@@ -502,8 +549,16 @@ class Bruecke:
         agent_zeigt: bool = True,
         redis: Any = None,
         redis_async: Callable[[], Any] | None = None,
+        nachholen: bool = True,
+        kanal: bool = True,
+        kanal_weg: Callable[[str], dict[str, Any]] | None = None,
     ):
         self.redis_url = redis_url or os.getenv("REDIS_URL", REDIS_URL_VORGABE)
+        #: Mitteilungen ohne Gerät vormerken und später ausliefern (Abschnitt „Nachholen“ oben)
+        self.nachholen_an = nachholen
+        #: Dringende Mitteilungen ohne Gerät sofort in den Chat-Kanal des Besitzers schicken (Abschnitt „Kanal“ oben)
+        self.kanal_an = kanal
+        self._kanal_weg = kanal_weg  # Tests; sonst der angemeldete Weg (kanal_anmelden)
         self.basis_url = (basis_url or os.getenv("OS_BASIS_URL") or BASIS_URL_VORGABE).rstrip("/")
         self._zeit = zeit
         self.agent_aufrufer = tuple(agent_aufrufer) if agent_aufrufer else AGENT_AUFRUFER_VORGABE
@@ -532,11 +587,27 @@ class Bruecke:
             "nein",
             "off",
         )
+        nachholen_aus = (os.getenv("OS_NACHHOLEN") or "").strip().lower() in (
+            "aus",
+            "0",
+            "false",
+            "nein",
+            "off",
+        )
+        kanal_aus = (os.getenv("OS_KANAL") or "").strip().lower() in (
+            "aus",
+            "0",
+            "false",
+            "nein",
+            "off",
+        )
         return cls(
             redis_url=cfg.get("redis_url") or None,
             basis_url=cfg.get("basis_url") or None,
             agent_aufrufer=aufrufer,
             agent_zeigt=bool(cfg.get("agent_zeigt", True)) and not aus,
+            nachholen=bool(cfg.get("nachholen", True)) and not nachholen_aus,
+            kanal=bool(cfg.get("kanal", True)) and not kanal_aus,
         )
 
     # ── Redis ───────────────────────────────────────────────────────────────────────────────
@@ -622,6 +693,12 @@ class Bruecke:
         r.expire(SCHL_SITZUNGEN, 7200)
         offen = int(r.zcount(SCHL_SITZUNGEN, jetzt - SITZUNG_TTL_S, "+inf"))
         erg: dict[str, Any] = {"ok": True, "ablauf_s": SITZUNG_TTL_S, "sitzungen": offen}
+        # Sitzt jemand davor, kommt jetzt nach, was in der Zwischenzeit vorgemerkt wurde (vor dem Abholen, damit
+        # eine Sitzung ohne Strom es in derselben Antwort bekommt). Ein Fehler hier stört die Meldung nicht.
+        try:
+            self.nachholen(meldung)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("os: Nachholen für %s: %s", sid, exc)
         if meldung["abholen"]:
             befehle, nach = self.abholen(sid, roh.get("nach"))
             erg["befehle"] = befehle
@@ -1055,12 +1132,146 @@ class Bruecke:
         """Die Sitzung, vor der der Benutzer gerade sitzt: sichtbar und in den letzten 10 min benutzt. Sonst None."""
         jetzt = self._zeit()
         for s in self.sitzungen():
-            if (
-                s.get("sichtbar")
-                and jetzt - float(s.get("zuletzt_aktiv", 0)) <= AGENT_ZEIGT_AKTIV_S
-            ):
+            if self._ist_da(s, jetzt):
                 return s
         return None
+
+    @staticmethod
+    def _ist_da(s: dict[str, Any], jetzt: float) -> bool:
+        """Sitzt jemand vor dieser Sitzung? Sichtbar und in den letzten 10 min benutzt."""
+        return bool(s.get("sichtbar")) and jetzt - float(s.get("zuletzt_aktiv", 0)) <= AGENT_ZEIGT_AKTIV_S
+
+    def nachholen(self, sitzung: dict[str, Any]) -> int:
+        """Liefert vorgemerkte Mitteilungen an diese Sitzung aus, wenn jemand davor sitzt. Gibt die Zahl zurück.
+
+        Ältester zuerst, jede genau einmal: `LPOP` entnimmt atomar, zwei Replikate oder zwei Geräte teilen sich die
+        Liste, nie dieselbe Mitteilung. Abgelaufenes (über 24 h) wird verworfen. Scheitert das Senden, geht der Eintrag
+        an den Anfang zurück und der Fehler weiter. Nachgeholtes ist still: keine Hinweistöne, kein Vorlesen."""
+        if not self.nachholen_an or not self._ist_da(sitzung, self._zeit()):
+            return 0
+        r = self._r()
+        sid = sitzung["sitzung"]
+        wirksam = audio_wirksam(sitzung.get("audio"))
+        n = 0
+        for _ in range(AUSSTEHEND_MAX):
+            roh = r.lpop(SCHL_AUSSTEHEND)
+            if roh is None:
+                break
+            eintrag = _json_laden(roh)
+            if not isinstance(eintrag, dict) or not isinstance(eintrag.get("zeigt"), dict):
+                continue
+            try:
+                entstanden = float(eintrag.get("t"))
+            except (TypeError, ValueError):
+                continue
+            if self._zeit() - entstanden > AUSSTEHEND_TTL_S:
+                continue
+            zeigt = {
+                **eintrag["zeigt"],
+                "nachgeholt": True,
+                "entstanden": entstanden,
+                "audio": {"modus": wirksam, "klang": False, "sprechen": False},
+            }
+            von = eintrag.get("von") if isinstance(eintrag.get("von"), str) else "agent"
+            try:
+                self.senden(sid, {"id": neue_befehls_id(), "art": "zeigt", "zeigt": zeigt, "von": von})
+            except Exception:
+                r.lpush(SCHL_AUSSTEHEND, roh)
+                raise
+            n += 1
+        if n:
+            logger.info("os: %d vorgemerkte Mitteilung(en) an %s ausgeliefert", n, sid)
+        return n
+
+    def ausstehend(self) -> int:
+        """Wie viele Mitteilungen warten auf jemanden?"""
+        return int(self._r().llen(SCHL_AUSSTEHEND) or 0)
+
+    def _vormerken(
+        self, zeigt: dict[str, Any], von: str, link: str | None, gekappt: bool
+    ) -> dict[str, Any]:
+        """Niemand ist da: die Mitteilung wartet bis zur nächsten Sitzung, vor der jemand sitzt."""
+        weg = " Die Eingabe war zu groß (über 4000 Zeichen) und wurde weggelassen." if gekappt else ""
+        if not self.nachholen_an:
+            return {
+                "zugestellt": False,
+                "grund": "nicht_da",
+                "rueckfall": "kanal",
+                "link": link,
+                "satz": "Der Benutzer sitzt gerade an keinem Gerät mit offener Shell (letzte 10 min). "
+                "Nimm einen anderen Kanal oder heb es für später auf." + weg,
+            }
+        r = self._r()
+        if not r.set(
+            SCHL_ZEIGT + "ausstehend:" + _schluessel_hash("mitteilung", zeigt["titel"], zeigt["vorschau"]),
+            "1",
+            ex=AGENT_ZEIGT_DEDUPE_S,
+            nx=True,
+        ):
+            return {
+                "zugestellt": False,
+                "grund": "doppelt",
+                "vorgemerkt": True,
+                "satz": "Dieselbe Mitteilung ist schon vorgemerkt.",
+            }
+        eintrag = {"zeigt": zeigt, "von": von, "t": self._zeit()}
+        r.rpush(SCHL_AUSSTEHEND, json.dumps(eintrag, ensure_ascii=False, separators=(",", ":")))
+        r.ltrim(SCHL_AUSSTEHEND, -AUSSTEHEND_MAX, -1)
+        r.expire(SCHL_AUSSTEHEND, AUSSTEHEND_TTL_S)
+        return {
+            "zugestellt": False,
+            "grund": "nicht_da",
+            "vorgemerkt": True,
+            "rueckfall": "vorgemerkt",
+            "ausstehend": int(r.llen(SCHL_AUSSTEHEND) or 0),
+            "link": link,
+            "satz": "Der Benutzer sitzt gerade an keinem Gerät mit offener Shell. Die Mitteilung ist vorgemerkt und "
+            "erscheint, sobald er die Shell öffnet (bis zu 24 h, ohne Ton). Du musst nichts weiter tun; nimm nur bei "
+            "etwas Dringendem zusätzlich einen anderen Kanal." + weg,
+        }
+
+    def _ueber_kanal(self, zeigt: dict[str, Any]) -> dict[str, Any] | None:
+        """Niemand ist da, die Mitteilung ist dringend: sofort über den Agenten in den Chat-Kanal des Besitzers.
+
+        None: der Weg ist nicht vorhanden (Kanal aus oder keine Kopplung an den Agenten), es bleibt beim Vormerken.
+        Mit `zugestellt`: erledigt (angekommen, oder vor kurzem schon gesendet). Nur `kanal_fehler`: der Weg ist
+        da, aber es ging nicht (zu viele in kurzer Zeit, Kanal nicht eingerichtet oder gestört), dann wird vorgemerkt.
+        """
+        weg = self._kanal_weg or angemeldeter_kanal()
+        if not self.kanal_an or weg is None:
+            return None
+        r = self._r()
+        merke = SCHL_ZEIGT + "kanal:" + _schluessel_hash("mitteilung", zeigt["titel"], zeigt["vorschau"])
+        if not r.set(merke, "1", ex=KANAL_DEDUPE_S, nx=True):
+            return {
+                "zugestellt": False,
+                "grund": "doppelt",
+                "weg": "kanal",
+                "satz": "Dieselbe dringende Mitteilung ging vor weniger als 10 min schon in den Chat-Kanal.",
+            }
+        n = r.incr(SCHL_RATE + "kanal")
+        if n == 1:
+            r.expire(SCHL_RATE + "kanal", AGENT_ZEIGT_RATE_S)
+        if n > KANAL_RATE_MAX:
+            r.delete(merke)
+            return {"kanal_fehler": "zu_viele"}
+        teile = [zeigt["titel"], zeigt.get("vorschau") or ""]
+        if str(zeigt.get("link") or "").startswith(("http://", "https://")):
+            teile.append(zeigt["link"])
+        try:
+            antwort = weg("\n".join(x for x in teile if x)[:KANAL_TEXT_MAX])
+        except Exception as exc:  # noqa: BLE001 — der Weg zum Agenten darf die Mitteilung nie verlieren
+            logger.warning("os: Chat-Kanal: %s", text(f"{type(exc).__name__}: {exc}", 200))
+            r.delete(merke)
+            return {"kanal_fehler": "nicht_zugestellt"}
+        name = text((antwort or {}).get("kanal"), 20) if isinstance(antwort, dict) else ""
+        return {
+            "zugestellt": True,
+            "weg": "kanal",
+            **({"kanal": name} if name else {}),
+            "satz": "Niemand sitzt an der Shell und es war dringend: die Mitteilung ging sofort in den Chat-Kanal "
+            "des Benutzers" + (f" ({name})" if name else "") + ". Du musst nichts weiter tun.",
+        }
 
     def mitteilen(
         self,
@@ -1073,8 +1284,9 @@ class Bruecke:
         von: str = "agent",
     ) -> dict[str, Any]:
         """Der Agent meldet sich von selbst: als Karte auf dem Gerät, vor dem der Benutzer sitzt — mit Hinweiston
-        oder Stimme nach dessen Ton-Modus. Ist er an keinem Gerät, wird nichts gezeigt:
-        `rueckfall: kanal` sagt dem Agenten, dass er einen anderen Weg (Chat, Mail) nehmen muss."""
+        oder Stimme nach dessen Ton-Modus. Ist er an keinem Gerät, wird die Mitteilung vorgemerkt und erscheint, sobald
+        er die Shell öffnet (`vorgemerkt: true`, `rueckfall: "vorgemerkt"`, Abschnitt „Nachholen“ oben); ist das
+        Nachholen aus, sagt `rueckfall: kanal` dem Agenten, dass er einen anderen Weg (Chat, Mail) nehmen muss."""
         t = text(titel, 80)
         if not t:
             raise ValueError("titel fehlt (ein kurzer Satz, worum es geht)")
@@ -1093,16 +1305,31 @@ class Bruecke:
         q = text(quelle, 40) or None
         vorschau = text(inhalt, 300) or None
         link = deeplink(z, eingabe or None, self.basis_url)
+        zeigt: dict[str, Any] = {
+            "ziel": z,
+            "app": z[4:] if z.startswith("app:") else None,
+            "titel": t,
+            "untertitel": q,
+            "symbol": None,
+            "ton": None,
+            "vorschau": vorschau,
+            "eingabe": eingabe or None,
+            "link": link,
+            "art": "mitteilung",
+            "dringlichkeit": d,
+        }
         s = self.anwesend()
         if s is None:
-            return {
-                "zugestellt": False,
-                "grund": "nicht_da",
-                "rueckfall": "kanal",
-                "link": link,
-                "satz": "Der Benutzer sitzt gerade an keinem Gerät mit offener Shell (letzte 10 min). "
-                "Nimm einen anderen Kanal oder heb es für später auf.",
-            }
+            kanal: dict[str, Any] | None = None
+            if d == "hoch":
+                kanal = self._ueber_kanal(zeigt)
+                if kanal is not None and ("zugestellt" in kanal):
+                    return kanal  # im Chat angekommen (oder dort schon vor kurzem): nichts mehr vormerken
+            ergebnis = self._vormerken(zeigt, von, link, gekappt)
+            if kanal:
+                ergebnis.update(kanal)
+                ergebnis["satz"] += " Der Weg in den Chat-Kanal hat nicht geklappt."
+            return ergebnis
         sid = s["sitzung"]
         geraet = s.get("geraet") or "dem Gerät"
         r = self._r()
@@ -1134,20 +1361,7 @@ class Bruecke:
             }
         wirksam = audio_wirksam(s.get("audio"))
         aus = ausgabe_fuer(wirksam, d)
-        zeigt = {
-            "ziel": z,
-            "app": z[4:] if z.startswith("app:") else None,
-            "titel": t,
-            "untertitel": q,
-            "symbol": None,
-            "ton": None,
-            "vorschau": vorschau,
-            "eingabe": eingabe or None,
-            "link": link,
-            "art": "mitteilung",
-            "dringlichkeit": d,
-            "audio": {"modus": wirksam, **aus},
-        }
+        zeigt["audio"] = {"modus": wirksam, **aus}
         self.senden(sid, {"id": neue_befehls_id(), "art": "zeigt", "zeigt": zeigt, "von": von})
         wie = (
             "vorgelesen" if aus["sprechen"] else ("mit Hinweiston" if aus["klang"] else "ohne Ton")
@@ -1164,6 +1378,13 @@ class Bruecke:
             **({"eingabe_weggelassen": True} if gekappt else {}),
         }
 
+    def _nachholen_fuer(self, sitzung: str) -> int:
+        """Nachholen für eine gemeldete Sitzung (beim Verbindungsaufbau des Stroms)."""
+        gespeichert = _json_laden(self._r().get(SCHL_SITZUNG + sitzung))
+        if not isinstance(gespeichert, dict):
+            return 0
+        return self.nachholen(gespeichert)
+
     # ── Strom (SSE) ─────────────────────────────────────────────────────────────────────────
     async def strom(
         self, client: Any, sitzung: str, nach: str | None = None, bekannt: bool = True
@@ -1179,6 +1400,13 @@ class Bruecke:
         yield sse_ereignis(
             "hallo", {"sitzung": sitzung, "ablauf_s": SITZUNG_TTL_S, "bekannt": bekannt}
         )
+        # Wer die Shell öffnet, bekommt sofort, was über Nacht vorgemerkt wurde (die Befehle liegen im Stream, den die
+        # Schleife gleich liest). Ein Fehler hier stört den Strom nicht.
+        if bekannt and self.nachholen_an:
+            try:
+                await asyncio.to_thread(self._nachholen_fuer, sitzung)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("os: Nachholen beim Strom %s: %s", sitzung, exc)
         # Endet nach STROM_MAX_S oder sobald der Server herunterfährt (HERUNTER) — dann endet die Antwort sauber,
         # der Browser verbindet sich mit Last-Event-ID beim nächsten Pod neu.
         while time.monotonic() - beginn < STROM_MAX_S and not HERUNTER.is_set():

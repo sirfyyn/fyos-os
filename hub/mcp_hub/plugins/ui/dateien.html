@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dateien</title>
+<style>/*STIL*/
+  /* Eigene Klassen der App tragen den Vorsatz d- (die Klassen der gemeinsamen Schicht gehören _stil.css) */
+  .d-pfad { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+  .d-pfad .rechts { margin-left: auto; display: flex; gap: 6px; }
+  .d-raster { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 760px) { .d-raster.mit-vorschau { grid-template-columns: minmax(260px, 2fr) minmax(0, 3fr); } }
+  .d-leiste { margin: 0 0 12px; }
+  .d-kopf { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
+  .d-kopf-text { min-width: 0; flex: 1 1 auto; }
+  .d-name { font-size: 16px; font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+  .d-meta { font-size: 12.5px; color: var(--mut); overflow-wrap: anywhere; }
+  .d-aktionen { margin: 0 0 12px; }
+  .d-text { margin: 0; padding: 12px 14px; max-height: 480px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+    font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; border: 1px solid var(--line); border-radius: var(--r-m, 12px); }
+  .d-md { max-height: 480px; overflow: auto; padding: 4px 2px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+  .d-md > :first-child { margin-top: 0; }
+  .d-md h3, .d-md h4, .d-md h5 { margin: 16px 0 6px; }
+  .d-md p, .d-md ul, .d-md ol, .d-md blockquote, .d-md pre { margin: 0 0 10px; }
+  .d-md ul, .d-md ol { padding-left: 22px; }
+  .d-md blockquote { padding: 2px 12px; border-left: 3px solid var(--line-2); color: var(--mut); }
+  .d-md code { font-family: var(--font-mono); font-size: 12.5px; padding: 1px 5px; border-radius: 6px; background: var(--color-background-tertiary); }
+  .d-md pre { padding: 10px 12px; overflow: auto; border-radius: 10px; background: var(--color-background-tertiary); }
+  .d-md pre code { padding: 0; background: none; }
+  .d-md hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+  .d-md a { color: var(--akz); text-decoration: underline; cursor: pointer; }
+  .d-bild { display: block; max-width: 100%; max-height: 520px; margin: 0 auto; border-radius: 10px; background: var(--color-background-secondary); }
+  .d-editor { width: 100%; min-height: 320px; resize: vertical; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; }
+  .d-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .d-form input { flex: 1 1 220px; min-width: 0; }
+  .d-fassung { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+  .d-fassung + .d-fassung { border-top: 1px solid var(--line); }
+  .d-fassung .zeile-text { flex: 1 1 auto; }
+  .d-auszug { font-family: var(--font-mono); font-size: 12px; color: var(--mut); overflow-wrap: anywhere; }
+  #ablage { display: none; position: fixed; inset: 6px; z-index: 20; align-items: center; justify-content: center; text-align: center; pointer-events: none;
+    border: 2px dashed var(--akz); border-radius: 18px; background: color-mix(in oklab, var(--akz) 14%, transparent); font-size: 15px; font-weight: var(--font-weight-medium); }
+  #ablage.an { display: flex; }
+  #meldung:empty, #antrag:empty, #hochladen:empty { display: none; }
+  #meldung, #hochladen { margin: 0 0 12px; }
+</style>
+</head>
+<body>
+<!--KOPF-->
+  <button id="knopf-hoch" class="rund" title="Dateien hochladen" aria-label="Dateien hochladen"><svg class="ico" data-symbol="upload"></svg></button>
+  <button id="knopf-neu" class="rund" title="Neue Datei oder neuer Ordner" aria-label="Neue Datei oder neuer Ordner"><svg class="ico" data-symbol="plus"></svg></button>
+  <button id="knopf-korb" class="rund" title="Papierkorb" aria-label="Papierkorb" aria-pressed="false"><svg class="ico" data-symbol="trash-2"></svg></button>
+  <button id="knopf-neuladen" class="rund drehen" title="Aktualisieren" aria-label="Aktualisieren"><svg class="ico" data-symbol="refresh-cw"></svg></button>
+<!--/KOPF-->
+<main>
+  <input id="datei-wahl" type="file" multiple hidden>
+  <div id="antrag"></div>
+  <div id="hochladen"></div>
+  <div id="meldung" aria-live="polite"></div>
+  <form id="neu-form" class="d-form" hidden autocomplete="off">
+    <input id="neu-name" type="text" maxlength="200" placeholder="Name, etwa Notizen/heute.md" aria-label="Name der neuen Datei oder des neuen Ordners">
+    <button type="button" class="haupt" data-aktion="neu-datei"><svg class="ico" data-symbol="file-plus"></svg>Datei</button>
+    <button type="button" class="zweit" data-aktion="neu-ordner"><svg class="ico" data-symbol="folder"></svg>Ordner</button>
+  </form>
+  <div id="inhalt"><div class="laedt">Lädt …</div></div>
+</main>
+<div id="ablage" aria-hidden="true">Dateien hier loslassen</div>
+<script>
+/*BRUECKE*/
+const $ = (id) => document.getElementById(id);
+const { esc, symbol, kachel, zustand, satz } = App;
+const rufen = (name, args) => App.rufen("dateien__" + name, args);
+const ADRESSE = "/hub-api/dateien/datei?";
+const DATEIEN_MAX = 200; // so viele Dateien nimmt ein einziges Ablegen höchstens
+
+// ── Zustand ────────────────────────────────────────────────────────────────
+let ort = "";                // geöffneter Ordner
+let eintraege = [];          // Inhalt des Ordners
+let auswahl = null;          // gewählte Datei (Pfad)
+let ansicht = "ordner";      // ordner | suche | korb
+let suchtext = "";
+let treffer = [];
+let korb = [];
+let nichtDa = null;          // Hinweis, wenn die Ablage nicht eingerichtet ist
+let bekommen = false;
+let vorschauNr = 0;          // jede neue Vorschau macht ältere ungültig
+let bildUrl = null;          // Blob-Adresse des gezeigten Bildes
+let stand = "";              // Merkzettel der letzten Liste (für stilles Nachführen)
+let editiert = false;        // ein Editor ist offen: nicht stillschweigend neu zeichnen
+let hochladenLaeuft = false;
+
+// ── Hilfen ─────────────────────────────────────────────────────────────────
+const verbinde = (a, b) => (a ? a + "/" : "") + String(b || "").replace(/^\/+/, "");
+const nameVon = (p) => String(p || "").split("/").pop();
+const elternVon = (p) => String(p || "").split("/").slice(0, -1).join("/");
+const imShell = () => App.host === "fyos";
+const dateiUrl = (pfad, laden) => ADRESSE + "pfad=" + encodeURIComponent(pfad) + (laden ? "&laden=1" : "");
+
+function groesse(n) {
+  if (n == null) return "";
+  if (n < 1024) return `${n} Byte`;
+  if (n < 1048576) return `${App.zahl(n / 1024, 0)} KB`;
+  return `${App.zahl(n / 1048576, 1)} MB`;
+}
+const istText = (typ) => !typ || typ.startsWith("text/") || /^application\/(json|yaml|toml|xml|javascript|x-sh)/.test(typ);
+const istBild = (typ) => /^image\/(png|jpeg|gif|webp|avif|bmp|svg\+xml)$/.test(typ || "");
+const istMarkdown = (name) => /\.(md|markdown)$/i.test(name || "");
+const istCode = (typ, name) => /\.(json|ya?ml|toml|xml|js|ts|py|sh|css|html?|csv|log|ini|conf)$/i.test(name || "") || /^application\//.test(typ || "");
+function sym(e) {
+  if (e.art === "ordner") return "folder";
+  if (istBild(e.typ)) return "image";
+  if (istMarkdown(e.name) || (e.typ || "").startsWith("text/plain")) return "file-text";
+  if (istText(e.typ) && istCode(e.typ, e.name)) return "file-code";
+  if (istText(e.typ)) return "file-text";
+  return "paperclip";
+}
+function fehler(e) { return zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Das hat nicht geklappt", text: App.fehlertext(e), klein: true }); }
+
+let meldeUhr = 0;
+function melde(text, ton = "gut") {
+  clearTimeout(meldeUhr);
+  $("meldung").innerHTML = `<div class="hinweis ${ton === "schlecht" ? "fehler" : ton}" role="status">${symbol(ton === "schlecht" ? "circle-alert" : ton === "gut" ? "check" : "info")}<span>${esc(text)}</span></div>`;
+  if (ton !== "schlecht") meldeUhr = setTimeout(() => { $("meldung").replaceChildren(); }, 7000);
+}
+
+// Rückfrage vor jeder Änderung: Trockenlauf, Plan, erst nach „Ja“ der echte Lauf (App.beantragen)
+const antragOrt = $("antrag");
+new MutationObserver(() => { if (antragOrt.firstChild) antragOrt.scrollIntoView({ block: "nearest", behavior: "smooth" }); }).observe(antragOrt, { childList: true });
+async function beantrage(o, nachher) {
+  try {
+    const r = await App.beantragen({ ort: antragOrt, symbol: "check", ...o });
+    if (r && nachher) await nachher(r);
+  } catch (e) { melde(App.fehlertext(e), "schlecht"); }
+}
+
+// ── Laden ──────────────────────────────────────────────────────────────────
+function uebernehmen(d, wahl) {
+  if (!d) return;
+  if (d.zustand === "nicht eingerichtet") { nichtDa = d.hinweis || "Die Dateiablage ist nicht eingerichtet."; zeichnen(); return; }
+  nichtDa = null;
+  ort = d.pfad || "";
+  eintraege = Array.isArray(d.eintraege) ? d.eintraege : [];
+  stand = JSON.stringify(eintraege);
+  const gewaehlt = wahl || d.auswahl || (auswahl && eintraege.some((e) => e.pfad === auswahl) ? auswahl : null);
+  ansicht = "ordner";
+  satz(d.satz || "", "");
+  zeichnen();
+  if (gewaehlt) waehle(gewaehlt); else { auswahl = null; vorschauNr++; }
+}
+async function laden(pfad = ort, wahl = null) {
+  try { uebernehmen(await rufen("liste", { pfad }), wahl); bekommen = true; }
+  catch (e) { $("inhalt").innerHTML = '<div class="karte">' + fehler(e) + "</div>"; }
+}
+async function nachfuehren() {
+  if (document.hidden || editiert || ansicht !== "ordner" || nichtDa || antragOrt.firstChild || hochladenLaeuft) return;
+  const d = await rufen("liste", { pfad: ort });
+  if (d && d.eintraege && JSON.stringify(d.eintraege) !== stand) {
+    const alt = auswahl;
+    uebernehmen(d, alt && d.eintraege.some((e) => e.pfad === alt) ? alt : null);
+  }
+}
+
+// ── Zeichnen ───────────────────────────────────────────────────────────────
+function pfadleiste() {
+  const teile = ort ? ort.split("/") : [];
+  let akt = "";
+  let html = `<button type="button" class="chip${teile.length ? "" : " an"}" data-aktion="gehe" data-pfad="">${symbol("house")}Dateien</button>`;
+  teile.forEach((t, i) => {
+    akt = verbinde(akt, t);
+    html += `<button type="button" class="chip${i === teile.length - 1 ? " an" : ""}" data-aktion="gehe" data-pfad="${esc(akt)}">${esc(t)}</button>`;
+  });
+  if (ort) {
+    html += '<span class="rechts">'
+      + `<button type="button" class="rund" data-aktion="umbenennen-ordner" title="Ordner umbenennen oder verschieben" aria-label="Ordner umbenennen oder verschieben">${symbol("pencil")}</button>`
+      + `<button type="button" class="rund loeschen" data-aktion="loeschen-ordner" title="Ordner in den Papierkorb" aria-label="Ordner in den Papierkorb">${symbol("trash-2")}</button></span>`;
+  }
+  return `<div class="d-pfad">${html}</div>`;
+}
+function suchleiste() {
+  return `<div class="leiste d-leiste"><input id="suche" type="search" maxlength="200" placeholder="Suchen — Name und Text" aria-label="Dateien suchen" value="${esc(suchtext)}">`
+    + (suchtext ? `<button type="button" class="rund" data-aktion="suche-leeren" aria-label="Suche beenden" title="Suche beenden">${symbol("x")}</button>` : "") + "</div>";
+}
+function zeile(e, extra) {
+  const ist = e.art === "datei";
+  const attr = ist ? ` data-typ="datei" data-id="${esc(e.pfad)}" data-label="${esc(e.name)}"` : "";
+  const unter = ist ? [groesse(e.groesse), e.geaendert ? App.zeit.vor(e.geaendert) : ""].filter(Boolean).join(" · ") : (e.geaendert ? "geändert " + App.zeit.vor(e.geaendert) : "");
+  return `<button type="button" class="zeile mitte${ist && e.pfad === auswahl ? " an" : ""}" data-aktion="oeffne" data-pfad="${esc(e.pfad)}" data-art="${esc(e.art)}"${attr}>`
+    + kachel(sym(e), ist ? "grau" : "akz")
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(e.name)}</span><span class="zeile-unter">${extra || esc(unter)}</span></span>`
+    + (ist ? "" : symbol("chevron-right", "weiter")) + "</button>";
+}
+function listeHtml() {
+  if (nichtDa) return "";
+  if (ansicht === "korb") {
+    if (!korb.length) return '<div class="karte">' + zustand({ symbol: "trash-2", titel: "Der Papierkorb ist leer", text: "Gelöschtes bleibt hier einige Tage und lässt sich zurückholen.", klein: true }) + "</div>";
+    return '<div class="gruppe">' + korb.map((k) =>
+      `<div class="zeile mitte">${kachel(k.art === "ordner" ? "folder" : "file-text", "grau")}`
+      + `<span class="zeile-text"><span class="zeile-titel">${esc(k.name)}</span><span class="zeile-unter">${esc(k.pfad)} · gelöscht ${esc(App.zeit.vor(k.geloescht))}${k.groesse != null ? " · " + esc(groesse(k.groesse)) : ""}</span></span>`
+      + `<button type="button" class="leise" data-aktion="zurueckholen" data-id="${esc(k.id)}">${symbol("rotate-ccw")}Zurückholen</button></div>`).join("") + "</div>";
+  }
+  if (ansicht === "suche") {
+    if (!treffer.length) return '<div class="karte">' + zustand({ symbol: "search", titel: "Nichts gefunden", text: `Für „${suchtext}“ gibt es keinen Treffer in Namen oder Text.`, klein: true }) + "</div>";
+    return '<div class="gruppe">' + treffer.map((t) => zeile(t,
+      esc(t.pfad) + (t.auszug ? `<br><span class="d-auszug">Zeile ${esc(t.zeile)}: ${esc(t.auszug)}</span>` : ""))).join("") + "</div>";
+  }
+  if (!eintraege.length) {
+    return '<div class="karte">' + zustand({ symbol: "folder-open", titel: ort ? "Dieser Ordner ist leer" : "Noch keine Dateien",
+      text: imShell() ? "Zieh Dateien vom Schreibtisch hierher oder leg mit „+“ etwas Neues an." : "Leg mit „+“ etwas Neues an.", klein: true }) + "</div>";
+  }
+  return '<div class="gruppe">' + eintraege.map((e) => zeile(e)).join("") + "</div>";
+}
+function zeichnen() {
+  if (nichtDa) {
+    satz("Nicht eingerichtet", "warn");
+    $("inhalt").innerHTML = '<div class="karte">' + zustand({ symbol: "hard-drive", ton: "warn", titel: "Die Dateiablage ist nicht eingerichtet", text: nichtDa }) + "</div>";
+    return;
+  }
+  const mitVorschau = ansicht !== "korb" && auswahl;
+  $("inhalt").innerHTML = (ansicht === "korb" ? '<div class="d-pfad"><button type="button" class="chip" data-aktion="gehe" data-pfad="">' + symbol("arrow-left") + "Zu den Dateien</button></div>" : pfadleiste())
+    + (ansicht === "korb" ? "" : suchleiste())
+    + `<div class="d-raster${mitVorschau ? " mit-vorschau" : ""}"><div id="liste">${listeHtml()}</div>${mitVorschau ? '<div id="vorschau" class="karte"></div>' : ""}</div>`;
+  $("knopf-korb").setAttribute("aria-pressed", String(ansicht === "korb"));
+  if (ansicht === "korb") satz(korb.length ? `${korb.length} im Papierkorb` : "Papierkorb leer", korb.length ? "warn" : "gut");
+  else if (ansicht === "suche") satz(`${treffer.length} Treffer für „${suchtext}“`, treffer.length ? "gut" : "");
+  const such = $("suche");
+  if (such && ansicht === "suche" && document.activeElement !== such) { /* Fokus bleibt, wo er ist */ }
+}
+
+// ── Vorschau ───────────────────────────────────────────────────────────────
+function freigeben() { if (bildUrl) { URL.revokeObjectURL(bildUrl); bildUrl = null; } }
+function eintragZu(pfad) { return eintraege.find((e) => e.pfad === pfad) || treffer.find((t) => t.pfad === pfad) || { pfad, name: nameVon(pfad), art: "datei", typ: null }; }
+
+function inline(t) {
+  let s = esc(t);
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[\s(])_([^_]+)_(?=[\s).,;:!?]|$)/g, "$1<em>$2</em>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+  // Links nur mit https://, http:// oder mailto: — angeklickt öffnet sie der Host (die Sandbox navigiert nicht selbst)
+  s = s.replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g, (_, text, url) => `<a href="#" data-aktion="link" data-url="${url}">${text}</a>`);
+  return s;
+}
+function markdown(text) {
+  const zeilen = String(text).replace(/\r\n?/g, "\n").split("\n");
+  const aus = [];
+  let i = 0;
+  while (i < zeilen.length) {
+    const z = zeilen[i];
+    if (/^```/.test(z)) {
+      const code = []; i++;
+      while (i < zeilen.length && !/^```/.test(zeilen[i])) code.push(zeilen[i++]);
+      i++; aus.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`); continue;
+    }
+    const h = /^(#{1,6})\s+(.*)$/.exec(z);
+    if (h) { const n = Math.min(5, h[1].length + 2); aus.push(`<h${n}>${inline(h[2])}</h${n}>`); i++; continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(z)) { aus.push("<hr>"); i++; continue; }
+    if (/^>\s?/.test(z)) {
+      const q = []; while (i < zeilen.length && /^>\s?/.test(zeilen[i])) q.push(zeilen[i++].replace(/^>\s?/, ""));
+      aus.push(`<blockquote>${inline(q.join(" "))}</blockquote>`); continue;
+    }
+    const liste = /^\s*([-*+]|\d+[.)])\s+/.exec(z);
+    if (liste) {
+      const geordnet = /\d/.test(liste[1]); const punkte = [];
+      while (i < zeilen.length) {
+        const m = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(zeilen[i]);
+        if (!m || /\d/.test(m[1]) !== geordnet) break;
+        punkte.push(`<li>${inline(m[2])}</li>`); i++;
+      }
+      aus.push(geordnet ? `<ol>${punkte.join("")}</ol>` : `<ul>${punkte.join("")}</ul>`); continue;
+    }
+    if (!z.trim()) { i++; continue; }
+    const absatz = [];
+    while (i < zeilen.length && zeilen[i].trim() && !/^(```|#{1,6}\s|>\s?|\s*([-*+]|\d+[.)])\s)/.test(zeilen[i])) absatz.push(zeilen[i++]);
+    aus.push(`<p>${inline(absatz.join(" "))}</p>`);
+  }
+  return aus.join("");
+}
+
+function kopfHtml(e, d) {
+  const meta = [groesse(d && d.groesse != null ? d.groesse : e.groesse), e.typ || (d && d.typ), (d && d.geaendert) || e.geaendert ? "geändert " + App.zeit.vor((d && d.geaendert) || e.geaendert) : ""].filter(Boolean).join(" · ");
+  const ort2 = elternVon(e.pfad);
+  const knoepfe = [
+    imShell() && { text: "Öffnen", symbol: "external-link", klasse: "leise", aktion: "im-browser", titel: "In einem neuen Tab öffnen" },
+    imShell() && { text: "Laden", symbol: "download", klasse: "leise", aktion: "herunterladen", titel: "Herunterladen" },
+    { text: "Umbenennen", symbol: "pencil", klasse: "leise", aktion: "umbenennen" },
+    { text: "Löschen", symbol: "trash-2", klasse: "loeschen", aktion: "loeschen" },
+  ];
+  return `<div class="d-kopf">${kachel(sym(e), "akz", "gross")}<div class="d-kopf-text"><div class="d-name">${esc(e.name)}</div>`
+    + `<div class="d-meta">${esc(meta)}${ort2 && ansicht === "suche" ? " · " + esc(ort2) : ""}</div></div>`
+    + `<button type="button" class="rund" data-aktion="vorschau-zu" aria-label="Vorschau schließen" title="Vorschau schließen">${symbol("x")}</button></div>`
+    + App.knoepfe(knoepfe, { klasse: "d-aktionen" }) + '<div id="umbenennen-ort"></div>';
+}
+
+async function vorschauZeigen() {
+  const nr = ++vorschauNr;
+  const ziel = $("vorschau");
+  if (!ziel || !auswahl) return;
+  freigeben();
+  editiert = false;
+  const e = eintragZu(auswahl);
+  ziel.innerHTML = kopfHtml(e) + '<div id="vorschau-inhalt"><div class="laedt">Lädt …</div></div><div id="fassungen"></div>';
+  const inh = () => (nr === vorschauNr ? $("vorschau-inhalt") : null);
+  try {
+    if (istBild(e.typ)) {
+      const v = await rufen("vorschau", { pfad: e.pfad });
+      if (!inh()) return;
+      const roh = atob(v.daten_base64), bytes = new Uint8Array(roh.length);
+      for (let i = 0; i < roh.length; i++) bytes[i] = roh.charCodeAt(i);
+      bildUrl = URL.createObjectURL(new Blob([bytes], { type: v.typ }));
+      inh().innerHTML = `<img class="d-bild" alt="${esc(e.name)}" src="${esc(bildUrl)}">`;
+      return;
+    }
+    if (e.typ === "application/pdf") {
+      inh().innerHTML = zustand({ symbol: "file-text", titel: "PDF", text: imShell() ? "PDFs zeigt dein Browser in einem eigenen Tab." : "PDFs lassen sich hier nicht einbetten.", klein: true,
+        knopf: imShell() ? { text: "Im Browser öffnen", aktion: "im-browser", symbol: "external-link", klasse: "haupt" } : null });
+      return;
+    }
+    const d = await rufen("lesen", { pfad: e.pfad });
+    if (!inh()) return;
+    ziel.querySelector(".d-meta").textContent = [groesse(d.groesse), d.typ, "geändert " + App.zeit.vor(d.geaendert)].join(" · ");
+    if (d.art !== "text") {
+      inh().innerHTML = zustand({ symbol: "paperclip", titel: "Keine Vorschau", text: "Diese Datei ist keine Textdatei und kein Bild.", klein: true,
+        knopf: imShell() ? { text: "Herunterladen", aktion: "herunterladen", symbol: "download", klasse: "haupt" } : null });
+      return;
+    }
+    gelesen = d;
+    inh().innerHTML = (d.gekuerzt ? `<div class="hinweis">${symbol("info")}<span>Die Datei ist lang, hier steht nur der Anfang.</span></div>` : "")
+      + (istMarkdown(e.name) ? `<div class="d-md">${markdown(d.text)}</div>` : `<pre class="d-text">${esc(d.text)}</pre>`)
+      + App.knoepfe([
+        !d.gekuerzt && { text: "Bearbeiten", symbol: "pencil", klasse: "zweit", aktion: "bearbeiten" },
+        { text: "Frühere Fassungen", symbol: "history", klasse: "leise", aktion: "fassungen" },
+      ], { klasse: "d-aktionen" });
+  } catch (err) {
+    if (inh()) inh().innerHTML = fehler(err);
+  }
+}
+let gelesen = null; // zuletzt gelesener Text der gewählten Datei (für den Editor)
+
+function waehle(pfad) {
+  auswahl = pfad;
+  zeichnen();
+  vorschauZeigen();
+}
+
+// ── Aktionen: Navigation ───────────────────────────────────────────────────
+App.bei("gehe", (el) => { suchtext = ""; auswahl = null; vorschauNr++; freigeben(); laden(el.dataset.pfad || ""); });
+App.bei("oeffne", (el) => {
+  if (el.dataset.art === "ordner") { suchtext = ""; auswahl = null; vorschauNr++; freigeben(); laden(el.dataset.pfad); return; }
+  if (ansicht === "suche") { const p = el.dataset.pfad; suchtext = ""; laden(elternVon(p), p); return; }
+  waehle(el.dataset.pfad);
+});
+App.bei("vorschau-zu", () => { auswahl = null; vorschauNr++; freigeben(); editiert = false; zeichnen(); });
+$("knopf-neuladen").addEventListener("click", () => { if (ansicht === "korb") korbLaden(); else laden(); });
+
+// ── Suche ──────────────────────────────────────────────────────────────────
+let sucheUhr = 0, sucheNr = 0;
+document.addEventListener("input", (ev) => {
+  if (!ev.target || ev.target.id !== "suche") return;
+  const text = ev.target.value.trim();
+  clearTimeout(sucheUhr);
+  if (text.length < 2) { if (ansicht === "suche") { suchtext = ""; ansicht = "ordner"; laden(); } return; }
+  sucheUhr = setTimeout(() => suchen(text), 300);
+});
+async function suchen(text) {
+  const nr = ++sucheNr;
+  try {
+    const d = await rufen("suchen", { abfrage: text });
+    if (nr !== sucheNr) return;
+    suchtext = text; treffer = d.treffer || []; ansicht = "suche";
+    if (!treffer.some((t) => t.pfad === auswahl)) { auswahl = null; vorschauNr++; }
+    zeichnen();
+    const f = $("suche"); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+  } catch (e) { melde(App.fehlertext(e), "schlecht"); }
+}
+App.bei("suche-leeren", () => { suchtext = ""; ansicht = "ordner"; laden(); });
+
+// ── Neu anlegen ────────────────────────────────────────────────────────────
+$("knopf-neu").addEventListener("click", () => {
+  const f = $("neu-form"); f.hidden = !f.hidden;
+  if (!f.hidden) { $("neu-name").focus(); }
+});
+$("neu-form").addEventListener("submit", (ev) => { ev.preventDefault(); neuAnlegen("datei"); });
+App.bei("neu-datei", () => neuAnlegen("datei"));
+App.bei("neu-ordner", () => neuAnlegen("ordner"));
+function neuAnlegen(art) {
+  const name = $("neu-name").value.trim();
+  if (!name) { $("neu-name").focus(); return; }
+  const pfad = verbinde(ort, name);
+  if (art === "ordner") {
+    beantrage({ werkzeug: "dateien__ordner_anlegen", args: { pfad }, ja: "Ordner anlegen", symbol: "folder" },
+      async (r) => { $("neu-form").hidden = true; $("neu-name").value = ""; melde(r.satz || "Ordner angelegt."); await laden(); });
+  } else {
+    beantrage({ werkzeug: "dateien__schreiben", args: { pfad, inhalt: "" }, ja: "Datei anlegen", symbol: "file-plus" },
+      async (r) => { $("neu-form").hidden = true; $("neu-name").value = ""; melde(r.satz || "Datei angelegt."); await laden(elternVon(r.pfad || pfad), r.pfad || pfad); });
+  }
+}
+
+// ── Bearbeiten, Umbenennen, Löschen ────────────────────────────────────────
+App.bei("bearbeiten", () => {
+  if (!gelesen || !auswahl) return;
+  editiert = true;
+  $("vorschau-inhalt").innerHTML = `<textarea id="editor" class="d-editor" spellcheck="false" aria-label="Inhalt von ${esc(nameVon(auswahl))}">${esc(gelesen.text)}</textarea>`
+    + App.knoepfe([{ text: "Speichern", symbol: "save", klasse: "haupt", aktion: "speichern" }, { text: "Abbrechen", klasse: "leise", aktion: "bearbeiten-ab" }], { klasse: "d-aktionen" });
+  $("editor").focus();
+});
+App.bei("bearbeiten-ab", () => { editiert = false; vorschauZeigen(); });
+App.bei("speichern", () => {
+  const pfad = auswahl, text = $("editor").value;
+  beantrage({ werkzeug: "dateien__schreiben", args: { pfad, inhalt: text, ueberschreiben: true }, ja: "Speichern", symbol: "save" },
+    async (r) => { editiert = false; melde(r.satz || "Gespeichert."); await laden(ort, pfad); });
+});
+
+function umbenennenFormular(pfad, istOrdner) {
+  const ziel = istOrdner ? $("inhalt") : $("umbenennen-ort");
+  const alt = $("umbenennen-form"); if (alt) alt.remove();
+  const f = document.createElement("form");
+  f.id = "umbenennen-form"; f.className = "d-form"; f.autocomplete = "off";
+  f.innerHTML = `<input id="umbenennen-pfad" type="text" maxlength="400" value="${esc(pfad)}" aria-label="Neuer Pfad">`
+    + `<button type="submit" class="haupt">${symbol("check")}Weiter</button><button type="button" class="leise" data-aktion="umbenennen-ab">Abbrechen</button>`;
+  if (istOrdner) ziel.prepend(f); else ziel.append(f);
+  const feld = $("umbenennen-pfad"); feld.focus();
+  feld.setSelectionRange(pfad.lastIndexOf("/") + 1, pfad.length);
+  f.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const nach = feld.value.trim().replace(/^\/+/, "");
+    if (!nach || nach === pfad) { f.remove(); return; }
+    beantrage({ werkzeug: "dateien__verschieben", args: { von: pfad, nach }, ja: "Verschieben", symbol: "pencil" }, async (r) => {
+      f.remove(); melde(r.satz || "Verschoben.");
+      if (istOrdner) { await laden(nach); } else { auswahl = nach; await laden(elternVon(nach), nach); }
+    });
+  });
+}
+App.bei("umbenennen", () => umbenennenFormular(auswahl, false));
+App.bei("umbenennen-ordner", () => umbenennenFormular(ort, true));
+App.bei("umbenennen-ab", () => { const f = $("umbenennen-form"); if (f) f.remove(); });
+App.bei("loeschen", () => {
+  const pfad = auswahl;
+  beantrage({ werkzeug: "dateien__loeschen", args: { pfad }, ja: "In den Papierkorb", symbol: "trash-2", klasse: "gefahr" },
+    async (r) => { auswahl = null; vorschauNr++; melde(r.satz || "Gelöscht."); await laden(); });
+});
+App.bei("loeschen-ordner", () => {
+  const pfad = ort;
+  beantrage({ werkzeug: "dateien__loeschen", args: { pfad }, ja: "In den Papierkorb", symbol: "trash-2", klasse: "gefahr" },
+    async (r) => { auswahl = null; vorschauNr++; melde(r.satz || "Gelöscht."); await laden(elternVon(pfad)); });
+});
+
+// ── Öffnen im Browser, Herunterladen, Links ────────────────────────────────
+async function browser(url) {
+  try { await App.oeffnen(url); } catch (e) { melde(App.fehlertext(e), "schlecht"); }
+}
+App.bei("im-browser", () => { if (auswahl) browser(dateiUrl(auswahl, false)); });
+App.bei("herunterladen", () => { if (auswahl) browser(dateiUrl(auswahl, true)); });
+App.bei("link", (el, ev) => { ev.preventDefault(); browser(el.dataset.url); });
+
+// ── Frühere Fassungen ──────────────────────────────────────────────────────
+App.bei("fassungen", async () => {
+  const ort2 = $("fassungen"); if (!ort2) return;
+  if (ort2.firstChild) { ort2.replaceChildren(); return; }
+  try {
+    const d = await rufen("versionen", { pfad: auswahl });
+    const liste = d.versionen || [];
+    ort2.innerHTML = '<h3>Frühere Fassungen</h3>' + (liste.length ? liste.map((v) =>
+      `<div class="d-fassung"><span class="zeile-text"><span class="zeile-titel">${esc(App.zeit.voll(v.zeit))}</span><span class="zeile-unter">${esc(groesse(v.groesse))}</span></span>`
+      + `<button type="button" class="leise" data-aktion="fassung-ansehen" data-version="${esc(v.version)}">${symbol("eye")}Ansehen</button>`
+      + `<button type="button" class="leise" data-aktion="fassung-zurueck" data-version="${esc(v.version)}">${symbol("rotate-ccw")}Zurückholen</button></div>`).join("")
+      : '<p class="mut">Es gibt noch keine früheren Fassungen. Sie entstehen, wenn die Datei ersetzt wird.</p>') + '<div id="fassung-text"></div>';
+  } catch (e) { ort2.innerHTML = fehler(e); }
+});
+App.bei("fassung-ansehen", async (el) => {
+  const ziel = $("fassung-text"); if (!ziel) return;
+  try {
+    const d = await rufen("lesen", { pfad: auswahl, version: el.dataset.version });
+    ziel.innerHTML = d.art === "text" ? `<pre class="d-text">${esc(d.text)}</pre>` : '<p class="mut">Diese Fassung ist keine Textdatei.</p>';
+  } catch (e) { ziel.innerHTML = fehler(e); }
+});
+App.bei("fassung-zurueck", (el) => {
+  const pfad = auswahl;
+  beantrage({ werkzeug: "dateien__version_zurueck", args: { pfad, version: el.dataset.version }, ja: "Zurückholen", symbol: "rotate-ccw" },
+    async (r) => { melde(r.satz || "Fassung zurückgeholt."); await laden(ort, pfad); });
+});
+
+// ── Papierkorb ─────────────────────────────────────────────────────────────
+async function korbLaden() {
+  try {
+    const d = await rufen("papierkorb", {});
+    korb = d.eintraege || []; ansicht = "korb"; auswahl = null; vorschauNr++; freigeben(); zeichnen();
+  } catch (e) { $("inhalt").innerHTML = '<div class="karte">' + fehler(e) + "</div>"; }
+}
+$("knopf-korb").addEventListener("click", () => { if (ansicht === "korb") { ansicht = "ordner"; laden(); } else korbLaden(); });
+App.bei("zurueckholen", (el) => {
+  beantrage({ werkzeug: "dateien__wiederherstellen", args: { id: el.dataset.id }, ja: "Zurückholen", symbol: "rotate-ccw" },
+    async (r) => { melde(r.satz || "Zurückgeholt."); await korbLaden(); });
+});
+
+// ── Hochladen: Auswahl und Ziehen vom Schreibtisch ─────────────────────────
+$("knopf-hoch").addEventListener("click", () => {
+  if (!App.kann("fyosDateien")) { melde("Hochladen geht nur in der FYOS-Shell.", "info"); return; }
+  $("datei-wahl").click();
+});
+$("datei-wahl").addEventListener("change", (ev) => {
+  const liste = [...ev.target.files].map((f) => ({ rel: f.name, file: f }));
+  ev.target.value = "";
+  if (liste.length) dateienHochladen(liste);
+});
+
+async function dateienHochladen(liste, ersetzen = false) {
+  if (!App.kann("fyosDateien")) { melde("Hochladen geht nur in der FYOS-Shell.", "info"); return; }
+  if (liste.length > DATEIEN_MAX) { melde(`Das sind zu viele Dateien auf einmal (höchstens ${DATEIEN_MAX}).`, "schlecht"); return; }
+  hochladenLaeuft = true;
+  const vorhanden = [], gescheitert = [];
+  let geschafft = 0;
+  try {
+    for (let i = 0; i < liste.length; i++) {
+      const z = liste[i], pfad = verbinde(ort, z.rel);
+      $("hochladen").innerHTML = `<div class="hinweis info" role="status">${symbol("upload")}<span>Lädt hoch (${i + 1} von ${liste.length}): ${esc(z.rel)}</span></div>`;
+      let r;
+      try { r = await App.hochladen(pfad, z.file, { ueberschreiben: ersetzen }); }
+      catch (e) { gescheitert.push(`${z.rel}: ${App.fehlertext(e)}`); continue; }
+      if (r && r.ok) geschafft++;
+      else if (r && r.kind === "existiert") vorhanden.push(z);
+      else gescheitert.push(`${z.rel}: ${(r && r.error) || "Fehler"}`);
+    }
+  } finally { hochladenLaeuft = false; $("hochladen").replaceChildren(); }
+  if (geschafft) melde(`${geschafft} ${geschafft === 1 ? "Datei" : "Dateien"} hochgeladen.`);
+  if (gescheitert.length) melde(gescheitert.slice(0, 3).join(" · ") + (gescheitert.length > 3 ? ` · und ${gescheitert.length - 3} weitere` : ""), "schlecht");
+  if (geschafft || gescheitert.length) { ansicht = "ordner"; await laden(ort, geschafft === 1 && liste.length === 1 ? verbinde(ort, liste[0].rel) : null); }
+  if (vorhanden.length) fragenErsetzen(vorhanden);
+}
+let ersetzenListe = [];
+function fragenErsetzen(liste) {
+  ersetzenListe = liste;
+  const namen = liste.slice(0, 3).map((z) => z.rel).join(", ") + (liste.length > 3 ? ` und ${liste.length - 3} weitere` : "");
+  $("hochladen").innerHTML = App.bestaetigung({
+    frage: liste.length === 1 ? `„${namen}“ gibt es schon. Ersetzen? Die alte Fassung bleibt als frühere Fassung erhalten.` : `${liste.length} Dateien gibt es schon (${namen}). Ersetzen? Die alten Fassungen bleiben erhalten.`,
+    ja: { text: "Ersetzen", symbol: "check", aktion: "ersetzen-ja" }, nein: { text: "Nicht ersetzen", aktion: "ersetzen-nein" },
+  });
+}
+App.bei("ersetzen-ja", () => { const l = ersetzenListe; ersetzenListe = []; $("hochladen").replaceChildren(); dateienHochladen(l, true); });
+App.bei("ersetzen-nein", () => { ersetzenListe = []; $("hochladen").replaceChildren(); melde("Nichts ersetzt.", "info"); });
+
+// Ablegen von Dateien: auf die ganze App, nicht nur auf eine Fläche
+let ziehZaehler = 0;
+const bringtDateien = (ev) => ev.dataTransfer && [...(ev.dataTransfer.types || [])].includes("Files");
+document.addEventListener("dragenter", (ev) => { if (!bringtDateien(ev)) return; ev.preventDefault(); ziehZaehler++; ablageZeigen(true); });
+document.addEventListener("dragover", (ev) => { if (!bringtDateien(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = "copy"; });
+document.addEventListener("dragleave", (ev) => { if (!bringtDateien(ev)) return; ziehZaehler = Math.max(0, ziehZaehler - 1); if (!ziehZaehler) ablageZeigen(false); });
+document.addEventListener("drop", (ev) => {
+  if (!bringtDateien(ev)) return;
+  ev.preventDefault(); ziehZaehler = 0; ablageZeigen(false);
+  // Die Einträge müssen noch hier, synchron, abgeholt werden — danach sind sie weg
+  const items = [...(ev.dataTransfer.items || [])];
+  const eintraegeRoh = items.map((i) => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null)).filter(Boolean);
+  const dateien = [...(ev.dataTransfer.files || [])];
+  sammeln(eintraegeRoh, dateien).then((liste) => { if (liste.length) dateienHochladen(liste); else melde("Es wurde nichts Brauchbares abgelegt.", "info"); })
+    .catch((e) => melde(App.fehlertext(e), "schlecht"));
+});
+function ablageZeigen(an) {
+  $("ablage").classList.toggle("an", an);
+  $("ablage").textContent = an ? (ort ? `Dateien hier loslassen — sie landen in „${ort}“` : "Dateien hier loslassen — sie landen ganz oben") : "";
+}
+async function sammeln(eintraegeRoh, dateien) {
+  if (!eintraegeRoh.length) return dateien.map((f) => ({ rel: f.name, file: f }));
+  const aus = [];
+  async function lauf(eintrag, vorsatz) {
+    if (aus.length > DATEIEN_MAX) return;
+    if (eintrag.isFile) { aus.push({ rel: vorsatz + eintrag.name, file: await new Promise((ok, nein) => eintrag.file(ok, nein)) }); return; }
+    if (!eintrag.isDirectory) return;
+    const leser = eintrag.createReader();
+    for (;;) {
+      const stapel = await new Promise((ok, nein) => leser.readEntries(ok, nein));
+      if (!stapel.length) break;
+      for (const k of stapel) await lauf(k, vorsatz + eintrag.name + "/");
+    }
+  }
+  for (const e of eintraegeRoh) await lauf(e, "");
+  return aus;
+}
+
+// ── Übergaben ──────────────────────────────────────────────────────────────
+// Jede Dateizeile ist ein ziehbares Ding (data-typ="datei"): hinaus zu Dock, Agent, Schreibtisch und anderen Apps.
+App.ziehbar(document.body, { selektor: "[data-typ]" });
+// Was auf dieses Fenster fällt: eine Notiz wird eine Markdown-Datei (Hub: registriere_uebergabe). Plan und Rückfrage erscheinen
+// oben; angelegt wird erst nach „Ja“.
+App.ablage(antragOrt, {
+  nimmt: ["notiz"], ja: "Datei anlegen",
+  danach: async (r) => { melde(r && r.pfad ? `„${r.pfad}“ angelegt.` : "Angelegt."); suchtext = ""; await laden(r && r.pfad ? elternVon(r.pfad) : ort, r && r.pfad ? r.pfad : null); },
+  fehler: (e) => melde(App.fehlertext(e), "schlecht"),
+});
+// Jemand zeigt eine Datei (auf den Schreibtisch gezogen): ihren Ordner öffnen und sie wählen
+App.auf("fyos/oeffne", (d) => { if (d && d.typ === "datei" && typeof d.id === "string" && d.id) { suchtext = ""; laden(elternVon(d.id), d.id); } });
+
+// ── Start ──────────────────────────────────────────────────────────────────
+App.auf("ui/notifications/tool-result", (r) => { const d = App.daten(r); if (d && (d.eintraege || d.zustand === "nicht eingerichtet")) { bekommen = true; uebernehmen(d); } });
+App.takt(20000, () => nachfuehren());
+App.start("fyos-dateien").then(() => setTimeout(() => { if (!bekommen) laden(); }, 1500)).catch(() => {});
+</script>
+</body>
+</html>

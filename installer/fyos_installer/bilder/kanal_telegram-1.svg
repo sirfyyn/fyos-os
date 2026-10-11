@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Telegram-Chat mit dem Agenten auf dem Telefon</title>
+<desc id="d">Ein Telefon zeigt einen Telegram-Chat: Die Meldung des Agenten über eine fertige Aufgabe und eine Freigabe-Frage mit den Antworten Ja und Nein, daneben das FYOS-Fenster mit demselben Gespräch.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="40" y="60" width="270" height="250" rx="12"/>
+<rect class="ln" x="40" y="60" width="270" height="250" rx="12"/>
+<rect class="bar" x="41" y="61" width="268" height="26" rx="11"/>
+<circle class="acc" cx="60" cy="74" r="6"/>
+<text class="ink" x="74" y="79" font-weight="700">FYOS</text>
+<rect class="fl" x="58" y="106" width="200" height="40" rx="12"/>
+<rect class="ln" x="58" y="106" width="200" height="40" rx="12"/>
+<text class="ink" x="70" y="131">Das Backup ist fertig.</text>
+<rect class="fl" x="58" y="160" width="230" height="76" rx="12"/>
+<rect class="ln" x="58" y="160" width="230" height="76" rx="12"/>
+<rect class="wrm" x="58" y="160" width="7" height="76" rx="3"/>
+<text class="ink" x="76" y="184" font-weight="700">Freigabe nötig</text>
+<text class="mut" x="76" y="204">Alte Sicherungen löschen?</text>
+<text class="mut" x="76" y="224" font-size="12">Antwort Ja oder Nein</text>
+<text class="mut" x="48" y="330" font-size="12">am Rechner: Fenster der Shell</text>
+<path class="ln" d="M322 185h56M366 173l12 12-12 12"/>
+<rect class="fl" x="400" y="40" width="190" height="320" rx="26"/>
+<rect class="ln" x="400" y="40" width="190" height="320" rx="26"/>
+<rect class="bar" x="420" y="58" width="150" height="26" rx="13"/>
+<circle class="acc" cx="436" cy="71" r="7"/>
+<text class="ink" x="450" y="76" font-weight="700">Telegram</text>
+<rect class="fl" x="420" y="108" width="130" height="38" rx="12"/>
+<rect class="ln" x="420" y="108" width="130" height="38" rx="12"/>
+<text class="ink" x="430" y="132" font-size="13">Backup fertig.</text>
+<rect class="fl" x="420" y="160" width="150" height="62" rx="12"/>
+<rect class="ln" x="420" y="160" width="150" height="62" rx="12"/>
+<rect class="wrm" x="420" y="160" width="6" height="62" rx="3"/>
+<text class="ink" x="436" y="182" font-size="13" font-weight="700">Löschen?</text>
+<rect class="acc" x="436" y="192" width="50" height="22" rx="11"/>
+<text class="fl" x="451" y="208" font-size="12" font-weight="700">Ja</text>
+<rect class="ln" x="496" y="192" width="56" height="22" rx="11"/>
+<text class="ink" x="509" y="208" font-size="12">Nein</text>
+<rect class="bar" x="420" y="318" width="150" height="26" rx="13"/>
+<text class="mut" x="432" y="336" font-size="12">Nachricht …</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

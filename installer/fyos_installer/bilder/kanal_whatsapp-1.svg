@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: WhatsApp-Chat mit dem Agenten und einmalige Kopplung per QR-Code</title>
+<desc id="d">Links ein Telefon, das einen QR-Code im Terminal einliest (einmalige Kopplung), rechts ein WhatsApp-Chat, in dem der Agent eine Meldung schickt und der Besitzer die Freigabe mit einer Antwort bestätigt.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<text class="ink" x="40" y="44" font-weight="700">1. Einmal koppeln</text>
+<rect class="fl" x="40" y="60" width="250" height="220" rx="12"/>
+<rect class="ln" x="40" y="60" width="250" height="220" rx="12"/>
+<rect class="bar" x="41" y="61" width="248" height="26" rx="11"/>
+<text class="mut" x="54" y="79" font-size="12">Terminal</text>
+<rect class="ink" x="100" y="100" width="90" height="90" rx="4"/>
+<rect class="fl" x="108" y="108" width="24" height="24" rx="2"/><rect class="ink" x="114" y="114" width="12" height="12"/>
+<rect class="fl" x="158" y="108" width="24" height="24" rx="2"/><rect class="ink" x="164" y="114" width="12" height="12"/>
+<rect class="fl" x="108" y="158" width="24" height="24" rx="2"/><rect class="ink" x="114" y="164" width="12" height="12"/>
+<rect class="fl" x="142" y="142" width="10" height="10"/><rect class="fl" x="160" y="160" width="10" height="10"/><rect class="fl" x="142" y="172" width="10" height="10"/>
+<text class="mut" x="60" y="222" font-size="12">openclaw channels login</text>
+<text class="mut" x="60" y="242" font-size="12">QR mit dem Telefon einlesen</text>
+<text class="mut" x="60" y="262" font-size="12">(das machst du selbst)</text>
+<text class="ink" x="360" y="44" font-weight="700">2. Danach im Chat</text>
+<rect class="fl" x="360" y="60" width="230" height="300" rx="26"/>
+<rect class="ln" x="360" y="60" width="230" height="300" rx="26"/>
+<rect class="bar" x="380" y="78" width="190" height="26" rx="13"/>
+<circle class="acc" cx="396" cy="91" r="7"/>
+<text class="ink" x="410" y="96" font-weight="700">WhatsApp</text>
+<rect class="fl" x="380" y="122" width="150" height="40" rx="12"/>
+<rect class="ln" x="380" y="122" width="150" height="40" rx="12"/>
+<text class="ink" x="392" y="147" font-size="13">Backup fertig.</text>
+<rect class="fl" x="380" y="176" width="180" height="62" rx="12"/>
+<rect class="ln" x="380" y="176" width="180" height="62" rx="12"/>
+<rect class="wrm" x="380" y="176" width="6" height="62" rx="3"/>
+<text class="ink" x="396" y="198" font-size="13" font-weight="700">Alte Sicherungen löschen?</text>
+<text class="mut" x="396" y="222" font-size="12">Antworte Ja oder Nein</text>
+<rect class="bar" x="440" y="254" width="120" height="30" rx="12"/>
+<text class="ink" x="452" y="274" font-size="13">Ja</text>
+<text class="mut" x="40" y="316" font-size="12">nur du darfst schreiben, Gruppen sind aus</text>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

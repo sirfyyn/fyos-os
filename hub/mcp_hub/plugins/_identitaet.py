@@ -83,18 +83,30 @@ HAUPTWERKZEUG: dict[str, str] = {
 }
 
 
+#: Die zwei Arten von Flächen in der Shell: ein Widget ist eine Kachel im Raster (viele nebeneinander), eine Anwendung
+#: öffnet groß, lässt sich maximieren und bekommt einen eigenen Vollbild-Bildschirm.
+ARTEN = ("widget", "anwendung")
+ART_VORGABE = "widget"
+
+
 def registriere_app(
     schluessel: str,
     eintrag: dict[str, Any],
     datei: str | None = None,
     hauptwerkzeug: str | None = None,
+    art: str | None = None,
 ) -> None:
     """Meldet die App eines Plugins an (Titel, Untertitel, Symbol, Ton, Kategorie).
 
     `datei` ist der Dateiname der Oberfläche in ihrem UI-Verzeichnis (für Kopf und Brücken-Konfiguration),
     `hauptwerkzeug` das Werkzeug, das sie öffnet (`<plugin>__<name>`). Wiederholtes Anmelden überschreibt.
+    `art` ist `"widget"` (Vorgabe: Kachel im Raster, viele nebeneinander, etwa ein Lagebild) oder `"anwendung"` (öffnet groß,
+    maximierbar, eigener Vollbild-Bildschirm, etwa Dateien). Ohne Angabe gilt, was im `eintrag` steht, sonst `"widget"`.
     """
-    APPS[schluessel] = dict(eintrag)
+    art = art if art is not None else eintrag.get("art", ART_VORGABE)
+    if art not in ARTEN:
+        raise ValueError(f"App {schluessel!r}: art muss {' oder '.join(ARTEN)} sein, nicht {art!r}")
+    APPS[schluessel] = {**eintrag, "art": art}
     if datei:
         DATEIEN[Path(datei).name] = schluessel
     if hauptwerkzeug:
@@ -106,8 +118,8 @@ def registriere_app(
 
 
 def identitaet(schluessel: str) -> dict[str, Any]:
-    """Identität für `meta["app"]` — eine Kopie, damit Plugins sie nicht gemeinsam verändern."""
-    return dict(APPS[schluessel])
+    """Identität für `meta["app"]` — eine Kopie, damit Plugins sie nicht gemeinsam verändern. `art` steht immer darin."""
+    return {**APPS[schluessel], "art": APPS[schluessel].get("art", ART_VORGABE)}
 
 
 def fuer_datei(datei: str) -> dict[str, Any] | None:

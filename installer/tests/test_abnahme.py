@@ -345,6 +345,7 @@ ROUTEN = {
     "/hub-api/os/strom": "/hub/os/strom",
     "/hub-api/os/melden": "/hub/os/melden",
     "/hub-api/os/antwort": "/hub/os/antwort",
+    "/hub-api/dateien/datei": "/hub/dateien/datei",  # Hoch- und Herunterladen der Dateiablage (nur GET und PUT)
 }
 
 nginx_noetig = pytest.mark.skipif(not NGINX.is_file(), reason="web/nginx/default.conf.template liegt nicht neben dem Installer")

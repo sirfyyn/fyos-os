@@ -28,7 +28,8 @@ OpenClaw (Upstream)      Basisbild per Digest
 | `tools/sauber.py` | Sauberkeitsprüfung: keine privaten Netze, Adressen, Geheimnisse oder verbotenen Wörter im Repo |
 | `tools/doku_pruefen.py` | Doku-Abgleich: Links, genannte Pfade und feste Abschnitte der Markdown-Dateien stimmen mit dem Repo überein |
 | `tools/claude-code/` | Mods für Claude Code: [`fyos-ansicht`](tools/claude-code/fyos-ansicht/README.md) öffnet vom Agenten gebaute Ansichten (Plugin `gui`) im Panel des Terminals |
-| `docs/` | [Architektur](docs/ARCHITEKTUR.md), [Hub-Vertrag](docs/HUB-VERTRAG.md), [Erweitern](docs/ERWEITERN.md), [Nachbau](docs/NACHBAU.md) (Plan: jede Fähigkeit selbst betreiben) |
+| `docs/` | [Architektur](docs/ARCHITEKTUR.md), [Hub-Vertrag](docs/HUB-VERTRAG.md), [Erweitern](docs/ERWEITERN.md), [Nachbau](docs/NACHBAU.md) (Plan: jede Fähigkeit selbst betreiben), [Nachtarbeit](docs/NACHTARBEIT.md) (der Agent arbeitet nachts, morgens meldet die Shell „erledigt“) |
+| [`CHANGELOG.md`](CHANGELOG.md), [`RELEASE.md`](RELEASE.md) | Was sich je Version geändert hat; die Schritte für Maintainer, um eine Version zu veröffentlichen |
 
 ## Loslegen
 

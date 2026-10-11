@@ -17,6 +17,11 @@
  *                           (wie ein Ordner am Mac, der beim Darüberhalten aufspringt)
  *   „+“                     dasselbe auf einem neuen Bildschirm
  *   Agent                   den Agenten dazu fragen
+ *   Fenster einer Hub-App   Ding mit Übergabe: Hinweis nennt die Wirkung, die App zeigt Plan und fragt (`ablageAufApp`);
+ *                           ohne Übergabe nur: den Agenten dazu fragen
+ *
+ * Aus einer Hub-App heraus zieht `App.ziehbar` (mcp_hub/plugins/ui/_bruecke.js): die App meldet dem Host `fyos/zug`, der
+ * Host ruft `zugBeginnt` — danach ist es für die Ziele ein Zug wie jeder andere.
  *
  * Während des Ziehens gibt der Browser nur `types` heraus, nicht den Inhalt. Darum trägt jedes Gut einen
  * zusätzlichen Schlüssel `application/x-fyos-<art>`: Ein Ziel weiß schon beim Darüberfahren, was kommt, und
@@ -24,7 +29,8 @@
  */
 import { createSignal } from 'solid-js';
 import { agentName } from '~/lib/config';
-import { registrierteDinge } from './register';
+import { anApp } from '~/lib/mcp-apps/eingehaengt';
+import { registrierteDinge, registrierteUebergabe, type Uebergabe } from './register';
 
 /** Typ eines ziehbaren Dings (`fyos://<typ>/<id>`); bekannt sind die registrierten. */
 export type DingTyp = string;
@@ -103,6 +109,11 @@ export function gutArt(dt: DataTransfer | null | undefined): GutArt | null {
     if (art === 'fenster' || art === 'flaeche') return art;
     if (istDingTyp(art)) return art;
   }
+  // Zieht eine Hub-App (Sandbox ohne eigenen Ursprung) etwas heraus, hat sie es der Shell gemeldet (`fyos/zug`). Mancher Browser
+  // reicht eigene Schlüssel nicht über Fenstergrenzen weiter, `text/plain` mit der Adresse des Dings kommt immer an: dann
+  // gilt, was die Shell vom Zug weiß.
+  const z = zug();
+  if (z?.quelle && z.art !== 'fenster' && z.art !== 'flaeche' && istDingTyp(z.art) && Array.from(dt.types ?? []).includes('text/plain')) return z.art;
   return null;
 }
 
@@ -131,6 +142,27 @@ export function wasPassiert(art: GutArt | null, ziel: ZielArt, name?: string): s
     case 'agent':
       return `${agentName()} dazu fragen`;
   }
+}
+
+/**
+ * Was beim Loslassen auf dem Fenster einer Hub-App passiert, wenn dort mehr gilt als „Ding öffnen“:
+ *   Es gibt eine Übergabe für dieses Ding und diese App   → ihr Satz (`wirkung`); die App zeigt Plan und fragt.
+ *   Es gibt keine (das Ding gehört einer anderen App)      → nur der Agent: „dazu fragen“.
+ * null = hier gilt die allgemeine Regel (Fenster ordnen sich ein, Flächen öffnen, ein Ding der eigenen App wird gezeigt).
+ */
+export type AppAblage = { modus: 'uebergabe'; text: string; uebergabe: Uebergabe } | { modus: 'agent'; text: string };
+export function ablageAufApp(art: GutArt | null, flaecheId: string): AppAblage | null {
+  if (!art || art === 'fenster' || art === 'flaeche' || !istDingTyp(art)) return null;
+  if (registrierteDinge(art)?.flaeche === flaecheId) return null;
+  const u = registrierteUebergabe(art, flaecheId);
+  if (u) return { modus: 'uebergabe', text: u.wirkung, uebergabe: u };
+  return { modus: 'agent', text: `${agentName()} dazu fragen` };
+}
+
+/** Die Frage an den Agenten, wenn ein Ding auf eine App fällt, die es nicht von selbst annimmt. */
+export function frageUebergabe(gut: Extract<Gut, { art: 'ding' }>, appTitel: string): string {
+  const was = `${dingName(gut.typ)} ${gut.id}${gut.label ? ` („${gut.label}“)` : ''}`;
+  return `Ich habe ${was} auf „${appTitel}“ gezogen. Was lässt sich damit dort tun, und wie legst du es an?`;
 }
 
 /** Die Frage an den Agenten zu einem Gut (Entwurf; der Mensch kann sie ändern, bevor sie rausgeht). */
@@ -293,6 +325,12 @@ export const WARTEN_MS = 30_000;
  * geht sie sofort hin; sonst holt sie das Fenster nach dem Laden ab (`zustellungAbholen`).
  */
 export function zustellen(flaecheId: string, nachricht: unknown): void {
+  // Hub-Apps leben im Sandbox-iframe (Ursprung „null“): sie hört der Host (lib/mcp-apps/host.ts), nicht die Seite selbst
+  if (flaecheId.startsWith('app:')) {
+    const o = (nachricht as { [OEFFNE_NACHRICHT]?: { typ?: unknown; id?: unknown } } | null)?.[OEFFNE_NACHRICHT];
+    if (o && typeof o.typ === 'string' && typeof o.id === 'string') anApp(flaecheId, 'fyos/oeffne', { typ: o.typ, id: o.id });
+    return;
+  }
   if (typeof document !== 'undefined') {
     const ifr = document.querySelector<HTMLIFrameElement>(`[data-fenster="${CSS.escape(flaecheId)}"] iframe[data-geladen]`);
     if (ifr?.contentWindow) {

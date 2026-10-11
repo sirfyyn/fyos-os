@@ -82,4 +82,4 @@ def test_kernplugins_sind_als_entry_points_registriert():
     from mcp_hub.registry import _discover_entry_points
 
     namen = {n for n, _ in _discover_entry_points()}
-    assert {"audit", "skills", "werkstatt", "mcp", "shell", "gui", "beispiel_app", "event_bus_publisher"} <= namen
+    assert {"audit", "skills", "werkstatt", "mcp", "shell", "gui", "os", "beispiel_app", "dateien", "event_bus_publisher"} <= namen

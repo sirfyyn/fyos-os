@@ -8,12 +8,20 @@
  *
  * Reine Funktionen; gespeichert im Browser, gemeldet an den Hub (Plugin shell).
  */
-import { listePruefen, oeffnen as fensterOeffnen, type Fenster, type StartZustand } from './anordnung';
+import { listePruefen, oeffnen as fensterOeffnen, ohneMax, type Fenster, type StartZustand } from './anordnung';
 
 export interface Bildschirm {
   id: string;
   name: string;
   fenster: Fenster[];
+  /**
+   * Vollbild-Bildschirm einer Anwendung (wie das Vollbild am Mac): ein eigener Arbeitsbildschirm, auf dem genau diese eine
+   * Anwendung maximiert ist. Wischen und ⌥⌘←/→ wechseln zu ihm und von ihm weg wie zwischen allen Bildschirmen. Es kommen
+   * keine anderen Fenster dazu.
+   */
+  vollbild?: boolean;
+  /** Vollbild-Bildschirm: der Bildschirm, von dem die Anwendung kam und auf den sie beim Verlassen zurückkehrt. */
+  vollbildVon?: string;
 }
 
 export interface Arbeitsplatz {
@@ -115,7 +123,10 @@ export function fensterAendern(ap: Arbeitsplatz, i: number, fn: (l: Fenster[]) =
   if (!b) return ap;
   const neu = fn(b.fenster);
   if (neu === b.fenster) return ap;
-  return { ...ap, bildschirme: ap.bildschirme.map((x, j) => (j === i - 1 ? { ...x, fenster: neu } : x)) };
+  // Ein Vollbild-Bildschirm ohne seine eine Anwendung (geschlossen) ist wieder ein gewöhnlicher Bildschirm
+  const { vollbild: _v, vollbildVon: _von, ...gewoehnlich } = b;
+  const x: Bildschirm = b.vollbild && neu.length !== 1 ? { ...gewoehnlich, fenster: neu } : { ...b, fenster: neu };
+  return { ...ap, bildschirme: ap.bildschirme.map((y, j) => (j === i - 1 ? x : y)) };
 }
 
 /** Wo ist die Fläche offen? Index des Bildschirms oder -1. */
@@ -132,18 +143,30 @@ export const wo = (ap: Arbeitsplatz, id: string): number => {
 export function flaecheOeffnen(
   ap: Arbeitsplatz,
   id: string,
-  opt: { vor?: string | null; breit?: boolean; start?: StartZustand; sonstNeu?: boolean } = {},
+  opt: { vor?: string | null; breit?: boolean; start?: StartZustand; sonstNeu?: boolean; gross?: number } = {},
 ): { ap: Arbeitsplatz; voll: boolean } {
   const da = wo(ap, id);
   if (da >= 1) {
     // Schon offen: nach vorn holen; kommt ein neuer Startzustand mit (Link mit Eingabe), übernimmt ihn das Fenster.
-    const ap2 = fensterAendern(wechseln(ap, da), da, (l) =>
-      l.map((w) => (w.id === id ? { ...w, min: false, ...(opt.start ? { start: opt.start } : {}) } : w)),
-    );
+    // Eine Maximierung anderer Fenster auf diesem Bildschirm endet (anordnung.ts `oeffnen`).
+    const ap2 = fensterAendern(wechseln(ap, da), da, (l) => fensterOeffnen(l, id, opt.start ? { start: opt.start } : {}));
     return { ap: ap2, voll: false };
   }
   let basis = ap;
   let ziel = ap.aktiv >= 1 ? ap.aktiv : ap.zuletzt;
+  // Ein Vollbild-Bildschirm gehört seiner Anwendung: was neu aufgeht, kommt auf einen anderen Arbeitsbildschirm
+  if (bildschirmBei(basis, ziel)?.vollbild) {
+    const frei = ap.bildschirme.map((b, j) => ({ b, j: j + 1 })).filter((x) => !x.b.vollbild).map((x) => x.j);
+    const zuletzt = frei.includes(ap.zuletzt) ? ap.zuletzt : frei[frei.length - 1];
+    if (zuletzt != null) {
+      ziel = zuletzt;
+    } else {
+      const neu = neuerBildschirm(basis);
+      if (neu === basis) return { ap: wechseln(basis, ziel), voll: true };
+      basis = neu;
+      ziel = basis.aktiv;
+    }
+  }
   if (!bildschirmBei(basis, ziel)) {
     basis = neuerBildschirm(basis);
     ziel = basis.aktiv;
@@ -165,9 +188,58 @@ export function flaecheOeffnen(
 export function verschiebenNach(ap: Arbeitsplatz, id: string, ziel: number): Arbeitsplatz {
   const von = wo(ap, id);
   if (von < 1 || von === ziel || !bildschirmBei(ap, ziel)) return ap;
-  const w = bildschirmBei(ap, von)!.fenster.find((x) => x.id === id)!;
+  // Ein Vollbild-Bildschirm nimmt nichts auf und gibt seine Anwendung nur über `vollbildAus` her
+  if (bildschirmBei(ap, von)!.vollbild || bildschirmBei(ap, ziel)!.vollbild) return ap;
+  const { max: _max, ...w } = bildschirmBei(ap, von)!.fenster.find((x) => x.id === id)!;
   const ohne = fensterAendern(ap, von, (l) => l.filter((x) => x.id !== id));
-  return wechseln(fensterAendern(ohne, ziel, (l) => [...l, { ...w, min: false }]), ziel);
+  return wechseln(fensterAendern(ohne, ziel, (l) => [...l.map((x) => (x.max ? ohneMax(x) : x)), { ...w, min: false }]), ziel);
+}
+
+export const istVollbild = (ap: Arbeitsplatz, i: number): boolean => !!bildschirmBei(ap, i)?.vollbild;
+
+/**
+ * Eine Anwendung in den Vollbild-Bildschirm schicken (wie das Vollbild am Mac): sie bekommt einen eigenen Arbeitsbildschirm
+ * direkt hinter dem, auf dem sie war, und ist dort maximiert; der Ansicht wird dorthin gewechselt. Ist sie das einzige Fenster
+ * ihres Bildschirms, wird dieser Bildschirm selbst zum Vollbild-Bildschirm (kein leerer bleibt zurück). Sind schon alle
+ * BILDSCHIRME_MAX belegt, kommt derselbe Arbeitsplatz zurück. Ein Fenster, das schon im Vollbild ist, bleibt, wo es ist.
+ */
+export function vollbildAn(ap: Arbeitsplatz, id: string): Arbeitsplatz {
+  const i = wo(ap, id);
+  const b = bildschirmBei(ap, i);
+  if (!b || b.vollbild) return ap;
+  const w = b.fenster.find((x) => x.id === id)!;
+  const gross: Fenster = { ...w, min: false, max: true, fest: true };
+  if (b.fenster.length === 1) {
+    const bildschirme = ap.bildschirme.map((x, j) => (j === i - 1 ? { ...x, fenster: [gross], vollbild: true } : x));
+    return { ...ap, bildschirme, aktiv: i, zuletzt: i };
+  }
+  if (ap.bildschirme.length >= BILDSCHIRME_MAX) return ap;
+  const rest = b.fenster.filter((x) => x.id !== id);
+  const neu: Bildschirm = { id: neueId(), name: `Bildschirm ${ap.bildschirme.length + 1}`, fenster: [gross], vollbild: true, vollbildVon: b.id };
+  const bildschirme = ap.bildschirme.map((x, j) => (j === i - 1 ? { ...x, fenster: rest } : x));
+  bildschirme.splice(i, 0, neu); // direkt hinter den Bildschirm, von dem sie kam
+  return { bildschirme, aktiv: i + 1, zuletzt: i + 1 };
+}
+
+/**
+ * Den Vollbild-Bildschirm `i` verlassen: die Anwendung kehrt auf ihren Bildschirm zurück (und ist nicht mehr maximiert), der
+ * Vollbild-Bildschirm verschwindet und die Ansicht wechselt dorthin. War sie allein auf ihrem Bildschirm oder gibt es den
+ * alten nicht mehr, bleibt der Bildschirm und ist ein gewöhnlicher Arbeitsbildschirm.
+ */
+export function vollbildAus(ap: Arbeitsplatz, i: number): Arbeitsplatz {
+  const b = bildschirmBei(ap, i);
+  if (!b?.vollbild) return ap;
+  const { vollbild: _v, vollbildVon: von, ...gewoehnlich } = b;
+  const fenster = b.fenster.map(ohneMax);
+  const heim = von ? ap.bildschirme.findIndex((x) => x.id === von && !x.vollbild) + 1 : 0;
+  if (heim < 1) {
+    return { ...ap, bildschirme: ap.bildschirme.map((x, j) => (j === i - 1 ? { ...gewoehnlich, fenster } : x)), aktiv: i, zuletzt: i };
+  }
+  const bildschirme = ap.bildschirme
+    .map((x, j) => (j + 1 === heim ? { ...x, fenster: [...x.fenster, ...fenster.map((w) => ({ ...w, min: false }))] } : x))
+    .filter((_, j) => j !== i - 1);
+  const ziel = heim > i ? heim - 1 : heim;
+  return { bildschirme, aktiv: ziel, zuletzt: ziel };
 }
 
 /** Alle Fenster aller Bildschirme (für Hub und Bereinigung). */
@@ -216,7 +288,15 @@ export function pruefen(roh: unknown): Arbeitsplatz {
     const fenster = listePruefen((b as Bildschirm).fenster).filter((w) => !gesehen.has(w.id) && !!gesehen.add(w.id));
     const name = typeof (b as Bildschirm).name === 'string' ? (b as Bildschirm).name.trim().slice(0, NAME_MAX) : '';
     const id = typeof (b as Bildschirm).id === 'string' && (b as Bildschirm).id ? (b as Bildschirm).id : neueId();
-    bildschirme.push({ id, name: name || `Bildschirm ${bildschirme.length + 1}`, fenster });
+    const neu: Bildschirm = { id, name: name || `Bildschirm ${bildschirme.length + 1}`, fenster };
+    // Vollbild-Bildschirm: genau eine Anwendung, maximiert. Mit mehr oder keinem Fenster ist es ein gewöhnlicher Bildschirm.
+    if ((b as Bildschirm).vollbild === true && fenster.length === 1) {
+      neu.fenster = [{ ...fenster[0]!, max: true }];
+      neu.vollbild = true;
+      const von = (b as Bildschirm).vollbildVon;
+      if (typeof von === 'string' && von && von.length <= 60) neu.vollbildVon = von;
+    }
+    bildschirme.push(neu);
   }
   const zahl = (x: unknown, std: number) => (typeof x === 'number' && Number.isInteger(x) ? x : std);
   const ap: Arbeitsplatz = { bildschirme, aktiv: 0, zuletzt: 1 };

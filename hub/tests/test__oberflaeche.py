@@ -19,6 +19,7 @@ import re
 import pytest
 
 from mcp_hub.plugins import _identitaet, _oberflaeche
+from mcp_hub.plugins import dateien as _dateien  # noqa: F401 — meldet die App „Dateien“ beim Import an (Kopf der Oberfläche)
 from mcp_hub.plugins._oberflaeche import (
     BRUECKE,
     BRUECKE_SYMBOLE,

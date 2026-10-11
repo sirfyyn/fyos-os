@@ -13,7 +13,8 @@ Der Browser spricht nur mit diesem Server:
 | Pfad | geht an | Zweck |
 | --- | --- | --- |
 | `/hub-api/apps`, `/hub-api/resource`, `/hub-api/app-call` | `${FYOS_HUB_UPSTREAM}/hub/…` | Hub-Apps listen, Oberflächen laden, Werkzeuge aufrufen |
-| `/hub-api/os/*` | `${FYOS_HUB_UPSTREAM}/hub/os/…` | OS-Brücke (nur durchgereicht, die Shell nutzt sie nicht) |
+| `/hub-api/os/*` | `${FYOS_HUB_UPSTREAM}/hub/os/…` | OS-Brücke: die Shell meldet sich (`lib/os/bruecke.ts`) und holt Mitteilungen des Agenten ab, auch vorgemerkte der Nacht |
+| `/hub-api/dateien/datei` | `${FYOS_HUB_UPSTREAM}/hub/dateien/datei` | Dateien der Ablage herunterladen (GET) und hochladen (PUT, ohne Zwischenspeicher; Größe begrenzt der Hub); hochgeladen wird aus der Shell (`lib/mcp-apps/host.ts`), nicht aus der App |
 | `/hub/gui/<id>`, `/hub/gui/<id>/daten` | `${FYOS_HUB_UPSTREAM}/hub/gui/…` | gebaute Ansichten als ganze Seite für einen Link (nur GET, Pfad bleibt; Begründung in `docs/HUB-VERTRAG.md`) |
 | `/agent`, `/agent/*` | `${FYOS_AGENT_UPSTREAM}/agent/…` | Chat des Agenten (Control UI des Gateways, mit WebSocket) |
 | `/fyos.config.json` | Datei `/etc/fyos/fyos.config.json` | Laufzeit-Konfiguration |

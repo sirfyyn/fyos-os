@@ -56,6 +56,33 @@ vm.runInContext("setzeWahl('finanzen', true); S.schritt = 3; zeigeInhalt();", ct
 const t3 = text();
 for (const soll of ['Adresse des Monatsplan-Dienstes', 'Zugangs-Kopfzeile', 'Index-URL']) if (!t3.includes(soll)) fehler.push(`Finanzen-Einrichten ohne "${soll}"`);
 for (const nicht of ['finanzen_url', 'life_url', 'auth_header']) if (t3.includes(nicht)) fehler.push(`Rohname "${nicht}" sichtbar`);
+// Stufe je Fähigkeit: eine Auswahl je Fähigkeit, vorgewählt nach Ziel; die Felder der nicht gewählten Stufe fehlen
+const payload = () => { vm.runInContext('globalThis.nl = JSON.stringify(nutzlast());', ctx); return JSON.parse(ctx.nl); };
+vm.runInContext("S.gewaehlt.clear(); ['kern', 'agent'].forEach((i) => S.gewaehlt.add(i)); setzeWahl('kalender', true); setzeWahl('post', true); setzeWahl('leitstand', true); S.felder = {}; S.stufen = {}; S.ziel = 'compose'; S.schritt = 3; zeigeInhalt();", ctx);
+let ts = text();
+for (const soll of ['Termine', 'Grundstufe: CalDAV und ICS direkt (Vorgabe)', 'Ausbaustufe: eigener Termin-Dienst', 'aus: nicht einrichten',
+  'Adresse des Kalenders', 'Ausbaustufe: Listmonk (Vorgabe)', 'Grundstufe: Ordner-Ablage', 'Workboard des Agenten']) {
+  if (!ts.includes(soll)) fehler.push(`Einrichten (Compose) ohne "${soll}"`);
+}
+for (const nicht of ['Adresse des Termin-Dienstes', 'Grundstufe: Listmonk', 'Kopfzeile für den Postfach-Dienst']) {
+  if (ts.includes(nicht)) fehler.push(`Einrichten (Compose) zeigt "${nicht}"`);
+}
+if (/\bnull\b|undefined/.test(ts)) fehler.push('Einrichten mit Stufen zeigt null/undefined');
+let nl = payload();
+if (JSON.stringify(nl.antworten.stufen) !== '{}') fehler.push(`Vorgabe schickt Stufen: ${JSON.stringify(nl.antworten.stufen)}`);
+if (!('url' in nl.antworten.felder.kalender) || 'termine_url' in nl.antworten.felder.kalender) fehler.push('Compose: Felder der Grundstufe erwartet');
+vm.runInContext("S.ziel = 'k8s'; zeigeInhalt();", ctx);
+ts = text();
+for (const soll of ['Ausbaustufe: eigener Termin-Dienst (Vorgabe)', 'Adresse des Termin-Dienstes']) if (!ts.includes(soll)) fehler.push(`Einrichten (Kubernetes) ohne "${soll}"`);
+if (ts.includes('Adresse des Kalenders')) fehler.push('Einrichten (Kubernetes) zeigt die Felder der Grundstufe');
+nl = payload();
+if (!('termine_url' in nl.antworten.felder.kalender) || 'url' in nl.antworten.felder.kalender) fehler.push('Kubernetes: Felder der Ausbaustufe erwartet');
+vm.runInContext("S.stufen.termine = 'grund'; S.schritt = 3; zeigeInhalt();", ctx);
+nl = payload();
+if (JSON.stringify(nl.antworten.stufen) !== '{"termine":"grund"}') fehler.push(`Umstellen schickt ${JSON.stringify(nl.antworten.stufen)}`);
+if (!('url' in nl.antworten.felder.kalender) || 'termine_url' in nl.antworten.felder.kalender) fehler.push('Umgestellt: Felder der Grundstufe erwartet');
+if (!text().includes('Adresse des Kalenders')) fehler.push('Umgestellt zeigt die Felder der Grundstufe nicht');
+vm.runInContext("S.stufen = {}; S.felder = {}; S.ziel = 'compose'; S.gewaehlt.clear(); ['kern', 'agent'].forEach((i) => S.gewaehlt.add(i)); S.schritt = 0; zeigeInhalt();", ctx);
 // Fehlerkasten erst nach Weiter-Versuch
 vm.runInContext("S.planFehler = ['x kaputt']; gehe(3);", ctx);
 await new Promise((r) => setTimeout(r, 20));
@@ -96,6 +123,21 @@ if (beispiele) {
   const gezaehlt = (tz.match(/Nächste Stufe:/g) || []).length;
   const erwartet = reife.filter((r) => r.naechste).length;
   if (gezaehlt !== erwartet) fehler.push(`Zusammenfassung zeigt ${gezaehlt} nächste Stufen statt ${erwartet}`);
+  // ohne Fähigkeiten im Plan keine Stufen-Tabelle
+  pruefeText('Zusammenfassung ohne Stufen', tz, ['Dateien'], ['Stufe je Fähigkeit']);
+  // Stufe je Fähigkeit: Stufe, Vorgabe oder Wahl, was es heißt, bei Ausbau die Variable mit der Adresse
+  const stufen = beispiele.plan_stufen.stufen;
+  if (stufen.length !== 4) fehler.push(`Plan mit Stufen hat ${stufen.length} statt 4 Fähigkeiten`);
+  zeigeSchritt(4, beispiele.plan_stufen);
+  const tst = text();
+  pruefeText('Zusammenfassung mit Stufen', tst, ['Stufe je Fähigkeit', 'Fähigkeit', 'Was das heißt',
+    'Grundstufe', 'von dir gewählt', 'Ausbaustufe', 'FYOS_POST_URL', 'ist noch leer: trage die Adresse selbst ein',
+    'FYOS_VORGAENGE_URL', 'ist gesetzt', ...stufen.flatMap((s) => [s.titel, s.was])]);
+  const vorgaben = (tst.match(/Vorgabe/g) || []).length;
+  if (vorgaben < stufen.filter((s) => s.vorgabe).length) fehler.push('Zusammenfassung zeigt nicht jede Vorgabe');
+  // ein Plan eines älteren Servers ohne `stufen` zeigt keine leere Tabelle
+  zeigeSchritt(4, { ...beispiele.plan_stufen, stufen: undefined });
+  pruefeText('Zusammenfassung ohne stufen', text(), ['Dateien'], ['Stufe je Fähigkeit']);
   // ein Plan eines älteren Servers ohne `reife` zeigt keine leere Tabelle
   zeigeSchritt(4, { ...beispiele.plan, reife: undefined });
   pruefeText('Zusammenfassung ohne reife', text(), ['Dateien'], ['Reifegrad', 'Woran erkennbar']);

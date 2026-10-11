@@ -60,6 +60,8 @@ Die Distribution bleibt allgemein. Ein Plugin muss deshalb weder `hub/`, `web/` 
 | **Termine** zeigen oder anlegen, ohne selbst CalDAV zu sprechen | die **Termin-Quelle** `mcp_hub.termine`; wer Termine liefert, meldet sich als Ablage an (etwa `fyos-plugin-kalender`) | §2.14 |
 | **Mails** lesen (nur lesen), ohne selbst IMAP zu sprechen | die **Postfach-Quelle** `mcp_hub.postfach`; wer Mails liefert, meldet sich als Ablage an (etwa `fyos-plugin-mail`) | §2.15 |
 | **Dokumente** suchen, lesen und einordnen, ohne selbst Paperless zu sprechen | die **Dokumenten-Quelle** `mcp_hub.dokumente`; ein Paperless-ngx als Dienst (`FYOS_DOKUMENTE_URL`) oder ein Plugin, das sich als Ablage anmeldet | §2.16 |
+| **Dateien** ablegen, lesen und suchen (Notizen, Bilder, PDFs), mit Papierkorb und früheren Fassungen | die **Dateien-Quelle** `mcp_hub.dateien` und die App „Dateien“; ein Ordner (Volume) per `FYOS_DATEIEN` | §2.17 |
+| dass man etwas **aus meiner App in eine andere ziehen** kann (Notiz in die Dateien, Datei auf den Zettel) | `registriere_ding` und `registriere_uebergabe` im Plugin, `App.ziehbar` und `App.ablage` in der Oberfläche | §3.7 |
 
 Ein typisches Vorhaben nutzt mehrere Punkte zugleich. „Wetter“ zum Beispiel: Hub-Plugin `wetter` (§2) mit einer App
 (§3), einem Skill (§4) und einem Katalogeintrag (§7) in einem Repo `fyos-plugin-wetter`.
@@ -812,6 +814,74 @@ Fehler: `QuelleFehler` (Dienst oder Plugin aus, ohne Zugang oder antworten nicht
 `ValueError` (Eingabe: eine Abfrage unter zwei Zeichen, eine ungültige Kennung, eine Änderung ohne Inhalt, ein Name zu
 lang oder von Paperless abgelehnt).
 
+### 2.17 Dateien ablegen, lesen und suchen
+
+Dateien (Notizen, Bilder, PDFs, Tabellen) gehören einer gemeinsamen Ablage, in der Mensch, Apps und Agent dieselben Dinge
+sehen. Der Kern liefert sie als Quelle `mcp_hub.dateien` und als Plugin `dateien` mit der App „Dateien“. Ein eigenes Plugin,
+das Dateien braucht (ein Bericht, ein Export, ein Anhang), legt sie dort ab, statt sich einen eigenen Ordner zu suchen, und
+fragt `dateien.quelle()`; wie bei Terminen, Mails und Dokumenten liefert die Quelle ohne Einrichtung **keinen leeren Ordner**,
+sondern wirft `NichtEingerichtet`.
+
+Die Ablage ist ein **Ordner** (ein Volume im Container): `FYOS_DATEIEN` zeigt darauf, bei Compose und Kubernetes liegt er
+auf einem eigenen Volume (`/data/dateien`). Darin ist nichts Besonderes: die Dateien sind gewöhnliche Dateien und lassen
+sich mit jedem Werkzeug sichern oder von Hand öffnen. Nur der Unterordner `.fyos` gehört der Quelle (frühere Fassungen,
+Papierkorb, angefangene Schreibvorgänge) und bleibt für Pfade unsichtbar.
+
+```python
+from mcp_hub import dateien
+
+def bericht_ablegen(self, text: str) -> dict:
+    try:
+        verz = dateien.quelle()                                   # bei jedem Aufruf neu fragen, das ist billig
+    except dateien.NichtEingerichtet:
+        return {"zustand": "nicht eingerichtet"}                  # eigener Hinweis; weder rot noch leer
+    plan = verz.schreiben("Berichte/oktober.md", text.encode(), trocken=True)   # erst zeigen, was geschähe
+    r = verz.schreiben("Berichte/oktober.md", text.encode(), ueberschreiben=True)
+    return {"zustand": "ok", **r}                                 # {pfad, groesse, neu, ersetzt, version_gesichert}
+
+verz.liste("Berichte")        # {pfad, eltern, auswahl, eintraege[{name, pfad, art, groesse, geaendert, typ}], gesamt, gekuerzt}
+verz.lesen("Berichte/oktober.md")        # Text (art "text") oder nur Angaben (art "binaer"); version= liest eine frühere Fassung
+verz.suchen("strom rechnung")            # Name, bei Text auch Inhalt; alle Wörter müssen vorkommen
+verz.loeschen("Berichte/oktober.md")     # legt in den Papierkorb, löscht nie sofort
+```
+
+**Pfade.** Ein Pfad ist relativ zur Ablage, mit `/` getrennt, höchstens 400 Zeichen, jeder Name höchstens 200. `..`,
+Steuerzeichen, Rückstriche und `.fyos` am Anfang werden abgelehnt (`.` und doppelte Schrägstriche fallen einfach weg);
+ein absoluter Pfad gilt ab der Wurzel der Ablage, nie ab der des Rechners. Eine **Verknüpfung** (Symlink) wird an keiner
+Stelle des Pfades verfolgt, auch nicht nach innen: was nicht ausdrücklich in der Ablage liegt, erreicht niemand darüber. Geschrieben wird atomar (erst in einen Zwischenordner
+innerhalb der Ablage, dann umbenannt), vorher wird freier Platz geprüft.
+
+**Größe, Fassungen, Papierkorb.** Eine Datei darf höchstens `FYOS_DATEIEN_MAX_MB` groß sein (Vorgabe 25). Wer eine Datei ersetzt
+(`ueberschreiben=True`), behält die alte Fassung: je Datei die letzten `FYOS_DATEIEN_VERSIONEN` (Vorgabe 10). Löschen legt in
+den Papierkorb, der `FYOS_DATEIEN_PAPIERKORB_TAGE` Tage (Vorgabe 30) behält; `wiederherstellen()` und `version_zurueck()`
+holen zurück, nichts davon überschreibt etwas still. Den Rest beim Löschen räumt die Quelle nebenbei auf, ohne eigenen Takt.
+
+**Die Werkzeuge** `dateien.liste`, `.lesen`, `.suchen`, `.papierkorb`, `.versionen` (lesend) und `.schreiben`, `.verschieben`,
+`.ordner_anlegen`, `.wiederherstellen`, `.version_zurueck`, `.loeschen` (schreibend, `loeschen` als `destructive`) folgen
+dem Vertrag aus §2.8 und §3.6: `__dry_run__` zeigt den Plan, ein echter Lauf verlangt `bestaetigt: true`. Der Inhalt einer Datei
+ist **Fremdinhalt**; `lesen` und `suchen` sagen das im Ergebnis (`hinweis`), und ein Plugin, das ihn einem Modell zeigt, tut es
+auch. Binäres kommt nie als Text, sondern als Angaben mit einer Adresse zum Herunterladen (`url`); Hoch- und Herunterladen
+laufen über `GET`/`PUT /hub/dateien/datei` (`HUB-VERTRAG.md`), nicht über Werkzeug-Antworten.
+
+**Umgebung** (bei jedem Aufruf gelesen):
+
+| Variable | Wirkung |
+|---|---|
+| `FYOS_DATEIEN` | Ordner der Ablage; ohne ihn ist das Plugin „nicht eingerichtet“. Auch als `config: {verzeichnis: …}` im Eintrag des Plugins |
+| `FYOS_DATEIEN_MAX_MB` | größte Datei in MB (Vorgabe 25) |
+| `FYOS_DATEIEN_VERSIONEN` | so viele frühere Fassungen je Datei (Vorgabe 10; 0 = keine) |
+| `FYOS_DATEIEN_PAPIERKORB_TAGE` | so lange bleibt Gelöschtes im Papierkorb (Vorgabe 30) |
+
+Fehler: `QuelleFehler` (der Ordner ist nicht lesbar oder beschreibbar, kaum Platz), `NichtEingerichtet` (ein `QuelleFehler`),
+und als `ValueError` die Eingabefehler: `Fehler` (ungültiger Pfad, kein Ordner), `NichtGefunden` (404), `Existiert` (409, mit
+`ueberschreiben=True` zu umgehen) und `ZuGross` (413). Jeder trägt `status` und `kind` für den REST-Weg.
+
+**Die App.** „Dateien“ zeigt Ordner und Vorschau (Text, Markdown, Bilder; PDFs öffnen im Tab des Browsers), nimmt Dateien
+vom Schreibtisch per Ziehen an und legt Neues, Umbenanntes, Gelöschtes und frühere Fassungen nur nach einer Rückfrage an
+(`App.beantragen`). Weil eine App im Sandbox-iframe nichts schreibend an den Hub schicken darf, nimmt die Shell hochgeladene
+Dateien selbst entgegen (`App.hochladen(pfad, datei, {ueberschreiben})`, nur in dieser App und nur in der FYOS-Shell). Jede
+Datei in der App trägt `data-typ="datei"` und `data-id="<Pfad>"`; damit die Shell sie als Ding erkennen kann.
+
 ---
 
 ## 3. Oberfläche (MCP-App, `ui://`)
@@ -837,6 +907,7 @@ _identitaet.registriere_app(
     {"titel": "Wetter", "untertitel": "Vorhersage für heute", "symbol": "sun", "ton": 200, "kategorie": "Wissen"},
     datei=UI_DATEI,
     hauptwerkzeug="wetter__vorhersage",       # das Werkzeug, das die App öffnet
+    art="widget",                             # "widget" (Vorgabe) oder "anwendung", siehe 3.5
 )
 
 
@@ -984,7 +1055,9 @@ In einem Rahmen ohne feste Höhe (Chat) bestimmt die App ihre Höhe selbst und b
 Du registrierst **nichts** in der Shell. Sie fragt `/hub-api/apps` ab (beim Start, alle zwei Minuten, beim Zurückkehren
 in den Tab) und bildet daraus Fläche, Dock-Eintrag, Startkachel und Suchtreffer.
 
-- Titel, Untertitel, Symbol, Farbton, Kategorie kommen aus `meta["app"]`.
+- Titel, Untertitel, Symbol, Farbton, Kategorie und **Art** kommen aus `meta["app"]`.
+- **Widget oder Anwendung?** Die Art sagst du bei `registriere_app(…, art="widget" | "anwendung")`; ohne Angabe ist die App
+  ein Widget (siehe unten).
 - Die **Gruppe** im Start ist „Apps“, wenn niemand etwas anderes sagt. Eine Gruppe wählt die Shell über
   `registriereFlaechen({ gruppen: { plugin: { wetter: 'Wissen' } } })` (§6).
 - **Heften** an den Startbildschirm geht nur für lesende Werkzeuge ohne Pflichtfelder, die als einzige ihre Oberfläche haben.
@@ -994,6 +1067,32 @@ in den Tab) und bildet daraus Fläche, Dock-Eintrag, Startkachel und Suchtreffer
   `FYOS_OEFFENTLICH_URL` bestimmt den Ursprung. Beispiel: `/os?offen=app:vorlage__hallo`.
 - Ein Agent kann dieselbe App im offenen OS zeigen (OS-Brücke, Befehl `zeigen` mit Ziel `app:<plugin>__<werkzeug>`,
   siehe `HUB-VERTRAG.md` §3).
+
+**Widget oder Anwendung.** Die Shell kennt zwei Arten von Flächen, und die App wählt, was sie ist:
+
+| | Widget (Vorgabe) | Anwendung |
+|---|---|---|
+| Gedanke | etwas zum Danebenstellen: eine Lage, eine Kachel, ein Zähler | etwas, in dem man arbeitet: Dateien, ein Editor, ein Postfach |
+| Öffnet | als Kachel im 12er-Raster, viele nebeneinander | groß: volle Breite, so hoch wie der Bildschirm unter der Menüleiste |
+| Grüner Knopf | „Zoomen“: volle ↔ halbe Breite | **Vollbild-Bildschirm** |
+| ⌥-Klick auf den grünen Knopf, Doppelklick auf den Kopf | (Doppelklick: Zoomen) | **Maximieren** |
+| ⌃⌘F (Windows und Linux: Strg+Alt+F) | – | Vollbild-Bildschirm an und aus |
+| Beispiele der Distribution | Notizzettel, Werkstatt, MCP, Gebaute Ansicht | Dateien |
+
+- **Maximieren** legt die Anwendung über den ganzen Arbeitsbereich des Bildschirms: das Dock blendet aus, die Menüleiste
+  bleibt, die übrigen Fenster ruhen unsichtbar (ihre Apps laden nicht neu). Öffnet jemand etwas anderes, endet die
+  Maximierung.
+- Der **Vollbild-Bildschirm** ist ein eigener Arbeitsbildschirm wie das Vollbild am Mac: direkt hinter dem Bildschirm, von dem
+  die Anwendung kam, mit genau dieser einen Anwendung, maximiert. Wischen und ⌥⌘←/→ wechseln zu ihm und von ihm weg wie
+  zwischen allen Bildschirmen. Dazu bittet die Shell den Browser um das Vollbild (`requestFullscreen`; Esc beendet es
+  und den Vollbild-Bildschirm). Zurück geht es mit dem grünen Knopf, ⌃⌘F oder Esc: die Anwendung kehrt auf ihren
+  Bildschirm zurück. War sie allein auf ihrem, wird dieser selbst zum Vollbild-Bildschirm und danach ein gewöhnlicher. Neue
+  Flächen öffnen nie in einem Vollbild-Bildschirm, sondern auf einem anderen.
+- Eine App, die nach **Arbeit** aussieht (eigene Liste und Vorschau, viel Platz nötig), ist eine Anwendung. Eine App, die
+  man **neben anderen** im Blick haben will, ist ein Widget. Im Zweifel: Widget.
+- Die Art ändert nichts an der Oberfläche der App; sie bekommt nur mehr oder weniger Platz (Größenstufe `weit`, §3.4).
+- Wirkt sich nicht auf dem Handy aus: dort steht immer genau ein Fenster da.
+- Eigene Seiten und native Flächen aus `registriereFlaechen` setzen dasselbe mit `anwendung: true` an der Fläche (§6.1).
 
 ### 3.6 Frische und Anfrage statt Aktion
 
@@ -1086,6 +1185,88 @@ Klick und nur, wenn `App.kann("message")`), oder ein Werkzeug des Plugins legt e
 (Status `waiting_approval`, Vorgangs-Vertrag in `KOPPLUNG-OPENCLAW.md` §4). Entscheiden tut der Mensch im Freigabeweg des
 Agenten (Chat oder Vorgang), nie die Oberfläche. Die Vorlage baut Stufe 3 nicht nach, weil sie einen Vorgangs-Dienst
 voraussetzt.
+
+**Adressen öffnen und Dateien hochladen.** Die App im Sandbox-iframe hat den Ursprung `null` und kann weder selbst
+navigieren noch schreibend zum Hub. Eine Adresse öffnet sie mit `await App.oeffnen(url)` (Link-Anfrage an den Host, wirft, wenn er
+ablehnt; nur `http(s)`). Dateien nimmt die Shell für die App „Dateien“ entgegen: `await App.hochladen(pfad, datei,
+{ueberschreiben})` schickt ein `File` oder `Blob` per Nachricht an den Host, der es aus seinem eigenen Ursprung hochlädt
+(`fyos/datei-hochladen`, Fähigkeit `App.kann("fyosDateien")`, nur dort und nur in der FYOS-Shell). Das Ergebnis ist
+`{ok: true, result}` oder `{ok: false, kind, error}` (`existiert`, `zu_gross` …); geworfen wird nur, wenn der Host ausfällt.
+
+### 3.7 Übergaben: Dinge zwischen Apps ziehen
+
+Man zieht ein **Ding** (eine Notiz, eine Datei, einen Vorgang) aus dem Fenster einer App auf das Fenster einer anderen, auf
+den Dock oder auf den Agenten. Was am Ziel geschieht, sagt das Plugin vorher, in drei Schritten. Gelegt wird nie etwas ohne
+Plan und „Ja“ (§3.6).
+
+**1. Den Typ anmelden** (im Plugin, nach `registriere_app`; siehe `mcp_hub/plugins/_dinge.py`):
+
+```python
+from mcp_hub.plugins._dinge import registriere_ding, registriere_uebergabe
+
+registriere_ding(
+    "notiz", "Notiz",                    # Typ (klein, Ziffern, „-“) und Name für Menschen
+    flaeche="vorlage",                   # die App, die es zeigt (Schlüssel wie bei registriere_app)
+    lesen="vorlage.lesen",               # lesendes Werkzeug mit Tag `flaeche`: Kennung rein, das Ding raus
+    id_argument="id",                    # Name von dessen Kennungsargument
+    felder=("text", "dateiname"),        # Felder des Ergebnisses, die Übergaben einsetzen dürfen
+)
+```
+
+Die Shell bekommt das Register mit `GET /hub/apps` (Felder `dinge` und `uebergaben`). Typen, deren App oder lesendes
+Werkzeug es nicht (mehr) gibt, lässt der Hub weg und schreibt eine Warnung ins Protokoll. Ohne `lesen` lässt sich das Ding
+ziehen, aber nur mit `{id}` und `{label}` weitergeben. Das Werkzeug einer Übergabe muss zum Plugin der Ziel-App gehören und
+ein Flächen-Werkzeug sein (Tag `flaeche`, auf dem Weg `/hub/app-call` erreichbar); ebenso fällt eine Übergabe weg, die einen
+Platzhalter einsetzt, den der Typ nicht liefert.
+
+**2. Eine Übergabe anmelden**, wenn Ding und Ziel zusammenpassen:
+
+```python
+registriere_uebergabe(
+    "notiz",                             # Quelltyp
+    "dateien",                           # die Ziel-App
+    "dateien.schreiben",                 # Flächen-Werkzeug des Ziel-Plugins, am besten mit Trockenlauf und `bestaetigt` (§3.6)
+    {"pfad": "Notizen/{dateiname}.md", "inhalt": "{text}\n"},   # Argument -> Wert; Text darf {id}, {label} und {feld} tragen
+    "Als Markdown-Datei in „Dateien“ ablegen",              # der Satz am Fenster, bevor man loslässt
+)
+```
+
+`abbildung` kennt keine Schleifen und keine Berechnung: Was ein Feld berechnen muss (einen sicheren Dateinamen, einen
+Titel), berechnet das lesende Werkzeug des Typs. Höchstens 12 Argumente, je 2000 Zeichen; `wirkung` höchstens 120.
+Je Paar (Quelltyp, Ziel-App) gilt eine Übergabe; wer sie neu anmeldet, überschreibt sie. Beim Import muss der Typ noch nicht
+da sein (Plugins laden in beliebiger Reihenfolge); geprüft wird beim Ausliefern von `/hub/apps`. Die Distribution bringt
+zwei Paare mit: Notiz auf „Dateien“ legt eine `.md`-Datei an, Datei auf den Notizzettel merkt einen Verweis.
+
+**3. In der Oberfläche** (`ui/<name>.html`): Quelle und Ziel sind zwei Zeilen.
+
+```js
+// Quelle: jedes Element mit data-typ und data-id ist ziehbar (data-label ist der Name im Hinweis)
+App.ziehbar(document.body, { selektor: "[data-typ]" });
+// Ziel: nimmt Dinge der genannten Typen an; stellt Plan und Rückfrage in #antrag und ruft nach „Ja“ danach(…)
+App.ablage($("antrag"), { nimmt: ["notiz"], ja: "Datei anlegen", danach: (r) => laden(), fehler: (e) => satz(App.fehlertext(e), "schlecht") });
+```
+
+- `App.ziehbar(wurzel, {typ, id, label, selektor})` setzt `draggable` auf Elemente unter `wurzel` (mit `selektor` per
+  Delegation) und füllt den Zug in der Ziehsprache der Shell: `fyos://<typ>/<id>` als `text/plain`, dazu
+  `application/x-fyos-<typ>` und `text/x-fyos-label`. `typ`, `id` und `label` dürfen Funktionen des Elements sein. Es gibt
+  eine Funktion zum Abmelden zurück.
+- `App.ablage(ort, {nimmt, ja, danach, fehler, bei})` hört auf `fyos/uebergabe`. Standard ist
+  `App.beantragen` mit dem fertig ausgefüllten Werkzeug; `bei(u)` ersetzt das, wenn die App mit der Übergabe etwas anderes
+  tun will.
+- Das Zielwerkzeug muss `bestaetigt` kennen und ohne es ablehnen (§3.6), sonst scheitert die Registrierung der Argumente am
+  Schema.
+
+**Was die Shell dazwischen tut.** Die App läuft in einer Sandbox ohne Ursprung. Beginnt in ihr ein Zug, meldet die Brücke
+`fyos/zug` an den Host; solange er dauert, geben die Fenster ihre Zeiger frei (sonst fängt das Iframe den Zug ab), und jedes
+Ziel zeigt oben, was geschähe: bei Fenstern mit Übergabe deren `wirkung`, bei Paaren ohne Übergabe „Agent dazu fragen“. Beim
+Loslassen liest der Host das Ding (`lesen`), setzt die Felder ein und schickt `fyos/uebergabe` an die Ziel-App (`typ`, `id`,
+`werkzeug`, `argumente`, `wirkung`); ist sie noch nicht geladen, wartet die Nachricht bis zu 30 Sekunden. Auf dem Dock, dem
+Agenten oder einem Bildschirm zeigt ein Ding seine eigene App (`fyos/oeffne` mit `typ` und `id`; die App öffnet es:
+`App.auf("fyos/oeffne", (p) => …)`). Die Fähigkeit `App.kann("fyosUebergaben")` sagt, ob der Host das alles versteht
+(außerhalb der FYOS-Shell nicht: dann zieht die App nur ihren Zug, ohne Meldung).
+
+Vorgänge sind ein Ding wie jedes andere, sobald eine App sie zeigt; der Kern bringt keine solche App mit und meldet darum
+keinen Typ `vorgang` an. Wer eine hat (§2.13), meldet ihn selbst an.
 
 ---
 
@@ -1431,12 +1612,13 @@ registriereFlaechen({
 
 | Feld | Bedeutung |
 |---|---|
-| `flaechen` | `art: 'seite'` mit `pfad` (Fenster, gleicher Ursprung) oder mit `extern` (neuer Tab); `art: 'nativ'` mit `laden` (Solid-Komponente im Fenster, `NativProps`: `oeffne`, `schmal`) |
+| `flaechen` | `art: 'seite'` mit `pfad` (Fenster, gleicher Ursprung) oder mit `extern` (neuer Tab); `art: 'nativ'` mit `laden` (Solid-Komponente im Fenster, `NativProps`: `oeffne`, `schmal`). Mit `anwendung: true` öffnet die Fläche groß, lässt sich maximieren und bekommt einen Vollbild-Bildschirm (§3.5); ohne ist sie ein Widget |
 | `symbole` | Glyphe und Farbton je Fläche; Hub-Apps bringen ihr Gesicht selbst mit |
 | `gruppen` | Reihenfolge der Gruppen und Zuordnung von Hub-Apps: erst ganzer Werkzeugname (`app`), dann Plugin-Präfix vor `__` (`plugin`), sonst „Apps“ |
 | `standardPlaetze` | Vorlagen für Arbeitsbildschirme, die der Start anbietet; fehlende Flächen werden übergangen |
 | `alias` | alte Kennungen → heutige Fläche (Lesezeichen, gespeicherte Anordnungen, `?offen=`) |
-| `dinge` | ziehbare Dinge (`fyos://<typ>/<id>`) und die Seite, auf der sie leben |
+| `dinge` | ziehbare Dinge (`fyos://<typ>/<id>`) und die Seite, auf der sie leben; für Dinge von Hub-Apps zusätzlich `flaeche`, `lesen`, `idArgument`, `felder` (kommt aus `registriere_ding`, §3.7, und wird vom Hub mitgeliefert) |
+| `uebergaben` | was beim Ablegen eines Dings auf das Fenster einer App geschieht (`quelle`, `ziel`, `werkzeug`, `abbildung`, `wirkung`); Hub-Plugins melden sie mit `registriere_uebergabe` (§3.7) |
 
 Flächen-Kennungen: `seite:<name>`, `app:<plugin>__<werkzeug>`, `nativ:<name>`, `extern:<slug>`, `agent`.
 
@@ -1614,6 +1796,49 @@ FYOS ablehnen muss (den vollen Aufruf-Endpunkt, einen Aufruf mit fremder Herkunf
 Browser-Weg), und eine erlaubte als Gegenprobe. Für dein Plugin heißt das nur: Ein Werkzeug ohne Oberfläche (ohne `ui` in
 `meta`, ohne Tag `flaeche`) ist über den Browser nicht erreichbar, und das soll so bleiben (§3.2). Wiederholen:
 `fyos-install --abnahme http://localhost:8080` (Einzelheiten: `installer/README.md`, Abschnitt Abnahme).
+
+### 7.3 Stufe je Fähigkeit: Grundstufe, Ausbaustufe, aus
+
+Hängt dein Plugin an einer Quelle des Kerns (§2.13 Vorgänge, §2.14 Termine, §2.15 Postfach, §2.16 Dokumente), kennt es zwei Wege:
+die **Grundstufe** (ohne eigenen Dienst: ein CalDAV-Konto, ein IMAP-Postfach, das Workboard des Agenten) und die
+**Ausbaustufe** (ein eigener Dienst, den der Hub über eine Adresse in der Umgebung erreicht, etwa `FYOS_TERMINE_URL`).
+Der Installer lässt den Nutzer die Stufe **je Fähigkeit** wählen. Die Vorgabe richtet sich nach der Bauart: Kubernetes nimmt
+die Ausbaustufe, Docker Compose die Grundstufe, und wo es keine Grundstufe gibt (etwa Post senden), bleibt der Ausbau.
+
+Die Fähigkeiten stehen in `installer/fyos_installer/katalog_stufen.yaml`, nicht im Katalogeintrag deines Plugins. Das hat
+einen Grund: Ersetzt dein Katalogeintrag den des Installers (gleiche `id`, §7.2), behält die Fähigkeit ihre Stufen, und die
+Felder der Ausbaustufe legt der Installer an deinem Baustein bei Bedarf selbst an. Ein Eintrag sieht so aus:
+
+```yaml
+faehigkeiten:
+  - id: termine
+    titel: Termine
+    kurz: Deine Termine lesen und auf Wunsch einen neuen eintragen.
+    baustein: kalender              # id des Bausteins, zu dem die Fähigkeit gehört
+    aus: true                       # darf der Nutzer sie ganz ausschalten?
+    stufen:
+      grund:                        # fehlt grund (oder verfuegbar: false), bleiben Ausbau und aus
+        titel: CalDAV und ICS direkt
+        text: Das Plugin liest deinen Kalender selbst, ohne eigenen Dienst.
+        felder: [url, nutzer, passwort]          # Felder des Bausteins, die nur in dieser Stufe gelten
+      ausbau:
+        titel: eigener Termin-Dienst
+        text: Ein Dienst bündelt die Termine; der Hub fragt ihn über FYOS_TERMINE_URL.
+        felder:
+          - { name: termine_url, typ: url, titel: Adresse des Termin-Dienstes, umgebung: FYOS_TERMINE_URL }
+        url: termine_url                          # das Feld mit der Adresse des Dienstes
+```
+
+Was der Installer daraus macht (Einzelheiten und Beispiele: `installer/README.md`, Abschnitt Stufe je Fähigkeit):
+
+- Gewählt wird im Assistenten und in der Textoberfläche (eine Auswahl je Fähigkeit), ohne Oberfläche mit
+  `--stufe termine=ausbau` oder `stufen: {termine: ausbau}` in der Antwortdatei. `fyos-install --liste` zeigt die
+  Fähigkeiten mit ihren Stufen und der Vorgabe je Bauart.
+- Nur die Felder der gewählten Stufe werden abgefragt und geschrieben. Bei der Grundstufe fehlt jede Dienstadresse, dein
+  Plugin nimmt also den direkten Weg. Bei der Ausbaustufe steht die Adresse in der Umgebung des Hubs.
+- Eine Ausbaustufe ohne eingetragene Adresse ist **nicht eingerichtet**, und dein Plugin muss das auch so sagen (§2.13:
+  `NichtEingerichtet` mit einem Hinweis, nie „leer“, siehe „Das Muster“ in `NACHBAU.md`). Der Installer liefert die Dienste der Ausbaustufe heute noch nicht
+  mit; er schreibt die Zeile `FYOS_TERMINE_URL=` zum Ausfüllen und erklärt das im Plan, statt einen Dienst zu erfinden.
 
 ---
 

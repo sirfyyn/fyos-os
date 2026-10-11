@@ -31,6 +31,9 @@ def test_kalender_baustein(katalog):
         "url": ("FYOS_KALENDER_URL", "url"),
         "nutzer": ("FYOS_KALENDER_NUTZER", "text"),
         "passwort": ("FYOS_KALENDER_PASSWORT", "geheim"),
+        # Ausbaustufe (katalog_stufen.yaml): der Termin-Dienst statt der direkten Anbindung
+        "termine_url": ("FYOS_TERMINE_URL", "url"),
+        "termine_kopf": ("FYOS_TERMINE_KOPF", "geheim"),
     }
     assert k.abhaengig_von == ["kern", "agent"] and not k.pflicht
 
@@ -44,6 +47,9 @@ def test_mail_baustein(katalog):
         "port": ("FYOS_MAIL_PORT", "zahl"),
         "nutzer": ("FYOS_MAIL_NUTZER", "text"),
         "passwort": ("FYOS_MAIL_PASSWORT", "geheim"),
+        # Ausbaustufe (katalog_stufen.yaml): der Postfach-Dienst statt IMAP direkt
+        "postfach_url": ("FYOS_POSTFACH_URL", "url"),
+        "postfach_kopf": ("FYOS_POSTFACH_KOPF", "geheim"),
     }
     assert {f.name: f.standard for f in m.konfiguration}["port"] == 993  # IMAPS
     assert m.abhaengig_von == ["kern", "agent"] and not m.pflicht

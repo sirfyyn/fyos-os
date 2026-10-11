@@ -13,6 +13,7 @@ const S = {
   katalog: null, schritt: 0, ziel: 'compose', gewaehlt: new Set(), persona: {}, modell: {}, optionen: {},
   felder: {}, verzeichnis: '', plan: null, planFehler: [], galerie: {}, vorschau: false, urlBeruehrt: false,
   beruehrt: new Set(), versucht: false,
+  stufen: {}, // ausdrücklich gewählte Stufen je Fähigkeit; was fehlt, bekommt die Vorgabe der Bauart
   inst: { laeuft: false, gestartet: false, pre: null, ende: null },
 };
 
@@ -93,12 +94,29 @@ function setzeWahl(id, an) {
 
 const gewaehlteBausteine = () => S.katalog.bausteine.filter((b) => S.gewaehlt.has(b.id));
 
+// Stufe je Fähigkeit: Grundstufe, Ausbaustufe oder aus. Gewählt ist, was der Nutzer angeklickt hat, sonst die Vorgabe der Bauart.
+const faehigkeitenVon = (b) => (S.katalog.faehigkeiten || []).filter((f) => f.baustein === b.id);
+const stufeVon = (f) => S.stufen[f.id] || f.vorgabe[S.ziel] || f.moegliche[0];
+
+// Ein Feld, das nur zu einer Stufe gehört, die nicht gilt, wird weder gezeigt noch geschickt.
+function feldGilt(b, name) {
+  for (const f of faehigkeitenVon(b)) {
+    for (const s of f.stufen) if (s.felder.includes(name)) return s.id === stufeVon(f);
+  }
+  return true;
+}
+
 function nutzlast() {
-  const felder = {};
-  gewaehlteBausteine().forEach((b) => { if (b.konfiguration.length) felder[b.id] = S.felder[b.id] || {}; });
+  const felder = {}, stufen = {};
+  gewaehlteBausteine().forEach((b) => {
+    if (b.konfiguration.length) {
+      felder[b.id] = Object.fromEntries(Object.entries(S.felder[b.id] || {}).filter(([name]) => feldGilt(b, name)));
+    }
+    faehigkeitenVon(b).forEach((f) => { if (S.stufen[f.id]) stufen[f.id] = S.stufen[f.id]; });
+  });
   return {
     auswahl: [...S.gewaehlt], ziel: S.ziel, verzeichnis: S.verzeichnis,
-    antworten: { persona: S.persona, modell: S.modell, optionen: S.optionen, felder },
+    antworten: { persona: S.persona, modell: S.modell, optionen: S.optionen, felder, stufen },
   };
 }
 
@@ -207,6 +225,29 @@ function feld(gruppe, f, werte, bei) {
     eingabe, f.beschreibung ? h('span', { class: 'hilfe' }, f.beschreibung) : null, meldung);
 }
 
+// Eine Auswahl je Fähigkeit: Grundstufe, Ausbaustufe, falls erlaubt aus. Nicht vorhandene Stufen sind sichtbar gesperrt.
+function stufenWahl(f) {
+  const aktiv = stufeVon(f);
+  const optionen = f.stufen.map((s) => ({ id: s.id, name: s.name, titel: s.titel, text: s.text, frei: s.verfuegbar }));
+  if (f.aus) {
+    optionen.push({ id: 'aus', name: 'aus', titel: 'nicht einrichten', frei: true,
+      text: `${f.titel} bleibt nicht eingerichtet; der Agent sagt das ehrlich, statt etwas zu erfinden.` });
+  }
+  const vorgabe = f.vorgabe[S.ziel];
+  return h('div', { class: 'stufen', role: 'radiogroup', 'aria-label': `Stufe: ${f.titel}` },
+    h('div', null, h('strong', null, f.titel), ' ', h('span', { class: 'leise' }, f.kurz)),
+    h('div', { class: 'stufen-wahl' }, optionen.map((o) => h('label', { class: 'wahl' + (o.frei ? '' : ' gesperrt') },
+      h('input', {
+        type: 'radio', name: 'stufe-' + f.id, value: o.id, checked: aktiv === o.id, disabled: !o.frei,
+        onchange: () => {
+          S.stufen[f.id] = o.id; zeigeInhalt();
+          document.querySelector(`input[name="stufe-${f.id}"][value="${o.id}"]`)?.focus();
+        },
+      }),
+      ' ', h('span', { class: 'titel' }, `${o.name}: ${o.titel}` + (o.id === vorgabe ? ' (Vorgabe)' : '')),
+      h('span', { class: 'kurz' }, o.text)))));
+}
+
 function seiteEinrichten() {
   const quelleNoetig = gewaehlteBausteine().some((b) => b.braucht_quelle);
   const p = S.persona, m = S.modell, o = S.optionen;
@@ -214,7 +255,8 @@ function seiteEinrichten() {
     S.felder[b.id] = S.felder[b.id] || {};
     b.konfiguration.forEach((f) => { if (!(f.name in S.felder[b.id])) S.felder[b.id][f.name] = f.standard; });
     return h('fieldset', null, h('legend', null, b.titel),
-      b.konfiguration.map((f) => feld(b.id, f, S.felder[b.id], (v) => {
+      faehigkeitenVon(b).map(stufenWahl),
+      b.konfiguration.filter((f) => feldGilt(b, f.name)).map((f) => feld(b.id, f, S.felder[b.id], (v) => {
         S.felder[b.id][f.name] = v;
         if (b.id === 'kern' && f.name === 'oeffentliche_url') S.urlBeruehrt = true;
         if (b.id === 'kern' && f.name === 'port' && !S.urlBeruehrt && S.felder.kern.oeffentliche_url !== undefined) {
@@ -248,6 +290,9 @@ function seiteEinrichten() {
       ] : h('p', { class: 'leise' }, 'Die gewählten Bausteine brauchen keine zusätzlichen Pakete.'),
       S.ziel === 'k8s' ? [
         feld('optionen', { name: 'hub_bild_k8s', titel: 'Hub-Bild in deiner Registry', beschreibung: 'Dorthin schiebst du das gebaute Bild.', pflicht: true, typ: 'text' }, o, (v) => { o.hub_bild_k8s = v; }),
+        gewaehlteBausteine().some((b) => b.id === 'kanal_matrix' || b.id === 'kanal_whatsapp')
+          ? feld('optionen', { name: 'agent_bild_k8s', titel: 'Agent-Bild mit Kanal-Paketen in deiner Registry', beschreibung: 'Matrix und WhatsApp brauchen zusätzliche Pakete im Bild des Agenten; dorthin schiebst du das gebaute Bild.', pflicht: true, typ: 'text' }, o, (v) => { o.agent_bild_k8s = v; })
+          : null,
         feld('optionen', { name: 'namespace', titel: 'Namespace', pflicht: true, typ: 'text' }, o, (v) => { o.namespace = v; }),
       ] : null,
       h('details', null, h('summary', null, 'Bilder der Dienste'),
@@ -272,6 +317,21 @@ function reifeTabelle(reife) {
   ];
 }
 
+// Stufe je Fähigkeit (vom Server berechnet): welche Stufe gilt, ob Vorgabe oder Wahl, und bei Ausbau die Variable mit der Adresse.
+function stufenTabelle(stufen) {
+  if (!Array.isArray(stufen) || !stufen.length) return null;
+  return [
+    h('h2', null, 'Stufe je Fähigkeit'),
+    h('p', { class: 'leise' }, 'Die Grundstufe braucht keinen eigenen Dienst, die Ausbaustufe einen. Die Vorgabe richtet sich nach dem Ziel; du kannst jede Fähigkeit unter »Einrichten« umstellen.'),
+    h('table', { class: 'dateien stufen-tabelle' },
+      h('thead', null, h('tr', null, h('th', null, 'Fähigkeit'), h('th', null, 'Stufe'), h('th', null, 'Was das heißt'))),
+      h('tbody', null, stufen.map((s) => h('tr', null,
+        h('td', null, s.titel),
+        h('td', null, s.stufe_titel, h('div', { class: 'leise' }, s.vorgabe ? 'Vorgabe' : 'von dir gewählt')),
+        h('td', null, s.was, s.umgebung ? h('div', { class: 'leise' }, [h('code', null, s.umgebung), s.adresse_gesetzt ? ' ist gesetzt' : ' ist noch leer: trage die Adresse selbst ein, den Dienst liefert der Installer noch nicht mit'] ) : null))))),
+  ];
+}
+
 function seiteZusammenfassung() {
   const plan = S.plan;
   const kopf = [h('h1', { tabindex: '-1', id: 'titel' }, 'Zusammenfassung')];
@@ -289,6 +349,7 @@ function seiteZusammenfassung() {
       h('span', { class: 'hilfe' }, 'Vorhandene Dateien werden nicht gelöscht, sondern als .vorher gesichert.')),
     h('button', { type: 'button', 'aria-expanded': String(S.vorschau), onclick: () => { S.vorschau = !S.vorschau; zeigeInhalt(); } }, S.vorschau ? 'Vorschau ausblenden' : 'Vorschau: Was entsteht?'),
     S.vorschau ? h('div', { class: 'collage' }, mitBild.map((b) => h('figure', null, h('img', { src: b.bilder[0], alt: `Skizze: ${b.titel}` }), h('figcaption', null, b.titel)))) : null,
+    stufenTabelle(plan.stufen),
     reifeTabelle(plan.reife),
     h('h2', null, 'Dateien'),
     h('table', { class: 'dateien' }, h('thead', null, h('tr', null, h('th', null, 'Datei'), h('th', null, 'Inhalt'))),

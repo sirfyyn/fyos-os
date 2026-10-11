@@ -265,7 +265,8 @@ def test_lesende_wege_haben_etag_und_antworten_304(client, pfad):
 
 def test_apps_antwortformat_bleibt(client):
     j = client.get("/hub/apps").json()
-    assert set(j) == {"ok", "count", "apps"} and j["count"] == len(j["apps"]) > 0
+    # `dinge` und `uebergaben` (Übergaben per Ziehen) kamen dazu; die bisherigen Felder bleiben
+    assert set(j) == {"ok", "count", "apps", "dinge", "uebergaben"} and j["count"] == len(j["apps"]) > 0
     assert {"tool", "name", "title", "description", "inputSchema", "_meta", "scope", "hatUi"} <= set(j["apps"][0])
 
 

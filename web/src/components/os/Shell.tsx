@@ -32,12 +32,13 @@ import Menueleiste, { type LeistenMenue } from './Menueleiste';
 import Raster from './Raster';
 import type { Vorlage } from './Start';
 import { hub } from '~/lib/hub';
-import { apps as hubApps, type McpApp } from '~/lib/mcp-apps/host';
-import { MAX_OFFEN, alleEinblenden, automatisch, laden as altLaden, minimieren, schliessen, startPruefen, type Fenster, type StartZustand } from '~/lib/os/anordnung';
+import { apps as hubApps, uebergabeStarten, type McpApp } from '~/lib/mcp-apps/host';
+import { registrierteDinge } from '~/lib/os/register';
+import { MAX_OFFEN, alleEinblenden, automatisch, laden as altLaden, minimieren, schliessen, startPruefen, zeilenFuerHoehe, type Fenster, type StartZustand } from '~/lib/os/anordnung';
 import { appFragen, heften, kannHeften } from '~/lib/os/app-aktionen';
 import {
   BILDSCHIRME_MAX, START, aktueller, alleFenster, anzeigeName, bereinigen, bildschirmBei, entfernen, fensterAendern, flaecheOeffnen, fremdesSpeichern, idsUmbenennen, laden as apLaden,
-  leer, nachLinks, nachRechts, neuerBildschirm, pruefen, speichern as apSpeichern, umbenennen, verschiebenNach, wechseln, wo,
+  istVollbild, leer, nachLinks, nachRechts, neuerBildschirm, pruefen, speichern as apSpeichern, umbenennen, verschiebenNach, vollbildAn, vollbildAus, wechseln, wo,
   type Arbeitsplatz, type Bildschirm,
 } from '~/lib/os/bildschirme';
 import { AGENT_ID, alleFlaechen, appFlaecheZu, flaecheZu, gruppiert, standardPlaetze, type Flaeche } from '~/lib/os/flaechen';
@@ -50,13 +51,14 @@ import { OEFFNEN, deeplink, eingabeLesen, pfadSchluessel, type OsZiel } from '~/
 import { fremdesThemaAnwenden, themaSetzen, themaWahl } from '~/lib/os/thema';
 import { agentFragen, agentFragenAnbinden } from '~/lib/os/agent-fragen';
 import { agentName, agentPfad, konfigurationLaden, systemName } from '~/lib/config';
-import { ZEIGT_EREIGNIS, einstellungLesen, einstellungSchreiben, hinzufuegen, istStumm, zeigtPruefen, type Mitteilung } from '~/lib/os/mitteilungen';
+import { brueckeStarten } from '~/lib/os/bruecke';
+import { ZEIGT_EREIGNIS, einstellungLesen, einstellungSchreiben, hinzufuegen, istStumm, zeigtPruefen, type Mitteilung, type ZeigtDaten } from '~/lib/os/mitteilungen';
 import { ausklingen, herkunftMerken, imBlickHalten, insDock } from '~/lib/os/uebergang';
 import '~/styles/os-handhabung.css';
 import '~/plugins';
 import {
-  OEFFNE_NACHRICHT, ZUG_NACHRICHT, ablageZiel, aktuellerZug, dingName, dingPfad, frageZu, gutArt, hinweisWeg, istDingTyp, zugBeginnt,
-  zugEndet, zugHinweis, zustellen, type Gut, type GutArt,
+  OEFFNE_NACHRICHT, ZUG_NACHRICHT, ablageZiel, aktuellerZug, dingName, dingPfad, frageUebergabe, frageZu, gutArt, hinweisWeg, istDingTyp, zugBeginnt,
+  zugEndet, zugHinweis, zustellen, type AppAblage, type Gut, type GutArt,
 } from '~/lib/os/ziehen';
 import { istAngepinnt } from '~/lib/mcp-apps/pins';
 
@@ -188,6 +190,12 @@ export default function Shell(): JSX.Element {
 
   /** Dock-Symbol, das gerade hüpft (ein Fenster ist neu aufgegangen, wie am Mac beim Start einer App) */
   const [huepf, setHuepf] = createSignal<string | null>(null);
+  /** Eine Anwendung öffnet groß: so viele Rasterzeilen, wie der Bildschirm hoch ist (anordnung.ts `oeffnen`); Widgets nicht. */
+  const grossFuer = (fl: Flaeche | undefined): number | undefined => {
+    if (!fl?.anwendung || schmal()) return undefined;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    return zeilenFuerHoehe(bereich?.clientHeight || window.innerHeight, rem);
+  };
   const oeffne = (id: string, vor?: string | null, startZustand?: StartZustand, sonstNeu = false) => {
     const fl = flaeche(id);
     if (!fl) return;
@@ -199,7 +207,7 @@ export default function Shell(): JSX.Element {
       return;
     }
     const neu = wo(ap(), id) < 1;
-    const r = flaecheOeffnen(ap(), id, { vor, breit: flaeche(id)?.breit, start: startZustand, sonstNeu });
+    const r = flaecheOeffnen(ap(), id, { vor, breit: flaeche(id)?.breit, start: startZustand, sonstNeu, gross: grossFuer(fl) });
     if (r.voll) kurzMelden(VOLL, 6000);
     else setMeldung('');
     setze(r.ap);
@@ -254,7 +262,8 @@ export default function Shell(): JSX.Element {
     const i = wo(ap(), id);
     let basis = ap();
     if (i >= 1) basis = fensterAendern(basis, i, (l) => l.filter((x) => x.id !== id));
-    const neu = neuerBildschirm(basis, undefined, [{ id, min: false }]);
+    const gross = grossFuer(flaeche(id));
+    const neu = neuerBildschirm(basis, undefined, [{ id, min: false, ...(gross != null ? { spalten: 12, zeilen: gross, fest: true } : {}) }]);
     if (neu === basis) {
       kurzMelden(ZU_VIELE);
       return;
@@ -262,6 +271,53 @@ export default function Shell(): JSX.Element {
     setze(neu);
     setFokus(id);
     setStart(false);
+  };
+  // ── Vollbild-Bildschirm einer Anwendung (lib/os/bildschirme.ts) und Vollbild des Browsers ──────────
+  /** Hat dieser Tab den Browser ins Vollbild geschickt? Dann beendet Esc (fullscreenchange) auch den Vollbild-Bildschirm. */
+  let browserVollbild = false;
+  const browserVollbildAn = (an: boolean) => {
+    if (typeof document === 'undefined') return;
+    try {
+      if (an && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+        browserVollbild = true;
+        void document.documentElement.requestFullscreen().catch(() => { browserVollbild = false; });
+      } else if (!an && document.fullscreenElement && document.exitFullscreen) {
+        browserVollbild = false;
+        void document.exitFullscreen().catch(() => {});
+      } else if (!an) {
+        browserVollbild = false;
+      }
+    } catch {
+      browserVollbild = false;
+    }
+  };
+  /** Steht auf dem aktiven Bildschirm eine maximierte Anwendung? Dann ist das Dock weg (nicht in der Übersicht und nicht auf dem Handy). */
+  const dockWeg = createMemo(() => !schmal() && !uebersicht() && !!aktueller(ap())?.fenster.some((w) => w.max && !w.min));
+  /** Anwendung `id` in den Vollbild-Bildschirm schicken oder, steht sie dort schon, von dort zurückholen. */
+  const vollbildUmschalten = (id: string) => {
+    const i = wo(ap(), id);
+    if (i < 1 || !flaeche(id)?.anwendung) return;
+    if (istVollbild(ap(), i)) {
+      setze(vollbildAus(ap(), i));
+      browserVollbildAn(false);
+      return;
+    }
+    const neu = vollbildAn(ap(), id);
+    if (neu === ap()) {
+      kurzMelden(ZU_VIELE);
+      return;
+    }
+    setze(neu);
+    setFokus(id);
+    setStart(false);
+    setUebersicht(false);
+    browserVollbildAn(true);
+  };
+  /** ⌃⌘F: der Vollbild-Bildschirm der Anwendung, die gerade vorn ist (oder auf der der aktive Bildschirm steht). */
+  const vollbildTaste = () => {
+    const b = aktueller(ap());
+    const ziel = b?.vollbild ? b.fenster[0]?.id : fokus() && wo(ap(), fokus()!) === aktiv() ? fokus()! : undefined;
+    if (ziel) vollbildUmschalten(ziel);
   };
   const gehe = (i: number) => {
     setze(wechseln(ap(), i));
@@ -271,6 +327,9 @@ export default function Shell(): JSX.Element {
   // ── Ablegen (lib/os/ziehen.ts): jedes Ziel versteht Fenster, Flächen und Dinge ──────────────────
   /** Die Fläche, auf der ein Ding lebt (registriert über `dinge` in registriereFlaechen). */
   const dingFlaeche = (typ: string): Flaeche | undefined => {
+    // Hub-Apps nennen ihre Fläche selbst (`app:<plugin>__<werkzeug>`), Seiten ihren Pfad
+    const fl = registrierteDinge(typ)?.flaeche;
+    if (fl) return flaeche(fl);
     const pf = dingPfad(typ);
     return pf ? flaechen().find((x) => x.pfad && pfadSchluessel(x.pfad) === pfadSchluessel(pf)) : undefined;
   };
@@ -292,6 +351,18 @@ export default function Shell(): JSX.Element {
     }
     flaecheAuf(f.id, ort);
     zustellen(f.id, { [OEFFNE_NACHRICHT]: { typ: g.typ, id: g.id } });
+  };
+  /**
+   * Ein Ding fiel auf das Fenster einer Hub-App. Nimmt sie es per Übergabe an, bereitet der Host das Zielwerkzeug vor (Ding lesen,
+   * Felder einsetzen) und stellt es der App zu: sie zeigt Plan und fragt, erst „Ja“ legt etwas an. Gibt es keine Übergabe, bleibt
+   * nur, den Agenten zu fragen.
+   */
+  const dingAufApp = (f: Flaeche, g: Extract<Gut, { art: 'ding' }>, a: AppAblage) => {
+    if (a.modus === 'agent') {
+      agentFragen({ text: frageUebergabe(g, f.titel), quelle: 'ziehen' });
+      return;
+    }
+    uebergabeStarten(f.id, a.uebergabe, g).catch((e: unknown) => kurzMelden(e instanceof Error ? e.message : 'Das ging nicht.', 5200));
   };
   /** Abgelegt auf einem Bildschirm-Punkt, einer Karte der Übersicht oder „+" (neu). */
   const ablegenAuf = (index: number | 'neu', g: Gut) => {
@@ -900,13 +971,24 @@ export default function Shell(): JSX.Element {
     // Fragen aus Apps, Seiten und Objekten gehen ins gemeinsame Gespräch; das Dock zeigt es.
     onCleanup(agentFragenAnbinden({ zeigen: (adresse) => { setAgent(true); setAgentGeladen(true); if (adresse) setAgentAdresse(adresse); } }));
     // Mitteilungen: eine Quelle meldet sich mit dem Fensterereignis `fyos:zeigt` (lib/os/mitteilungen.ts).
+    const zeigtAnnehmen = (z: ZeigtDaten, nochmal: boolean) => {
+      if (istStumm(mittEinst(), Date.now())) return;
+      if (!flaeche(z.ziel)) {
+        // Gleich nach dem Öffnen ist die Liste der Hub-Apps vielleicht noch unterwegs (Nachgeholtes kommt als Erstes).
+        if (nochmal) setTimeout(() => zeigtAnnehmen(z, false), 3_000);
+        return;
+      }
+      setMitt((l) => hinzufuegen(l, z, Date.now()));
+    };
     const zeigtHoerer = (e: Event) => {
       const z = zeigtPruefen((e as CustomEvent).detail);
-      if (!z || istStumm(mittEinst(), Date.now()) || !flaeche(z.ziel)) return;
-      setMitt((l) => hinzufuegen(l, z, Date.now()));
+      if (z) zeigtAnnehmen(z, true);
     };
     window.addEventListener(ZEIGT_EREIGNIS, zeigtHoerer);
     onCleanup(() => window.removeEventListener(ZEIGT_EREIGNIS, zeigtHoerer));
+    // Die Shell meldet sich als Sitzung der OS-Brücke (lib/os/bruecke.ts): der Hub weiß, dass jemand davor sitzt,
+    // und der Agent erreicht ihn mit os.mitteilen; was nachts vorgemerkt wurde, kommt beim Öffnen.
+    onCleanup(brueckeStarten({ art: schmal() ? 'telefon' : 'computer' }));
     // Safari kneift über eigene Ereignisse.
     let safariStart = 1;
     const gStart = (e: Event) => {
@@ -1021,7 +1103,11 @@ export default function Shell(): JSX.Element {
     const taste = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       const wechsel = (e.metaKey && e.altKey) || (e.ctrlKey && e.altKey);
-      if (wechsel && e.key === 'ArrowLeft') {
+      if (e.code === 'KeyF' && ((e.ctrlKey && e.metaKey) || (e.ctrlKey && e.altKey)) && !e.shiftKey) {
+        // ⌃⌘F (Windows und Linux: Strg+Alt+F): die Anwendung in den Vollbild-Bildschirm und wieder zurück. e.code, weil ⌥ auf dem Mac ein anderes Zeichen macht.
+        e.preventDefault();
+        vollbildTaste();
+      } else if (wechsel && e.key === 'ArrowLeft') {
         e.preventDefault();
         setze(nachLinks(ap()));
       } else if (wechsel && e.key === 'ArrowRight') {
@@ -1062,7 +1148,16 @@ export default function Shell(): JSX.Element {
       }
     };
     window.addEventListener('keydown', taste);
+    // Esc im Browser-Vollbild: auch der Vollbild-Bildschirm endet (die Anwendung kehrt zurück)
+    const vollbildEnde = () => {
+      if (document.fullscreenElement || !browserVollbild) return;
+      browserVollbild = false;
+      const i = aktiv();
+      if (i >= 1 && istVollbild(ap(), i)) setze(vollbildAus(ap(), i));
+    };
+    document.addEventListener('fullscreenchange', vollbildEnde);
     onCleanup(() => {
+      document.removeEventListener('fullscreenchange', vollbildEnde);
       clearInterval(t1);
       clearInterval(t2);
       clearTimeout(wischEnde);
@@ -1195,12 +1290,14 @@ export default function Shell(): JSX.Element {
           onOeffnen={(id, vor) => oeffne(id, vor)}
           onHerholen={(id) => { setze(verschiebenNach(ap(), id, i())); setFokus(id); }}
           onDing={(g, vor) => dingZeigen(g, { vor })}
+          onAufApp={dingAufApp}
           oeffne={(id) => oeffne(id)}
           onUmbenennen={(name) => setze(umbenennen(ap(), i(), name))}
           umbenennen={benennen() === i()}
           onUmbenennenFertig={() => setBenennen(null)}
           onPunkte={(bau) => anmelden(rasterMenue, b, bau)}
           onVerteilen={(fn) => anmelden(rasterVerteilen, b, fn)}
+          onVollbild={vollbildUmschalten}
         />
       </Show>
     );
@@ -1370,6 +1467,8 @@ export default function Shell(): JSX.Element {
         </Show>
       </div>
 
+      {/* Eine maximierte Anwendung (auch im Vollbild-Bildschirm) füllt den Arbeitsbereich: das Dock blendet aus, die Menüleiste bleibt */}
+      <Show when={!dockWeg()}>
       <Dock
         bildschirme={bildschirmNamen()}
         aktiv={aktiv()}
@@ -1388,6 +1487,7 @@ export default function Shell(): JSX.Element {
         puls={puls()}
         huepf={huepf()}
       />
+      </Show>
 
       {/* Was beim Loslassen passiert — über dem Ziel, solange etwas gezogen wird (lib/os/ziehen.ts) */}
       <Show when={zugHinweis()}>

@@ -26,6 +26,7 @@ configMapGenerator:
   - name: fyos-plugin-umgebung
     literals:
 {{plugin_literale}}
+{{kanal_generator}}
 # Die Basis gibt ihre Bilder schon mit der Beispieladresse aus; ersetzt werden deshalb genau diese Namen.
 images:
   - name: {{web_basis}}
@@ -45,3 +46,4 @@ patches:
         value:
           - configMapRef: { name: fyos-plugin-umgebung, optional: true }
           - secretRef: { name: fyos-plugin, optional: true }
+{{kanal_patch}}

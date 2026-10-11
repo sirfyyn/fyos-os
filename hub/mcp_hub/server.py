@@ -59,7 +59,7 @@ from .anmeldung import Konfig as AnmeldeKonfig
 from .config import DEFAULT_HOST, DEFAULT_PATH, HubConfig, load_config
 from .herkunft import HerkunftMiddleware
 from .os_bruecke import os_routen
-from .plugins import _identitaet
+from .plugins import _dinge, _identitaet
 from .plugins.gui import ID_MUSTER, eigenstaendig
 from .registry import (
     ART,
@@ -984,15 +984,21 @@ async def rest_apps(request: Request) -> Response:
         for fqtn, rt in _REGISTRY.tools.items()
         if _flaechen_werkzeug(rt)
     ]
-    return _mit_etag(request, {"ok": True, "count": len(apps), "apps": apps})
+    # Dinge und Übergaben (plugins/_dinge.py): was sich zwischen Apps ziehen lässt. Nur, was der Browser auch lesen
+    # und rufen darf, also Flächen-Werkzeuge.
+    def werkzeug_ok(fqtn: str) -> bool:
+        rt = _REGISTRY.tools.get(fqtn) if _REGISTRY is not None else None
+        return rt is not None and _flaechen_werkzeug(rt)
+
+    return _mit_etag(request, {"ok": True, "count": len(apps), "apps": apps, **_dinge.fuer_shell(werkzeug_ok)})
 
 
 def _identitaet_felder(meta: dict[str, Any] | None) -> dict[str, Any]:
-    """`titel, untertitel, symbol, ton, kategorie, icon` aus `meta["app"]` (Vertrag 1) — leer ohne Identität."""
+    """`titel, untertitel, symbol, ton, kategorie, art, icon` aus `meta["app"]` (Vertrag 1) — leer ohne Identität."""
     app = (meta or {}).get("app")
     if not isinstance(app, dict):
         return {}
-    felder = {k: app[k] for k in ("titel", "untertitel", "symbol", "ton", "kategorie") if k in app}
+    felder = {k: app[k] for k in ("titel", "untertitel", "symbol", "ton", "kategorie", "art") if k in app}
     icon = _identitaet.icon_fuer(app)
     if icon:
         felder["icon"] = icon

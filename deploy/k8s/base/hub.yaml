@@ -24,12 +24,31 @@ data:
           quellen: [/opt/fyos/skills]
       - name: beispiel_app
 ---
+# Die Dateiablage (Plugin dateien, App „Dateien“): Dateien, frühere Fassungen und Papierkorb liegen hier.
+# Größe und Speicherklasse im Overlay anpassen. Sichern wie jedes Volume.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fyos-dateien
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hub
 spec:
   replicas: 1
+  # Genau ein Hub gleichzeitig: das Volume der Dateiablage ist ReadWriteOnce, und Fassungen und Papierkorb sind nicht
+  # für zwei Hubs gebaut, die dieselben Dateien beschreiben. Darum Recreate statt Rolling.
+  # `rollingUpdate: null` ist nötig: Der Server füllt bei einem bestehenden Deployment die Rolling-Werte ein, und Kubernetes
+  # lehnt sie bei Recreate ab („may not be specified when strategy type is Recreate“), sobald Flux die Strategie ändert.
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels: { app: hub }
   template:
@@ -41,6 +60,8 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: /metrics
     spec:
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: hub
           image: fyos-os/hub
@@ -48,6 +69,8 @@ spec:
             - containerPort: 8080
           env:
             - { name: MCP_HUB_CONFIG_PATH, value: /etc/fyos-hub/config.yaml }
+            # Dateiablage (docs/ERWEITERN.md §2.17); FYOS_DATEIEN_MAX_MB hebt die Obergrenze je Datei (Vorgabe 25)
+            - { name: FYOS_DATEIEN, value: /data/dateien }
             - { name: REDIS_URL, value: "redis://redis:6379/0" }
             - name: FYOS_OEFFENTLICH_URL
               valueFrom:
@@ -68,9 +91,12 @@ spec:
             limits: { memory: 768Mi }
           volumeMounts:
             - { name: config, mountPath: /etc/fyos-hub }
+            - { name: dateien, mountPath: /data/dateien }
       volumes:
         - name: config
           configMap: { name: fyos-hub-config }
+        - name: dateien
+          persistentVolumeClaim: { claimName: fyos-dateien }
 ---
 apiVersion: v1
 kind: Service

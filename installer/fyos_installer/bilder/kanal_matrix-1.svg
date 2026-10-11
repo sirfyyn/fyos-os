@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t d">
+<title id="t">Skizze: Matrix-Raum mit dem Agenten auf dem eigenen Server</title>
+<desc id="d">Ein Matrix-Chatfenster mit einer direkten Unterhaltung zwischen dem Besitzer und dem Agenten; die Freigabe-Frage kommt als Nachricht mit Antwortknöpfen, darunter der eigene Heimserver als Kästchen.</desc>
+<style>
+.bg{fill:#f4f1ea}.fl{fill:#fffdf8}.bar{fill:#e6e0d3}.ink{fill:#2b2a27}.mut{fill:#8b8578}.acc{fill:#3f7d6e}.wrm{fill:#c9824a}
+.ln{fill:none;stroke:#2b2a27;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dsh{stroke-dasharray:6 5;opacity:.45}
+text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
+@media (prefers-color-scheme:dark){.bg{fill:#1d1c1a}.fl{fill:#2a2926}.bar{fill:#3a3833}.ink{fill:#ece7dc}.mut{fill:#8f897c}.acc{fill:#5fb3a0}.wrm{fill:#e0a06b}.ln{stroke:#ece7dc}}
+</style>
+<rect class="bg" width="640" height="400" rx="14"/>
+<rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
+<rect class="fl" x="90" y="24" width="460" height="270" rx="12"/>
+<rect class="ln" x="90" y="24" width="460" height="270" rx="12"/>
+<rect class="bar" x="91" y="25" width="458" height="30" rx="11"/>
+<circle class="acc" cx="112" cy="40" r="7"/>
+<text class="ink" x="128" y="45" font-weight="700">Matrix · Direktnachricht mit Fy</text>
+<rect class="fl" x="110" y="74" width="250" height="40" rx="14"/>
+<rect class="ln" x="110" y="74" width="250" height="40" rx="14"/>
+<text class="ink" x="124" y="99">Das Backup ist fertig.</text>
+<rect class="fl" x="110" y="128" width="420" height="104" rx="12"/>
+<rect class="ln" x="110" y="128" width="420" height="104" rx="12"/>
+<rect class="wrm" x="110" y="128" width="8" height="104" rx="4"/>
+<text class="ink" x="132" y="154" font-weight="700">Freigabe nötig: Löschen</text>
+<text class="mut" x="132" y="178">Alte Sicherungen in den Papierkorb legen?</text>
+<rect class="acc" x="132" y="192" width="110" height="28" rx="14"/>
+<text class="fl" x="156" y="211" font-weight="700">Freigeben</text>
+<rect class="ln" x="254" y="192" width="110" height="28" rx="14"/>
+<text class="ink" x="278" y="211">Ablehnen</text>
+<rect class="bar" x="110" y="248" width="380" height="30" rx="15"/>
+<text class="mut" x="128" y="268">Nachricht an Fy …</text>
+<rect class="fl" x="200" y="318" width="240" height="50" rx="10"/>
+<rect class="ln" x="200" y="318" width="240" height="50" rx="10"/>
+<text class="ink" x="222" y="340" font-weight="700">Dein Heimserver</text>
+<text class="mut" x="222" y="358" font-size="12">Konto des Agenten, Token</text>
+<path class="ln" d="M320 296v20M312 306l8 10 8-10"/>
+<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+</svg>

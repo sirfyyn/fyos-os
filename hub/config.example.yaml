@@ -51,12 +51,28 @@ plugins:
   # Anordnung der Shell (offene Fenster) als Werkzeuge.
   - name: shell
 
+  # Verbindung zur Shell (OS-Bruecke): der Agent sieht, ob jemand vor der Shell sitzt, zeigt Flaechen und
+  # meldet sich mit os.mitteilen. Ist niemand da (Nachtauftrag), wartet die Mitteilung bis zu 24 h und erscheint,
+  # sobald die Shell geoeffnet wird. Braucht REDIS_URL. Abschalten des Nachholens: OS_NACHHOLEN=aus.
+  # Anleitung: Skill nachtarbeit, docs/NACHTARBEIT.md.
+  - name: os
+    # config:
+    #   nachholen: false
+
   # Generative Oberflaechen: der Agent baut eine bedienbare Ansicht (Kennzahlen, Balken, Verlauf, Tabelle ...) aus
   # einer Vorlage oder frei und zeigt sie als App. Die Ansichten liegen in mcp_hub.kv (Redis, wenn REDIS_URL gesetzt
   # ist, sonst im Speicher des Prozesses). Anleitung: Skill generative-ui (Teil des Kerns).
   - name: gui
     # config:
     #   vorlagen: /opt/fyos/vorlagen   # eigener Ordner statt der Vorlagen des Kerns (gleicher Aufbau)
+
+  # Dateiablage mit App "Dateien": Ordner, Vorschau, Hochladen per Ziehen, Papierkorb, fruehere Fassungen. Ohne Ordner
+  # ist sie "nicht eingerichtet". Der Ordner kommt aus FYOS_DATEIEN (Container: /data/dateien auf einem Volume);
+  # FYOS_DATEIEN_MAX_MB (25), FYOS_DATEIEN_VERSIONEN (10) und FYOS_DATEIEN_PAPIERKORB_TAGE (30) stellen die Grenzen ein.
+  # Anleitung: docs/ERWEITERN.md 2.17.
+  - name: dateien
+    # config:
+    #   verzeichnis: /data/dateien   # statt FYOS_DATEIEN
 
   # Kleine Beispiel-App (Notizzettel mit Oberflaeche).
   - name: beispiel_app

@@ -501,14 +501,14 @@ def test_ohne_takt_grenzen_aendert_sich_nichts_am_takt():
         p.takt_schritt(letzte, jetzt=i * 100.0)
     assert _aufrufe(brett).count("cron.list") == 3 and len(brett.karten) == 1
     plan = {x["id"]: x for x in p.zeitplan()}
-    assert set(plan) == {"sonde", "abgleich"}
+    assert set(plan) == {"sonde", "abgleich", "wecken"}
     e = plan["abgleich"]
     assert (e["max_pro_tag"], e["fenster"], e["ruht"], e["uebersprungen"], e["laeufe_heute"]) == (None, None, None, {}, 3)
     assert "ruht" not in plan["sonde"] and "laeufe_heute" not in plan["sonde"]  # die Sonde läuft ohne Wächter
 
 
 def test_takt_grenzen_mit_tippfehler_verhindern_den_start():
-    with pytest.raises(GrenzenFehler, match=r"'sonde'.*bekannt: cron, skills, abgleich, karten"):
+    with pytest.raises(GrenzenFehler, match=r"'sonde'.*bekannt: cron, skills, abgleich, karten, wecken"):
         _plugin(takt_grenzen={"sonde": {"max_pro_tag": 5}})
     with pytest.raises(GrenzenFehler, match=r"openclaw\.abgleich: fenster 'abends'"):
         _plugin(takt_grenzen={"abgleich": {"fenster": "abends"}})
@@ -547,8 +547,11 @@ def test_gesundheit_folgt_sonde_und_bruecke():
 
 def test_werkzeuge_und_scopes():
     namen = {t.name: t.tags for t in _plugin().describe_tools()}
-    assert list(namen) == ["zustand", "nutzung", "aktivitaet", "erweiterungen", "arbeit", "abgleichen"]
-    assert "write" in namen["abgleichen"] and all("read" in t for n, t in namen.items() if n != "abgleichen")
+    assert list(namen) == ["zustand", "nutzung", "aktivitaet", "erweiterungen", "arbeit", "abgleichen", "wecken",
+                           "vorgang_senden", "lebt", "erinnern", "gedaechtnis", "dienste", "profile", "auftrag_vorlage", "ereignisse"]
+    schreibend = {"abgleichen", "wecken", "vorgang_senden"}
+    assert all("write" in namen[n] for n in schreibend)
+    assert all("read" in t for n, t in namen.items() if n not in schreibend)
 
 
 def test_erweiterungen_zeigen_beide_seiten():
@@ -569,3 +572,52 @@ def test_erweiterungen_zeigen_beide_seiten():
                                                                    "canvas": "openclaw-plugin"}
     assert e["agent_plugins"] == [{"id": "workboard", "an": True}, {"id": "fyos-bruecke", "an": True}]
     assert e["hub_skills_nur_im_hub"] == ["backup"]
+
+
+# ── Chat-Kanäle des Agenten ─────────────────────────────────────────────────────────────────────
+
+
+def test_der_kopf_der_bruecke_nennt_die_kanaele_nur_als_wahrheitswerte():
+    p = _plugin()
+    p.annehmen({"bruecke": {"kanaele": {
+        "telegram": {"an": True, "ziel": True, "bereit": False, "adresse": "4711"},
+        "whatsapp": {"an": True, "ziel": False},
+        "matrix": "kaputt", "signal": {"an": True, "ziel": True},
+    }}, "ereignisse": []})
+    erwartet = {"telegram": {"an": True, "ziel": True, "bereit": True},
+                "whatsapp": {"an": True, "ziel": False, "bereit": False}}
+    z = p.zustand()
+    assert z["kanaele"] == erwartet and "kanaele" not in z["bruecke"]
+    assert "4711" not in json.dumps(z)
+    # eine Lieferung ohne Kanäle löscht den letzten Stand nicht
+    p.annehmen({"bruecke": {"version": "0.1.0"}, "ereignisse": []})
+    assert p.zustand()["kanaele"] == erwartet
+
+
+def test_kanal_mitteilen_ruft_die_methode_der_bruecke():
+    aufrufe: list[tuple[str, dict[str, Any]]] = []
+
+    def rpc(methode: str, params: dict[str, Any]) -> Any:
+        aufrufe.append((methode, params))
+        return {"gesendet": True, "kanal": "telegram", "gescheitert": []}
+
+    p = _plugin(rpc_aufruf=rpc)
+    assert p.kanal_mitteilen("Platte voll")["kanal"] == "telegram"
+    p.kanal_mitteilen("x" * 5000, "matrix")
+    assert aufrufe[0] == ("fyos.kanal.mitteilen", {"text": "Platte voll"})
+    assert aufrufe[1][1]["kanal"] == "matrix" and len(aufrufe[1][1]["text"]) <= 4000
+
+
+def test_das_plugin_meldet_den_weg_zum_kanal_an_und_beim_beenden_ab():
+    from mcp_hub import os_bruecke
+
+    p = _plugin()
+    p._faden = object()  # kein Takt-Faden im Test
+    p.registry_anbinden(_Registry(p))
+    assert os_bruecke.angemeldeter_kanal() == p.kanal_mitteilen
+    p.shutdown()
+    assert os_bruecke.angemeldeter_kanal() is None
+    ohne_token = _plugin(token="", rpc_aufruf=None)
+    ohne_token._faden = object()
+    ohne_token.registry_anbinden(_Registry(ohne_token))
+    assert os_bruecke.angemeldeter_kanal() is None

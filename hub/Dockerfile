@@ -44,6 +44,11 @@ COPY config.example.yaml /app/config.yaml
 ENV MCP_HUB_CONFIG_PATH=/app/config.yaml
 
 RUN useradd --uid 1000 --create-home --shell /bin/bash fyos && chown -R fyos:fyos /app
+
+# Dateiablage (Plugin dateien): FYOS_DATEIEN zeigt hierher. Der Ordner gehört dem Hub-Nutzer, damit ein neues Volume
+# (Docker) mit diesen Rechten entsteht; ein eingehängter Ordner des Hosts muss ihm (uid 1000) gehören.
+ENV FYOS_DATEIEN=/data/dateien
+RUN mkdir -p /data/dateien && chown fyos:fyos /data/dateien
 USER fyos
 
 EXPOSE 8080

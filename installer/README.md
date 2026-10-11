@@ -72,6 +72,7 @@ felder:
   kern: {port: 8080}
   haus: {ha_url: "http://homeassistant.example.com:8123", ha_token: "…"}
 optionen: {plugin_quelle: "https://git.example.com/fyos", namespace: fyos}
+stufen: {termine: ausbau, postfach: grund}     # Stufe je Fähigkeit, siehe unten
 ```
 
 Vorgaben aus der Umgebung:
@@ -107,13 +108,49 @@ eigene Index selbst nicht erreichbar, bricht uv ebenfalls ab, statt auf PyPI aus
 
 Compose (`compose`, `dateien`): `docker-compose.yml` (Hub mit `build: ./hub`), `.env` (Geheimnisse, Rechte 0600),
 `fyos.yaml` (Persona), `hub-config.yaml` (Format des Hubs, Plugins per Entry-Point-Name), `hub/Dockerfile`
-(`FROM <Hub-Bild>` plus `uv pip install` der Plugin-Quellen), `.gitignore`, `ANLEITUNG.md`. Bei `compose` folgen
+(`FROM <Hub-Bild>` plus `uv pip install` der Plugin-Quellen), bei gewählten Kanälen mit Paket `agent/Dockerfile`
+([Chat-Kanäle](#chat-kanäle)), `.gitignore`, `ANLEITUNG.md`. Bei `compose` folgen
 `docker compose build`, `up -d` und eine Gesundheitsprüfung (web `/`, hub `/health`).
 
 Kubernetes (`k8s`): Kustomize-Overlay mit `kustomization.yaml` (Basis `deploy/k8s/base` als Pfad oder Git-URL,
 `optionen.k8s_basis`), ConfigMaps für `fyos.yaml` und Hub-Konfiguration, `secrets.yaml` (0600) und
 `secrets.example.yaml`, `hub/Dockerfile`, `ANLEITUNG.md`. Angewendet wird mit `kubectl`, vom Nutzer. Vorhandene
 Dateien werden als `<name>.vorher` gesichert.
+
+## Stufe je Fähigkeit
+
+Fünf Fähigkeiten gibt es in zwei Ausführungen: Vorgänge, Termine, Postfach lesen, Post senden und Dokumente. Die
+**Grundstufe** braucht keinen eigenen Dienst (das Workboard des Agenten, ein CalDAV-Konto oder ICS-Abo, ein IMAP-Postfach),
+die **Ausbaustufe** einen (Ticketdienst, Termin-Dienst, Postfach-Dienst, Listmonk, Paperless-ngx), den der Hub über eine
+Adresse erreicht. Du wählst die Stufe **je Fähigkeit**; ohne Wahl gilt die Vorgabe nach Bauart:
+
+| Fähigkeit (`--stufe`-Name) | Grundstufe | Ausbaustufe (Variable) | Compose | Kubernetes |
+|---|---|---|---|---|
+| Vorgänge (`vorgaenge`) | Workboard des Agenten | Ticketdienst (`FYOS_VORGAENGE_URL`) | Grund | Ausbau |
+| Termine (`termine`) | CalDAV und ICS direkt | Termin-Dienst (`FYOS_TERMINE_URL`) | Grund | Ausbau |
+| Postfach lesen (`postfach`) | IMAP direkt | Postfach-Dienst (`FYOS_POSTFACH_URL`) | Grund | Ausbau |
+| Post senden (`post`) | — | Listmonk (`FYOS_POST_URL`) | Ausbau | Ausbau |
+| Dokumente (`dokumente`) | Ordner-Ablage (gibt es noch nicht) | Paperless-ngx (`FYOS_DOKUMENTE_URL`) | Ausbau | Ausbau |
+
+- **Wählen:** im Web-Assistenten und in der Textoberfläche steht bei jedem Baustein mit Fähigkeit eine Auswahl
+  (vorgewählt ist die Vorgabe des Ziels); ohne Oberfläche `--stufe termine=ausbau` (mehrfach) oder `stufen:` in der
+  Antwortdatei, die Option gewinnt. `--liste` zeigt die Fähigkeiten mit Stufen und Vorgaben. Zusätzlich gibt es, wo es
+  passt, die Wahl **aus**: nichts davon einrichten, die Fähigkeit meldet ehrlich „nicht eingerichtet“. Die Vorgänge
+  lassen sich nicht ausschalten (das Workboard gehört zum Agenten). Wo es keine Grundstufe gibt oder noch keine gebaut
+  ist, bleiben Ausbau und aus; wer sie trotzdem verlangt, bekommt eine Fehlermeldung.
+- **Wirkung:** Nur die Felder der gewählten Stufe werden abgefragt und geschrieben. Bei der Grundstufe entsteht kein
+  Dienst und keine Dienstadresse, das Plugin nimmt den direkten Weg. Bei der Ausbaustufe steht die Adresse in der
+  Umgebung des Hubs. Die Dienste der Ausbaustufe liefert der Installer **noch nicht mit**: Der Plan schreibt die Zeile
+  (`FYOS_TERMINE_URL=`) leer zum Ausfüllen in `.env` bzw. in die ConfigMap und sagt im Hinweis, welche Variable du selbst
+  einträgst. Solange die Adresse fehlt, ist die Fähigkeit nicht eingerichtet; erfunden wird nichts. Die gewählte Stufe
+  steht in der Zusammenfassung (Tabelle „Stufe je Fähigkeit“), im Plan auf der Kommandozeile und in der `ANLEITUNG.md`.
+- **Wo das steht:** `fyos_installer/katalog_stufen.yaml` (Fähigkeiten, Stufen, Felder), Logik in `fyos_installer/stufen.py`.
+  Begriffe und Stand je Fähigkeit: [`docs/NACHBAU.md`](../docs/NACHBAU.md); eigene Fähigkeit beschreiben:
+  [`docs/ERWEITERN.md`](../docs/ERWEITERN.md) §7.3.
+
+```sh
+fyos-install --auswahl kern,agent,kalender,mail --ziel k8s --stufe termine=grund --trocken   # Termine direkt, Postfach als Dienst
+```
 
 ## Reifegrad
 
@@ -168,11 +205,58 @@ fyos-install --abnahme http://localhost:8080      # 0 bestanden, 3 nicht bestand
 Bei Kubernetes läuft dafür der Port-Forward aus der Anleitung (`kubectl -n <namespace> port-forward svc/web 8080:80`). Die
 `ANLEITUNG.md` im Zielordner nennt den Abnahme-Befehl mit dem Port der Installation.
 
+## Chat-Kanäle
+
+Der Agent kann dir auch außerhalb der Shell schreiben und Freigaben im Chat annehmen. Im Katalog stehen dafür drei
+Bausteine der Art `kanal` (`fyos_installer/katalog_kanaele.yaml`): **Telegram**, **WhatsApp** und **Matrix**. Jeder hat
+eine Erklärung, eine Skizze und die Felder, die der Kanal braucht; alle drei hängen von Kern und Agent ab, keiner ist
+Pflicht, und du kannst mehrere wählen.
+
+| Kanal | Felder (Umgebung des Agenten) | Bild des Agenten |
+|---|---|---|
+| Telegram | `OPENCLAW_TELEGRAM_TOKEN` (Bot-Token), `FYOS_APPROVER_TELEGRAM_ID` | Basisbild genügt |
+| WhatsApp | `FYOS_APPROVER_WHATSAPP_NUMBER` (+Landesvorwahl…), Wahl »eigene Nummer« (nur in `fyos.yaml`) | Paket `@openclaw/whatsapp` |
+| Matrix | `FYOS_MATRIX_HOMESERVER`, `FYOS_MATRIX_BENUTZER`, `OPENCLAW_MATRIX_TOKEN`, `FYOS_APPROVER_MATRIX_ID` | Paket `@openclaw/matrix` |
+
+Was entsteht (`fyos_installer/kanaele.py`):
+
+- `fyos.yaml`: `kanaele.<name>: true|false`, bei Matrix dazu `besitzer.matrix_id`, bei WhatsApp `whatsapp.eigene_nummer`.
+- Die Werte gehen an den **Agenten**, nie an den Hub: bei Compose in `.env` und in die Umgebung des Dienstes `agent`, bei
+  Kubernetes in die ConfigMap und das Secret `fyos-agent-kanaele`, die nur der Agent einbindet. Token stehen nur in
+  der Geheimnisdatei und werden in Vorschauen maskiert.
+- Matrix und WhatsApp sind Pakete, die das Bild zusätzlich braucht. Der Installer erzeugt dafür `agent/Dockerfile`
+  (`FROM` dem Bild des Agenten plus `openclaw plugins install …`). Compose baut es mit (`docker compose build`);
+  bei Kubernetes steht der Bau und das Schieben unter den Befehlen (Option `agent_bild_k8s`, Vorgabe aus
+  `FYOS_REGISTRY`). Telegram braucht das nicht.
+- **Platzhalter statt Absturz:** Fehlt einem gewählten Kanal ein Wert, schreibt der Installer ihn trotzdem (leere Zeile
+  in `.env`, Paket im Bild), lässt ihn aber aus (`kanaele.<name>: false`) und nennt im Hinweis, was fehlt. Ein Kanal ohne
+  Token würde den Agenten beim Start abbrechen lassen; so läuft FYOS, und der Kanal ist eine Zeile Arbeit entfernt.
+  Werte, die gesetzt sind, aber nicht die Form haben (Bot-Token, numerische ID, Nummer mit `+`, `@name:server`), sind
+  ein Fehler; die Meldung nennt die Variable, nie den Wert.
+- **WhatsApp koppelst du selbst:** einmal nach dem Start per QR-Code (`docker compose exec agent openclaw channels login
+  --channel whatsapp`, den Code unter »Verknüpfte Geräte« einlesen). Das kann der Installer nicht für dich tun. Der
+  Zustandsordner des Agenten (Volume `agent-zustand`) muss erhalten bleiben, sonst ist die Kopplung weg.
+
+Die Abnahme prüft die Kanäle mit: Nach dem Start fragt der Installer den Agenten (Compose: `docker compose exec agent`,
+ein Aufruf der Brücke `fyos.bruecke.status`, die je Kanal nur Wahrheitswerte meldet, nie die Adresse), ob jeder
+eingeschaltete Kanal wirklich aktiv ist: im Agenten an und mit der Adresse des Besitzers. Ein vorbereiteter, aus
+gelassener Kanal gilt als »vorbereitet und aus« und besteht. Ist ein eingeschalteter Kanal nicht aktiv, besteht die
+Abnahme nicht (Rückgabewert `3`); der Agent bekommt einige Versuche, weil er nach dem Start noch hochfährt. Ältere
+Agent-Bilder melden ihre Kanäle noch nicht und gelten dann als »keine Auskunft«. Zum Wiederholen im Zielordner:
+
+```sh
+fyos-install --abnahme http://localhost:8080 --kanaele telegram,whatsapp
+```
+
+Bei Kubernetes läuft die Kanal-Abnahme nicht von selbst; das Protokoll des Agenten (`kubectl logs deploy/agent`) zeigt,
+ob ein Kanal startet.
+
 ## Katalog
 
-`fyos_installer/katalog.yaml`, Schema in `katalog.py`. Je Baustein: `id`, `titel`, `kurz`, `was_daraus_wird`
+`fyos_installer/katalog.yaml` (die Chat-Kanäle in `katalog_kanaele.yaml`, die Stufen je Fähigkeit in
+`katalog_stufen.yaml`, siehe [Stufe je Fähigkeit](#stufe-je-fähigkeit)), Schema in `katalog.py`. Je Baustein: `id`, `titel`, `kurz`, `was_daraus_wird`
 (Markdown, 3 bis 8 Sätze), `bilder` (Dateinamen unter `bilder/`, Schema `<id>-<n>.svg`; liegt daneben eine
-`.png`, nimmt der Installer sie), `art` (`kern|agent|plugin`), `pflicht`, `abhaengig_von`, `voraussetzungen`,
+`.png`, nimmt der Installer sie), `art` (`kern|agent|plugin|kanal`), `pflicht`, `abhaengig_von`, `voraussetzungen`,
 `quelle` (`{paket: fyos-plugin-x, repo: fyos-plugin-x}`: Paketname im Index und Git-Repo-Name), `konfiguration`
 (Felder mit `name` als Schlüssel, `titel` als Beschriftung (Pflicht), `typ` text|geheim|url|zahl|wahl,
 `beschreibung`, `standard`, `pflicht`, optional `umgebung` und `optionen`),
@@ -194,6 +278,13 @@ python -m pytest installer/tests -q
 
 Docker wird nie gestartet; der Ablauf ist gemockt. Der Test `test_k8s_kustomize_baut` nutzt `kubectl kustomize`,
 wenn vorhanden. Der Seitentest (`test_seiten.py`) braucht Node.
+
+Die Stufen je Fähigkeit prüft `test_stufen.py`: Vorgaben je Bauart, Umstellen einzelner Fähigkeiten, Fähigkeiten ohne
+Grundstufe, die Wirkung auf `.env` und Kustomize-Overlay, die Darstellung (Kommandozeile, Textoberfläche, Web-Assistent,
+Anleitung) und das Schema von `katalog_stufen.yaml`; die Seiten des Assistenten rendert `seiten_test.mjs` mit.
+
+Die Kanäle prüft `test_kanaele.py`: Katalog, erzeugte Dateien (Compose und Kubernetes, die Werte nur beim Agenten),
+Platzhalter, Form der Werte, die Abfrage des Agenten (ohne Docker) und die Urteile der Abnahme.
 
 Die Abnahme prüft `test_abnahme.py` auf drei Ebenen: die Urteile mit einem Sender ohne Netz, `senden` gegen einen
 lokalen Server (keine Weiterleitung, kein Proxy, nur http und https) und die ganze Kette gegen den echten Hub (Paket

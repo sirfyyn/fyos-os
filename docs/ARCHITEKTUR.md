@@ -48,7 +48,7 @@ unter `/opt/fyos/`. Das Verhalten steht in drei Formen:
   `registriereFlaechen()` und dynamisch aus Hub-Apps (`ui://`). Ein Plugin mit
   Oberfläche liefert eine Hub-App; die Shell zeigt sie ohne eigenen Code.
 - **Vertrag Shell ↔ Hub**: `/hub-api/apps`, `/hub-api/resource`, `/hub-api/app-call`,
-  `/hub-api/os/{strom,melden,antwort}` (siehe `docs/HUB-VERTRAG.md`).
+  `/hub-api/os/{strom,melden,antwort}` und, für Dateien, `/hub-api/dateien/datei` (siehe `docs/HUB-VERTRAG.md`).
 
 ### Plugins
 
@@ -57,7 +57,9 @@ Oberflächen (`ui://`-HTML), Skills für den Agenten und Begleitskripten. Instal
 wird es ins Hub-Bild (`uv pip install`) oder per `module:`-Eintrag. Plugins, die Vorgänge,
 Termine, Mails oder Dokumente zeigen, tragen keinen festen Dienst ein, sondern fragen eine gemeinsame Quelle des Hubs
 (`mcp_hub.vorgaenge`, `mcp_hub.termine`, `mcp_hub.postfach`, `mcp_hub.dokumente`; `ERWEITERN.md` §2.13 bis §2.16): ein Dienst,
-wenn einer eingetragen ist, sonst die Ablage eines Plugins.
+wenn einer eingetragen ist, sonst die Ablage eines Plugins. Dateien (Notizen, Bilder, PDFs) liegen in einer Ordner-Ablage
+des Kerns (`mcp_hub.dateien`, `FYOS_DATEIEN`, ein Volume; `ERWEITERN.md` §2.17), die das Plugin `dateien` mit der App
+„Dateien“ zeigt.
 
 | Repo | Inhalt |
 |---|---|

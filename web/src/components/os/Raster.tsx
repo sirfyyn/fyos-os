@@ -11,20 +11,17 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import { systemName } from '~/lib/config';
 import FensterRahmen, { NEU_LADEN, type RasterMass } from './Fenster';
 import {
-  NEU_SPALTEN, NEU_ZEILEN, SPALTEN, ZEILEN_MAX, ZEILEN_MIN, autoReihen, autoSpalten, automatisch, davorSetzen, festSetzen, groesseSetzen, minimieren,
-  neueZeileUmschalten, schliessen, verschieben, vonHand, type Fenster,
+  NEU_SPALTEN, NEU_ZEILEN, SPALTEN, ZEILE_REM, autoReihen, autoSpalten, automatisch, davorSetzen, festSetzen, groesseSetzen, maximieren, minimieren,
+  neueZeileUmschalten, schliessen, verschieben, vonHand, zeilenFuerHoehe, type Fenster,
 } from '~/lib/os/anordnung';
 import { aktionsPunkte } from '~/lib/os/app-aktionen';
 import { automatischBenannt, type Bildschirm } from '~/lib/os/bildschirme';
 import { inNeuemTab } from '~/lib/os/allein';
 import { deeplink } from '~/lib/os/oeffnen';
 import type { Flaeche } from '~/lib/os/flaechen';
-import { altUmschalt, type MenuePunkt } from '~/lib/os/menue';
+import { altUmschalt, ctrlMod, type MenuePunkt } from '~/lib/os/menue';
 import { ausklingen, insDock } from '~/lib/os/uebergang';
-import { gutArt, gutLesen, hinweisWeg, hinweisZeigen, wasPassiert, zugEndet, type Gut } from '~/lib/os/ziehen';
-
-/** Höhe einer Rasterzeile (CSS); 10 Zeilen ≈ 50 rem. */
-const ZEILE_REM = 2.5;
+import { ablageAufApp, gutArt, gutLesen, hinweisWeg, hinweisZeigen, wasPassiert, zugEndet, type AppAblage, type Gut } from '~/lib/os/ziehen';
 
 function mitUebergang(behaelter: HTMLElement | undefined, aendern: () => void): void {
   const ruhig = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -71,6 +68,8 @@ export interface RasterProps {
   onHerholen?: (id: string, vor: string | null) => void;
   /** Ein Ding (Notiz, Termin …) hierher gezogen */
   onDing?: (g: Extract<Gut, { art: 'ding' }>, vor: string | null) => void;
+  /** Ein Ding auf das Fenster einer Hub-App gelegt, die es annimmt (Übergabe) oder bei der nur der Agent hilft */
+  onAufApp?: (f: Flaeche, g: Extract<Gut, { art: 'ding' }>, a: AppAblage) => void;
   oeffne: (id: string) => void;
   onUmbenennen: (name: string) => void;
   /** Von außen (Menü, Dock) angestoßen: Namensfeld öffnen */
@@ -82,6 +81,8 @@ export interface RasterProps {
   onVerteilen?: (fn: () => void) => void;
   /** Pfeil oben: zurück zum Startbildschirm */
   onStart?: () => void;
+  /** Eine Anwendung in den Vollbild-Bildschirm schicken oder von dort zurückholen (die Shell verwaltet die Bildschirme) */
+  onVollbild?: (id: string) => void;
 }
 
 const BREITEN: [string, number][] = [
@@ -95,8 +96,7 @@ export default function Raster(p: RasterProps): JSX.Element {
   const bildschirmZeilen = (): number => {
     const sc = behaelter?.closest<HTMLElement>('.os-bildschirm');
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const h = (sc?.clientHeight || window.innerHeight) / rem;
-    return Math.min(ZEILEN_MAX, Math.max(ZEILEN_MIN, Math.floor((h - 1.25) / (ZEILE_REM + 0.75))));
+    return zeilenFuerHoehe(sc?.clientHeight || window.innerHeight, rem);
   };
   const [umbenennenLokal, setUmbenennen] = createSignal(false);
   const umbenennen = () => umbenennenLokal() || !!p.umbenennen;
@@ -149,8 +149,15 @@ export default function Raster(p: RasterProps): JSX.Element {
 
   const aendern = (neu: Fenster[]) => mitUebergang(behaelter, () => p.setze(neu));
 
+  /**
+   * Das maximierte Fenster dieses Bildschirms (nicht auf dem Handy): es füllt den ganzen Arbeitsbereich (absolut im Platz des
+   * Bildschirms, über Kopf und Raster), die übrigen ruhen unsichtbar — sie bleiben im Dokument, damit ihre Apps nicht neu laden.
+   */
+  const maximiert = createMemo(() => (p.schmal ? undefined : sichtbar().find((w) => w.max)));
   const lage = (w: Fenster): JSX.CSSProperties => {
     const order = platz().get(w.id) ?? 0;
+    const m = maximiert();
+    if (m) return w.id === m.id ? { position: 'absolute', inset: '0', 'z-index': 4 } : { display: 'none' };
     if (p.schmal) return { order };
     if (!hand()) return { order, 'grid-column': `span ${auto()}` };
     const s = w.spalten ?? NEU_SPALTEN;
@@ -178,7 +185,11 @@ export default function Raster(p: RasterProps): JSX.Element {
     } else if (g.art === 'flaeche') {
       p.onOeffnen(g.id, vor);
     } else {
-      p.onDing?.(g, vor);
+      // Auf dem Fenster einer Hub-App: nimmt sie das Ding per Übergabe an (oder bleibt nur „den Agenten fragen“), regelt das die Shell
+      const f = vor ? p.flaeche(vor) : undefined;
+      const a = f?.art === 'hubapp' ? ablageAufApp(g.typ, f.id) : null;
+      if (f && a && p.onAufApp) p.onAufApp(f, g, a);
+      else p.onDing?.(g, vor);
     }
   };
   /** Schreibtisch als Ziel: alles vom OS annehmen; über der Leerfläche und „Platz für mehr" mit Hinweis. */
@@ -211,23 +222,39 @@ export default function Raster(p: RasterProps): JSX.Element {
     const pos = platz().get(id) ?? 0;
     const andere = sichtbar().filter((x) => x.id !== id);
     const app = f.art === 'hubapp';
+    // Anwendung: Vollbild-Bildschirm und Maximieren statt „Volle Breite“. Maximiert oder im Vollbild ist die Größe nicht mehr frei.
+    const anwendung = !!f.anwendung && !p.schmal;
+    const vollbild = !!p.b.vollbild;
+    const fix = p.schmal || !!w.max;
     return [
       // Apps: dieselben Aktionen wie im Fensterkopf, zuerst (Agent fragen, Link kopieren, An den Start heften)
       ...(app ? [...aktionsPunkte(f, w.start), { art: 'trenner' as const }] : []),
-      { text: 'Minimieren', symbol: 'minus', tun: () => insDock(id, () => aendern(minimieren(p.b.fenster, id))) },
-      {
-        text: g.spalten >= SPALTEN ? 'Halbe Breite' : 'Volle Breite',
-        symbol: g.spalten >= SPALTEN ? 'minimize-2' : 'maximize-2',
-        aus: p.schmal,
-        tun: () => groesse({ spalten: g.spalten >= SPALTEN ? 6 : SPALTEN }),
-      },
+      { text: 'Minimieren', symbol: 'minus', aus: vollbild, tun: () => insDock(id, () => aendern(minimieren(p.b.fenster, id))) },
+      ...(anwendung
+        ? [
+            { text: vollbild ? 'Vollbild verlassen' : 'Vollbild-Bildschirm', symbol: 'monitor', kuerzel: ctrlMod('F'), tun: () => p.onVollbild?.(id) },
+            {
+              text: w.max ? 'Maximierung beenden' : 'Maximieren',
+              symbol: w.max ? 'minimize-2' : 'maximize-2',
+              aus: vollbild,
+              tun: () => aendern(maximieren(p.b.fenster, id, !w.max)),
+            },
+          ]
+        : [
+            {
+              text: g.spalten >= SPALTEN ? 'Halbe Breite' : 'Volle Breite',
+              symbol: g.spalten >= SPALTEN ? 'minimize-2' : 'maximize-2',
+              aus: p.schmal,
+              tun: () => groesse({ spalten: g.spalten >= SPALTEN ? 6 : SPALTEN }),
+            },
+          ]),
       { art: 'trenner' },
-      { art: 'unter', text: 'Breite', symbol: 'move-horizontal', aus: p.schmal, punkte: BREITEN.map(([text, sp]) => ({ text, an: g.spalten === sp, tun: () => groesse({ spalten: sp }) })) },
+      { art: 'unter', text: 'Breite', symbol: 'move-horizontal', aus: fix, punkte: BREITEN.map(([text, sp]) => ({ text, an: g.spalten === sp, tun: () => groesse({ spalten: sp }) })) },
       {
         art: 'unter',
         text: 'Höhe',
         symbol: 'move-vertical',
-        aus: p.schmal,
+        aus: fix,
         // Apps und native Flächen wachsen mit ihrem Inhalt; eine gewählte Höhe hält das Fenster fest (Inhalt scrollt
         // darin), „Mit Inhalt wachsen“ lässt es wieder los. Seiten haben immer ihre gewählte Höhe.
         // „Bildschirmhoch“: genau der sichtbare Bereich der Fläche — für Seiten mit eigenen Spalten,
@@ -241,7 +268,7 @@ export default function Raster(p: RasterProps): JSX.Element {
           })),
         ],
       },
-      { text: 'In neuer Zeile beginnen', symbol: 'corner-down-left', an: !!w.neueZeile, aus: p.schmal, tun: () => aendern(neueZeileUmschalten(hand() ? p.b.fenster : groesseSetzen(p.b.fenster, id, {}, automatikJetzt()), id)) },
+      { text: 'In neuer Zeile beginnen', symbol: 'corner-down-left', an: !!w.neueZeile, aus: fix, tun: () => aendern(neueZeileUmschalten(hand() ? p.b.fenster : groesseSetzen(p.b.fenster, id, {}, automatikJetzt()), id)) },
       { text: 'Nach links rücken', symbol: 'arrow-left', kuerzel: altUmschalt('←'), aus: pos === 0, tun: () => aendern(verschieben(p.b.fenster, id, -1)) },
       { text: 'Nach rechts rücken', symbol: 'arrow-right', kuerzel: altUmschalt('→'), aus: pos >= sichtbar().length - 1, tun: () => aendern(verschieben(p.b.fenster, id, 1)) },
       { art: 'trenner' },
@@ -249,6 +276,7 @@ export default function Raster(p: RasterProps): JSX.Element {
         art: 'unter',
         text: 'Auf Bildschirm',
         symbol: 'monitor-up',
+        aus: vollbild,
         punkte: [
           ...p.bildschirme.filter((b) => b.index !== p.index).map((b) => ({ text: b.name, tun: () => p.onAufBildschirm(id, b.index) })),
           { art: 'trenner' as const },
@@ -398,6 +426,9 @@ export default function Raster(p: RasterProps): JSX.Element {
                       onAblegen={(g) => ablegen(g, id)}
                       onVerschieben={(r) => aendern(verschieben(p.b.fenster, id, r))}
                       oeffne={p.oeffne}
+                      vollbild={!!p.b.vollbild}
+                      onVollbild={() => p.onVollbild?.(id)}
+                      onMaximieren={() => aendern(maximieren(p.b.fenster, id, !w()!.max))}
                     />
                   )}
                 </Show>

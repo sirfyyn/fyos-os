@@ -38,6 +38,12 @@ export interface Flaeche {
   appName?: string;
   /** Beim Öffnen gleich über die ganze Breite */
   breit?: boolean;
+  /**
+   * Eine Anwendung statt eines Widgets: öffnet groß (füllt den Bildschirm unter der Menüleiste), lässt sich maximieren und bekommt
+   * einen eigenen Vollbild-Bildschirm; der grüne Knopf schaltet dorthin, ⌥-Klick maximiert, ⌃⌘F wechselt. Fehlt das Feld, ist
+   * die Fläche ein Widget (Kachel im Raster, grüner Knopf = Zoomen). Hub-Apps setzen es über `registriere_app(art="anwendung")`.
+   */
+  anwendung?: boolean;
   /** Hub-App: eine Zeile, was man damit tut (vom Hub oder aus der Beschreibung abgeleitet) */
   untertitel?: string;
   /** Hub-App: Kategorie im Katalog */
@@ -75,6 +81,7 @@ export function hubFlaechen(liste: McpApp[]): Flaeche[] {
     kategorie: g.gesicht.kategorie,
     mitglieder: g.mitglieder.map((m) => m.name),
     startbar: g.mitglieder.length === 1 && startbar(g.app),
+    ...(g.gesicht.art === 'anwendung' ? { anwendung: true } : {}),
   }));
 }
 

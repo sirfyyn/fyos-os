@@ -20,6 +20,7 @@ from textual.widgets.selection_list import Selection
 
 from . import ausfuehren as ausf
 from . import erzeugen
+from . import stufen as st
 from .katalog import Katalog, aufloesen, bilder_von, textvorschau
 from .reife import MAX_STUFE
 
@@ -75,6 +76,7 @@ class InstallerApp(App):
         self.schritt = 0
         self.ziel = "compose"
         self.eingaben: dict[str, tuple[str, str]] = {}  # widget-id -> (gruppe, feld)
+        self.stufen_wahl: dict[str, list[str]] = {}  # Fähigkeit -> Stufen in der Reihenfolge der Auswahl (RadioSet #stufe-<id>)
         self.plan: erzeugen.Plan | None = None
         self._sperre = False
         self.laeuft = False
@@ -208,7 +210,41 @@ class InstallerApp(App):
                 daten[gruppe][name] = wert
             else:
                 daten["felder"].setdefault(gruppe, {})[name] = wert
+        daten["stufen"] = self._stufen_gewaehlt()
         return daten
+
+    def _stufen_gewaehlt(self) -> dict[str, str]:
+        """Die Stufe je Fähigkeit, wie sie in den Auswahlfeldern steht (jede, die das Formular zeigt)."""
+        gewaehlt: dict[str, str] = {}
+        for fid, ids in self.stufen_wahl.items():
+            try:
+                index = self.query_one(f"#stufe-{fid}", RadioSet).pressed_index
+            except Exception:  # noqa: BLE001 - Formular nicht aufgebaut
+                continue
+            if 0 <= index < len(ids):
+                gewaehlt[fid] = ids[index]
+        return gewaehlt
+
+    def _stufen_widgets(self, b) -> list:
+        """Je Fähigkeit des Bausteins eine Auswahl Grundstufe / Ausbaustufe / aus; vorgewählt ist die Stufe der Bauart."""
+        teile: list = []
+        for f in self.katalog.faehigkeiten.values():
+            if f.baustein != b.id:
+                continue
+            optionen = [(s.id, f"{st.STUFE_TITEL[s.id]}: {s.titel}" + ("" if s.verfuegbar else " (gibt es noch nicht)"),
+                         s.verfuegbar) for s in f.stufen.values()]
+            if f.aus:
+                optionen.append((st.AUS, "aus: nicht einrichten", True))
+            ids = [o[0] for o in optionen]
+            self.stufen_wahl[f.id] = ids
+            vorgabe = f.vorgabe(self.ziel)
+            teile.append(Label(f"[b]{f.titel}[/b]: welche Stufe? (Vorgabe für dieses Ziel: {st.STUFE_TITEL[vorgabe]})"))
+            teile.append(RadioSet(
+                *[RadioButton(text, value=i == vorgabe, disabled=not frei) for i, text, frei in optionen],
+                id=f"stufe-{f.id}",
+            ))
+            teile.append(Label("; ".join(f"{st.STUFE_TITEL[s.id]}: {s.text}" for s in f.stufen.values()), classes="leise"))
+        return teile
 
     def _eingabe(self, gruppe: str, name: str, titel: str, wert: Any, geheim: bool = False, hilfe: str = "") -> list:
         wid = f"in-{gruppe}-{name}"
@@ -223,6 +259,7 @@ class InstallerApp(App):
         form = self.query_one("#formular", Vertical)
         await form.remove_children()
         self.eingaben.clear()
+        self.stufen_wahl.clear()
         v = erzeugen
         teile: list = [Label("[b]Dein Agent[/b]")]
         p = v.VORGABE_PERSONA
@@ -255,9 +292,15 @@ class InstallerApp(App):
             if not b.konfiguration:
                 continue
             teile.append(Label(f"\n[b]{b.titel}[/b]"))
+            teile += self._stufen_widgets(b)
+            gilt = {}  # Feld -> Stufe, zu der es gehört (nur diese Stufe nutzt den Wert, die anderen Felder bleiben unbeachtet)
+            for fk in self.katalog.faehigkeiten.values():
+                if fk.baustein == b.id:
+                    gilt.update({n: st.STUFE_TITEL[s.id] for s in fk.stufen.values() for n in s.felder})
             for f in b.konfiguration:
                 titel = f.titel + (" *" if f.pflicht else "")
-                teile += self._eingabe(b.id, f.name, titel, f.standard, f.typ == "geheim", f.beschreibung)
+                hilfe = f.beschreibung + (f" (gilt nur bei der {gilt[f.name]})" if f.name in gilt else "")
+                teile += self._eingabe(b.id, f.name, titel, f.standard, f.typ == "geheim", hilfe)
         await form.mount_all(teile)
 
     # ---------------------------------------------------------------- Navigation
@@ -284,6 +327,14 @@ class InstallerApp(App):
 
     def _zusammenfassung(self, plan: erzeugen.Plan) -> str:
         zeilen = [f"**Ziel:** {erzeugen.ZIELE[plan.ziel]}", "", "**Bausteine:** " + ", ".join(plan.auswahl), ""]
+        if plan.stufen:
+            zeilen += ["### Stufe je Fähigkeit", "", "Die Grundstufe braucht keinen eigenen Dienst, die Ausbaustufe einen:", ""]
+            for w in plan.stufen:
+                zeilen.append(f"- {w.zeile()}")
+                if w.url_umgebung:
+                    zeilen.append(f"  Adresse in `{w.url_umgebung}`: " + (
+                        "gesetzt." if w.url_gesetzt else "noch leer, trage sie selbst ein; den Dienst liefert der Installer noch nicht mit."))
+            zeilen.append("")
         if plan.reife:
             zeilen += ["### Reifegrad", "", "Vier Schichten mit je drei Stufen, aus deiner Auswahl abgeleitet:", ""]
             for r in plan.reife:

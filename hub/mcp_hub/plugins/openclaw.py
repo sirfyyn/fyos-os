@@ -38,6 +38,15 @@ Konfiguration (alles optional, sonst Umgebung):
     werkzeug_auslassen  Namensanfänge, die nicht gemeldet werden (Hub-Werkzeuge über MCP protokolliert der Hub selbst)
     fyos_skill_pfade  Skill-Verzeichnisse von fyos-agent im Agenten (Quelle „fyos-agent“ statt „openclaw“)
     akteur            Name im Vorgangs-Dienst für Änderungen aus OpenClaw (Vorgabe openclaw)
+    agent             Kennung des Agenten, den der Hub weckt (FYOS_AGENT, sonst main)
+    wecken            Wecker (``_wecker``): ``{aktiv: true, intervall_s: 15, vorlauf_min: 10, max_pro_minute: 10,
+                      max_alter_s: 900, quellen: {vorgaenge, termine, postfach, dokumente: true}, strome: [], regeln: []}``;
+                      ohne ``regeln`` gelten ``_wecker.vorgaben_regeln``. ``strome`` nennt Ereignisströme (Redis-Streams),
+                      aus denen jeder neue Eintrag ein Umschlag wird. Eine Regel mit ``weiche: true`` fragt vor dem
+                      Wecken die Weiche (``_dienste``).
+    dienste           optionale Dienste ``{weiche_url, rerank_url, mund_url, ohr_url}`` (sonst FYOS_WEICHE_URL,
+                      FYOS_RERANK_URL, FYOS_MUND_URL, FYOS_OHR_URL); jeder fehlende oder ausfallende Dienst ist
+                      folgenlos (``_dienste``, Werkzeug ``dienste``)
 """
 
 from __future__ import annotations
@@ -59,8 +68,13 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from .. import dokumente as _dokumente
 from .. import kv
+from .. import postfach as _postfach
 from .. import takt as _takt
+from .. import termine as _termine
+from .. import umschlag as U
+from .. import vorgaenge as _vorgangsquellen
 from ..audit_log import AuditEvent, schwaerzen
 from ..plugin import HubPlugin, ToolDescriptor
 from ..vorgaenge import (
@@ -72,7 +86,12 @@ from ..vorgaenge import (
     dienst_anmelden,
     kopf_aus,
 )
+from . import _dienste as D
+from . import _gedaechtnis as G
+from . import _laufprofile as LP
+from . import _lebendig as L
 from . import _vorgaenge as V
+from . import _wecker as W
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +108,8 @@ ZEIT_TOLERANZ_S = 300
 SCHRITTE_MAX = 60
 STILL_S = 300
 ARTEN = ("werkzeug", "modell", "lauf", "sitzung", "cron", "skill", "skill_vorschlag", "hinweis")
-TAKTE = ("cron", "skills", "abgleich", "karten")  # Takte mit Grenzen (`takt_grenzen`); die Sonde läuft immer
+TAKTE = ("cron", "skills", "abgleich", "karten", "wecken")  # Takte mit Grenzen (`takt_grenzen`); die Sonde läuft immer
+KANAELE = ("telegram", "whatsapp", "matrix")  # Chat-Kanäle des Agenten (Brücke: kanaele im Kopf)
 VORGABE_AUSLASSEN = ("hub__", "mcp__hub__", "mcp-hub__")
 VORGABE_SKILL_PFADE = ("/opt/fyos/skills",)
 _TAGS_LESEN = ["openclaw", "agent", "read"]
@@ -170,6 +190,15 @@ class OpenClawPlugin(HubPlugin):
         self.fyos_skill_pfade = tuple(str(x).rstrip("/") + "/" for x in (cfg.get("fyos_skill_pfade") or VORGABE_SKILL_PFADE))
         self.akteur = str(cfg.get("akteur") or "openclaw")
         self.audit = bool(cfg.get("audit", True))
+        self.agent = str(cfg.get("agent") or os.getenv("FYOS_AGENT") or U.AGENT_VORGABE).strip()
+        wk = cfg.get("wecken") if isinstance(cfg.get("wecken"), dict) else {}
+        self._wecken_cfg: dict[str, Any] = wk
+        self._wecken_aktiv = bool(wk.get("aktiv", True))
+        self._wecken_intervall = max(5.0, _zahl(wk.get("intervall_s", 15)) or 15.0)
+        self._wecker: W.Wecker | None = None
+        # Optionale Dienste (Weiche, Reranker, Mund, Ohr); fehlen sie, arbeitet alles wie ohne sie
+        self._dienste = D.Dienste(cfg.get("dienste") if isinstance(cfg.get("dienste"), dict) else None,
+                                  post=cfg.get("dienste_post"), get=cfg.get("dienste_get"))
         # Austauschbare Wege (Tests): rpc(methode, params) -> payload, vorgaenge(methode, pfad, koerper) -> dict,
         # http_get(url) -> (status, dict)
         self._rpc_aufruf: Callable[[str, dict[str, Any]], Any] | None = cfg.get("rpc_aufruf")
@@ -188,6 +217,8 @@ class OpenClawPlugin(HubPlugin):
         self._zaehler: dict[str, Any] = {"ereignisse": {}, "werkzeug": {}, "modell": {}, "lauf": {}, "sitzung": {},
                                          "cron": {}, "ausgelassen": 0, "abgewiesen": 0}
         self._rpc_stand = {"ok": 0, "fehler": 0, "letzter_fehler": ""}
+        # Recall je Weg: Anfragen, Fehler, Treffer, Dauer (Summe und zuletzt) in Millisekunden
+        self._erinnert: dict[str, dict[str, float]] = {}
         self._laeufe: dict[str, dict[str, Any]] = {}
         self._karten_stand: dict[str, dict[str, Any]] | None = None
         self._board_bereit = False
@@ -214,6 +245,11 @@ class OpenClawPlugin(HubPlugin):
         (ohne Gateway lesen die anderen Plugins ihn trotzdem), sonst sich selbst als Ablage (andere Plugins lesen und
         beantworten Vorgänge dann im Workboard, ohne eine Adresse zu kennen)."""
         self._registry = registry
+        if self.gateway_url and (self._token or self._rpc_aufruf is not None):
+            # Dringende Mitteilungen ohne offene Shell gehen über den Agenten in den Chat-Kanal des Besitzers.
+            from .. import os_bruecke
+
+            os_bruecke.kanal_anmelden(self.kanal_mitteilen)
         if self.vorgaenge_url:
             dienst_anmelden(self.vorgaenge_url, self.vorgaenge_kopf)
         elif self.modus == "ablage":
@@ -224,6 +260,10 @@ class OpenClawPlugin(HubPlugin):
 
     def shutdown(self) -> None:
         self._halt.set()
+        from .. import os_bruecke
+
+        if os_bruecke.angemeldeter_kanal() == self.kanal_mitteilen:
+            os_bruecke.kanal_anmelden(None)
         if angemeldete_ablage() is self:
             ablage_anmelden(None)
         if self.vorgaenge_url and angemeldeter_dienst() == (self.vorgaenge_url, self.vorgaenge_kopf):
@@ -288,6 +328,76 @@ class OpenClawPlugin(HubPlugin):
         with self._sperre:
             self._rpc_stand["ok"] += 1
         return antwort
+
+    def kanal_mitteilen(self, text: str, kanal: str = "") -> dict[str, Any]:
+        """Eine dringende Mitteilung an den Besitzer, über den Chat-Kanal, den der Agent eingerichtet hat (die Brücke
+        versucht Telegram, WhatsApp, Matrix; die Methode ``fyos.kanal.mitteilen``). Fehler, wenn nichts zugestellt wurde."""
+        params: dict[str, Any] = {"text": _kurz(text, 4000)}
+        if kanal:
+            params["kanal"] = kanal
+        antwort = self.rpc("fyos.kanal.mitteilen", params)
+        return antwort if isinstance(antwort, dict) else {}
+
+    # ── Wecken: der Hub weckt den Agenten (Brücke: fyos.wecken, fyos.vorgang.senden) ─────────────
+
+    def wecken(self, text: str, vorgang: str = "", sitzung: str = "", modus: str = "jetzt") -> dict[str, Any]:
+        """Den Agenten wecken: mit ``vorgang`` in der Sitzung dieses Vorgangs, sonst in seiner Hauptsitzung."""
+        params: dict[str, Any] = {"text": _kurz(text, 4000), "modus": modus if modus in ("jetzt", "naechster") else "jetzt"}
+        if vorgang:
+            params["vorgang"] = str(vorgang).strip()
+        elif sitzung:
+            params["sitzung"] = str(sitzung).strip()
+        if self.agent != U.AGENT_VORGABE:
+            params["agent"] = self.agent
+        antwort = self.rpc("fyos.wecken", params)
+        return antwort if isinstance(antwort, dict) else {}
+
+    def vorgang_senden(self, vorgang: str, text: str, schluessel: str = "") -> dict[str, Any]:
+        """Eine Nachricht in die Sitzung eines Vorgangs; der Agent antwortet dort (nichts geht an einen Chat-Kanal)."""
+        params: dict[str, Any] = {"vorgang": str(vorgang).strip(), "text": _kurz(text, 4000)}
+        if schluessel:
+            params["schluessel"] = str(schluessel).strip()
+        if self.agent != U.AGENT_VORGABE:
+            params["agent"] = self.agent
+        antwort = self.rpc("fyos.vorgang.senden", params)
+        return antwort if isinstance(antwort, dict) else {}
+
+    def wecker(self) -> W.Wecker:
+        """Der Wecker dieses Plugins (wird beim ersten Gebrauch gebaut)."""
+        with self._sperre:
+            if self._wecker is None:
+                wk = self._wecken_cfg
+                quellen_an = wk.get("quellen") if isinstance(wk.get("quellen"), dict) else {}
+                vorlauf = max(1.0, _zahl(wk.get("vorlauf_min", 10)) or 10.0)
+                quellen: list[Any] = []
+                if quellen_an.get("vorgaenge", True):
+                    quellen.append(W.VorgangsQuelle(_vorgangsquellen.quelle))
+                if quellen_an.get("termine", True):
+                    quellen.append(W.TerminQuelle(_termine.quelle, vorlauf))
+                if quellen_an.get("postfach", True):
+                    quellen.append(W.PostfachQuelle(_postfach.quelle))
+                if quellen_an.get("dokumente", True):
+                    quellen.append(W.DokumentQuelle(_dokumente.quelle))
+                for strom in wk.get("strome") or []:
+                    if str(strom).strip():
+                        quellen.append(W.StromQuelle(self._speicher, str(strom).strip()))
+                self._wecker = W.Wecker(
+                    quellen=list(wk.get("quellen_objekte") or quellen),
+                    regeln=W.regeln_pruefen(wk.get("regeln"), (self.agent, self.akteur)),
+                    schicken=lambda params: self.rpc("fyos.wecken", {**params, **({"agent": self.agent} if self.agent != U.AGENT_VORGABE else {})}),
+                    speicher=self._speicher, agent=self.agent,
+                    max_pro_minute=int(_zahl(wk.get("max_pro_minute", 10)) or 10),
+                    max_alter_s=_zahl(wk.get("max_alter_s", 900)) or 900.0,
+                    weiche=self._dienste.weiche if self._dienste.eingerichtet("weiche") else None,
+                )
+            return self._wecker
+
+    def wecker_schlag(self) -> dict[str, Any]:
+        """Ein Schlag des Weckers (sonst im Takt)."""
+        ergebnis = self.wecker().schlag()
+        w = self.wecker()
+        self._lauf("wecken", "fehler" if w.letzter_fehler and ergebnis.get("wartend") else "ok", w.letzter_fehler if ergebnis.get("wartend") else "")
+        return ergebnis
 
     def _vd(self, methode: str, pfad: str, koerper: Any = None, zeit_s: float = 8.0) -> Any:
         """Ein Aufruf beim Vorgangs-Dienst (Vertrag wie fyos-agent/plugins/fyos-freigabe-chat/board.mjs)."""
@@ -380,6 +490,157 @@ class OpenClawPlugin(HubPlugin):
 
         return self._zwischen("cron", 60.0, holen, frisch)
 
+    # ── Gedächtnis: ein Recall-Weg über das Gedächtnis des Agenten und die Dokumente des Hubs ─────────
+
+    def erinnern(self, frage: str, limit: int = 8) -> dict[str, Any]:
+        """Die Frage an das Gedächtnis des Agenten (``memory.search``) und die Dokumentenquelle, gemischt und gemessen."""
+        wege: dict[str, Callable[[str, int], Any]] = {}
+        if self.modus != "aus":
+            def gedaechtnis(f: str, n: int) -> Any:
+                params: dict[str, Any] = {"query": f, "maxResults": n}
+                if self.agent != U.AGENT_VORGABE:
+                    params["agentId"] = self.agent
+                return self.rpc("memory.search", params)
+
+            wege["gedaechtnis"] = gedaechtnis
+        try:
+            dok = _dokumente.quelle()
+            if dok.eingerichtet:
+                wege["dokumente"] = lambda f, n: dok.suchen(f, n)
+        except Exception:  # noqa: BLE001 -- ohne Dokumentenquelle bleibt es beim Gedächtnis
+            pass
+        ergebnis = G.erinnern(frage, limit, wege)
+        if self._dienste.eingerichtet("rerank") and ergebnis["treffer"]:
+            # Reranker (optional): ordnet die gemischten Treffer nach Bedeutung neu; bei Ausfall bleibt das Rangmischen
+            ergebnis["treffer"], m = self._dienste.rerank(ergebnis["frage"], ergebnis["treffer"])
+            ergebnis["messung"]["rerank"] = {**m, "anzahl": len(ergebnis["treffer"])}
+            if m["ok"]:
+                ergebnis["satz"] += " Neu geordnet durch den Reranker."
+        with self._sperre:
+            for weg, m in ergebnis["messung"].items():
+                if weg == "gesamt_ms" or m.get("grund") == "nicht eingerichtet":
+                    continue
+                z = self._erinnert.setdefault(weg, {"anfragen": 0, "fehler": 0, "treffer": 0, "ms_summe": 0, "ms_zuletzt": 0})
+                z["anfragen"] += 1
+                z["fehler"] += 0 if m["ok"] else 1
+                z["treffer"] += m["anzahl"]
+                z["ms_summe"] += m["ms"]
+                z["ms_zuletzt"] = m["ms"]
+        return ergebnis
+
+    def gedaechtnis(self, frisch: bool = False) -> dict[str, Any]:
+        """Stand des Gedächtnisses: Anbieter (Vektor oder Text), Dreaming, und was ``erinnern`` bisher gemessen hat."""
+        stand: dict[str, Any] = {}
+        fehler = None
+        if self.modus != "aus":
+            try:
+                stand = G.stand_aus(self._zwischen("gedaechtnis", 120.0, lambda: self.rpc("doctor.memory.status", {}) or {}, frisch))
+            except Exception as exc:  # noqa: BLE001
+                fehler = _kurz(f"{type(exc).__name__}: {exc}", 200)
+        with self._sperre:
+            gemessen = {w: {**z, "ms_mittel": round(z["ms_summe"] / z["anfragen"]) if z["anfragen"] else None}
+                        for w, z in self._erinnert.items()}
+        traum = stand.get("dreaming") or {}
+        satz = ("Gedächtnis nicht lesbar." if not stand else
+                f"Anbieter {stand.get('anbieter') or '?'}; Dreaming {'an' if traum.get('an') else 'aus'}, "
+                f"{traum.get('kurzzeit', 0)} Kurzzeiteinträge, {traum.get('uebernommen', 0)} übernommen.")
+        return {"satz": satz, **stand, "gemessen": gemessen, "fehler": fehler}
+
+    # ── Optionale Dienste: Weiche, Reranker, Mund, Ohr ─────────────────────────────────────────────
+
+    def dienste(self, probe: bool = True, frisch: bool = False) -> dict[str, Any]:
+        """Welche optionalen Dienste eingerichtet und erreichbar sind, was sie bisher taten, und was das Gateway zu
+        Sprachausgabe (``tts.status``) und Weckwort-Weiterleitung (``voicewake.routing.get``) sagt."""
+        dienste = self._dienste.pruefen(probe)
+        gateway: dict[str, Any] = {}
+        fehler: list[str] = []
+        if self.modus != "aus":
+            for name, methode in (("mund", "tts.status"), ("weckwort", "voicewake.routing.get")):
+                try:
+                    gateway[name] = self._zwischen(f"dienst:{methode}", 60.0, lambda m=methode: self.rpc(m, {}) or {}, frisch)
+                except Exception as exc:  # noqa: BLE001
+                    fehler.append(_kurz(f"{methode}: {type(exc).__name__}: {exc}", 160))
+        tts = gateway.get("mund") or {}
+        weg = gateway.get("weckwort") or {}
+        gateway_mund = {"an": bool(tts.get("enabled")), "anbieter": tts.get("provider") or None,
+                        "eingerichtet": [p.get("id") for p in (tts.get("providerStates") or [])
+                                         if isinstance(p, dict) and p.get("configured")]} if tts else None
+        routen = ((weg.get("config") or {}).get("routes") or []) if isinstance(weg, dict) else []
+        gateway_weckwort = {"routen": len(routen)} if weg else None
+        da = [n for n, d in dienste.items() if d["eingerichtet"]]
+        weg_ab = [n for n, d in dienste.items() if d["erreichbar"] is False]
+        satz = ("Keine optionalen Dienste eingerichtet; alles arbeitet ohne sie." if not da else
+                f"Eingerichtet: {', '.join(da)}" + (f"; nicht erreichbar: {', '.join(weg_ab)}." if weg_ab else "; alle erreichbar."))
+        return {"satz": satz, "dienste": dienste, "weiche_urteile": dict(self._dienste.weiche_urteile),
+                "gateway": {"mund": gateway_mund, "weckwort": gateway_weckwort}, "fehler": fehler}
+
+    # ── Lebendigkeit: Herzschlag, Sitzungen, Fortschrittskarten je Vorgang ───────────────────────
+
+    def lebt(self, vorgang: str = "", frisch: bool = False) -> dict[str, Any]:
+        """„Lebt der Agent?“: Urteil (gestoert, laeuft, bereit) mit Gründen, letzter Herzschlag, Vorgangssitzungen samt
+        Fortschrittskarte. Mit ``vorgang`` nur die Sitzung dieses Vorgangs."""
+        vorgang = str(vorgang or "").strip().upper()
+        if vorgang and not U.vorgang_gueltig(vorgang):
+            raise ValueError(f"{vorgang!r} ist keine Vorgangsnummer")
+        if self.modus == "aus":
+            return {"satz": "Kopplung aus (FYOS_AGENT_URL fehlt).", "zustand": "aus", "gruende": []}
+        s = self.sonde(frisch)
+        fehler: list[str] = []
+        herz = None
+        try:
+            herz = L.herzschlag_aus(self._zwischen("herzschlag", 15.0, lambda: self.rpc("last-heartbeat", {}), frisch))
+        except Exception as exc:  # noqa: BLE001
+            fehler.append(_kurz(f"Herzschlag: {type(exc).__name__}: {exc}", 160))
+        sitzungen: list[dict[str, Any]] = []
+        try:
+            roh = self._zwischen("sitzungen", 15.0, lambda: self.rpc("sessions.list", {"limit": 100}) or {}, frisch)
+            sitzungen = [x for x in (L.sitzung_aus(r) for r in (roh.get("sessions") or [])) if x]
+        except Exception as exc:  # noqa: BLE001
+            fehler.append(_kurz(f"Sitzungen: {type(exc).__name__}: {exc}", 160))
+        zustand, gruende = L.urteil(s.get("bereit") if s.get("gesetzt") else None, sitzungen)
+        je_vorgang = [x for x in sitzungen if x["vorgang"] and (not vorgang or x["vorgang"] == vorgang)]
+        je_vorgang.sort(key=lambda x: -(x["aktualisiert_ms"] or 0))
+        for x in je_vorgang[:10]:
+            try:
+                x["karte"] = L.karte_aus(self._zwischen(f"karte:{x['schluessel']}", 15.0, lambda k=x["schluessel"]: self.rpc(
+                    "progressCard.get", {"sessionKey": k}), frisch))
+            except Exception as exc:  # noqa: BLE001
+                x["karte"] = None
+                fehler.append(_kurz(f"Karte {x['vorgang']}: {type(exc).__name__}: {exc}", 160))
+        wz = self._wecker.zustand(1)["zaehler"] if self._wecker is not None else None
+        satz = {"gestoert": "Agent gestört: " + "; ".join(gruende), "laeuft": "Agent läuft gerade.",
+                "bereit": "Agent bereit, kein Lauf aktiv."}[zustand]
+        if vorgang and not je_vorgang:
+            satz += f" Keine Sitzung zu {vorgang}."
+        return {"satz": satz, "zustand": zustand, "gruende": gruende, "herzschlag": herz,
+                "sitzungen_gesamt": len(sitzungen), "aktiv": sum(1 for x in sitzungen if x["aktiv"]),
+                "vorgaenge": je_vorgang[:10], "wecker": ({"geweckt": wz["geweckt"], "fehler": wz["fehler"]} if wz else None),
+                "fehler": fehler}
+
+    def cron_profile(self, frisch: bool = False) -> dict[str, Any]:
+        """Cron-Aufträge nach Laufprofil geordnet (mit Nutzlast gelesen, ausgegeben werden nur Namen und Zählungen)."""
+        def holen() -> dict[str, Any]:
+            antwort = self.rpc("cron.list", {"includeDisabled": True, "limit": 200}) or {}
+            return LP.pruefen([j for j in (antwort.get("jobs") or []) if isinstance(j, dict)])
+
+        return self._zwischen("cron_profile", 120.0, holen, frisch)
+
+    def profile(self, frisch: bool = False) -> dict[str, Any]:
+        """Die Laufprofile samt Werkzeuglisten und der Stand der Aufträge des Agenten gegen sie."""
+        stand: dict[str, Any] = {}
+        fehler = None
+        if self.modus != "aus":
+            try:
+                stand = self.cron_profile(frisch)
+            except Exception as exc:  # noqa: BLE001
+                fehler = _kurz(f"{type(exc).__name__}: {exc}", 200)
+        offen = stand.get("ohne_profil") or []
+        satz = ("Drei Laufprofile (lesen, reflexion, melden). "
+                + (f"{len(offen)} laufende Aufträge ohne Profil: {', '.join(offen[:5])}." if offen
+                   else ("Alle Aufträge folgen einem Profil oder laufen verwaltet." if stand else "Aufträge nicht lesbar.")))
+        return {"satz": satz, "profile": LP.profile(), "auftraege": stand.get("auftraege") or [],
+                "je_profil": stand.get("je_profil") or {}, "ohne_profil": offen, "fehler": fehler}
+
     def agent_skills(self, frisch: bool = False) -> list[dict[str, Any]]:
         def holen() -> list[dict[str, Any]]:
             antwort = self.rpc("skills.status", {}) or {}
@@ -392,6 +653,19 @@ class OpenClawPlugin(HubPlugin):
         return str(antwort.get("text") or "")
 
     # ── Ereignisse der Brücke ─────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _kanaele(roh: Any) -> dict[str, dict[str, bool]]:
+        """Chat-Kanäle des Agenten aus dem Kopf der Brücke: je bekanntem Kanal an/ziel/bereit, nur Wahrheitswerte."""
+        if not isinstance(roh, dict):
+            return {}
+        aus: dict[str, dict[str, bool]] = {}
+        for name in KANAELE:
+            e = roh.get(name)
+            if isinstance(e, dict):
+                an, ziel = bool(e.get("an")), bool(e.get("ziel"))
+                aus[name] = {"an": an, "ziel": ziel, "bereit": an and ziel}
+        return aus
 
     def annehmen(self, daten: Any) -> int:
         """Eine Lieferung der Brücke verarbeiten; gibt die Zahl der angenommenen Ereignisse zurück."""
@@ -410,6 +684,7 @@ class OpenClawPlugin(HubPlugin):
                 "verworfen": int(_zahl(b.get("verworfen"))),
                 "warteschlange": int(_zahl(b.get("warteschlange"))),
                 "plugins": plugins or self._bruecke.get("plugins") or [],
+                "kanaele": self._kanaele(b.get("kanaele")) or self._bruecke.get("kanaele") or {},
                 "zuletzt": time.time(),
             }
         n = 0
@@ -479,7 +754,8 @@ class OpenClawPlugin(HubPlugin):
         sitzung = _wort(roh.get("sitzung"), 24)
         dauer = max(0.0, _zahl(roh.get("dauer_ms")))
         fehler = _kurz(roh.get("fehler"), 200)
-        eintrag: dict[str, Any] = {"t": int(zeit_ms), "a": art, "g": agent, "d": int(dauer), "k": _wort(roh.get("kanal"), 30)}
+        eintrag: dict[str, Any] = {"t": int(zeit_ms), "a": art, "g": agent, "d": int(dauer), "k": _wort(roh.get("kanal"), 30),
+                                   "v": _wort(roh.get("vorgang"), 24)}
         if art == "werkzeug":
             name = _wort(roh.get("werkzeug"), 80)
             if not name:
@@ -958,6 +1234,11 @@ class OpenClawPlugin(HubPlugin):
                 self._waechter.ausfuehren("karten", lambda: self.karten(frisch=True))
             except Exception:  # noqa: BLE001
                 pass
+        if self._wecken_aktiv and faellig("wecken", max(1.0, self._wecken_intervall - 2.0)):
+            try:
+                self._waechter.ausfuehren("wecken", self.wecker_schlag)
+            except Exception:  # noqa: BLE001 — der Wecker wirft nie; das Laufprotokoll des Wächters nennt den Rest
+                pass
 
     # ── Beiträge zu gemeinsamen Ansichten ─────────────────────────────────────────────────────
 
@@ -990,6 +1271,9 @@ class OpenClawPlugin(HubPlugin):
                                             ("skills", "Skills des Agenten abfragen", "alle 5 min")):
                 if not self._waechter.grenzen(name).leer:
                     reihen.append((name, titel_, takt_text))
+            if self._wecken_aktiv:
+                reihen.append(("wecken", "Agenten bei Vorgängen, Terminen und Eingang wecken",
+                               f"alle {self._wecken_intervall:g} s"))
             for name, titel_, takt_text in reihen:
                 lauf = self._laeufe.get(name) or {}
                 out.append({"id": name, "name": titel_, "takt": takt_text, "an": True,
@@ -1071,6 +1355,24 @@ class OpenClawPlugin(HubPlugin):
         for status, n in je_status.items():
             proben.append({"name": "fyos_openclaw_karten", "wert": n, "labels": {"board": self.board, "status": status},
                            "hilfe": "Karten auf dem Board der Vorgänge"})
+        with self._sperre:
+            erinnert = {w: dict(z) for w, z in self._erinnert.items()}
+        for weg, z in erinnert.items():
+            proben.append({"name": "fyos_openclaw_erinnern_total", "wert": z["anfragen"], "typ": "counter",
+                           "labels": {"weg": weg, "ergebnis": "ok"}, "hilfe": "Anfragen an den Recall-Weg (erinnern)"})
+            proben.append({"name": "fyos_openclaw_erinnern_total", "wert": z["fehler"], "typ": "counter",
+                           "labels": {"weg": weg, "ergebnis": "fehler"}, "hilfe": "Anfragen an den Recall-Weg (erinnern)"})
+            proben.append({"name": "fyos_openclaw_erinnern_treffer_total", "wert": z["treffer"], "typ": "counter",
+                           "labels": {"weg": weg}, "hilfe": "Treffer des Recall-Wegs"})
+            proben.append({"name": "fyos_openclaw_erinnern_dauer_ms", "wert": z["ms_zuletzt"], "labels": {"weg": weg},
+                           "hilfe": "Dauer der letzten Anfrage an den Recall-Weg in Millisekunden"})
+        if self._wecker is not None:
+            wz = self._wecker.zustand(1)
+            for ergebnis in ("geweckt", "fehler", "verworfen"):
+                proben.append({"name": "fyos_openclaw_wecken_total", "wert": wz["zaehler"][ergebnis], "typ": "counter",
+                               "labels": {"ergebnis": ergebnis}, "hilfe": "Weckrufe des Hubs an den Agenten"})
+            proben.append({"name": "fyos_openclaw_wecken_wartend", "wert": wz["wartend"],
+                           "hilfe": "Ereignisse, die auf einen Weckruf warten (Flussschutz oder Fehler)"})
         return {"_proben": proben}
 
     def health(self) -> dict[str, Any]:
@@ -1113,9 +1415,10 @@ class OpenClawPlugin(HubPlugin):
             "satz": "; ".join(teile) + ".",
             "modus": self.modus,
             "gateway": {k: v for k, v in s.items() if k != "stand"},
-            "bruecke": {**{k: v for k, v in b.items() if k != "plugins"}, "alter_s": alter, "plugins": len(b.get("plugins") or [])},
+            "bruecke": {**{k: v for k, v in b.items() if k not in ("plugins", "kanaele")}, "alter_s": alter, "plugins": len(b.get("plugins") or [])},
             "rpc": rpc,
             "token": bool(self._token),
+            "kanaele": dict(b.get("kanaele") or {}),
             "vorgaenge": {"dienst": bool(self.vorgaenge_url), "board": self.board},
             "zaehler": z,
             "laeufe": laeufe,
@@ -1188,6 +1491,7 @@ class OpenClawPlugin(HubPlugin):
                 "dauer_ms": int(_zahl(f.get("d"))),
                 "agent": f.get("g"),
                 "kanal": f.get("k"),
+                "vorgang": f.get("v") or None,
                 "hinweis": f.get("x"),
             })
             if len(eintraege) >= grenze:
@@ -1328,6 +1632,131 @@ class OpenClawPlugin(HubPlugin):
                 input_schema=leer,
                 tags=["openclaw", "agent", "write"],
             ),
+            ToolDescriptor(
+                name="wecken",
+                title="OpenClaw — Agent wecken",
+                description=(
+                    "Den Agenten jetzt (oder zum nächsten Herzschlag) wecken: er bekommt `text` als Hinweis und läuft. Mit "
+                    "`vorgang` (z. B. INC-1234) landet der Hinweis in der Sitzung dieses Vorgangs "
+                    "(agent:<id>:vorgang:<ID>), sonst in der Hauptsitzung. Der Text trägt Namen und Nummern, keine Inhalte."
+                ),
+                input_schema={"type": "object", "properties": {
+                    "text": {"type": "string", "minLength": 1, "maxLength": 4000},
+                    "vorgang": {"type": "string"},
+                    "modus": {"type": "string", "enum": ["jetzt", "naechster"]},
+                }, "required": ["text"], "additionalProperties": False},
+                tags=["openclaw", "agent", "write"],
+            ),
+            ToolDescriptor(
+                name="vorgang_senden",
+                title="OpenClaw — Nachricht in die Vorgangssitzung",
+                description=(
+                    "Eine Nachricht in die Sitzung eines Vorgangs schreiben; der Agent antwortet dort, nichts geht an einen "
+                    "Chat-Kanal. `schluessel` macht die Zustellung wiederholbar (derselbe Schlüssel läuft nur einmal)."
+                ),
+                input_schema={"type": "object", "properties": {
+                    "vorgang": {"type": "string"},
+                    "text": {"type": "string", "minLength": 1, "maxLength": 4000},
+                    "schluessel": {"type": "string"},
+                }, "required": ["vorgang", "text"], "additionalProperties": False},
+                tags=["openclaw", "agent", "write"],
+            ),
+            ToolDescriptor(
+                name="lebt",
+                title="OpenClaw — Lebt der Agent?",
+                description=(
+                    "Urteil (bereit, läuft, gestört) mit Gründen, das Ergebnis des letzten Herzschlags und die Sitzungen "
+                    "der Vorgänge samt Fortschrittskarte (Schritte, aktueller Schritt, Notiz) des Agenten. Mit `vorgang` "
+                    "(z. B. INC-1234) nur die Sitzung dieses Vorgangs. Gestört heißt: das Gateway ist nicht bereit oder der "
+                    "jüngste beendete Lauf scheiterte (oft: das Modell antwortet nicht)."
+                ),
+                input_schema={"type": "object", "properties": {
+                    "vorgang": {"type": "string"}, "frisch": {"type": "boolean", "default": False},
+                }, "additionalProperties": False},
+                tags=_TAGS_LESEN,
+            ),
+            ToolDescriptor(
+                name="erinnern",
+                title="OpenClaw — Erinnern",
+                description=(
+                    "Ein Recall-Weg: die Frage an das Gedächtnis des Agenten (Notizen, Gesprächsauszüge, Traumbericht; "
+                    "Vektorsuche, wenn ein Embedding-Dienst eingerichtet ist, sonst Textsuche) und an die Dokumente des "
+                    "Hubs, gemischt (Reciprocal Rank Fusion). Je Weg ein Messwert (Dauer, Anzahl, Modus); ein ausfallender "
+                    "Weg ist ein Vermerk. `limit` 1–20, Vorgabe 8."
+                ),
+                input_schema={"type": "object", "properties": {
+                    "frage": {"type": "string", "minLength": 1, "maxLength": 500},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+                }, "required": ["frage"], "additionalProperties": False},
+                tags=_TAGS_LESEN,
+            ),
+            ToolDescriptor(
+                name="gedaechtnis",
+                title="OpenClaw — Gedächtnis",
+                description=(
+                    "Stand des Gedächtnisses des Agenten: Anbieter (Vektor oder Text), Dreaming mit Phasen, nächstem Lauf "
+                    "und Zahlen (ohne die Auszüge), dazu was `erinnern` bisher je Weg gemessen hat."
+                ),
+                input_schema={"type": "object", "properties": {"frisch": {"type": "boolean", "default": False}},
+                              "additionalProperties": False},
+                tags=_TAGS_LESEN,
+            ),
+            ToolDescriptor(
+                name="dienste",
+                title="OpenClaw — Optionale Dienste",
+                description=(
+                    "Weiche (entscheidet vor dem Wecken), Reranker (ordnet `erinnern` neu), Mund und Ohr: je Dienst "
+                    "eingerichtet, erreichbar (kurze Probe ohne Nutzdaten, `probe` false lässt sie aus), Zähler; dazu "
+                    "was das Gateway zu Sprachausgabe und Weckwort-Weiterleitung meldet. Fehlt ein Dienst, arbeitet alles "
+                    "wie ohne ihn."
+                ),
+                input_schema={"type": "object", "properties": {
+                    "probe": {"type": "boolean", "default": True}, "frisch": {"type": "boolean", "default": False},
+                }, "additionalProperties": False},
+                tags=_TAGS_LESEN,
+            ),
+            ToolDescriptor(
+                name="profile",
+                title="OpenClaw — Laufprofile",
+                description=(
+                    "Welche Werkzeuge ein isolierter Lauf des Agenten bekommt: die Profile lesen, reflexion, melden mit "
+                    "Zweck und Werkzeugliste, und welche Cron-Aufträge des Agenten einem Profil folgen, offen (alle "
+                    "Werkzeuge), ohne Werkzeuge oder eigen sind. Trägt Namen, nie Nachrichten."
+                ),
+                input_schema={"type": "object", "properties": {"frisch": {"type": "boolean", "default": False}},
+                              "additionalProperties": False},
+                tags=_TAGS_LESEN,
+            ),
+            ToolDescriptor(
+                name="auftrag_vorlage",
+                title="OpenClaw — Auftrag mit Profil vorbereiten",
+                description=(
+                    "Baut den Aufruf für einen Cron-Auftrag mit einem Laufprofil (Befehl `openclaw cron add …` und "
+                    "Nutzlast), legt aber nichts an. `plan`: genau eines von cron (Ausdruck), alle (z. B. 6h), um "
+                    "(Zeitpunkt oder Dauer), optional zeitzone. `sitzung` bindet den Lauf an eine feste Sitzung."
+                ),
+                input_schema={"type": "object", "properties": {
+                    "profil": {"type": "string", "enum": list(LP.REIHENFOLGE)},
+                    "name": {"type": "string", "minLength": 1, "maxLength": 80},
+                    "text": {"type": "string", "minLength": 1, "maxLength": 8000},
+                    "plan": {"type": "object", "properties": {
+                        "cron": {"type": "string"}, "alle": {"type": "string"}, "um": {"type": "string"},
+                        "zeitzone": {"type": "string"}}, "additionalProperties": False},
+                    "sitzung": {"type": "string"},
+                }, "required": ["profil", "name", "text", "plan"], "additionalProperties": False},
+                tags=_TAGS_LESEN,
+            ),
+            ToolDescriptor(
+                name="ereignisse",
+                title="OpenClaw — Wecker",
+                description=(
+                    "Der Wecker des Hubs: welche Quellen er liest, welche Regeln gelten, Zähler (geweckt, Fehler, "
+                    "verworfen), was wartet und die letzten Weckrufe mit Ziel (Sitzung) und Ergebnis. `limit` 1–100."
+                ),
+                input_schema={"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}},
+                              "additionalProperties": False},
+                tags=_TAGS_LESEN,
+            ),
         ]
 
     def call(self, method: str, args: dict[str, Any]) -> Any:
@@ -1344,4 +1773,31 @@ class OpenClawPlugin(HubPlugin):
             return self.arbeit()
         if method == "abgleichen":
             return self.abgleichen()
+        if method == "wecken":
+            return self.wecken(str(args.get("text") or ""), str(args.get("vorgang") or ""), "", str(args.get("modus") or "jetzt"))
+        if method == "vorgang_senden":
+            return self.vorgang_senden(str(args.get("vorgang") or ""), str(args.get("text") or ""), str(args.get("schluessel") or ""))
+        if method == "lebt":
+            return self.lebt(str(args.get("vorgang") or ""), bool(args.get("frisch")))
+        if method == "erinnern":
+            return self.erinnern(str(args.get("frage") or ""), int(args.get("limit") or 8))
+        if method == "gedaechtnis":
+            return self.gedaechtnis(bool(args.get("frisch")))
+        if method == "dienste":
+            return self.dienste(bool(args.get("probe", True)), bool(args.get("frisch")))
+        if method == "profile":
+            return self.profile(bool(args.get("frisch")))
+        if method == "auftrag_vorlage":
+            try:
+                return LP.vorlage(str(args.get("profil") or ""), str(args.get("name") or ""), str(args.get("text") or ""),
+                                  args.get("plan") or {}, self.agent if self.agent != U.AGENT_VORGABE else "",
+                                  str(args.get("sitzung") or ""))
+            except LP.ProfilFehler as exc:
+                raise ValueError(str(exc)) from exc
+        if method == "ereignisse":
+            if not self._wecken_aktiv:
+                return {"aktiv": False, "satz": "Der Wecker ist ausgeschaltet (wecken.aktiv)."}
+            z = self.wecker().zustand(int(args.get("limit") or 20))
+            return {"aktiv": True, "satz": f"Wecker: {z['zaehler']['geweckt']} Weckrufe, {z['zaehler']['fehler']} Fehler, "
+                                           f"{z['wartend']} warten.", **z}
         raise ValueError(f"openclaw hat kein Werkzeug {method!r}")

@@ -19,6 +19,8 @@ from urllib.parse import urlparse
 import yaml
 
 from . import __version__, abnahme
+from . import kanaele as kn
+from . import stufen as st
 from .katalog import Baustein, Katalog, KatalogFehler, aufloesen, quelle_aufloesen
 from .reife import Reife, bestimme as bestimme_reife
 
@@ -39,10 +41,11 @@ VORGABE_PERSONA = {
 }
 VORGABE_MODELL = {"basis_url": "http://host.docker.internal:11434/v1", "name": "qwen3:8b", "schluessel": ""}
 # Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.1.1
-# zieht Oberfläche und Hub mit dem Tag v0.1.1. Das Bild der Agent-Grundlage baut fyos-agent mit eigenen Versionen.
+# zieht Oberfläche und Hub mit dem Tag v0.1.1. Das Bild der Agent-Grundlage baut fyos-agent mit eigenen Tags; für 0.1.1
+# trägt es denselben Tag wie die FYOS-Version (RELEASE.md: fyos-agent wird vor fyos-os getaggt).
 OFFIZIELLE_REGISTRY = "ghcr.io/sirfyyn"  # sauber: ok
 BILD_TAG = f"v{__version__}"
-AGENT_TAG = "v0.1.0"
+AGENT_TAG = "v0.1.1"
 # Das selbst gebaute Hub-Bild (Kubernetes, mit den gewählten Plugins) gehört in die eigene Registry. Ohne sie zeigt es
 # auf eine Beispieladresse, die sich nie auflösen lässt: Schieben und Ziehen schlagen sichtbar fehl, statt still ein
 # fremdes Bild gleichen Namens zu holen.
@@ -66,6 +69,8 @@ def _bilder(reg: str, tag: str, agent_tag: str = "", eigen_reg: str = "") -> dic
         "hub_bild": f"{reg}/fyos-os/hub:{tag}", "bild_web": f"{reg}/fyos-os/web:{tag}",
         "bild_agent": f"{reg}/fyos-agent/openclaw:{agent_tag or tag}",
         "hub_bild_k8s": f"{eigen_reg or reg}/fyos-os/hub-eigen:{tag}",
+        # Agent mit Kanal-Paketen (Matrix, WhatsApp), nur bei Kubernetes und nur wenn so ein Kanal gewählt ist
+        "agent_bild_k8s": f"{eigen_reg or reg}/fyos-os/agent-eigen:{tag}",
     }
 
 
@@ -148,6 +153,8 @@ class Plan:
     port: int = 8080
     hub_quellen: list[str] = field(default_factory=list)
     reife: list[Reife] = field(default_factory=list)  # je Schicht die Stufe, aus der Auswahl abgeleitet (reife.py)
+    kanaele: dict[str, bool] = field(default_factory=dict)  # gewählte Chat-Kanäle -> eingeschaltet? (kanaele.py)
+    stufen: list[st.Wahl] = field(default_factory=list)  # Stufe je Fähigkeit der gewählten Bausteine (stufen.py)
 
     @property
     def ok(self) -> bool:
@@ -168,6 +175,7 @@ class Plan:
             ],
             "befehle": self.befehle, "hinweise": self.hinweise, "fehler": self.fehler, "url": self.url,
             "ok": self.ok, "ausfuehren": self.ausfuehrbar, "reife": [r.als_dict() for r in self.reife],
+            "stufen": [w.als_dict() for w in self.stufen],
         }
 
 
@@ -308,6 +316,7 @@ def erstelle_plan(
         return plan
     bausteine = [katalog[i] for i in plan.auswahl]
     plan.reife = bestimme_reife(bausteine)
+    kanaele = kn.gewaehlt(plan.auswahl)
 
     persona = _abschnitt(antworten, "persona", VORGABE_PERSONA, fehler)
     modell = _abschnitt(antworten, "modell", VORGABE_MODELL, fehler)
@@ -331,6 +340,8 @@ def erstelle_plan(
             fehler.append("Optionen: hub_bild_k8s ist kein gültiger Bildname")
         if not _NAMESPACE.match(optionen["namespace"]):
             fehler.append("Optionen: namespace ist kein gültiger Kubernetes-Name")
+        if kn.pakete(kanaele) and not _BILD.match(optionen["agent_bild_k8s"]):
+            fehler.append("Optionen: agent_bild_k8s ist kein gültiger Bildname")
 
     # Plugin-Pakete für das Hub-Bild
     for b in bausteine:
@@ -370,6 +381,12 @@ def erstelle_plan(
                 fehler.append(f"Umgebungsvariable {env} wird von mehreren Feldern belegt")
             werte[env] = (wert, f.typ == "geheim", b)
 
+    # Stufe je Fähigkeit: wählt (Vorgabe nach Bauart) und streicht die Felder der Stufen, die nicht gelten
+    plan.stufen, stufen_fehler, stufen_hinweise = st.waehle(katalog, plan.auswahl, ziel, antworten.get("stufen"))
+    fehler += stufen_fehler
+    plan.hinweise += stufen_hinweise
+    plan.hinweise += st.anwenden(katalog, plan.stufen, werte, ziel)
+
     port = werte.get("FYOS_PORT", ("8080", False, None))[0] or "8080"
     oeff = werte.get("FYOS_OEFFENTLICH_URL", ("", False, None))[0]
     if not oeff or (oeff == STANDARD_URL and port != "8080"):
@@ -380,6 +397,7 @@ def erstelle_plan(
             fehler.append("Kern: port muss zwischen 1 und 65535 liegen")
     werte["FYOS_PORT"] = (port, False, werte.get("FYOS_PORT", (0, 0, None))[2])
     werte["FYOS_OEFFENTLICH_URL"] = (oeff, False, werte.get("FYOS_OEFFENTLICH_URL", (0, 0, None))[2])
+    fehler += kn.pruefe_werte(kanaele, {e: w for e, (w, _g, _b) in werte.items()})
 
     if fehler:
         return plan
@@ -401,7 +419,18 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
     ziel = plan.ziel
     oeff = werte["FYOS_OEFFENTLICH_URL"][0]
     port = werte["FYOS_PORT"][0]
-    plugin_paare = [(e, w, g, b) for e, (w, g, b) in werte.items() if w and e not in RESERVIERT]
+    nur_konfig = RESERVIERT | kn.NUR_KONFIG
+    # Bei der Ausbaustufe bleibt die Adresse des Dienstes auch leer als Zeile stehen: dort trägt der Nutzer sie ein
+    ausbau_adressen = {w.url_umgebung for w in plan.stufen if w.stufe == st.AUSBAU and w.url_umgebung}
+    plugin_paare = [
+        (e, w, g, b) for e, (w, g, b) in werte.items() if (w or e in ausbau_adressen) and e not in nur_konfig
+    ]
+    # Kanäle gehören dem Agenten, nicht dem Hub: ihre Werte gehen an den Agenten (auch leer, als Platzhalter)
+    kanal_paare = [(e, w, g, b) for e, (w, g, b) in werte.items() if b is not None and b.art == "kanal" and e not in kn.NUR_KONFIG]
+    hub_paare = [p for p in plugin_paare if p[3].art != "kanal"]
+    kanaele = kn.gewaehlt(plan.auswahl)
+    kwerte = {e: w for e, (w, _g, _b) in werte.items()}
+    kanal_pakete = kn.pakete(kanaele)
 
     # fyos.yaml (Persona-Schema: fyos-agent/fyos.example.yaml)
     sprache_code = SPRACHCODES.get(persona["sprache"].lower(), "en")
@@ -411,6 +440,10 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
         "sprache": persona["sprache"],
         "sprache_code": sprache_code,
     }
+    teil = kn.fyos_teil(kanaele, kwerte)
+    fyos["besitzer"].update(teil.pop("besitzer", {}))
+    fyos.update(teil)
+    plan.kanaele = {k.id: kn.aktiv(k, kwerte) for k in kanaele}
     kopf = "# Persona und Grenzen des Agenten (Schema: fyos-agent/fyos.example.yaml). Vom Installer erzeugt.\n"
     fyos_text = _yaml(fyos, kopf)
 
@@ -470,7 +503,8 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             ("Agent-Gateway", [("FYOS_AGENT_TOKEN", token, True)]),
         ]
         for b in bausteine:
-            felder = [(e, w, g) for e, w, g, bb in plugin_paare if bb is b]
+            # Kanäle zeigen auch leere Werte: die Zeile in .env ist der Platzhalter zum Ausfüllen
+            felder = [(e, w, g) for e, w, g, bb in (kanal_paare if b.art == "kanal" else plugin_paare) if bb is b]
             if felder:
                 abschnitte.append((b.titel, felder))
 
@@ -485,10 +519,21 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             return "\n".join(zeilen) + "\n"
 
         hub_umgebung = "\n".join(
-            f"      {e}: ${{{e}:-}}" for e, _w, _g, _b in plugin_paare
+            f"      {e}: ${{{e}:-}}" for e, _w, _g, _b in hub_paare
         )
+        agent_umgebung = "\n".join(f"      {e}: ${{{e}:-}}" for e, _w, _g, _b in kanal_paare)
+        if kanal_pakete:
+            agent_bild = (
+                "# Eigenes Bild: Agent plus die Pakete der gewählten Kanäle (agent/Dockerfile).\n"
+                "    build:\n      context: ./agent\n      args:\n"
+                "        FYOS_BILD_AGENT: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}\n"
+                f"    image: ${{FYOS_BILD_AGENT_EIGEN:-{kn.BILD_AGENT_EIGEN_LOKAL}}}"
+            )
+        else:
+            agent_bild = "image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}"
         compose = render(
-            _vorlage("docker-compose.yml"), {"oeffentliche_url": oeff, "hub_umgebung": hub_umgebung}
+            _vorlage("docker-compose.yml"),
+            {"oeffentliche_url": oeff, "hub_umgebung": hub_umgebung, "agent_bild": agent_bild, "agent_umgebung": agent_umgebung},
         )
         plan.dateien += [
             Datei("docker-compose.yml", compose, beschreibung="Dienste web, hub (eigenes Bild), agent, redis"),
@@ -515,18 +560,34 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             basis = Path(os.path.relpath(basis, Path(plan.verzeichnis).resolve())).as_posix()
         bild_name, bild_tag = _bild_teilen(optionen["hub_bild_k8s"])
         web_name, web_tag = _bild_teilen(optionen["bild_web"])
-        agent_name, agent_tag = _bild_teilen(optionen["bild_agent"])
+        # Mit Kanal-Paketen läuft der Agent im abgeleiteten Bild aus der eigenen Registry
+        agent_name, agent_tag = _bild_teilen(optionen["agent_bild_k8s" if kanal_pakete else "bild_agent"])
         host = urlparse(oeff).hostname or "localhost"
         ns = optionen["namespace"]
         literale = _literale(
             [("oeffentlich_url", oeff), ("erlaubte_hosts", host)], 6
         )
         plugin_lit = _literale(
-            [("FYOS_PLUGIN_UMGEBUNG", "installer")] + [(e, w) for e, w, g, _b in plugin_paare if not g], 6
+            [("FYOS_PLUGIN_UMGEBUNG", "installer")] + [(e, w) for e, w, g, _b in hub_paare if not g], 6
         )
+        # Kanäle: Kennungen in eine ConfigMap, Token in ein Secret; beide gehen nur an den Agenten
+        kanal_offen = [(e, w) for e, w, g, _b in kanal_paare if w and not g]
+        kanal_generator = (
+            "  - name: fyos-agent-kanaele\n    literals:\n" + _literale(kanal_offen, 6) if kanal_offen else ""
+        )
+        kanal_patch = (
+            "  - target: { kind: Deployment, name: agent }\n"
+            "    patch: |-\n"
+            "      - op: add\n"
+            "        path: /spec/template/spec/containers/0/envFrom\n"
+            "        value:\n"
+            "          - configMapRef: { name: fyos-agent-kanaele, optional: true }\n"
+            "          - secretRef: { name: fyos-agent-kanaele, optional: true }"
+        ) if kanaele else ""
         kust = render(_vorlage("kustomization.yaml"), {
             "namespace": ns, "k8s_basis": json.dumps(basis), "umgebung_literale": literale,
-            "plugin_literale": plugin_lit, "hub_bild_name": json.dumps(bild_name), "hub_bild_tag": json.dumps(bild_tag),
+            "plugin_literale": plugin_lit, "kanal_generator": kanal_generator, "kanal_patch": kanal_patch,
+            "hub_bild_name": json.dumps(bild_name), "hub_bild_tag": json.dumps(bild_tag),
             "web_name": json.dumps(web_name), "web_tag": json.dumps(web_tag),
             "agent_name": json.dumps(agent_name), "agent_tag": json.dumps(agent_tag),
             **{f"{k}_basis": json.dumps(v) for k, v in BASIS_BILDNAMEN.items()},
@@ -544,11 +605,17 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
                 {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "fyos-agent-gateway", "namespace": ns},
                  "type": "Opaque", "stringData": {"token": wert(token)}},
             ]
-            geheim = {e: wert(w) for e, w, g, _b in plugin_paare if g}
+            geheim = {e: wert(w) for e, w, g, _b in hub_paare if g}
             if geheim:
                 dokumente.append({"apiVersion": "v1", "kind": "Secret",
                                   "metadata": {"name": "fyos-plugin", "namespace": ns},
                                   "type": "Opaque", "stringData": geheim})
+            # Token der Kanäle (nur der Agent liest dieses Secret); ein leerer Wert bleibt leer
+            geheim_kanal = {e: (wert(w) if w else "") for e, w, g, _b in kanal_paare if g}
+            if geheim_kanal:
+                dokumente.append({"apiVersion": "v1", "kind": "Secret",
+                                  "metadata": {"name": "fyos-agent-kanaele", "namespace": ns},
+                                  "type": "Opaque", "stringData": geheim_kanal})
             kopf = ("# Vom FYOS-Installer erzeugt.\n" + (
                 "# ENTHÄLT GEHEIMNISSE: nicht ins Git, nicht weitergeben.\n" if echt else
                 "# Vorlage ohne Werte. Als secrets.yaml kopieren und ausfüllen.\n"))
@@ -570,17 +637,24 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
         if optionen["bezug"] == "index" and optionen["paketindex"]:
             arg = "--build-arg " + shlex.quote("FYOS_INDEX_URL=" + optionen["paketindex"]) + " "
         bau = f"docker build {arg}-t {optionen['hub_bild_k8s']} hub"
+        agent_bau = (
+            f"docker build --build-arg {shlex.quote('FYOS_BILD_AGENT=' + optionen['bild_agent'])} "
+            f"-t {optionen['agent_bild_k8s']} agent"
+        )
         plan.befehle = [
             f"cd {d}",
             bau,
             f"docker push {optionen['hub_bild_k8s']}",
+            *([agent_bau, f"docker push {optionen['agent_bild_k8s']}"] if kanal_pakete else []),
             f"kubectl create namespace {ns}",
             "kubectl apply -f secrets.yaml",
             "kubectl apply -k .",
         ]
         schritte = [
             f"1. `cd {d}`",
-            f"2. Hub-Bild bauen und in deine Registry schieben: `{bau}` und `docker push {optionen['hub_bild_k8s']}`.",
+            f"2. Hub-Bild bauen und in deine Registry schieben: `{bau}` und `docker push {optionen['hub_bild_k8s']}`."
+            + (f" Dasselbe für den Agenten mit den Kanal-Paketen: `{agent_bau}` und `docker push {optionen['agent_bild_k8s']}`."
+               if kanal_pakete else ""),
             f"3. `kubectl create namespace {ns}`, dann `kubectl apply -f secrets.yaml`.",
             "4. `kubectl apply -k .` legt FYOS an (zur Kontrolle vorher `kubectl kustomize .`).",
             f"5. Zugriff zum Ausprobieren: `kubectl -n {ns} port-forward svc/web {port}:80`, dann {oeff} öffnen.",
@@ -592,6 +666,16 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
         )
         if "host.docker.internal" in modell["basis_url"]:
             plan.hinweise.append("Die Modell-Adresse zeigt auf host.docker.internal; im Cluster ist sie so nicht erreichbar.")
+
+    if kanal_pakete:
+        plan.dateien.append(Datei(
+            "agent/Dockerfile", kn.agent_dockerfile(kanaele),
+            beschreibung="Agent-Bild plus Pakete der gewählten Kanäle (" + ", ".join(kn.pakete(kanaele)) + ")",
+        ))
+    if kanaele:
+        beginn = "docker compose exec agent" if ziel != "k8s" else f"kubectl -n {optionen['namespace']} exec -it deploy/agent --"
+        plan.hinweise += kn.hinweise(kanaele, kwerte, ziel, beginn)
+        plan.hinweise.append(abnahme.kanal_hinweis(ziel, [k.id for k in kanaele]))
 
     if ziel == "dateien":
         plan.hinweise.append("Ziel »nur Dateien«: nichts wird gestartet; die Befehle stehen in ANLEITUNG.md.")
@@ -611,7 +695,10 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
     anleitung = render(_vorlage("ANLEITUNG.md"), {
         "ziel_text": _ziel_text(ziel),
         "agent_name": persona["agent_name"], "besitzer_name": persona["besitzer_name"], "sprache": persona["sprache"],
-        "bausteine": "\n".join(f"- **{b.titel}**: {b.kurz}" for b in bausteine),
+        "bausteine": "\n".join(
+            z for b in bausteine
+            for z in [f"- **{b.titel}**: {b.kurz}"] + [f"  - {w.zeile()}" for w in plan.stufen if w.faehigkeit.baustein == b.id]
+        ),
         "schritte": "\n".join(schritte),
         "dateien": "\n".join(f"- `{x.pfad}`: {x.beschreibung}" for x in plan.dateien + [Datei("ANLEITUNG.md", "", beschreibung="diese Datei")]),
         "geheimdatei": geheimdatei, "protokoll_befehl": f"`{protokoll}`",

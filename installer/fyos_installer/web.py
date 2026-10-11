@@ -92,6 +92,7 @@ class Zustand:
         optionen = erzeugen.vorgaben_optionen(self.umgebung, bezug_aufloesen=True)
         return {
             "bausteine": bausteine,
+            "faehigkeiten": [f.als_dict() for f in self.katalog.faehigkeiten.values()],
             "ziele": erzeugen.ZIELE,
             "vorgaben": {"persona": erzeugen.VORGABE_PERSONA, "modell": erzeugen.VORGABE_MODELL, "optionen": optionen},
             "docker": {"bereit": bereit, "meldung": meldung},

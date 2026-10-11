@@ -10,8 +10,8 @@ import Mitteilungen, { type Hinweis, type MitteilungenProps } from '~/components
 import type { Flaeche, FlaechenArt } from '~/lib/os/flaechen';
 import { menue, menueZu } from '~/lib/os/menue';
 import {
-  ANZEIGE_MS, GLEICH_MS, MAX_STAPEL, SPEICHER_SCHLUESSEL, ZEIGT_EREIGNIS, einstellungLesen, einstellungSchreiben, hinzufuegen, istStumm,
-  schluesselVon, zeigtPruefen, zeitText, type Mitteilung, type ZeigtDaten,
+  ANZEIGE_MS, ANZEIGE_NACHGEHOLT_MS, GLEICH_MS, MAX_STAPEL, SPEICHER_SCHLUESSEL, ZEIGT_EREIGNIS, einstellungLesen, einstellungSchreiben,
+  hinzufuegen, istStumm, nachholZeit, schluesselVon, zeigtPruefen, zeitText, type Mitteilung, type ZeigtDaten,
 } from '~/lib/os/mitteilungen';
 
 const F = (id: string, titel: string, gruppe = 'Allgemein', art: FlaechenArt = 'seite'): Flaeche => ({ id, titel, gruppe, art, kuerzel: titel.slice(0, 2).toUpperCase() });
@@ -91,6 +91,40 @@ describe('lib/os/mitteilungen', () => {
     expect(zeitText(t, t + 125_000)).toBe('vor 2 min');
     expect(zeitText(t, t + 3 * 3_600_000)).toBe('vor 3 Std.');
     expect(zeitText(t, t + 30 * 3_600_000)).toBe('gestern');
+  });
+
+  it('Nachgeholtes: der Hub schreibt Unix-Sekunden, die Shell rechnet in Millisekunden; ohne „nachgeholt“ kein Zeitstempel', () => {
+    const z = zeigtPruefen({ ziel: 'agent', titel: 'Notizen geordnet', art: 'mitteilung', nachgeholt: true, entstanden: 1_893_463_200.5 })!;
+    expect(z).toMatchObject({ art: 'mitteilung', nachgeholt: true, entstanden: 1_893_463_200_500 });
+    const live = zeigtPruefen({ ziel: 'agent', titel: 'x', art: 'mitteilung', entstanden: 1_893_463_200 })!;
+    expect(live.nachgeholt).toBeUndefined();
+    expect(live.entstanden).toBeUndefined();
+    expect(zeigtPruefen({ ziel: 'agent', art: 'sonst', nachgeholt: true, entstanden: -4 })).toMatchObject({ nachgeholt: true });
+    expect(zeigtPruefen({ ziel: 'agent', art: 'sonst', nachgeholt: true, entstanden: -4 })!.art).toBeUndefined();
+    expect(zeigtPruefen({ ziel: 'agent', nachgeholt: true, entstanden: 'gestern' })!.entstanden).toBeUndefined();
+  });
+
+  it('zwei Meldungen des Agenten an dieselbe Fläche ersetzen sich nur bei gleichem Titel', () => {
+    const t = Date.now();
+    const a = zeigt({ ziel: 'agent', art: 'mitteilung', titel: 'Notizen geordnet' });
+    const b = zeigt({ ziel: 'agent', art: 'mitteilung', titel: 'Backup fertig' });
+    expect(schluesselVon(a)).not.toBe(schluesselVon(b));
+    const l = hinzufuegen(hinzufuegen([], a, t), b, t + 1000);
+    expect(l.map((m) => m.zeigt.titel)).toEqual(['Backup fertig', 'Notizen geordnet']);
+    expect(hinzufuegen(l, a, t + 2000).map((m) => m.zeigt.titel)).toEqual(['Notizen geordnet', 'Backup fertig']);
+  });
+
+  it('nachholZeit: „heute Nacht, 03:12“, „heute, 14:05“, „gestern, 09:30“, älter mit Datum (Ortszeit)', () => {
+    const am = (tag: number, h: number, min: number) => new Date(2030, 0, tag, h, min).getTime();
+    const frueh = am(11, 7, 40);
+    expect(nachholZeit(am(11, 3, 12), frueh)).toBe('heute Nacht, 03:12');
+    expect(nachholZeit(am(10, 23, 5), frueh)).toBe('heute Nacht, 23:05');
+    expect(nachholZeit(am(10, 21, 59), frueh)).toBe('gestern, 21:59');
+    expect(nachholZeit(am(10, 9, 30), frueh)).toBe('gestern, 09:30');
+    expect(nachholZeit(am(11, 6, 0), am(11, 9, 0))).toBe('heute, 06:00');
+    expect(nachholZeit(am(11, 14, 5), am(11, 15, 0))).toBe('heute, 14:05');
+    expect(nachholZeit(am(8, 12, 0), frueh)).toMatch(/, 12:00$/);
+    expect(nachholZeit(am(8, 12, 0), frueh)).not.toMatch(/heute|gestern/);
   });
 
   it('Einstellung: Vorgabe, Schreiben, Lesen, kaputter Speicher', () => {
@@ -188,6 +222,46 @@ describe('Mitteilungen', () => {
     const ks = [...document.querySelectorAll<HTMLElement>('[data-mitteilung]')];
     expect(ks.map((k) => k.querySelector('strong')!.textContent)).toEqual(['Haus', 'Notizen']);
     expect(ks.map((k) => k.style.getPropertyValue('--stufe'))).toEqual(['0', '1']);
+  });
+
+  it('eine Meldung des Agenten sagt „meldet sich“ statt „zeigt dir“', () => {
+    mitteilungen(eine({ ziel: 'agent', art: 'mitteilung', titel: 'Notizen geordnet', untertitel: 'Nacht' }));
+    const k = karte();
+    expect(within(k).getByText('Agent meldet sich')).toBeTruthy();
+    expect(within(k).queryByText('Agent zeigt dir')).toBeNull();
+    expect(k.getAttribute('aria-label')).toBe('Agent meldet sich Notizen geordnet. Enter öffnet, Escape schließt.');
+  });
+
+  describe('nachgeholt', () => {
+    const nachts = () => new Date(2030, 0, 1, 3, 12).getTime();
+    const nachgeholt = (extra: Partial<ZeigtDaten> = {}) =>
+      eine({ ziel: 'agent', art: 'mitteilung', titel: 'Notizen geordnet', nachgeholt: true, entstanden: nachts(), ...extra });
+
+    it('zeigt statt „jetzt“ die Uhrzeit der Entstehung: „heute Nacht, 03:12“', () => {
+      vi.setSystemTime(new Date(2030, 0, 1, 7, 40));
+      mitteilungen(nachgeholt());
+      const zeit = karte().querySelector('time')!;
+      expect(zeit.textContent).toBe('heute Nacht, 03:12');
+      expect(zeit.classList.contains('os-mitteilung-nachgeholt')).toBe(true);
+    });
+
+    it('ohne Zeitstempel fällt es auf die gewohnte Zeit zurück', () => {
+      mitteilungen(nachgeholt({ entstanden: undefined }));
+      expect(karte().querySelector('time')!.textContent).toBe('jetzt');
+    });
+
+    it('bleibt länger stehen als eine gewöhnliche Karte (30 s statt 10 s)', async () => {
+      const { onWeg } = mitteilungen(nachgeholt());
+      await lass(ANZEIGE_MS + 1_000);
+      expect(onWeg).not.toHaveBeenCalled();
+      await lass(ANZEIGE_NACHGEHOLT_MS - ANZEIGE_MS - 1_000 + 250);
+      expect(onWeg).toHaveBeenCalledTimes(1);
+    });
+
+    it('eine gewöhnliche Karte hat die Klasse nicht', () => {
+      mitteilungen(eine());
+      expect(karte().querySelector('time')!.classList.contains('os-mitteilung-nachgeholt')).toBe(false);
+    });
   });
 
   it('die Zeit läuft mit: „vor 2 min“', () => {

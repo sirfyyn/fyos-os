@@ -23,6 +23,11 @@ export interface Fenster {
    * bleibt das Fenster so hoch wie gewählt und der Inhalt scrollt in ihm. Setzt sich beim Ziehen der Höhe.
    */
   fest?: boolean;
+  /**
+   * Maximiert: das Fenster füllt den ganzen Arbeitsbereich des Bildschirms (die anderen Fenster ruhen), das Dock blendet aus,
+   * die Menüleiste bleibt. Nur Anwendungen (Flaeche.anwendung). Auf einem Vollbild-Bildschirm (bildschirme.ts) immer gesetzt.
+   */
+  max?: boolean;
   /** Alt: über die ganze Breite. Wird beim Laden zu `spalten: 12`. */
   breit?: boolean;
   /**
@@ -47,9 +52,22 @@ export const ZEILEN_MAX = 24;
 export const NEU_SPALTEN = 6;
 export const NEU_ZEILEN = 10;
 
+/** Höhe einer Rasterzeile in rem (Raster.tsx rechnet damit) und der Abstand zwischen zwei Zeilen. */
+export const ZEILE_REM = 2.5;
+const ABSTAND_REM = 0.75;
+
 const SCHLUESSEL = 'fyos:os:anordnung:v1';
 
 const grenzen = (w: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, Math.round(w)));
+
+/**
+ * Wie viele Rasterzeilen genau in die sichtbare Höhe eines Bildschirms passen (`hoehePx` = Höhe der Fläche, `remPx` = Schrift
+ * der Seite; Rand oben 0,75 rem, unten 1,25 rem). Eine Anwendung öffnet so hoch: sie füllt den Bildschirm unter der Menüleiste.
+ */
+export function zeilenFuerHoehe(hoehePx: number, remPx = 16): number {
+  const h = hoehePx / (remPx > 0 ? remPx : 16);
+  return grenzen(Math.floor((h - 1.25) / (ZEILE_REM + ABSTAND_REM)), ZEILEN_MIN, ZEILEN_MAX);
+}
 
 /** Ist der Bildschirm von Hand geordnet (mindestens ein Fenster hat eine eigene Größe)? */
 export const vonHand = (liste: Fenster[]): boolean => liste.some((w) => !w.min && w.spalten != null);
@@ -58,22 +76,52 @@ export const vonHand = (liste: Fenster[]): boolean => liste.some((w) => !w.min &
  * Öffnet `id` (oder holt sie aus der Minimierung); `vor` setzt sie vor ein anderes Fenster. `start` ist der
  * Startzustand einer App aus einem Deeplink; ein offenes Fenster übernimmt einen neuen.
  */
-export function oeffnen(liste: Fenster[], id: string, opt: { vor?: string | null; breit?: boolean; start?: StartZustand } = {}): Fenster[] {
+export function oeffnen(
+  liste: Fenster[],
+  id: string,
+  opt: { vor?: string | null; breit?: boolean; start?: StartZustand; gross?: number } = {},
+): Fenster[] {
   const da = liste.find((w) => w.id === id);
-  if (da) return liste.map((w) => (w.id === id ? { ...w, min: false, ...(opt.start ? { start: opt.start } : {}) } : w));
+  if (da) {
+    // Ein anderes Fenster kommt nach vorn: eine Maximierung endet, sonst ruhte es unsichtbar hinter dem maximierten
+    return liste.map((w) => (w.id === id ? { ...w, min: false, ...(opt.start ? { start: opt.start } : {}) } : w.max ? ohneMax(w) : w));
+  }
   if (liste.filter((w) => !w.min).length >= MAX_OFFEN) {
     // Zu viele offene: es wird nichts geöffnet, der Aufrufer meldet es
     return liste;
   }
   const neu: Fenster = { id, min: false };
   if (opt.start) neu.start = opt.start;
-  // Von Hand geordnet: das neue Fenster bekommt eine feste Größe, sonst bleibt alles Automatik.
-  if (vonHand(liste) || opt.breit) {
+  if (opt.gross != null) {
+    // Eine Anwendung öffnet groß: volle Breite, so hoch wie der Bildschirm, die Höhe festgehalten (der Inhalt scrollt in ihr)
+    neu.spalten = SPALTEN;
+    neu.zeilen = grenzen(opt.gross, ZEILEN_MIN, ZEILEN_MAX);
+    neu.fest = true;
+  } else if (vonHand(liste) || opt.breit) {
+    // Von Hand geordnet: das neue Fenster bekommt eine feste Größe, sonst bleibt alles Automatik.
     neu.spalten = opt.breit ? SPALTEN : NEU_SPALTEN;
     neu.zeilen = NEU_ZEILEN;
   }
   const i = opt.vor ? liste.findIndex((w) => w.id === opt.vor) : -1;
-  return i >= 0 ? [...liste.slice(0, i), neu, ...liste.slice(i)] : [...liste, neu];
+  const rest = liste.map((w) => (w.max ? ohneMax(w) : w));
+  return i >= 0 ? [...rest.slice(0, i), neu, ...rest.slice(i)] : [...rest, neu];
+}
+
+export const ohneMax = (w: Fenster): Fenster => {
+  const { max: _m, ...rest } = w;
+  return rest;
+};
+
+/**
+ * Ein Fenster maximieren (`an`) oder die Maximierung beenden. Nur eines je Bildschirm ist maximiert; die Höhe wird festgehalten,
+ * damit der Inhalt nicht neu aufgebaut werden muss, wenn die Maximierung später endet.
+ */
+export function maximieren(liste: Fenster[], id: string, an: boolean): Fenster[] {
+  if (!liste.some((w) => w.id === id)) return liste;
+  return liste.map((w) => {
+    if (w.id === id) return an ? { ...w, min: false, max: true, fest: true } : ohneMax(w);
+    return w.max && an ? ohneMax(w) : w;
+  });
 }
 
 export const schliessen = (liste: Fenster[], id: string): Fenster[] => liste.filter((w) => w.id !== id);
@@ -193,6 +241,7 @@ export function fensterPruefen(w: unknown): Fenster | null {
   }
   if (r.neueZeile === true) f.neueZeile = true;
   if (r.fest === true) f.fest = true;
+  if (r.max === true) f.max = true;
   return f;
 }
 
@@ -208,7 +257,14 @@ export function listePruefen(roh: unknown): Fenster[] {
       out.push(f);
     }
   }
-  return out.slice(0, 16);
+  // Höchstens ein Fenster je Bildschirm ist maximiert (das erste)
+  let max = false;
+  return out.slice(0, 16).map((w) => {
+    if (!w.max) return w;
+    if (max) return ohneMax(w);
+    max = true;
+    return w;
+  });
 }
 
 /** Alte Anordnung (eine Liste, vor den Bildschirmen) — nur noch zum Übernehmen. */

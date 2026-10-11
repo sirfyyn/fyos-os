@@ -22,8 +22,12 @@ services:
       # Kopplung an OpenClaw (docs/KOPPLUNG-OPENCLAW.md): Abfragen über die Brücke, Prüfung ihrer Signatur
       FYOS_AGENT_URL: http://agent:18789
       FYOS_AGENT_TOKEN: ${FYOS_AGENT_TOKEN}
+      # Dateiablage (Plugin dateien, App „Dateien“): Ordner im Volume, Obergrenze je Datei in MB (docs/ERWEITERN.md §2.17)
+      FYOS_DATEIEN: /data/dateien
+      FYOS_DATEIEN_MAX_MB: ${FYOS_DATEIEN_MAX_MB:-25}
     volumes:
       - ./hub-config.yaml:/etc/fyos-hub/config.yaml:ro
+      - dateien:/data/dateien
     depends_on: [redis]
     restart: unless-stopped
 
@@ -53,3 +57,6 @@ services:
 
 volumes:
   agent-zustand:
+  # Die Dateiablage. Sichern wie jedes Volume; statt des Volumes lässt sich ein Ordner des Hosts einhängen
+  # (`/pfad/zur/ablage:/data/dateien`, er muss dem Nutzer mit der uid 1000 gehören).
+  dateien:

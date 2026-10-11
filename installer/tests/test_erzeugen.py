@@ -140,6 +140,7 @@ def test_registry_vorgaben(katalog, tmp_path):
     # Ohne Registry die veröffentlichten Bilder im Stand der Installer-Version; nur hub-eigen braucht eine eigene.
     v = e.vorgaben_optionen({})
     assert e.BILD_TAG == f"v{e.__version__}"
+    assert e.AGENT_TAG == "v0.1.1"  # fyos-agent trägt für 0.1.1 denselben Tag (RELEASE.md)
     assert v["bild_web"] == f"ghcr.io/sirfyyn/fyos-os/web:{e.BILD_TAG}"  # sauber: ok
     assert v["hub_bild"] == f"ghcr.io/sirfyyn/fyos-os/hub:{e.BILD_TAG}"  # sauber: ok
     assert v["bild_agent"] == f"ghcr.io/sirfyyn/fyos-agent/openclaw:{e.AGENT_TAG}"  # sauber: ok

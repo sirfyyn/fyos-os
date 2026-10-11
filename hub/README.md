@@ -39,9 +39,11 @@ Plugin-Einstellungen, Geheimnisse oder `enabled: false`; siehe `config.example.y
 | `werkstatt` | angemeldete Skripte (Kopfblock `WERKSTATT`) finden und mit Trockenlauf ausführen |
 | `mcp` | Werkzeugkasten: Plugins, Werkzeuge, Apps und Protokolle des Hubs ansehen |
 | `shell` | Anordnung der offenen Shell (Fenster, Raster) als Werkzeuge |
+| `os` | Verbindung zur Shell: `os.lage`, `os.zeigen`, `os.ausfuehren`, `os.mitteilen`; Mitteilungen ohne Gegenüber warten bis zu 24 h (docs/NACHTARBEIT.md) |
 | `audit` | Protokoll aller Werkzeugaufrufe (Ringpuffer, mit Qdrant Vektorsuche) |
 | `event_bus_publisher` | Ereignisse je Werkzeugaufruf auf Redis-Streams (sonst im Speicher) |
 | `gui` | Ansichten bauen: Kennzahlen, Balken, Verlauf, Tabelle … aus Vorlagen oder frei, als App und als Seite (siehe unten) |
+| `dateien` | gemeinsame Dateiablage mit der App „Dateien“: Ordner, Vorschau, Hochladen per Ziehen, Papierkorb, frühere Fassungen; Ordner per `FYOS_DATEIEN` (docs/ERWEITERN.md §2.17) |
 | `beispiel_app` | Notizzettel mit Oberfläche, Vorlage für eigene Apps |
 | `echo`, `math` | Referenz-Plugins, standardmäßig aus |
 
@@ -98,6 +100,7 @@ in 200 Zeilen.
 | `FYOS_EMBED_URL`, `FYOS_EMBED_MODEL`, `FYOS_EMBED_KEY` | OpenAI-kompatibler Einbettungsdienst (`/v1/embeddings`) für Audit und Werkzeugsuche |
 | `FYOS_SKILLS_PATH` | Skill-Quellen, mit `:` getrennt (Vorgabe `/opt/fyos/skills`) |
 | `FYOS_REPO_PATH` | Repo der Werkstatt (Vorgabe `/opt/fyos/repo`) |
+| `FYOS_DATEIEN`, `FYOS_DATEIEN_MAX_MB`, `FYOS_DATEIEN_VERSIONEN`, `FYOS_DATEIEN_PAPIERKORB_TAGE` | Ordner der Dateiablage (im Bild `/data/dateien`), größte Datei in MB (25), frühere Fassungen je Datei (10), Tage im Papierkorb (30) |
 | `FYOS_OIDC_ISSUER` | schaltet die Anmeldung ein (siehe unten) |
 
 Die OS-Brücke braucht für mehrere Replikate Redis; ein einzelner Hub funktioniert nur mit `REDIS_URL`.
