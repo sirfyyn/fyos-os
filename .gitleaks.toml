@@ -1,0 +1,14 @@
+# gitleaks-Einstellung für diesen Baum und seine Historie (gitleaks liest die Datei im Wurzelverzeichnis von selbst).
+# Die Standardregeln bleiben an; eine Ausnahme ist eingetragen.
+#
+# tools/seecode_einbetten/einbetten.py pinnt von übernommenen Dateien die SHA-256-Summen. Ein Schlüssel wie
+# "tokens.mjs" mit einer 64-stelligen Hex-Summe als Wert sieht für die Regel generic-api-key nach einem
+# Zugangsschlüssel aus. Es sind aber öffentliche Prüfsummen von Dateien, kein Geheimnis. Die Ausnahme gilt nur für
+# diese eine Datei und nur für diese eine Regel.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Gepinnte SHA-256-Summen übernommener Dateien (kein Geheimnis)"
+targetRules = ["generic-api-key"]
+paths = ['''tools/seecode_einbetten/einbetten\.py$''']

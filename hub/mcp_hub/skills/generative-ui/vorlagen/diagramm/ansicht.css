@@ -1,0 +1,113 @@
+/* Vorlage „diagramm“. Die Klassen im SVG stammen aus SeeCode (MIT, siehe Kopf von ansicht.js); die Farben dort sind Werte
+   des Hosts, damit Hell und Dunkel von selbst passen. Keine Schriftdateien, keine Abrufe. */
+.dg-bild { display: flex; justify-content: center; }
+.dg-svg {
+  --sc-paper: var(--color-background-primary);
+  --sc-paper-2: var(--color-background-secondary);
+  --sc-ink: var(--color-text-primary);
+  --sc-ink-strong: var(--color-text-primary);
+  --sc-muted: var(--color-text-secondary);
+  --sc-soft: var(--color-text-tertiary);
+  --sc-rule: var(--color-border-tertiary);
+  --sc-rule-solid: var(--color-border-secondary);
+  --sc-accent: var(--color-text-info);
+  --sc-accent-tint: var(--color-background-info);
+  --sc-link: var(--color-text-success);
+  --sc-node: var(--color-background-secondary);
+  --sc-store: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  --sc-external: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+  width: 100%; height: auto; display: block; overflow: visible;
+  font-family: var(--font-sans); color: var(--sc-ink); direction: ltr;
+}
+.dg-svg .n-mask { fill: var(--sc-paper); }
+.dg-svg .n-box { fill: var(--sc-node); stroke: var(--sc-ink); stroke-width: 1; }
+.dg-svg .k-focal .n-box { fill: var(--sc-accent-tint); stroke: var(--sc-accent); stroke-width: 1.2; }
+.dg-svg .k-store .n-box { fill: var(--sc-store); stroke: var(--sc-muted); }
+.dg-svg .k-external .n-box, .dg-svg .k-input .n-box { fill: var(--sc-external); stroke: var(--sc-soft); }
+.dg-svg .k-optional .n-box { fill: transparent; stroke: var(--sc-soft); stroke-dasharray: 4 3; }
+.dg-svg .k-security .n-box { fill: var(--sc-accent-tint); stroke: var(--sc-accent); stroke-opacity: .55; stroke-dasharray: 4 4; }
+.dg-svg .k-muted .n-box { fill: var(--sc-store); stroke: var(--sc-rule-solid); }
+.dg-svg .n-label { fill: var(--sc-ink); font-size: 12px; font-weight: 600; }
+.dg-svg .n-sub { fill: var(--sc-muted); font-family: var(--font-mono); font-size: 9px; }
+.dg-svg .n-icon { fill: none; stroke: var(--sc-muted); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.dg-svg .k-focal .n-icon { stroke: var(--sc-accent); }
+.dg-svg .n-tag { fill: var(--sc-soft); font-family: var(--font-mono); font-size: 7px; letter-spacing: .12em; text-transform: uppercase; }
+.dg-svg .n-tag-box { fill: none; stroke: var(--sc-rule-solid); stroke-width: .8; }
+.dg-svg .k-focal .n-tag { fill: var(--sc-accent); }
+.dg-svg .k-focal .n-tag-box { stroke: var(--sc-accent); stroke-opacity: .5; }
+.dg-svg .e-line { fill: none; stroke: var(--sc-muted); stroke-width: 1.1; }
+.dg-svg .ek-primary .e-line { stroke: var(--sc-accent); stroke-width: 1.4; }
+.dg-svg .ek-link .e-line { stroke: var(--sc-link); stroke-width: 1.2; }
+.dg-svg .ek-async .e-line, .dg-svg .ek-return .e-line { stroke-width: 1; }
+.dg-svg .ek-muted .e-line { stroke: var(--sc-soft); stroke-width: 1; }
+.dg-svg .ek-rel .e-line { stroke: var(--sc-muted); stroke-width: 1; }
+.dg-svg .e-line.dashed { stroke-dasharray: 4 3; }
+.dg-svg .e-label { fill: var(--sc-muted); font-family: var(--font-mono); font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+.dg-svg .ek-primary .e-label { fill: var(--sc-accent); }
+.dg-svg .ek-link .e-label { fill: var(--sc-link); }
+.dg-svg .e-label-bg { fill: var(--sc-paper); }
+.dg-svg .m-default { fill: var(--sc-muted); }
+.dg-svg .m-primary { fill: var(--sc-accent); }
+.dg-svg .m-link { fill: var(--sc-link); }
+.dg-svg .m-muted { fill: var(--sc-soft); }
+.dg-svg .e-glyph.stroke { fill: none; stroke: var(--sc-muted); stroke-width: 1; }
+.dg-svg .e-glyph.hollow { fill: var(--sc-paper); stroke: var(--sc-muted); stroke-width: 1; }
+.dg-svg .e-glyph.filled { fill: var(--sc-muted); stroke: var(--sc-muted); stroke-width: 1; }
+.dg-svg .g-box { fill: var(--sc-ink); fill-opacity: .018; stroke: var(--sc-rule); stroke-width: .8; }
+.dg-svg .g-box.g-dashed { stroke-dasharray: 4 4; stroke: var(--sc-soft); stroke-opacity: .6; }
+.dg-svg .g-label { fill: var(--sc-soft); font-family: var(--font-mono); font-size: 7px; letter-spacing: .16em; text-transform: uppercase; }
+.dg-svg .g-label-bg { fill: var(--sc-paper); }
+.dg-svg .lg-rule { stroke: var(--sc-rule); stroke-width: .8; }
+.dg-svg .lg-title { fill: var(--sc-muted); font-family: var(--font-mono); font-size: 8px; letter-spacing: .18em; }
+.dg-svg .lg-text { fill: var(--sc-muted); font-size: 9px; }
+.dg-svg .lane-band { fill: var(--sc-ink); fill-opacity: .022; }
+.dg-svg .lane-band.alt { fill-opacity: 0; }
+.dg-svg .lane-rule { stroke: var(--sc-rule); stroke-width: .8; }
+.dg-svg .lane-label { fill: var(--sc-muted); font-family: var(--font-mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; }
+.dg-svg .n-head { fill: var(--sc-ink); fill-opacity: .035; stroke: none; }
+.dg-svg .k-focal .n-head { fill: var(--sc-accent); fill-opacity: .08; }
+.dg-svg .n-rule { stroke: var(--sc-rule-solid); stroke-width: .8; }
+.dg-svg .n-field { fill: var(--sc-ink); font-size: 10px; }
+.dg-svg .n-field-t { fill: var(--sc-muted); font-family: var(--font-mono); font-size: 9px; }
+.dg-svg .n-key { font-family: var(--font-mono); font-size: 7.5px; letter-spacing: .06em; fill: var(--sc-soft); }
+.dg-svg .n-key-pk { fill: var(--sc-accent); }
+.dg-svg .n-key-fk { fill: var(--sc-link); }
+.dg-svg .sh-start .n-box { fill: var(--sc-ink); stroke: none; }
+.dg-svg .sh-end .n-box { fill: var(--sc-paper); stroke: var(--sc-ink); stroke-width: 1.2; }
+.dg-svg .n-dot { fill: var(--sc-ink); }
+.dg-svg .n-status { stroke: var(--sc-paper); stroke-width: 1.5; }
+.dg-svg .st-ok { fill: var(--color-text-success); }
+.dg-svg .st-risk { fill: var(--color-text-warning); }
+.dg-svg .st-legacy { fill: var(--color-text-info); }
+.dg-svg .st-retire { fill: var(--color-text-danger); }
+.dg-svg .n-change { fill: var(--sc-accent); font-family: var(--font-mono); font-size: 7.5px; letter-spacing: .12em; }
+.dg-svg .ch-added .n-box { stroke: var(--sc-accent); stroke-width: 1.3; }
+.dg-svg .ch-removed { opacity: .55; }
+.dg-svg .ch-removed .n-box { stroke-dasharray: 4 3; stroke: var(--sc-soft); }
+.dg-svg .ch-removed .n-label { text-decoration: line-through; }
+.dg-svg .ch-removed .n-change { fill: var(--sc-soft); }
+.dg-svg .ch-changed .n-box { stroke: var(--sc-accent); stroke-dasharray: 6 2; }
+.dg-svg .sc-edge.ch-added .e-line { stroke: var(--sc-accent); }
+.dg-svg .sc-edge.ch-removed .e-line { stroke-dasharray: 3 3; }
+/* Sequenzdiagramm */
+.dg-svg .q-life { stroke: var(--sc-rule-solid); stroke-width: 1; stroke-dasharray: 3 4; }
+.dg-svg .q-frag { fill: none; stroke: var(--sc-soft); stroke-width: .8; }
+.dg-svg .q-frag-tag { fill: var(--sc-paper-2); stroke: var(--sc-soft); stroke-width: .8; }
+.dg-svg .q-frag-text { fill: var(--sc-muted); font-family: var(--font-mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }
+.dg-svg .q-num { fill: var(--sc-soft); font-family: var(--font-mono); font-size: 8px; }
+.dg-svg .q-note { fill: var(--sc-paper-2); stroke: var(--sc-rule-solid); stroke-width: .8; }
+.dg-svg .q-note-text { fill: var(--sc-muted); font-size: 10px; font-style: italic; font-family: var(--font-serif); }
+/* Bedienung: Element überfahren oder fokussieren hebt es mit seinen Verbindungen hervor */
+.dg-svg .sc-node { cursor: default; outline: none; }
+.dg-svg .sc-node, .dg-svg .sc-edge { transition: opacity .15s; }
+.dg-svg.dg-fokus .sc-node:not(.dg-an), .dg-svg.dg-fokus .sc-edge:not(.dg-an) { opacity: .22; }
+.dg-svg .sc-node:focus-visible .n-box { stroke: var(--color-text-info); stroke-width: 2.4; }
+.dg-liste { margin-top: 10px; }
+.dg-liste summary { cursor: pointer; color: var(--color-text-secondary); font-size: 14px; }
+.dg-liste h3 { font-size: 13px; color: var(--color-text-secondary); margin: 8px 0 2px; }
+.dg-liste ul, .dg-liste ol { margin: 0 0 4px; padding-left: 22px; font-size: 14px; }
+.dg-fehler { border-color: var(--color-border-danger); }
+.dg-fehler ul { margin: 6px 0; padding-left: 20px; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .dg-svg .sc-node, .dg-svg .sc-edge { transition: none; }
+}

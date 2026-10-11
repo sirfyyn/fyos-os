@@ -1,0 +1,60 @@
+{
+  "titel": "Diagramm",
+  "zweck": "Diagramm aus einer kurzen JSON-Spezifikation (SeeCode): Architektur, Ablauf mit Entscheidungen, Zustände, ER-Modell, Datenbankschema, UML-Klassen, Schwimmbahnen, Sequenz, Baum und Organigramm. Der Agent setzt nur Knoten und Kanten (Zeile/Spalte), Maße, Wege und Farben rechnet die Vorlage. Fahren oder Tabben auf ein Element hebt es mit seinen Verbindungen hervor, dazu gibt es eine Textliste. Keine Abrufe von außen.",
+  "schema": {
+    "type": "object",
+    "required": ["type"],
+    "properties": {
+      "ueberschrift": {"type": "string"},
+      "text": {"type": "string"},
+      "herkunft": {"type": "string"},
+      "type": {
+        "type": "string",
+        "enum": ["architecture", "flowchart", "data-flow", "dependency", "deployment", "high-level", "state", "er", "db-schema", "uml-class", "swimlane", "architecture-delta", "it-state", "medallion", "dp-integration", "sequence", "tree", "org-chart", "high-level-vertical", "sequence-oauth", "state-lifecycle", "tree-block-decomposition"],
+        "description": "Art des Diagramms; Graph-Arten brauchen nodes (+ edges), medallion/dp-integration stages, sequence participants + messages, tree/org-chart root"
+      },
+      "dir": {"type": "string", "enum": ["LR", "TB"], "description": "Hauptrichtung: LR (links nach rechts) oder TB (oben nach unten)"},
+      "nodes": {"type": "array", "minItems": 1, "maxItems": 48, "description": "Graph-Arten: [{id, label, sub?, tag?, kind?, focal?, shape?, row, col, group?, icon?, status?, fields?}], kind: backend|focal|store|external|input|optional|security|muted"},
+      "edges": {"type": "array", "maxItems": 96, "description": "[von, nach, beschriftung?, kind?] oder {from, to, label?, kind?}; kind: default|primary|link|async|return|muted (ER/UML: one-many, extends, composes ...)"},
+      "groups": {"type": "array", "maxItems": 12, "description": "[{id, label, style?: dashed}], Knoten gehören über group dazu"},
+      "lanes": {"type": "array", "maxItems": 8, "description": "swimlane: Bahnen, Knoten tragen lane"},
+      "stages": {"type": "array", "minItems": 2, "maxItems": 6, "description": "medallion/dp-integration: [{label, items: [Text | {label, sub?}]}]"},
+      "participants": {"type": "array", "minItems": 2, "maxItems": 12, "description": "sequence: [{id, label, sub?, kind?}]"},
+      "messages": {"type": "array", "minItems": 1, "maxItems": 40, "description": "sequence: [von, nach, text?, art?] mit art sync|reply|async|self|primary"},
+      "fragments": {"type": "array", "maxItems": 8, "description": "sequence: [{kind: alt|opt|loop|par|critical|break, from, to, label?, else?}] über Nachrichtennummern"},
+      "root": {"type": "object", "description": "tree/org-chart: {label, sub?, children: [...]}"},
+      "title": {"type": "string", "maxLength": 90},
+      "subtitle": {"type": "string", "maxLength": 160},
+      "caption": {"type": "string", "maxLength": 280},
+      "budget": {"type": "string", "enum": ["strict", "balanced", "faithful", "off"], "description": "Wie viele Knoten ohne Warnung: balanced 9, faithful 24"},
+      "legend": {"description": "false blendet die Legende aus, true erzwingt sie"}
+    }
+  },
+  "beispiel": {
+    "ueberschrift": "Wie eine Ansicht in den Chat kommt",
+    "text": "Der Agent gibt nur die Spezifikation; Hub, Ablage und App erledigen den Rest.",
+    "herkunft": "Beispielwerte",
+    "type": "architecture",
+    "dir": "LR",
+    "nodes": [
+      {"id": "agent", "label": "Agent", "sub": "MCP-Client", "kind": "external", "row": 1, "col": 0},
+      {"id": "bauen", "label": "gui.bauen", "sub": "Hub-Plugin gui", "tag": "HUB", "focal": true, "row": 1, "col": 1},
+      {"id": "vorlage", "label": "Vorlage", "sub": "ansicht.html .css .js", "row": 0, "col": 2},
+      {"id": "ablage", "label": "Ablage", "sub": "mcp_hub.kv", "kind": "store", "row": 2, "col": 2},
+      {"id": "app", "label": "App gui.html", "sub": "Sandbox, ohne Netz", "row": 1, "col": 3},
+      {"id": "chat", "label": "Chat-Client", "kind": "external", "row": 0, "col": 4},
+      {"id": "os", "label": "FYOS-Shell", "kind": "external", "row": 1, "col": 4},
+      {"id": "panel", "label": "Terminal-Panel", "kind": "external", "row": 2, "col": 4}
+    ],
+    "edges": [
+      ["agent", "bauen", "Spezifikation", "primary"],
+      ["bauen", "vorlage", "lädt"],
+      ["bauen", "ablage", "legt ab"],
+      ["vorlage", "app", "Ansicht"],
+      ["ablage", "app", "gui.zeigen"],
+      ["app", "chat"],
+      ["app", "os"],
+      ["app", "panel"]
+    ]
+  }
+}

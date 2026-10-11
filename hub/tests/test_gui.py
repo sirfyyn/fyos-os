@@ -24,7 +24,7 @@ from mcp_hub.plugins import gui as gui_mod
 from mcp_hub.plugins.gui import GuiPlugin, dokument_id, dokument_pruefen
 from mcp_hub.plugins.skills import SkillsPlugin
 
-VORLAGEN = {"ablauf", "balken", "kennzahlen", "status", "tabelle", "vergleich", "verlauf", "zeitleiste"}
+VORLAGEN = {"ablauf", "balken", "diagramm", "kennzahlen", "status", "tabelle", "vergleich", "verlauf", "zeitleiste"}
 
 
 @pytest.fixture()

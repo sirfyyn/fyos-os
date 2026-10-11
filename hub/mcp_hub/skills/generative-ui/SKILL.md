@@ -42,6 +42,7 @@ Barrierefreiheit sind schon erledigt.
 | `ablauf` | Schritte und Verbindungen als SVG-Ablauf |
 | `zeitleiste` | Ereignisse nach Tagen gruppiert |
 | `status` | Dienste oder Prüfungen mit Ton, Gruppen und Filter „Nur Probleme“ |
+| `diagramm` | Architektur, Ablauf mit Entscheidungen, Zustände, ER, DB-Schema, UML, Schwimmbahnen, Sequenz, Baum aus einer JSON-Spezifikation (SeeCode), siehe unten |
 
 ```
 gui.vorlagen {}                        → Liste mit Zweck
@@ -82,6 +83,43 @@ Klassen dazu: `.gui-karte`, `.gui-raster` (umbrechende Spalten), `.gui-leiste` (
 über `importlib.resources` aus dem installierten Paket; sie gelten also mit der nächsten Fassung des Pakets bzw. des
 Hub-Images. Eigene Vorlagen ohne Änderung am Kern: die Plugin-Config `vorlagen` (Plugin `gui`) zeigt auf einen Ordner
 mit demselben Aufbau. `hub/tests/test_gui.py` prüft jede Vorlage gegen ihr Beispiel.
+
+**Vorlage `diagramm`** (SeeCode, MIT): `daten` ist eine kurze JSON-Spezifikation, die Vorlage rechnet Maße, Wege und
+Beschriftungen und setzt Farben und Schrift vom Host. Du gibst nur Knoten mit `row`/`col` und Kanten. Das Feld `type`
+wählt die Art:
+
+| `type` | Pflichtfelder |
+| --- | --- |
+| `architecture`, `flowchart`, `data-flow`, `dependency`, `deployment`, `high-level`, `state`, `er`, `db-schema`, `uml-class`, `swimlane`, `architecture-delta`, `it-state` | `nodes` (+ `edges`) |
+| `medallion`, `dp-integration` | `stages` |
+| `sequence` | `participants`, `messages` |
+| `tree`, `org-chart` | `root` |
+
+Knoten: `{id, label, sub?, tag?, kind?, focal?, shape?, row, col, group?, icon?}`; `kind` ist `backend`, `focal`, `store`,
+`external`, `input`, `optional`, `security` oder `muted`; `shape` z. B. `decision`, `start`, `end`, `entity`, `class`.
+Kanten: `[von, nach, "Beschriftung", "kind"]`, `kind` z. B. `primary` (Hauptweg), `async`, `return`. Regeln aus SeeCode:
+höchstens 9 Knoten und 12 Kanten ohne Warnung (`budget: "faithful"` erlaubt mehr, hart begrenzt bei 48/96), ein bis zwei
+`focal`-Knoten, Labels kurz (1 bis 3 Wörter). Bei Fehlern zeigt die Ansicht das Feld und die Korrektur; Fehler und
+Warnungen sind englisch, weil sie aus SeeCode stammen. Beispiel (Ablauf mit Entscheidung):
+
+```json
+{"vorlage": "diagramm", "titel": "Merge-Prüfung",
+ "daten": {"ueberschrift": "Wann darf ein Zweig nach main?", "type": "flowchart", "dir": "LR",
+  "nodes": [
+   {"id": "s", "shape": "start", "row": 0, "col": 0},
+   {"id": "ci", "label": "CI laufen lassen", "sub": "alle Jobs", "row": 0, "col": 1},
+   {"id": "gruen", "label": "Alles grün?", "shape": "decision", "row": 0, "col": 2},
+   {"id": "fix", "label": "Fehler beheben", "row": 1, "col": 2},
+   {"id": "main", "label": "Nach main mergen", "focal": true, "row": 0, "col": 3},
+   {"id": "e", "shape": "end", "row": 0, "col": 4}],
+  "edges": [["s", "ci"], ["ci", "gruen"], ["gruen", "main", "ja", "primary"], ["gruen", "fix", "nein"], ["fix", "ci"], ["main", "e"]]}}
+```
+
+Fahren oder Tabben auf ein Element hebt es mit seinen Verbindungen hervor; „Als Liste lesen“ gibt dieselben Elemente und
+Verbindungen als Text. Die Vorlage macht keine Abrufe (keine Fonts, kein CDN). Herkunft, Lizenz und Änderungen stehen
+im Kopf von `vorlagen/diagramm/ansicht.js`; die Datei ist erzeugt (im Quellrepo `tools/seecode_einbetten/einbetten.py`,
+braucht einen SeeCode-Checkout auf dem gepinnten Commit), nicht von Hand ändern. Statische Zeitleisten, Balken und
+Verläufe zeichnen weiter `zeitleiste`, `balken`, `verlauf`.
 
 ## 3. Frei bauen: `gui.bauen`
 
@@ -228,5 +266,6 @@ Den aktuellen Zustand schreibst du in den Text der Nachricht. Der Knopf muss erk
 ## Quelle und Lizenz
 
 Die Regeln in den Abschnitten 4 bis 6 und die SVG-Referenz folgen den Skills von Open Intelligent UI (Copyright
-CopilotKit, MIT-Lizenz). Technik: `mcp_hub/plugins/gui.py` und `mcp_hub/plugins/ui/gui.html` im Hub; die Wege
+CopilotKit, MIT-Lizenz). Die Vorlage `diagramm` bettet SeeCode ein (Copyright (c) 2026 Aryanutkarsh, MIT, gepinnter
+Commit und Lizenztext im Kopf von `ansicht.js`, siehe auch `NOTICE`). Technik: `mcp_hub/plugins/gui.py` und `mcp_hub/plugins/ui/gui.html` im Hub; die Wege
 `GET /hub/gui/{id}` und `/hub/gui/{id}/daten` stehen in `docs/HUB-VERTRAG.md`.

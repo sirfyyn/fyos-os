@@ -50,7 +50,8 @@ Alles Weitere (Finanzen, Haus, Betrieb …) sind eigene Pakete, die sich per Ent
 ## Ansichten bauen (`gui`)
 
 Das Plugin `gui` lässt den Agenten für den Moment eine bedienbare Ansicht bauen, statt nur zu antworten. `gui.vorlagen`
-listet acht Vorlagen (Kennzahlen, Balken, Verlauf, Tabelle, Vergleich, Ablauf, Zeitleiste, Status). `gui.bauen` zeigt eine
+listet neun Vorlagen (Kennzahlen, Balken, Verlauf, Tabelle, Vergleich, Ablauf, Zeitleiste, Status, Diagramm; die
+Vorlage Diagramm bettet SeeCode ein, MIT, siehe `NOTICE`). `gui.bauen` zeigt eine
 mit Daten (`vorlage` und `daten`), auf Wunsch live aus einem lesenden Werkzeug (`quelle`), oder eine frei gebaute
 (`html`, `css`, `js`). Die Ansicht läuft in einer Sandbox ohne Netz; `gui.zeigen` holt eine gebaute wieder.
 
