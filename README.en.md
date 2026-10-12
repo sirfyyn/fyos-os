@@ -2,6 +2,8 @@ Deutsch: [README.md](README.md)
 
 # FYOS — For Your Own Sake
 
+![FYOS OS: Your system. Everywhere.](docs/media/trailer2.jpg)
+
 A personal operating system in the browser that is built on an agent of your own and runs entirely on your side: a
 desktop shell with windows and apps, an MCP hub that bundles tools and interfaces from plugins, and an agent (a mod of
 OpenClaw) that works with these tools and asks before taking heavy steps.
