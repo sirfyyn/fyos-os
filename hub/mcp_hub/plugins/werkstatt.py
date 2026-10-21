@@ -46,6 +46,7 @@ from typing import Any
 
 from .. import suchrang
 from .. import kv
+from . import _klonstand
 from ..hybrid import Hybrid
 from ..plugin import HubPlugin, ResourceDescriptor, ToolDescriptor
 from ._identitaet import identitaet
@@ -235,8 +236,8 @@ def _argumente_normalisieren(roh: Any) -> tuple[list[dict[str, Any]], list[str]]
     return out, fehler
 
 
-def eintrag_lesen(pfad: Path, scripts_dir: Path) -> dict[str, Any] | None:
-    """Kopfblock + Argumente eines Skripts, oder None wenn nicht angemeldet."""
+def eintrag_lesen(pfad: Path, scripts_dir: Path, orte: tuple[str, ...] = ORTE) -> dict[str, Any] | None:
+    """Kopfblock + Argumente eines Skripts, oder None wenn nicht angemeldet. `orte`: erlaubte Werte fuer `ort`."""
     try:
         text = pfad.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -276,8 +277,8 @@ def eintrag_lesen(pfad: Path, scripts_dir: Path) -> dict[str, Any] | None:
         e["fehler"].append("zeitlimit_s ist keine Zahl")
     if not kopf.get("titel") or not kopf.get("zweck"):
         e["fehler"].append("titel und zweck sind Pflicht")
-    if e["ort"] not in ORTE:
-        e["fehler"].append(f"ort muss eines sein von {list(ORTE)}")
+    if e["ort"] not in orte:
+        e["fehler"].append(f"ort muss eines sein von {list(orte)}")
     if e["wirkung"] not in WIRKUNGEN:
         e["fehler"].append(f"wirkung muss eines sein von {list(WIRKUNGEN)}")
     for k in ("trockenlauf", "selbstprobe", "json_schalter"):
@@ -521,6 +522,14 @@ class WerkstattPlugin(HubPlugin):
         cfg = config or {}
         self.repo = Path(cfg.get("repo") or os.getenv("FYOS_REPO_PATH") or os.getenv("FYOS_REPO") or "/opt/fyos/repo")
         self._favoriten_vorbelegung = tuple(str(x) for x in (cfg.get("favoriten") or FAVORITEN_VORBELEGUNG))
+        # Eine Installation mit eigenen Orten (z. B. cluster, arbeitsrechner, mac) nennt sie in der Plugin-Config:
+        #   orte: [cluster, arbeitsrechner, egal]   im_hub: [cluster, egal]   (im_hub = was der Hub selbst ausfuehrt)
+        #   env_weg: [PRAEFIX_]            Umgebungsvariablen mit diesem Anfang bekommen Skripte nie
+        #   favoriten_schluessel: <Schluessel im Speicher fuer die Favoriten-Liste>
+        self.orte = tuple(str(x) for x in (cfg.get("orte") or ORTE))
+        self.im_hub = tuple(str(x) for x in (cfg.get("im_hub") or IM_HUB))
+        self._env_weg = _ENV_WEG + tuple(str(x) for x in (cfg.get("env_weg") or ()))
+        self._k_favoriten = str(cfg.get("favoriten_schluessel") or K_FAVORITEN)
         self.ttl = float(cfg.get("scan_ttl_s", 15))
         self._cache: dict[Path, tuple[float, dict[str, Any] | None]] = {}
         self._stand = 0.0
@@ -565,7 +574,7 @@ class WerkstattPlugin(HubPlugin):
                     gesehen.add(p)
                     alt = self._cache.get(p)
                     if alt is None or alt[0] != mtime:
-                        self._cache[p] = (mtime, eintrag_lesen(p, wurzel))
+                        self._cache[p] = (mtime, eintrag_lesen(p, wurzel, self.orte))
             for p in set(self._cache) - gesehen:
                 del self._cache[p]
             self._stand = time.monotonic()
@@ -606,7 +615,7 @@ class WerkstattPlugin(HubPlugin):
                     "type": "object",
                     "properties": {
                         "q": {"type": "string", "description": "Suchwoerter, z. B. 'speicher platz' oder 'backup'"},
-                        "ort": {"type": "string", "enum": list(ORTE)},
+                        "ort": {"type": "string", "enum": list(self.orte)},
                         "wirkung": {"type": "string", "enum": list(WIRKUNGEN)},
                         "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "hoechstens so viele Treffer (Vorgabe 10 mit q)"},
                         "voll": {"type": "boolean", "description": "alle Treffer statt der besten 10"},
@@ -765,7 +774,7 @@ class WerkstattPlugin(HubPlugin):
             t = {
                 "id": e["id"], "titel": e["titel"], "zweck": e["zweck"], "ort": e["ort"],
                 "wirkung": e["wirkung"], "trockenlauf": bool(e["trockenlauf"]),
-                "im_hub": e["ort"] in IM_HUB, "gesperrt": e["gesperrt"],
+                "im_hub": e["ort"] in self.im_hub, "gesperrt": e["gesperrt"],
             }
             if wert is not None:
                 t["wert"] = wert
@@ -776,7 +785,8 @@ class WerkstattPlugin(HubPlugin):
         teile = [f"{n} {namen[w]}" for w in namen if (n := sum(1 for t in treffer if t["wirkung"] == w))]
         satz = (f"{len(treffer)} {'Skript' if len(treffer) == 1 else 'Skripte'}" + (f", davon {', '.join(teile)}" if teile else "")
                 + (f" zu „{q}“" if q else "") + ".")
-        antwort: dict[str, Any] = {"satz": satz, "art": "liste", "anzahl": len(treffer), "skripte": treffer}
+        antwort: dict[str, Any] = {"satz": satz, "art": "liste", "anzahl": len(treffer), "skripte": treffer,
+                                   "stand": _klonstand.stand(self.repo)}
         if q:
             antwort["gesamt"] = gesamt
             if teil and treffer:
@@ -795,7 +805,7 @@ class WerkstattPlugin(HubPlugin):
             "art": "skript",
             **{k: e[k] for k in ("id", "pfad", "sprache", "titel", "zweck", "ort", "wirkung", "trockenlauf",
                                  "selbstprobe", "braucht", "zeitlimit_s", "gesperrt", "hinweise", "fehler")},
-            "im_hub": e["ort"] in IM_HUB,
+            "im_hub": e["ort"] in self.im_hub,
             "schema": schema_bauen(e["argumente"]),
         }
 
@@ -827,11 +837,11 @@ class WerkstattPlugin(HubPlugin):
                 return {**antwort, "grund": e["gesperrt"]}
             if not trocken and not bestaetigt:
                 return {**antwort, "grund": "echter Lauf eines schreibenden Skripts braucht bestaetigt: true — erst den Trockenlauf ansehen"}
-        if e["ort"] not in IM_HUB:
+        if e["ort"] not in self.im_hub:
             return {**antwort, "grund": f"läuft auf {e['ort']} — Job-Weg folgt"}
 
         interpreter = sys.executable if e["sprache"] == "python" else "bash"
-        env = {k: v for k, v in os.environ.items() if not k.startswith(_ENV_WEG)}
+        env = {k: v for k, v in os.environ.items() if not k.startswith(self._env_weg)}
         env.update({"FYOS_REPO": str(self.repo), "FYOS_REPO_PATH": str(self.repo), "PYTHONUNBUFFERED": "1",
                     "PYTHONDONTWRITEBYTECODE": "1", "WERKSTATT_LAUF": "1"})
         r = lauf([interpreter, str(self.repo / e["pfad"]), *rest], str(self.repo), env, e["zeitlimit_s"])
@@ -874,7 +884,7 @@ class WerkstattPlugin(HubPlugin):
         katalog = self.katalog()
         roh = None
         try:
-            roh = self.redis().get(K_FAVORITEN)
+            roh = self.redis().get(self._k_favoriten)
         except Exception:  # noqa: BLE001 — ohne Redis gilt die Vorbelegung
             roh = None
         if roh:
@@ -925,5 +935,5 @@ class WerkstattPlugin(HubPlugin):
         if fehlt:
             raise ValueError(f"gibt es nicht in der Werkstatt: {', '.join(fehlt)} — werkstatt.suchen zeigt alle")
         sauber = list(dict.fromkeys(ids))
-        self.redis().set(K_FAVORITEN, json.dumps(sauber))
+        self.redis().set(self._k_favoriten, json.dumps(sauber))
         return {"ok": True, "favoriten": sauber}

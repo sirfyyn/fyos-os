@@ -110,7 +110,7 @@ describe('Raster: Größe, neue Zeile, Automatik', () => {
   });
 });
 
-describe('Höhe festhalten (05.10.: Fenster wachsen sonst mit ihrem Inhalt)', () => {
+describe('Höhe festhalten', () => {
   it('eine gezogene oder gewählte Höhe hält fest, „Mit Inhalt wachsen“ lässt los; die Breite allein ändert nichts daran', () => {
     const l = [{ id: 'app:werkstatt__suchen', min: false, spalten: 6, zeilen: 10 }];
     const fest = groesseSetzen(l, 'app:werkstatt__suchen', { zeilen: 7, fest: true });

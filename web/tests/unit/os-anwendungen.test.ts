@@ -59,10 +59,10 @@ describe('Art der Fläche (Widget oder Anwendung)', () => {
 
 describe('Große Fenster', () => {
   it('zeilenFuerHoehe: so viele Rasterzeilen, wie hineinpassen, begrenzt', () => {
-    expect(zeilenFuerHoehe(800, 16)).toBe(15); // (50 - 1,25) / 3,25
+    expect(zeilenFuerHoehe(800, 16)).toBe(16); // (50 - 1,25) / 3
     expect(zeilenFuerHoehe(0, 16)).toBe(ZEILEN_MIN);
     expect(zeilenFuerHoehe(100000, 16)).toBe(ZEILEN_MAX);
-    expect(zeilenFuerHoehe(800, 0)).toBe(15); // ohne gültige Schrift gelten 16 px
+    expect(zeilenFuerHoehe(800, 0)).toBe(16); // ohne gültige Schrift gelten 16 px
   });
 
   it('eine Anwendung öffnet über die ganze Breite, so hoch wie der Bildschirm, mit festgehaltener Höhe', () => {

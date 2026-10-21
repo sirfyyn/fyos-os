@@ -14,6 +14,15 @@ Aufbau der YAML-Datei (alles optional)::
         config: {}                         # wird dem Plugin als Attribut ``config`` mitgegeben
         secrets: [MEIN_TOKEN]              # werden aus der Umgebung (oder /run/secrets/<name>) aufgeloest
 
+Weitere Schalter der obersten Ebene (alle aus, wenn nicht genannt)::
+
+    plugins_von_selbst: false     # Module unter mcp_hub/plugins/ ohne Eintrag laden
+    plugins_live: false           # Plugin-Module live aus Quellverzeichnissen nachladen (plugins_live.py)
+    plugins_live_takt_s: 30       # Pruefabstand des Waechters
+    plugins_live_quellen: []      # Verzeichnisse mit Quellcode; Modul a.b.c kommt aus <quelle>/a/b/c.py
+    liste_melden: false           # offene Clients erfahren Aenderungen der Werkzeugliste (liste_geaendert.py)
+    mcp_sitzungen: false          # dazu zustandsbehaftete Sitzungen fuer Clients mit altem Handshake
+
 Plugins, die als Paket installiert sind und die Entry-Point-Gruppe ``mcp_hub.plugins`` bedienen, laden auch
 ohne Eintrag. Ein Eintrag braucht es nur fuer Konfiguration, Geheimnisse oder ``enabled: false``.
 
@@ -106,6 +115,33 @@ class HubConfig:
     plugins_von_selbst: bool = False
     """Jedes Modul unter ``mcp_hub/plugins/`` mit einer HubPlugin-Klasse laedt ohne Eintrag. Aus in Tests und
     Beispielkonfigurationen (dort soll genau die Liste gelten)."""
+    plugins_live: bool = False
+    """Plugin-Module live aus Quellverzeichnissen nachladen (``plugins_live_quellen``), ohne Neustart des Hubs.
+    Aus = Code nur aus dem Image. Siehe ``mcp_hub/plugins_live.py``."""
+    plugins_live_takt_s: float = 30.0
+    """Abstand, in dem der Waechter den Stand der Quellverzeichnisse prueft."""
+    plugins_live_quellen: list[str] = field(default_factory=list)
+    """Verzeichnisse mit Plugin-Quellcode (z. B. ein Checkout, den ein Begleitdienst nachzieht). Das Modul ``a.b.c``
+    wird aus ``<quelle>/a/b/c.py`` geladen, wenn diese Datei sich von der im Image unterscheidet. Leer (und
+    ``FYOS_PLUGINS_LIVE_QUELLEN`` leer) = nichts zu laden."""
+    liste_melden: bool = False
+    """Offene Clients erfahren, dass sich die Werkzeugliste geaendert hat (``subscriptions/listen``, mcp >= 2; ohne
+    offenen Strom ein No-op). Siehe ``mcp_hub/liste_geaendert.py``."""
+    mcp_sitzungen: bool = False
+    """Zustandsbehaftete Sitzungen und ``notifications/tools/list_changed`` auch fuer Clients mit altem Handshake.
+    Nur mit einer Replika oder Sticky-Routing (Sitzungen leben im Speicher eines Prozesses). Wirkt nur mit
+    ``liste_melden``."""
+
+
+def _liste_von_texten(roh: Any) -> list[str]:
+    """Liste von Pfaden/Namen aus YAML (Liste oder ein Text mit ``:`` getrennt)."""
+    if roh is None or roh == "":
+        return []
+    if isinstance(roh, str):
+        roh = roh.split(os.pathsep)
+    if not isinstance(roh, (list, tuple)):
+        raise ValueError(f"mcp_hub.config: plugins_live_quellen must be a list, got {type(roh).__name__}")
+    return [str(x).strip() for x in roh if str(x).strip()]
 
 
 def load_config(path: str | Path | None = None) -> HubConfig:
@@ -154,6 +190,11 @@ def load_config(path: str | Path | None = None) -> HubConfig:
             float(raw["aufruf_zeitlimit_s"]) if raw.get("aufruf_zeitlimit_s") is not None else None
         ),
         plugins_von_selbst=bool(raw.get("plugins_von_selbst", False)),
+        plugins_live=bool(raw.get("plugins_live", False)),
+        plugins_live_takt_s=float(raw.get("plugins_live_takt_s", 30.0)),
+        plugins_live_quellen=_liste_von_texten(raw.get("plugins_live_quellen")),
+        liste_melden=bool(raw.get("liste_melden", False)),
+        mcp_sitzungen=bool(raw.get("mcp_sitzungen", False)),
     )
 
 

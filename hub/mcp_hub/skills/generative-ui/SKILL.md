@@ -42,6 +42,7 @@ Barrierefreiheit sind schon erledigt.
 | `ablauf` | Schritte und Verbindungen als SVG-Ablauf |
 | `zeitleiste` | Ereignisse nach Tagen gruppiert |
 | `status` | Dienste oder Prüfungen mit Ton, Gruppen und Filter „Nur Probleme“ |
+| `artikel` | Einen Artikel in FYOS lesen: Lesespalte mit Quelle, Datum, Lesezeit; live mit `quelle {werkzeug: "lesen.artikel", argumente: {url}}` |
 | `diagramm` | Architektur, Ablauf mit Entscheidungen, Zustände, ER, DB-Schema, UML, Schwimmbahnen, Sequenz, Baum aus einer JSON-Spezifikation (SeeCode), siehe unten |
 
 ```

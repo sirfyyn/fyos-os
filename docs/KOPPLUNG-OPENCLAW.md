@@ -250,7 +250,8 @@ das die Kommentare der Karte.
 
 **Spiegel** (`FYOS_VORGAENGE_URL` gesetzt): Im Takt (Vorgabe 60 s, `openclaw.abgleichen` sofort) legt der Hub für
 jeden offenen Vorgang eine Karte an (Label `vorgang:<ID>`, Idempotenzschlüssel `vorgang:<ID>`, keine Doppelkarte),
-führt Titel, Priorität und Notizen nach und verschiebt die Karte, wenn sich der Vorgang ändert. Verschiebt jemand
+führt Titel, Priorität und Notizen nach (Grenzen des Gateways: Titel 180, Notizen 4000, Kommentar 2000, Label 40 Einheiten,
+gezählt wie JavaScript in UTF-16; der Hub kürzt davor mit „…“, wenn möglich an einer Wortgrenze) und verschiebt die Karte, wenn sich der Vorgang ändert. Verschiebt jemand
 eine Karte in OpenClaw, geht der Status in den Vorgang zurück (`zurueck`, mit `expected_status` gegen gleichzeitige
 Änderungen), Kommentare an der Karte kommen als Kommentar an den Vorgang. Zwei Riegel:
 

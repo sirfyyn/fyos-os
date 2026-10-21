@@ -185,6 +185,41 @@
   .legende b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--font-weight-normal); }
   .dg details { margin-top: 12px; }
   .dg details .tabwrap { margin-top: 6px; max-height: 320px; }
+
+  /* ── Dichter in FYOS (Entscheidung 498/499): engere Skriptkarte und Formular, Schrift und Touch-Höhen gleich ── */
+  html[data-host="fyos"] .werk { gap: 14px; }
+  /* Liste breiter (Titel und Marken in einer Zeile) und Zweck einzeilig (ganz im title): mehr Skripte auf einen Blick */
+  @media (min-width: 720px) { html[data-host="fyos"] .werk { grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); } }
+  html[data-host="fyos"] #liste .klemme { -webkit-line-clamp: 1; }
+  html[data-host="fyos"] .werkzeugleiste { gap: 6px; margin-bottom: 10px; }
+  html[data-host="fyos"] .skriptkarte { padding: 14px 14px 12px; }
+  html[data-host="fyos"] .skript-kopf { gap: 10px; }
+  html[data-host="fyos"] .marken { margin-top: 8px; }
+  html[data-host="fyos"] .skriptkarte > .hinweis { margin-top: 10px; }
+  html[data-host="fyos"] #form { margin-top: 14px; }
+  html[data-host="fyos"] .technik { margin-top: 12px; }
+  html[data-host="fyos"] .formular { gap: 12px; }
+  html[data-host="fyos"] .formular .gruppe .zeile { min-height: 46px; }
+  html[data-host="fyos"] .weitere[open] > summary { margin-bottom: 10px; }
+  html[data-host="fyos"] .aktion { margin-top: 14px; }
+  html[data-host="fyos"] .zusage { margin-top: 8px; }
+  html[data-host="fyos"] .sicher { gap: 10px; padding: 12px; }
+  html[data-host="fyos"] .schritte { gap: 10px; }
+  html[data-host="fyos"] #ergebnis { margin-top: 16px; }
+  html[data-host="fyos"] .lauf-info { padding: 10px 4px 6px; }
+  html[data-host="fyos"] .block { margin-top: 12px; }
+  html[data-host="fyos"] details.aufklapper { margin-top: 10px; }
+  html[data-host="fyos"] .zeigen-kopf { gap: 10px; margin-bottom: 12px; }
+  html[data-host="fyos"] .teil { margin-top: 14px; }
+  html[data-host="fyos"] .tabwrap.karten tbody { gap: 6px; }
+  html[data-host="fyos"] .tabwrap.karten td { padding: 3px 0; }
+
+  /* ── Eine Ansicht je Größe (Entscheidung 507): „N weitere im größeren Fenster“, dichtere Ergebnisse, mehr im weiten Fenster ── */
+  .werk-weitere { padding: 10px 12px; font-size: 13px; color: var(--mut); text-align: center; list-style: none; }
+  html[data-stufe="kompakt"] #ergebnis .textblock pre { max-height: 9em; overflow: auto; }
+  html[data-stufe="blick"] body:not(.nur-ergebnis) #ergebnis { display: none; }
+  html[data-stufe="blick"] body.nur-ergebnis #daten { max-height: 180px; overflow: auto; }
+  html[data-stufe="weit"] #liste .klemme { -webkit-line-clamp: 2; }
 </style>
 </head>
 <body>
@@ -193,9 +228,9 @@
 <!--/KOPF-->
 <main class="werk" id="werk">
   <section id="links" aria-label="Skripte">
-    <div class="werkzeugleiste" data-klebt>
+    <div class="werkzeugleiste" data-klebt data-ab="kompakt">
       <div class="suchfeld"><svg class="ico" data-symbol="search" aria-hidden="true"></svg><input id="q" type="search" placeholder="Skripte suchen" aria-label="Skripte suchen" autocomplete="off" enterkeyhint="search"></div>
-      <div class="filter" id="filter" role="group" aria-label="Filter">
+      <div class="filter" id="filter" role="group" aria-label="Filter" data-ab="normal">
         <button type="button" class="chip an" aria-pressed="true" data-wirkung=""><svg class="ico" data-symbol="list"></svg>Alle</button>
         <button type="button" class="chip" aria-pressed="false" data-wirkung="lesen"><svg class="ico" data-symbol="eye"></svg>Lesend</button>
         <button type="button" class="chip" aria-pressed="false" data-wirkung="schreiben"><svg class="ico" data-symbol="pencil"></svg>Schreibend</button>
@@ -335,7 +370,7 @@ const kopierTexte = [], beobachter = [];
 
 const gefiltert = () => !!($("q").value.trim() || $("ort").value || wirkungFilter);
 function ansicht(mitSkript) { document.body.classList.toggle("mit-skript", !!mitSkript); }
-function hinweis(art, name, text) { return `<div class="hinweis${art ? " " + art : ""}"${art === "fehler" ? ' role="alert"' : ""}>${symbol(name)}<span>${text}</span></div>`; }
+function hinweis(art, name, text, ab = "") { return `<div class="hinweis${art ? " " + art : ""}"${art === "fehler" ? ' role="alert"' : ""}${ab ? ` data-ab="${ab}"` : ""}>${symbol(name)}<span>${text}</span></div>`; }
 
 // ── Liste ──────────────────────────────────────────────────────────────────────
 function satzListe() {
@@ -368,7 +403,7 @@ function zeileHtml(s) {
   const zweck = deutsch(s.zweck);
   return `<li><button type="button" class="zeile mitte" data-id="${esc(s.id)}">${kachel(gesperrt ? "lock" : w.symbol, gesperrt ? "grau" : w.ton)}`
     + `<span class="zeile-text"><span class="zeile-titel">${esc(deutsch(s.titel))}${marken}</span>`
-    + `${zweck ? `<span class="zeile-unter klemme" title="${esc(zweck)}">${kennungen(betont(esc(zweck)))}</span>` : ""}</span>${symbol("chevron-right", "weiter")}</button></li>`;
+    + `${zweck ? `<span class="zeile-unter klemme" data-ab="kompakt" title="${esc(zweck)}">${kennungen(betont(esc(zweck)))}</span>` : ""}</span>${symbol("chevron-right", "weiter")}</button></li>`;
 }
 function leereListe() {
   if (gefiltert()) {
@@ -382,7 +417,14 @@ function liste(d) {
   if (!gefiltert()) { bekannteWirkungen = new Set(skripte.map((s) => s.wirkung)); bekannteOrte = new Set(skripte.map((s) => s.ort)); }
   filterZeigen();
   satzListe();
-  $("liste").innerHTML = skripte.length ? skripte.map(zeileHtml).join("") : "<li>" + leereListe() + "</li>";
+  listeMalen();
+}
+/** Die Liste je Größe (Entscheidung 507): blick drei Skripte, kompakt sechs, dann der Hinweis; normal und weit alle. */
+function listeMalen() {
+  const n = App.anzahl({ blick: 3, kompakt: 6 }), rest = skripte.length - Math.min(skripte.length, n);
+  $("liste").innerHTML = skripte.length
+    ? skripte.slice(0, n).map(zeileHtml).join("") + (rest > 0 ? `<li class="werk-weitere">${rest === 1 ? "1 weiteres" : `${rest} weitere`} im größeren Fenster</li>` : "")
+    : "<li>" + leereListe() + "</li>";
   markiere(aktuell && aktuell.id);
 }
 function markiere(id) {
@@ -514,12 +556,12 @@ function feldHtml(d, i, name, s, pflicht, wert) {
   const hilfe = s.description && !mitTexten ? hilfeHtml(s.description, d) : vorgabe;
   const hid = hilfe ? ` aria-describedby="${fid}h"` : "";
   const kopf = `<div class="fe-kopf"><label class="fe-name" for="${fid}">${esc(label)}</label>${pflicht ? '<span class="pflicht">Pflicht</span>' : ""}</div>`
-    + (hilfe ? `<p class="fe-hilfe" id="${fid}h">${hilfe}</p>` : "");
+    + (hilfe ? `<p class="fe-hilfe" data-ab="normal" id="${fid}h">${hilfe}</p>` : "");
   const abschluss = '<p class="fe-fehler" hidden></p>';
   const vor = wert !== undefined ? wert : undefined;
   const attr = `data-feld="${esc(name)}" id="${fid}"${hid}`;
   if (s.type === "boolean") {
-    return `<div class="zeile mitte fe" data-fe="${esc(name)}"><label class="zeile-text" for="${fid}"><span class="zeile-titel">${esc(label)}</span>${hilfe ? `<span class="zeile-unter">${hilfe}</span>` : ""}</label>`
+    return `<div class="zeile mitte fe" data-fe="${esc(name)}"><label class="zeile-text" for="${fid}"><span class="zeile-titel">${esc(label)}</span>${hilfe ? `<span class="zeile-unter" data-ab="normal">${hilfe}</span>` : ""}</label>`
       + `<input type="checkbox" role="switch" ${attr}${vor ? " checked" : ""}></div>`;
   }
   if (s.enum) {
@@ -566,21 +608,21 @@ function formularHtml(d, werte) {
   const weitere = namen.slice(sichtbar);
   const offen = weitere.some((n) => werte[n] !== undefined);
   return bauen(namen.slice(0, sichtbar), 0)
-    + (weitere.length ? `<details class="weitere aufklapper"${offen ? " open" : ""}><summary>Weitere Angaben (${weitere.length})</summary>${bauen(weitere, sichtbar)}</details>` : "");
+    + (weitere.length ? `<details class="weitere aufklapper"${offen || App.stufe === "weit" ? " open" : ""}><summary>Weitere Angaben (${weitere.length})</summary>${bauen(weitere, sichtbar)}</details>` : "");
 }
 function aktionenHtml(d) {
   if (d.wirkung === "loeschen") {
-    return `<div class="aktion"><div class="sicher schlecht"><div class="sicher-kopf">${kachel("trash-2", "schlecht")}<div><b>Löschen führst du selbst aus</b>`
+    return `<div class="aktion" data-ab="kompakt"><div class="sicher schlecht"><div class="sicher-kopf">${kachel("trash-2", "schlecht")}<div><b>Löschen führst du selbst aus</b>`
       + `<p>Die Werkstatt löscht nie selbst. Sie zeigt den fertigen Befehl, den du im Repo ausführst.</p></div></div>`
       + App.knoepfe([d.trockenlauf && { text: "Trockenlauf", symbol: "flask-conical", klasse: "zweit", attr: { id: "b-trocken" } },
         { text: "Befehl zeigen", symbol: "terminal", klasse: "haupt", attr: { id: "b-befehl" } }]) + "</div></div>";
   }
   if (d.gesperrt) { // der Grund steht oben; hier gibt es nichts zu probieren
-    return `<div class="aktion">` + App.knoepfe([{ text: "Ausführen", symbol: "lock", klasse: "haupt gross-knopf", disabled: true, attr: { id: "b-echt" } }])
+    return `<div class="aktion" data-ab="kompakt">` + App.knoepfe([{ text: "Ausführen", symbol: "lock", klasse: "haupt gross-knopf", disabled: true, attr: { id: "b-echt" } }])
       + `<p class="zusage">${symbol("lock")}Gesperrt — die Werkstatt führt dieses Skript nicht aus.</p></div>`;
   }
   if (schreibend(d)) {
-    return `<div class="aktion"><div class="sicher"><div class="sicher-kopf">${kachel("shield-check", "warn")}<div><b>${d.wirkung === "system" ? "Greift ins System ein" : "Ändert etwas"} — erst probieren</b>`
+    return `<div class="aktion" data-ab="kompakt"><div class="sicher"><div class="sicher-kopf">${kachel("shield-check", "warn")}<div><b>${d.wirkung === "system" ? "Greift ins System ein" : "Ändert etwas"} — erst probieren</b>`
       + `<p>Der Trockenlauf zeigt, was das Skript tun würde, ohne etwas zu verändern. Danach lässt es sich ausführen.</p></div></div>`
       + `<ol class="schritte"><li class="schritt" id="s1"><span class="nr" id="nr1">1</span><div class="schritt-text"><div class="schritt-titel">Trockenlauf</div><div class="schritt-unter" id="s1-status">Noch nicht geprüft</div></div>`
       + `<button type="button" class="zweit" id="b-trocken">${symbol("flask-conical")}Trockenlauf starten</button></li>`
@@ -588,7 +630,7 @@ function aktionenHtml(d) {
       + `<label class="wahl"><input type="checkbox" id="b-ok" disabled> Trockenlauf geprüft</label></div>`
       + `<button type="button" class="haupt gross-knopf" id="b-echt" disabled>${symbol("lock")}Ausführen</button></li></ol></div></div>`;
   }
-  return `<div class="aktion">` + App.knoepfe([{ text: "Ausführen", symbol: "play", klasse: "haupt gross-knopf", attr: { id: "b-echt" } },
+  return `<div class="aktion" data-ab="kompakt">` + App.knoepfe([{ text: "Ausführen", symbol: "play", klasse: "haupt gross-knopf", attr: { id: "b-echt" } },
     d.trockenlauf && { text: "Trockenlauf", symbol: "flask-conical", klasse: "zweit", attr: { id: "b-trocken" } }])
     + `<p class="zusage">${symbol("shield-check")}Liest nur — es wird nichts verändert.</p></div>`;
 }
@@ -604,8 +646,8 @@ function skript(d, vorbelegt) {
   const w = wirkungVon(d.wirkung), werte = vorbelegt || {};
   const hin = [];
   if (d.gesperrt) hin.push(hinweis("fehler", "lock", esc(sperrText(d.gesperrt))));
-  if (!d.im_hub) hin.push(hinweis("info", "server", `Läuft auf <b>${esc(ortName(d.ort))}</b>, nicht im Hub. Die Werkstatt zeigt deshalb nur den Befehl für das Repo; ein Weg, ihn direkt zu starten, folgt.`));
-  (d.hinweise || []).forEach((h) => hin.push(hinweis("info", "info", betont(esc(deutsch(h))))));
+  if (!d.im_hub) hin.push(hinweis("info", "server", `Läuft auf <b>${esc(ortName(d.ort))}</b>, nicht im Hub. Die Werkstatt zeigt deshalb nur den Befehl für das Repo; ein Weg, ihn direkt zu starten, folgt.`, "normal"));
+  (d.hinweise || []).forEach((h) => hin.push(hinweis("info", "info", betont(esc(deutsch(h))), "normal")));
   const marken = marke(w.text, WIRKUNG[d.wirkung] ? d.wirkung : "", w.symbol)
     + marke(ortName(d.ort), "", (ORT[d.ort] || [])[1] || "server")
     + (d.trockenlauf && !schreibend(d) ? marke("Trockenlauf möglich", "akz", "flask-conical") : "");
@@ -616,11 +658,13 @@ function skript(d, vorbelegt) {
     (d.braucht || []).length ? `<dt>Braucht</dt><dd class="marken">${d.braucht.map((b) => marke(String(b).replace(":", " · "))).join("")}</dd>` : "",
   ].join("");
   $("skript").innerHTML = `<section class="karte skriptkarte"><div class="skript-kopf">${kachel(d.gesperrt ? "lock" : w.symbol, d.gesperrt ? "grau" : w.ton, "gross")}`
-    + `<div class="skript-text"><h2 class="skript-titel" id="skript-titel" tabindex="-1">${esc(deutsch(d.titel))}</h2><p class="skript-zweck">${kennungen(betont(esc(deutsch(d.zweck))))}</p><div class="marken">${marken}</div></div></div>`
+    + `<div class="skript-text"><h2 class="skript-titel" id="skript-titel" tabindex="-1">${esc(deutsch(d.titel))}</h2><p class="skript-zweck" data-ab="kompakt">${kennungen(betont(esc(deutsch(d.zweck))))}</p><div class="marken">${marken}</div></div></div>`
     + `${hin.join("")}`
-    + `<div id="form">${formularHtml(d, werte)}</div>`
-    + `<div id="pflichtmeldung" class="pflichtmeldung" hidden>${hinweis("fehler", "circle-alert", "Bitte die markierten Angaben ausfüllen.")}</div>`
-    + `${aktionenHtml(d)}<details class="technik aufklapper"><summary>Technische Angaben</summary><dl class="kv">${technik}</dl></details></section>`;
+    // Eine Ansicht je Größe (Entscheidung 507): im Blick nur Kopf und Hinweise; Angaben, Lauf und Technik ab kompakt
+    + `<div class="werk-weitere" data-bis="blick">Angaben, Trockenlauf und Ausführung im größeren Fenster</div>`
+    + `<div id="form" data-ab="kompakt">${formularHtml(d, werte)}</div>`
+    + `<div id="pflichtmeldung" class="pflichtmeldung" data-ab="kompakt" hidden>${hinweis("fehler", "circle-alert", "Bitte die markierten Angaben ausfüllen.")}</div>`
+    + `${aktionenHtml(d)}<details class="technik aufklapper" data-ab="normal"${App.stufe === "weit" ? " open" : ""}><summary>Technische Angaben</summary><dl class="kv">${technik}</dl></details></section>`;
   satz(`${deutsch(d.titel)} · ${w.kurz || w.text}`, d.gesperrt ? "warn" : "");
   knoepfeSetzen();
 }
@@ -1182,6 +1226,12 @@ App.auf("ui/notifications/tool-result", async (r) => {
   await suchen();
   if (d.art === "skript") return skript(d);
   if (d.art === "lauf") { await oeffnen(d.id, eingabe.argumente); lauf(d); }
+});
+// Eine Ansicht je Größe (Entscheidung 507): die Liste wechselt ihre Länge; eine geöffnete Angabe bleibt, wie sie ist.
+// Weit sind Technik und weitere Angaben von selbst offen.
+window.addEventListener("app-stufe", () => {
+  if (geladen) listeMalen();
+  if (App.stufe === "weit") document.querySelectorAll("#skript details.technik, #skript details.weitere").forEach((d) => { d.open = true; });
 });
 $("skript").innerHTML = leerStart();
 App.start("fyos-werkstatt").then(() => setTimeout(() => { if (!bekommen) suchen(); }, 1500)).catch(() => {});

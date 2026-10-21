@@ -8,7 +8,9 @@ So weiss der Agent, was gerade offen ist, kann Flaechen oeffnen, schliessen und 
 und die Anordnung liegt im Hub, nicht nur im Browser: Handy und Rechner sehen dieselbe.
 
 Ablage über `mcp_hub.kv`: Redis (`REDIS_URL`), ohne Redis der Speicher des Prozesses:
-    fyos:shell:anordnung   JSON {fenster, agent, verfuegbar, ts}        (30 Tage)
+    fyos:shell:anordnung   JSON {fenster, bildschirme, aktiv, agent, verfuegbar, startTapete, ts}   (30 Tage)
+                           Tapeten (je Bildschirm `tapete`, am Start `startTapete`) nur als Auswahl, Ablage-Pfad oder
+                           https-Adresse, nie Bilddaten.
     fyos:shell:befehle     Liste von JSON-Befehlen, hoechstens 20        (10 Minuten)
 
 Flaechen-IDs: `seite:<slug>` · `app:<mcp-name>` · `nativ:<name>` · `agent` — nichts anderes wird angenommen.
@@ -45,6 +47,12 @@ ID_MUSTER = re.compile(
 BILDSCHIRME_MAX = 9
 SPALTEN = (3, 12)
 ZEILEN = (4, 24)
+TAPETE_ARTEN = ("auswahl", "datei", "url")
+TAPETE_AUSWAHL_MUSTER = re.compile(r"^[a-z0-9][a-z0-9\-]{0,29}$")
+TAPETE_WERT_MAX = 400
+TAPETE_DUNKEL = (0, 80)
+TAPETE_WEICH = (0, 24)
+_STEUERZEICHEN = re.compile(r"[\x00-\x1f]")
 _TAGS_LESEN = ["shell", "read", "flaeche"]
 _TAGS_SCHREIBEN = ["shell", "write", "flaeche"]
 
@@ -91,8 +99,39 @@ def fenster_pruefen(roh: Any, gesehen: set[str] | None = None) -> list[dict[str,
     return out[:FENSTER_MAX]
 
 
+def _tapete_wert_gueltig(art: str, wert: str) -> bool:
+    if not wert or len(wert) > TAPETE_WERT_MAX or _STEUERZEICHEN.search(wert):
+        return False
+    if art == "auswahl":
+        return bool(TAPETE_AUSWAHL_MUSTER.match(wert))
+    if art == "datei":
+        return not wert.startswith("/") and all(t not in ("", "..") for t in wert.split("/"))
+    if art == "url":
+        return wert.startswith("https://") or (wert.startswith("/") and not wert.startswith("//"))
+    return False
+
+
+def tapete_pruefen(roh: Any) -> dict[str, Any] | None:
+    """Tapete eines Bildschirms (seit 20.10.2026, gleiche Regeln wie `tapetePruefen` in fyos-web): `art` auswahl, datei
+    (Pfad in der Ablage, nie Bilddaten) oder url (https); `dunkel` 0–80, `weich` 0–24. Sonst None (= Kulisse)."""
+    if not isinstance(roh, dict):
+        return None
+    art = roh.get("art")
+    wert = roh.get("wert").strip() if isinstance(roh.get("wert"), str) else ""
+    if art not in TAPETE_ARTEN or not _tapete_wert_gueltig(art, wert):
+        return None
+    dunkel = _zahl(roh.get("dunkel"), TAPETE_DUNKEL)
+    weich = _zahl(roh.get("weich"), TAPETE_WEICH)
+    return {
+        "art": art,
+        "wert": wert,
+        "dunkel": 20 if dunkel is None else dunkel,
+        "weich": 0 if weich is None else weich,
+    }
+
+
 def bildschirme_pruefen(roh: Any) -> list[dict[str, Any]]:
-    """Arbeitsbildschirme: Name, ID, Fenster; jede Flaeche nur einmal ueber alle; hoechstens 9."""
+    """Arbeitsbildschirme: Name, ID, Fenster, Tapete; jede Flaeche nur einmal ueber alle; hoechstens 9."""
     out: list[dict[str, Any]] = []
     gesehen: set[str] = set()
     for b in roh if isinstance(roh, list) else []:
@@ -100,7 +139,11 @@ def bildschirme_pruefen(roh: Any) -> list[dict[str, Any]]:
             continue
         name = str(b.get("name") or "").strip()[:30] or f"Bildschirm {len(out) + 1}"
         bid = str(b.get("id") or "")[:40] or f"b{len(out) + 1}"
-        out.append({"id": bid, "name": name, "fenster": fenster_pruefen(b.get("fenster"), gesehen)})
+        bs: dict[str, Any] = {"id": bid, "name": name, "fenster": fenster_pruefen(b.get("fenster"), gesehen)}
+        tapete = tapete_pruefen(b.get("tapete"))
+        if tapete:
+            bs["tapete"] = tapete
+        out.append(bs)
     return out
 
 
@@ -234,6 +277,7 @@ class ShellPlugin(HubPlugin):
                         "aktiv": {"type": "integer", "minimum": 0, "maximum": BILDSCHIRME_MAX},
                         "agent": {"type": "boolean"},
                         "verfuegbar": {"type": "array", "items": {"type": "object"}},
+                        "startTapete": {"type": "object"},
                     },
                     "required": ["fenster"],
                     "additionalProperties": False,
@@ -284,6 +328,7 @@ class ShellPlugin(HubPlugin):
             "bekannt": True,
             "alter_s": int(time.time() - d.get("ts", 0)),
             **{k: d.get(k) for k in ("fenster", "bildschirme", "aktiv", "agent", "verfuegbar")},
+            **({"startTapete": d["startTapete"]} if d.get("startTapete") else {}),
         }
 
     def merken(self, args: dict[str, Any]) -> dict[str, Any]:
@@ -302,6 +347,9 @@ class ShellPlugin(HubPlugin):
             "verfuegbar": verf,
             "ts": time.time(),
         }
+        start_tapete = tapete_pruefen(args.get("startTapete"))
+        if start_tapete:
+            d["startTapete"] = start_tapete
         self.redis().set(
             SCHLUESSEL_ANORDNUNG, json.dumps(d, ensure_ascii=False), ex=ANORDNUNG_TTL_S
         )

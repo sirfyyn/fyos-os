@@ -42,6 +42,12 @@
   #ablage.an { display: flex; }
   #meldung:empty, #antrag:empty, #hochladen:empty { display: none; }
   #meldung, #hochladen { margin: 0 0 12px; }
+  /* Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt ein Fenster zur Zeit, Liste oder Datei; Suche und seltene Knöpfe erst ab normal */
+  .d-weitere { margin: 0; padding: 8px 4px 0; font-size: 12.5px; color: var(--mut); text-align: center; }
+  html:is([data-stufe="blick"], [data-stufe="kompakt"]) :is(.d-text, .d-md) { max-height: 220px; }
+  html[data-stufe="blick"] :is(.d-text, .d-md) { max-height: 120px; }
+  html:is([data-stufe="blick"], [data-stufe="kompakt"]) .d-bild { max-height: 240px; }
+  html[data-stufe="weit"] :is(.d-text, .d-md) { max-height: 680px; }
 </style>
 </head>
 <body>
@@ -71,6 +77,10 @@ const { esc, symbol, kachel, zustand, satz } = App;
 const rufen = (name, args) => App.rufen("dateien__" + name, args);
 const ADRESSE = "/hub-api/dateien/datei?";
 const DATEIEN_MAX = 200; // so viele Dateien nimmt ein einziges Ablegen höchstens
+// Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt ein Fenster zur Zeit (Liste oder Datei), wenige Einträge
+const klein = () => App.stufe === "blick" || App.stufe === "kompakt";
+const sicht = (liste) => (klein() ? liste.slice(0, App.anzahl({ blick: 3, kompakt: 6 })) : liste);
+const weitere = (n) => (n > 0 ? `<div class="d-weitere">${n === 1 ? "1 weiterer Eintrag" : `${n} weitere Einträge`} im größeren Fenster</div>` : "");
 
 // ── Zustand ────────────────────────────────────────────────────────────────
 let ort = "";                // geöffneter Ordner
@@ -168,7 +178,7 @@ function pfadleiste() {
     akt = verbinde(akt, t);
     html += `<button type="button" class="chip${i === teile.length - 1 ? " an" : ""}" data-aktion="gehe" data-pfad="${esc(akt)}">${esc(t)}</button>`;
   });
-  if (ort) {
+  if (ort && !klein()) {
     html += '<span class="rechts">'
       + `<button type="button" class="rund" data-aktion="umbenennen-ordner" title="Ordner umbenennen oder verschieben" aria-label="Ordner umbenennen oder verschieben">${symbol("pencil")}</button>`
       + `<button type="button" class="rund loeschen" data-aktion="loeschen-ordner" title="Ordner in den Papierkorb" aria-label="Ordner in den Papierkorb">${symbol("trash-2")}</button></span>`;
@@ -176,13 +186,15 @@ function pfadleiste() {
   return `<div class="d-pfad">${html}</div>`;
 }
 function suchleiste() {
-  return `<div class="leiste d-leiste"><input id="suche" type="search" maxlength="200" placeholder="Suchen — Name und Text" aria-label="Dateien suchen" value="${esc(suchtext)}">`
+  return `<div class="leiste d-leiste"${ansicht === "suche" ? "" : ' data-ab="normal"'}><input id="suche" type="search" maxlength="200" placeholder="Suchen — Name und Text" aria-label="Dateien suchen" value="${esc(suchtext)}">`
     + (suchtext ? `<button type="button" class="rund" data-aktion="suche-leeren" aria-label="Suche beenden" title="Suche beenden">${symbol("x")}</button>` : "") + "</div>";
 }
 function zeile(e, extra) {
   const ist = e.art === "datei";
   const attr = ist ? ` data-typ="datei" data-id="${esc(e.pfad)}" data-label="${esc(e.name)}"` : "";
-  const unter = ist ? [groesse(e.groesse), e.geaendert ? App.zeit.vor(e.geaendert) : ""].filter(Boolean).join(" · ") : (e.geaendert ? "geändert " + App.zeit.vor(e.geaendert) : "");
+  // weit: Art und volles Datum stehen mit in der Zeile
+  const weit = App.stufe === "weit", zeitText = (ms) => (weit ? App.zeit.voll(ms) : App.zeit.vor(ms));
+  const unter = ist ? [groesse(e.groesse), weit ? e.typ : "", e.geaendert ? zeitText(e.geaendert) : ""].filter(Boolean).join(" · ") : (e.geaendert ? "geändert " + zeitText(e.geaendert) : "");
   return `<button type="button" class="zeile mitte${ist && e.pfad === auswahl ? " an" : ""}" data-aktion="oeffne" data-pfad="${esc(e.pfad)}" data-art="${esc(e.art)}"${attr}>`
     + kachel(sym(e), ist ? "grau" : "akz")
     + `<span class="zeile-text"><span class="zeile-titel">${esc(e.name)}</span><span class="zeile-unter">${extra || esc(unter)}</span></span>`
@@ -192,21 +204,21 @@ function listeHtml() {
   if (nichtDa) return "";
   if (ansicht === "korb") {
     if (!korb.length) return '<div class="karte">' + zustand({ symbol: "trash-2", titel: "Der Papierkorb ist leer", text: "Gelöschtes bleibt hier einige Tage und lässt sich zurückholen.", klein: true }) + "</div>";
-    return '<div class="gruppe">' + korb.map((k) =>
+    return '<div class="gruppe">' + sicht(korb).map((k) =>
       `<div class="zeile mitte">${kachel(k.art === "ordner" ? "folder" : "file-text", "grau")}`
       + `<span class="zeile-text"><span class="zeile-titel">${esc(k.name)}</span><span class="zeile-unter">${esc(k.pfad)} · gelöscht ${esc(App.zeit.vor(k.geloescht))}${k.groesse != null ? " · " + esc(groesse(k.groesse)) : ""}</span></span>`
-      + `<button type="button" class="leise" data-aktion="zurueckholen" data-id="${esc(k.id)}">${symbol("rotate-ccw")}Zurückholen</button></div>`).join("") + "</div>";
+      + `<button type="button" class="leise" data-aktion="zurueckholen" data-id="${esc(k.id)}">${symbol("rotate-ccw")}Zurückholen</button></div>`).join("") + "</div>" + weitere(korb.length - sicht(korb).length);
   }
   if (ansicht === "suche") {
     if (!treffer.length) return '<div class="karte">' + zustand({ symbol: "search", titel: "Nichts gefunden", text: `Für „${suchtext}“ gibt es keinen Treffer in Namen oder Text.`, klein: true }) + "</div>";
-    return '<div class="gruppe">' + treffer.map((t) => zeile(t,
-      esc(t.pfad) + (t.auszug ? `<br><span class="d-auszug">Zeile ${esc(t.zeile)}: ${esc(t.auszug)}</span>` : ""))).join("") + "</div>";
+    return '<div class="gruppe">' + sicht(treffer).map((t) => zeile(t,
+      esc(t.pfad) + (t.auszug ? `<br><span class="d-auszug">Zeile ${esc(t.zeile)}: ${esc(t.auszug)}</span>` : ""))).join("") + "</div>" + weitere(treffer.length - sicht(treffer).length);
   }
   if (!eintraege.length) {
     return '<div class="karte">' + zustand({ symbol: "folder-open", titel: ort ? "Dieser Ordner ist leer" : "Noch keine Dateien",
       text: imShell() ? "Zieh Dateien vom Schreibtisch hierher oder leg mit „+“ etwas Neues an." : "Leg mit „+“ etwas Neues an.", klein: true }) + "</div>";
   }
-  return '<div class="gruppe">' + eintraege.map((e) => zeile(e)).join("") + "</div>";
+  return '<div class="gruppe">' + sicht(eintraege).map((e) => zeile(e)).join("") + "</div>" + weitere(eintraege.length - sicht(eintraege).length);
 }
 function zeichnen() {
   if (nichtDa) {
@@ -215,9 +227,12 @@ function zeichnen() {
     return;
   }
   const mitVorschau = ansicht !== "korb" && auswahl;
+  const einzeln = mitVorschau && klein(); // im Blick und kompakt ersetzt die Datei die Liste; „Schließen“ bringt die Liste zurück
   $("inhalt").innerHTML = (ansicht === "korb" ? '<div class="d-pfad"><button type="button" class="chip" data-aktion="gehe" data-pfad="">' + symbol("arrow-left") + "Zu den Dateien</button></div>" : pfadleiste())
     + (ansicht === "korb" ? "" : suchleiste())
-    + `<div class="d-raster${mitVorschau ? " mit-vorschau" : ""}"><div id="liste">${listeHtml()}</div>${mitVorschau ? '<div id="vorschau" class="karte"></div>' : ""}</div>`;
+    + (einzeln
+      ? '<div class="d-raster"><div id="vorschau" class="karte"></div></div>'
+      : `<div class="d-raster${mitVorschau ? " mit-vorschau" : ""}"><div id="liste">${listeHtml()}</div>${mitVorschau ? '<div id="vorschau" class="karte"></div>' : ""}</div>`);
   $("knopf-korb").setAttribute("aria-pressed", String(ansicht === "korb"));
   if (ansicht === "korb") satz(korb.length ? `${korb.length} im Papierkorb` : "Papierkorb leer", korb.length ? "warn" : "gut");
   else if (ansicht === "suche") satz(`${treffer.length} Treffer für „${suchtext}“`, treffer.length ? "gut" : "");
@@ -279,8 +294,8 @@ function kopfHtml(e, d) {
   const knoepfe = [
     imShell() && { text: "Öffnen", symbol: "external-link", klasse: "leise", aktion: "im-browser", titel: "In einem neuen Tab öffnen" },
     imShell() && { text: "Laden", symbol: "download", klasse: "leise", aktion: "herunterladen", titel: "Herunterladen" },
-    { text: "Umbenennen", symbol: "pencil", klasse: "leise", aktion: "umbenennen" },
-    { text: "Löschen", symbol: "trash-2", klasse: "loeschen", aktion: "loeschen" },
+    !klein() && { text: "Umbenennen", symbol: "pencil", klasse: "leise", aktion: "umbenennen" },
+    !klein() && { text: "Löschen", symbol: "trash-2", klasse: "loeschen", aktion: "loeschen" },
   ];
   return `<div class="d-kopf">${kachel(sym(e), "akz", "gross")}<div class="d-kopf-text"><div class="d-name">${esc(e.name)}</div>`
     + `<div class="d-meta">${esc(meta)}${ort2 && ansicht === "suche" ? " · " + esc(ort2) : ""}</div></div>`
@@ -295,8 +310,9 @@ async function vorschauZeigen() {
   freigeben();
   editiert = false;
   const e = eintragZu(auswahl);
-  ziel.innerHTML = kopfHtml(e) + '<div id="vorschau-inhalt"><div class="laedt">Lädt …</div></div><div id="fassungen"></div>';
+  ziel.innerHTML = kopfHtml(e) + '<div id="oeffnen-ort"></div><div id="vorschau-inhalt"><div class="laedt">Lädt …</div></div><div id="fassungen"></div>';
   const inh = () => (nr === vorschauNr ? $("vorschau-inhalt") : null);
+  oeffnenMitZeigen(e, nr); // läuft nebenher; ohne Gegenstelle oder passendes Programm bleibt der Platz leer
   try {
     if (istBild(e.typ)) {
       const v = await rufen("vorschau", { pfad: e.pfad });
@@ -324,13 +340,32 @@ async function vorschauZeigen() {
     inh().innerHTML = (d.gekuerzt ? `<div class="hinweis">${symbol("info")}<span>Die Datei ist lang, hier steht nur der Anfang.</span></div>` : "")
       + (istMarkdown(e.name) ? `<div class="d-md">${markdown(d.text)}</div>` : `<pre class="d-text">${esc(d.text)}</pre>`)
       + App.knoepfe([
-        !d.gekuerzt && { text: "Bearbeiten", symbol: "pencil", klasse: "zweit", aktion: "bearbeiten" },
-        { text: "Frühere Fassungen", symbol: "history", klasse: "leise", aktion: "fassungen" },
+        !klein() && !d.gekuerzt && { text: "Bearbeiten", symbol: "pencil", klasse: "zweit", aktion: "bearbeiten" },
+        !klein() && { text: "Frühere Fassungen", symbol: "history", klasse: "leise", aktion: "fassungen" },
       ], { klasse: "d-aktionen" });
   } catch (err) {
     if (inh()) inh().innerHTML = fehler(err);
   }
 }
+// „Öffnen mit“: Programme der Gegenstelle zur Endung; ein Klick fragt nach und startet das Programm dort
+async function oeffnenMitZeigen(e, nr) {
+  if (klein()) return; // seltene Knöpfe erst ab normal (Entscheidung 507)
+  try {
+    const d = await rufen("oeffnen_programme", { pfad: e.pfad });
+    const ort2 = nr === vorschauNr ? $("oeffnen-ort") : null;
+    if (!ort2 || !d || d.zustand !== "ok" || !d.programme || !d.programme.length) return;
+    ort2.innerHTML = App.knoepfe(d.programme.map((p) => ({
+      text: "Öffnen mit " + p.name, symbol: "monitor-up", klasse: "zweit", aktion: "oeffnen-mit",
+      attr: { "data-programm": p.id, "data-name": p.name }, titel: "Startet " + p.name + " auf dem Rechner",
+    })), { klasse: "d-aktionen", label: "Öffnen mit" });
+  } catch { /* ohne Gegenstelle fehlt nur die Zeile */ }
+}
+App.bei("oeffnen-mit", (el) => {
+  const pfad = auswahl, programm = el.dataset.programm, name = el.dataset.name || programm;
+  if (!pfad || !programm) return;
+  beantrage({ werkzeug: "dateien__oeffnen_mit", args: { pfad, programm }, ja: "Mit " + name + " öffnen", symbol: "monitor-up" },
+    (r) => { if (r.ok === false) melde(r.error || "Das Öffnen hat nicht geklappt.", "schlecht"); else melde(r.satz || "Wird geöffnet."); });
+});
 let gelesen = null; // zuletzt gelesener Text der gewählten Datei (für den Editor)
 
 function waehle(pfad) {
@@ -588,6 +623,12 @@ App.auf("fyos/oeffne", (d) => { if (d && d.typ === "datei" && typeof d.id === "s
 
 // ── Start ──────────────────────────────────────────────────────────────────
 App.auf("ui/notifications/tool-result", (r) => { const d = App.daten(r); if (d && (d.eintraege || d.zustand === "nicht eingerichtet")) { bekommen = true; uebernehmen(d); } });
+// Andere Kachelgröße, andere Ansicht (Entscheidung 507): neu zeichnen, außer wenn gerade getippt, bearbeitet oder umbenannt wird
+window.addEventListener("app-stufe", () => {
+  if (!bekommen || nichtDa || editiert || hochladenLaeuft || $("umbenennen-form") || document.activeElement?.id === "suche") return;
+  zeichnen();
+  if (auswahl && ansicht !== "korb") vorschauZeigen();
+});
 App.takt(20000, () => nachfuehren());
 App.start("fyos-dateien").then(() => setTimeout(() => { if (!bekommen) laden(); }, 1500)).catch(() => {});
 </script>

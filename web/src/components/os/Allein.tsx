@@ -44,6 +44,8 @@ export default function Allein(): JSX.Element {
   const laedt = () => !treffer() && appListe() === null && ziel.startsWith('app:');
   const f = () => treffer()?.f;
 
+  // Eine Seite ohne Fläche zeigt den Hinweis unten „Diese Fläche gibt es nicht (mehr)“ mit dem Weg zurück ins OS.
+
   onMount(() => {
     void konfigurationLaden();
     void hubApps(true)

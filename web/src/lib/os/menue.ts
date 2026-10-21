@@ -95,3 +95,5 @@ export const modAlt = (rest: string): string => (IST_MAC ? `⌥⌘${rest}` : `St
 export const ctrlMod = (rest: string): string => (IST_MAC ? `⌃⌘${rest}` : `Strg+Alt+${rest}`);
 /** ⌥⇧ (Fenster im Kopf rücken): auf Windows und Linux „Alt+Umschalt“ statt Mac-Zeichen */
 export const altUmschalt = (rest: string): string => (IST_MAC ? `⌥⇧${rest}` : `Alt+Umschalt+${rest}`);
+/** Einrasten: ⌥⌘⇧ am Mac, sonst Strg+Alt+Umschalt. */
+export const modAltUmschalt = (rest: string): string => (IST_MAC ? `⌥⌘⇧${rest}` : `Strg+Alt+Umschalt+${rest}`);

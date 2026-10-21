@@ -27,12 +27,17 @@
  * sich der Host je Einbettung (`schluessel`), mit welcher Eingabe die Ansicht entstanden ist und was die
  * App dem Modell meldet (lib/mcp-apps/zustand.ts). Die App sieht uns als `hostInfo.name === HOST_NAME`.
  *
+ * App-Werkzeuge: Im OS-Fenster (mit `schluessel`) meldet der Host die Fähigkeit `fyosWerkzeuge`. Die App bietet dann mit
+ * `App.werkzeug(name, beschreibung, schema, fn)` eigene Seitenwerkzeuge an (`fyos/werkzeug-anmelden`,
+ * `fyos/werkzeug-abmelden`); der Host ruft sie mit `fyos/werkzeug-rufen` auf. Präfix, Register, Abmelden beim Schließen
+ * und der Schreibwächter stehen in lib/mcp-apps/app-werkzeuge.ts.
  */
 import { meldeSitzungAbgelaufen } from '~/lib/api/transport';
 import { imOsOeffnen, osZielAus } from '~/lib/os/oeffnen';
 import { registriereFlaechen, registrierteDinge, type DingArt, type Uebergabe } from '~/lib/os/register';
 import { uebergabeVorbereiten, type DingLesen, type GezogenesDing } from '~/lib/os/uebergaben';
 import { aktuellerZug, hinweisWeg, zugBeginnt, zugEndet } from '~/lib/os/ziehen';
+import { APP_WERKZEUG_FRIST_MS, appWerkzeugeFuer, type AppWerkzeuge } from './app-werkzeuge';
 import { anApp, kanalAnmelden, kanalBereit } from './eingehaengt';
 import { gesichterMerken } from './gesicht';
 import { zustandMerken } from './zustand';
@@ -164,6 +169,16 @@ export async function appCall(name: string, args: Record<string, unknown>, art: 
     structuredContent: struktur,
     ...(nachricht ? { _meta: nachricht } : {}),
   };
+}
+
+/**
+ * Suche über alles (⌘K): fragt das Plugin `suche` des Hubs. Die Antwort ist roh (lib/os/suche.ts prüft sie); ein Fehler des Hubs
+ * oder ein Hub ohne dieses Plugin wirft mit einem Satz. Rein lesend.
+ */
+export async function alleSuchen(abfrage: string): Promise<unknown> {
+  const r = await appCall('suche__alles', { abfrage, anzahl: 12 }, 'abfrage');
+  if (r.isError) throw new Error(r.content[0]?.text || 'Die Suche ging nicht.');
+  return r.structuredContent ?? {};
 }
 
 /** Ein Ding über sein lesendes Werkzeug laden (für Übergaben): die Daten als Tabelle, ein Fehler des Hubs wirft. */
@@ -422,6 +437,8 @@ type HostOptionen = {
    */
   onMessage?: (text: string) => void;
   onHeight?: (px: number) => void;
+  /** Die App hat den Handschlag beendet (`ui/notifications/initialized`) und hört jetzt zu. */
+  onInitialized?: () => void;
   /**
    * Das iframe füllt einen Rahmen mit fester Höhe (OS-Fenster, Kachel). Dann meldet der Host die Höhe in
    * `containerDimensions.height` und die App richtet ihren Inhalt danach (Stufen in mcp_hub/plugins/ui/_bruecke.js);
@@ -506,6 +523,32 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
   // Nur Werkzeuge desselben Plugins dürfen aus der App gerufen werden.
   const plugin = o.app.name.split('__')[0];
 
+  // Anfragen des Hosts an die App (bisher nur App-Werkzeuge): eigene Ids mit „h-“, damit sie nie mit denen der App
+  // oder dem „abbau“ zusammenfallen. Antwortet die App nicht binnen der Frist, gilt der Aufruf als gescheitert.
+  let hostN = 0;
+  const ausstehend = new Map<string, { ok: (r: unknown) => void; fail: (e: Error) => void }>();
+  const anAppFragen = (method: string, params: unknown, frist: number): Promise<unknown> =>
+    new Promise((ok, fail) => {
+      const id = `h-${++hostN}`;
+      const t = setTimeout(() => {
+        ausstehend.delete(id);
+        fail(new Error(`Die App ${o.app.titel || plugin} hat nicht binnen ${Math.round(frist / 1000)} s geantwortet.`));
+      }, frist);
+      ausstehend.set(id, {
+        ok: (r) => { clearTimeout(t); ok(r); },
+        fail: (e) => { clearTimeout(t); fail(e); },
+      });
+      senden({ jsonrpc: '2.0', id, method, params });
+    });
+  // Eigene Seitenwerkzeuge der App: nur im OS-Fenster (der Schlüssel ist die ID des Fensters).
+  const appWerkzeuge: AppWerkzeuge | undefined = o.schluessel
+    ? appWerkzeugeFuer({
+        plugin: plugin ?? '',
+        fenster: o.schluessel,
+        rufen: (aufruf) => anAppFragen('fyos/werkzeug-rufen', aufruf, APP_WERKZEUG_FRIST_MS),
+      })
+    : undefined;
+
   // Eingabe der aktuellen Ansicht: der erste Aufruf (nur lesend — schreibende gehören nie in einen Link) und danach
   // jeder lesende, für Modelle sichtbare Aufruf der App an ein Werkzeug mit derselben Oberfläche.
   if (o.schluessel) {
@@ -518,8 +561,17 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
 
   const hoerer = async (e: MessageEvent) => {
     if (e.source !== iframe.contentWindow) return;
-    const m = e.data as { jsonrpc?: string; id?: number | string; method?: string; params?: Record<string, unknown> };
-    if (!m || m.jsonrpc !== '2.0' || !m.method) return;
+    const m = e.data as { jsonrpc?: string; id?: number | string; method?: string; params?: Record<string, unknown>; result?: unknown; error?: { message?: unknown } };
+    if (!m || m.jsonrpc !== '2.0') return;
+    // Antwort der App auf eine Anfrage des Hosts (hat kein `method`)
+    if (!m.method && typeof m.id === 'string' && ausstehend.has(m.id)) {
+      const a = ausstehend.get(m.id)!;
+      ausstehend.delete(m.id);
+      if (m.error) a.fail(new Error(String(m.error.message ?? 'Fehler in der App')));
+      else a.ok(m.result);
+      return;
+    }
+    if (!m.method) return;
     const p = m.params ?? {};
     // Eine Benachrichtigung hat keine `id` und bekommt keine Antwort (JSON-RPC); ein Aufruf, der etwas auslöst,
     // gilt ohne `id` nicht — niemand könnte das Ergebnis lesen.
@@ -547,6 +599,8 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
             ...(plugin === 'dateien' ? { fyosDateien: {} } : {}),
             // `fyosUebergaben`: Dinge aus der App ziehen (`fyos/zug`) und Dinge annehmen, die auf ihr Fenster fallen (`fyos/uebergabe`)
             fyosUebergaben: {},
+            // `fyosWerkzeuge`: eigene Seitenwerkzeuge anbieten (App.werkzeug), nur im OS-Fenster
+            ...(appWerkzeuge ? { fyosWerkzeuge: {} } : {}),
           },
           hostContext: {
             toolInfo: { tool: { name: o.app.name, description: o.app.description, inputSchema: { type: 'object', ...o.app.inputSchema } } },
@@ -569,6 +623,7 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
         if (o.schluessel) kanalBereit(o.schluessel);
         sichtbarZuletzt = -1; // die App hört jetzt zu: Ausschnitt einmal frisch melden
         sichtbarPlanen();
+        o.onInitialized?.();
         return;
       case 'ui/notifications/size-changed':
         // NaN und Unendlich kämen sonst als NaN durch min/max bis in die Fensterhöhe
@@ -590,6 +645,11 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
           }
           if (!t) return abgelehnt(`Werkzeug ${name} kennt der Hub nicht`);
           if (!fuerAppSichtbar(t)) return abgelehnt(`Werkzeug ${name} ist nur für das Modell gedacht, nicht für die App`);
+          // Bestätigungspflicht (app-werkzeuge.ts): während und kurz nach einem Agentenaufruf schreibt die App nur nach
+          // einem Klick des Benutzers — also über App.beantragen und sein „Ja“.
+          if (t.scope !== 'READ' && appWerkzeuge && !appWerkzeuge.schreibenErlaubt(nutzergeste())) {
+            return abgelehnt(`${name} verändert etwas: Aus einem Agentenaufruf nur nach App.beantragen und Bestätigung des Benutzers.`);
+          }
           // Art für die Nutzungsmessung: ein Aufruf aus der App kurz nach Klick oder Tastendruck ist bewusst,
           // ein Zeitgeber der App (Auffrischung) eine Abfrage.
           const ergebnis = await appCall(name, args, nutzergeste() ? 'bewusst' : 'abfrage');
@@ -659,6 +719,23 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
         o.onMessage(text);
         return antwort({});
       }
+      case 'fyos/werkzeug-anmelden': {
+        if (!anfrage) return;
+        if (!appWerkzeuge) return abgelehnt('Eigene Werkzeuge gibt es nur im OS-Fenster.');
+        const r = appWerkzeuge.anmelden(p);
+        return r.ok ? antwort({ name: r.name }) : abgelehnt(r.fehler);
+      }
+      case 'fyos/werkzeug-abmelden':
+        return antwort({ weg: !!appWerkzeuge?.abmelden(p.name) });
+      case 'fyos/beantragt':
+        // Die App legt dem Benutzer etwas zur Bestätigung vor (App.beantragen). Die Shell kann es zeigen (Schublade, Mitteilung);
+        // bestätigt wird in der App. Fremdtext: nur als Daten weiterreichen.
+        if (appWerkzeuge && o.schluessel) {
+          window.dispatchEvent(
+            new CustomEvent('fyos:beantragt', { detail: { fenster: o.schluessel, app: plugin, frage: String(p.frage ?? '').slice(0, 300) } }),
+          );
+        }
+        return antwort({});
       case 'ui/update-model-context':
         if (o.schluessel) zustandMerken(o.schluessel, { modellKontext: p });
         return antwort({});
@@ -707,6 +784,10 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
     try { senden({ jsonrpc: '2.0', id: 'abbau', method: 'ui/resource-teardown', params: {} }); } catch { /* iframe schon weg */ }
     window.removeEventListener('message', hoerer);
     kanalAb?.();
+    // Fenster zu: seine Werkzeuge verschwinden aus Register, WebMCP und Brücke; offene Aufrufe enden mit Fehler
+    appWerkzeuge?.alleAbmelden();
+    for (const a of ausstehend.values()) a.fail(new Error('Das Fenster der App wurde geschlossen.'));
+    ausstehend.clear();
     // Verschwindet die App mitten im Ziehen, bleibt kein Zug hängen
     if (aktuellerZug()?.quelle === iframe.contentWindow) {
       zugEndet();

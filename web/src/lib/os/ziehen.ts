@@ -149,13 +149,16 @@ export function wasPassiert(art: GutArt | null, ziel: ZielArt, name?: string): s
  *   Es gibt eine Übergabe für dieses Ding und diese App   → ihr Satz (`wirkung`); die App zeigt Plan und fragt.
  *   Es gibt keine (das Ding gehört einer anderen App)      → nur der Agent: „dazu fragen“.
  * null = hier gilt die allgemeine Regel (Fenster ordnen sich ein, Flächen öffnen, ein Ding der eigenen App wird gezeigt).
+ *
+ * Auch ein Ding der eigenen App kann eine Übergabe haben: ein Vorgang auf dem Fenster der Vorgänge hängt seine Info an den
+ * geöffneten Vorgang. Dann gilt die Übergabe; ohne sie wird das Ding wie sonst gezeigt.
  */
 export type AppAblage = { modus: 'uebergabe'; text: string; uebergabe: Uebergabe } | { modus: 'agent'; text: string };
 export function ablageAufApp(art: GutArt | null, flaecheId: string): AppAblage | null {
   if (!art || art === 'fenster' || art === 'flaeche' || !istDingTyp(art)) return null;
-  if (registrierteDinge(art)?.flaeche === flaecheId) return null;
   const u = registrierteUebergabe(art, flaecheId);
   if (u) return { modus: 'uebergabe', text: u.wirkung, uebergabe: u };
+  if (registrierteDinge(art)?.flaeche === flaecheId) return null;
   return { modus: 'agent', text: `${agentName()} dazu fragen` };
 }
 

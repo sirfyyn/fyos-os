@@ -140,6 +140,11 @@ export interface FensterProps {
   fokus: boolean;
   ziehen: boolean;
   schmal: boolean;
+  /**
+   * Automatik: das Fenster füllt seine Kachel (höchstens eine Bildschirmhöhe), der Inhalt füllt das Fenster
+   * und scrollt in ihm. Apps bekommen so ihre echte Höhe und wählen ihre Größenstufe (blick, kompakt, normal, weit).
+   */
+  gedeckelt?: boolean;
   mass: () => RasterMass | null;
   /** Das Menü des Fensters (⋯-Knopf, Rechtsklick auf den Kopf) — baut das Raster. */
   punkte: () => MenuePunkt[];
@@ -261,7 +266,9 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
   /** Ändert sich der Startzustand (neuer Link mit Eingabe auf eine offene App), lädt die App neu. */
   // `fest` wechselt füllen ↔ wachsen und baut den Inhalt neu — nur bei Apps und nativen Flächen (Seiten füllen immer)
   const wachsend = () => p.f.art === 'hubapp' || p.f.art === 'nativ';
-  const inhaltSchluessel = () => `${stand()}:${p.w.start ? JSON.stringify(p.w.start) : ''}:${wachsend() && (p.w.fest || p.w.max) ? 'fest' : ''}`;
+  // Fest heißt: der Inhalt füllt das Fenster — von Hand gezogene Höhe, Vollbild oder Kachel der Automatik
+  const fest = () => !!p.w.fest || !!p.w.max || !!p.gedeckelt;
+  const inhaltSchluessel = () => `${stand()}:${p.w.start ? JSON.stringify(p.w.start) : ''}:${wachsend() && fest() ? 'fest' : ''}`;
   const menueKnopfBau = (): JSX.Element => (
     <button
       ref={menueKnopf}
@@ -284,7 +291,7 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
       data-art={p.f.anwendung ? 'anwendung' : undefined}
       data-max={p.w.max ? '' : undefined}
       class="os-glas os-fenster relative flex min-w-0 flex-col overflow-clip"
-      classList={{ 'os-fokus': p.fokus || ueber(), 'select-none': groesseZiehen(), 'os-max': !!p.w.max && !p.schmal }}
+      classList={{ 'os-fokus': p.fokus || ueber(), 'select-none': groesseZiehen(), 'os-max': !!p.w.max && !p.schmal, 'os-fenster-gedeckelt': !!p.gedeckelt }}
       style={p.lage}
       onPointerDown={() => p.onFokus()}
       onDragOver={(e) => {
@@ -381,7 +388,7 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
       {/* Inhalt: Rechtsklick hier gehört der Fläche (Text kopieren usw.), nicht dem OS */}
       <div class="flex min-h-0 flex-1 flex-col" data-kontext="inhalt">
         <Show when={inhaltSchluessel()} keyed>
-          {(_) => <Inhalt f={p.f} ziehen={p.ziehen} oeffne={p.oeffne} schmal={p.schmal} start={p.w.start} fest={!!p.w.fest || !!p.w.max} />}
+          {(_) => <Inhalt f={p.f} ziehen={p.ziehen} oeffne={p.oeffne} schmal={p.schmal} start={p.w.start} fest={fest()} />}
         </Show>
       </div>
 

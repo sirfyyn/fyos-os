@@ -47,7 +47,7 @@ const { title = systemName, description = `${systemName} — das eigene System i
       } catch (_) { /* Vorgaben gelten */ }
     </script>
   </head>
-  <body class="flex h-screen flex-col">
+  <body class="flex h-dvh flex-col">
     <script is:inline>
       // Fläche im Fenster des OS: Farben der Kulisse übernehmen und Gesten/Kürzel an die Shell weiterreichen.
       try { if (window.self !== window.top) document.documentElement.classList.add('fyos-embedded'); } catch (_) {}
@@ -87,6 +87,11 @@ const { title = systemName, description = `${systemName} — das eigene System i
           window.addEventListener('storage', function (e) {
             if (e.key === 'fyos-theme' && (e.newValue === 'dark' || e.newValue === 'light')) document.documentElement.dataset.theme = e.newValue;
             if (e.key === 'fyos.os.kulisse.v1') farben();
+            // Anzeige-Modus: der Schalter im Kontrollzentrum der Shell gilt sofort auch in offenen Fenstern
+            if (e.key === 'fyos.modus') {
+              if (e.newValue === 'arbeit' || e.newValue === 'demo') document.documentElement.dataset.modus = e.newValue;
+              else delete document.documentElement.dataset.modus;
+            }
           });
         }
       } catch (_) {}

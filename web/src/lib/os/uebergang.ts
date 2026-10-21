@@ -13,6 +13,8 @@
  * Ohne Animation (prefers-reduced-motion, jsdom, kein Element) passiert die Änderung sofort.
  */
 
+import { osAnsichtRuecken } from '~/lib/os/ansicht';
+
 const DAUER_DOCK = 300;
 const DAUER_AUS = 170;
 
@@ -92,7 +94,7 @@ export function herkunftMerken(id: string): void {
 
 /**
  * Ein Fenster, das ganz außerhalb des Sichtbaren liegt, in den Blick holen (lange Bildschirme scrollen).
- * Für jeden Fokuswechsel (Dock, Deeplink, Menü): live gesehen 04.10. — Verlauf bekam den Fokus, lag aber
+ * Für jeden Fokuswechsel (Dock, Deeplink, Menü): Verlauf bekam den Fokus, lag aber
  * 4200 px tiefer, sichtbar blieb die Liste. Teilweise sichtbare Fenster bleiben, wo sie sind.
  */
 export function inDenBlick(id: string): void {
@@ -100,11 +102,15 @@ export function inDenBlick(id: string): void {
   if (!el || typeof el.scrollIntoView !== 'function') return;
   const r = el.getBoundingClientRect();
   const draussen = r.height > 0 && (r.top > innerHeight - 80 || r.bottom < 80);
-  // Weich nur kurze Wege im sichtbaren Tab: live 04.10. 22:55 bewegte `smooth` in einem Hintergrund-Tab gar nichts
+  // Weich nur kurze Wege im sichtbaren Tab: bewegte `smooth` in einem Hintergrund-Tab gar nichts
   // (Chrome hält dort die Animationsbilder an), und 4000 px weich wären ohnehin zäh.
   const weit = Math.abs(r.top) > 2 * innerHeight;
   const weich = !ruhig() && !weit && document.visibilityState !== 'hidden';
-  if (draussen) el.scrollIntoView({ block: 'nearest', behavior: weich ? 'smooth' : 'auto' });
+  if (draussen) {
+    el.scrollIntoView({ block: 'nearest', behavior: weich ? 'smooth' : 'auto' });
+    // Das Band der Bildschirme darf dabei nie seitlich mitrollen (lib/os/ansicht.ts)
+    osAnsichtRuecken();
+  }
 }
 
 /** Zeitpunkte (ms), zu denen `imBlickHalten` nachsieht: so lange laden die Apps darüber nach und wachsen. */
@@ -139,7 +145,10 @@ export function ausHerkunft(id: string, el: HTMLElement): void {
   // sonst wächst es aus dem Dock ins Unsichtbare
   const vorher = el.getBoundingClientRect();
   const draussen = vorher.height > 0 && (vorher.top > innerHeight - 80 || vorher.bottom < 80);
-  if (draussen && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
+  if (draussen && typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ block: 'nearest' });
+    osAnsichtRuecken();
+  }
   if (!kannAnimieren(el)) return;
   // Gleich beim Einhängen messen, damit kein Bild am Zielort aufblitzt; ersetzt den normalen Auftritt (os.css)
   const r = el.getBoundingClientRect();

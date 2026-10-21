@@ -105,9 +105,27 @@ def typ(vorgang: dict[str, Any]) -> str:
     return re.sub(r"[^a-z0-9]", "", str(roh).lower())[:12] or "vorgang"
 
 
+def _laenge(text: str) -> int:
+    """Länge wie das Gateway sie zählt (JavaScript: UTF-16-Einheiten; Zeichen außerhalb der BMP zählen doppelt)."""
+    return sum(2 if ord(c) > 0xFFFF else 1 for c in text)
+
+
 def _kurz(text: Any, grenze: int) -> str:
+    """Kürzt auf höchstens ``grenze`` Einheiten, mit „…“ am Ende und wenn möglich an einer Wortgrenze."""
     t = str(text or "")
-    return t if len(t) <= grenze else t[: grenze - 1] + "…"
+    if _laenge(t) <= grenze:
+        return t
+    rest = grenze - 1
+    stueck = ""
+    for c in t:
+        if _laenge(stueck) + _laenge(c) > rest:
+            break
+        stueck += c
+    # an der Wortgrenze schneiden, wenn dabei nicht mehr als ein Drittel verloren geht
+    schnitt = stueck.rfind(" ")
+    if schnitt >= len(stueck) * 2 // 3:
+        stueck = stueck[:schnitt]
+    return stueck.rstrip() + "…"
 
 
 def titel(vorgang: dict[str, Any]) -> str:

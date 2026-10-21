@@ -30,6 +30,12 @@
   --os-scan: 1;
   --os-tempo: 1;
   --os-glas-blur: 22px;
+  /* Glas in zwei Stufen: stark für große Flächen (Menüleiste,
+     Menüs, Dock, Kontrollzentrum, Start, Mitteilungen), leicht für kleine (Fensterkopf, Namen, Hinweise). Beide folgen
+     dem Regler in den Einstellungen (--os-glas-blur, 0 = aus). Im Quelltext immer `-webkit-backdrop-filter` VOR
+     `backdrop-filter`: umgekehrt wirft lightningcss die Standardzeile weg, und Chrome blurt nicht. */
+  --os-glas-filter: blur(var(--os-glas-blur)) saturate(165%);
+  --os-glas-filter-leicht: blur(calc(var(--os-glas-blur) * 0.55)) saturate(140%);
   --os-glas: color-mix(in oklab, var(--color-bg) 64%, transparent);
   --os-glas-tief: color-mix(in oklab, var(--color-bg) 80%, transparent);
   --os-glas-rand: color-mix(in oklab, var(--color-fg) 11%, transparent);
@@ -65,24 +71,25 @@ html[data-os-farben="glut"] { --os-neon-1: #fb7185; --os-neon-2: #f59e0b; --os-n
   width: 56vmax;
   height: 56vmax;
   border-radius: 50%;
-  filter: blur(72px);
+  /* Kein filter: blur mehr der 72-px-Blur auf vier bewegten 56-vmax-Flächen kostete im
+     Leerlauf rund 30 % der Last von /os. Die Weichheit kommt jetzt aus dem Verlauf: closest-side und glockenförmige Stufen, transparent schon am Kreisrand. */
   opacity: var(--os-lava);
   will-change: transform;
   animation: os-lava-1 calc(48s * var(--os-tempo)) ease-in-out infinite alternate;
 }
 html[data-theme="light"] .os-kulisse .os-blob { opacity: calc(var(--os-lava) * 0.5); }
-.os-kulisse .b1 { top: -22vmax; left: -14vmax; background: radial-gradient(circle at 35% 35%, var(--os-neon-2), transparent 62%); }
+.os-kulisse .b1 { top: -22vmax; left: -14vmax; background: radial-gradient(closest-side, var(--os-neon-2), color-mix(in oklab, var(--os-neon-2) 70%, transparent) 22%, color-mix(in oklab, var(--os-neon-2) 40%, transparent) 45%, color-mix(in oklab, var(--os-neon-2) 16%, transparent) 68%, color-mix(in oklab, var(--os-neon-2) 4%, transparent) 86%, transparent 100%); }
 .os-kulisse .b2 {
   top: 6vmax;
   right: -20vmax;
-  background: radial-gradient(circle at 55% 45%, var(--os-neon-1), transparent 60%);
+  background: radial-gradient(closest-side, var(--os-neon-1), color-mix(in oklab, var(--os-neon-1) 70%, transparent) 22%, color-mix(in oklab, var(--os-neon-1) 40%, transparent) 45%, color-mix(in oklab, var(--os-neon-1) 16%, transparent) 68%, color-mix(in oklab, var(--os-neon-1) 4%, transparent) 86%, transparent 100%);
   animation-name: os-lava-2;
   animation-duration: calc(62s * var(--os-tempo));
 }
 .os-kulisse .b3 {
   bottom: -26vmax;
   left: 16vmax;
-  background: radial-gradient(circle, var(--os-neon-3), transparent 62%);
+  background: radial-gradient(closest-side, var(--os-neon-3), color-mix(in oklab, var(--os-neon-3) 70%, transparent) 22%, color-mix(in oklab, var(--os-neon-3) 40%, transparent) 45%, color-mix(in oklab, var(--os-neon-3) 16%, transparent) 68%, color-mix(in oklab, var(--os-neon-3) 4%, transparent) 86%, transparent 100%);
   animation-name: os-lava-3;
   animation-duration: calc(74s * var(--os-tempo));
 }
@@ -92,7 +99,7 @@ html[data-theme="light"] .os-kulisse .os-blob { opacity: calc(var(--os-lava) * 0
   width: 34vmax;
   height: 34vmax;
   opacity: calc(var(--os-lava) * 0.55);
-  background: radial-gradient(circle, var(--os-neon-4), transparent 64%);
+  background: radial-gradient(closest-side, var(--os-neon-4), color-mix(in oklab, var(--os-neon-4) 70%, transparent) 22%, color-mix(in oklab, var(--os-neon-4) 40%, transparent) 45%, color-mix(in oklab, var(--os-neon-4) 16%, transparent) 68%, color-mix(in oklab, var(--os-neon-4) 4%, transparent) 86%, transparent 100%);
   animation-name: os-lava-4;
   animation-duration: calc(56s * var(--os-tempo));
 }
@@ -149,13 +156,13 @@ html[data-theme="light"] .os-kulisse .os-blob { opacity: calc(var(--os-lava) * 0
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(44% - 40px);
-  height: 80px;
+  bottom: calc(44% - 70px);
+  height: 140px;
   opacity: calc(var(--os-raster) * 0.55);
+  /* ohne filter: blur: die Ellipsen reichen genau bis zum Rand und laufen mehrstufig aus, also ohne Kante */
   background:
-    radial-gradient(ellipse 60% 50% at 30% 50%, color-mix(in oklab, var(--os-neon-2) 45%, transparent), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 70% 50%, color-mix(in oklab, var(--os-neon-1) 45%, transparent), transparent 70%);
-  filter: blur(18px);
+    radial-gradient(ellipse 45% 50% at 30% 50%, color-mix(in oklab, var(--os-neon-2) 45%, transparent), color-mix(in oklab, var(--os-neon-2) 20%, transparent) 40%, color-mix(in oklab, var(--os-neon-2) 6%, transparent) 72%, transparent 100%),
+    radial-gradient(ellipse 45% 50% at 70% 50%, color-mix(in oklab, var(--os-neon-1) 45%, transparent), color-mix(in oklab, var(--os-neon-1) 20%, transparent) 40%, color-mix(in oklab, var(--os-neon-1) 6%, transparent) 72%, transparent 100%);
 }
 .os-kulisse .os-scan {
   position: absolute;
@@ -217,7 +224,8 @@ html:has([data-shell]), body:has([data-shell]) { overscroll-behavior: none; }
 .os-glas-tief { background: var(--os-glas-tief); }
 /* Echte Unschärfe nur für kurz offene Ebenen über scharfem Inhalt (Start, Menüs, Kontrollzentrum). */
 .os-glas-blur {
-  backdrop-filter: blur(var(--os-glas-blur)) saturate(160%);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
 }
 .os-titel {
   font-size: 0.75rem;
@@ -258,7 +266,8 @@ html:has([data-shell]), body:has([data-shell]) { overscroll-behavior: none; }
   color: var(--color-fg);
   background: color-mix(in oklab, var(--color-bg) 42%, transparent);
   border-bottom: 1px solid color-mix(in oklab, var(--color-fg) 6%, transparent);
-  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
 }
 .os-leiste-punkt {
   display: inline-flex;
@@ -332,7 +341,8 @@ html:has([data-shell]), body:has([data-shell]) { overscroll-behavior: none; }
   background: var(--os-menue-bg);
   border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
   box-shadow: 0 12px 40px -8px rgb(0 0 0 / 0.5), 0 0 0 0.5px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.07);
-  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
   outline: none;
   animation: os-menue-auf 120ms cubic-bezier(0.22, 1, 0.36, 1);
   -webkit-user-select: none;
@@ -384,7 +394,7 @@ html:has([data-shell]), body:has([data-shell]) { overscroll-behavior: none; }
 }
 .os-kopf {
   display: flex;
-  min-height: 2.5rem;
+  min-height: 2.125rem;
   align-items: center;
   gap: 0.25rem;
   padding: 0 0.375rem 0 0.875rem;
@@ -401,7 +411,8 @@ html:has([data-shell]), body:has([data-shell]) { overscroll-behavior: none; }
   z-index: 3;
   border-radius: var(--os-radius) var(--os-radius) 0 0;
   background: var(--os-glas-tief);
-  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: var(--os-glas-filter-leicht);
+  backdrop-filter: var(--os-glas-filter-leicht);
 }
 [data-fenster] > .os-kopf > .os-knopf { justify-self: end; }
 .os-fenstertitel {
@@ -519,8 +530,8 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
   flex-shrink: 0;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0 0.75rem calc(0.6rem + env(safe-area-inset-bottom));
+  gap: 0.2rem;
+  padding: 0 0.75rem calc(0.4rem + env(safe-area-inset-bottom));
 }
 .os-punkte { display: flex; align-items: center; gap: 0.1rem; }
 .os-punkt {
@@ -557,7 +568,8 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
   background: color-mix(in oklab, var(--color-bg) 82%, transparent);
   border: 1px solid var(--os-glas-rand);
   box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: var(--os-glas-filter-leicht);
+  backdrop-filter: var(--os-glas-filter-leicht);
   color: var(--color-fg);
   font-size: 0.75rem;
   white-space: nowrap;
@@ -588,39 +600,57 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
   .os-punkt { height: 2.25rem; width: 1.4rem; }
   .os-punkt-neu { width: 2rem; height: 2rem; }
 }
+/* Start = Heimweg zur Zentrale: ein runder Knopf mit Haus statt eines Punkts, deutlich größer als die
+   Bildschirm-Punkte. Aktiv: Akzentgrund. Steht auch dann, wenn es nur den Start gibt. */
+.os-punkt.os-punkt-start {
+  width: 2rem;
+  height: 2rem;
+  margin-right: 0.3rem;
+  color: var(--color-fg-muted);
+  background: color-mix(in oklab, var(--color-bg) 55%, transparent);
+  border: 1px solid var(--os-glas-rand);
+  transition: color 0.15s, background-color 0.15s, transform 0.2s var(--os-feder, ease);
+}
+.os-punkt.os-punkt-start::before { content: none; }
+.os-punkt.os-punkt-start::after { inset: -0.25rem; }
+.os-punkt.os-punkt-start:hover { color: var(--color-fg); background: color-mix(in oklab, var(--color-fg) 14%, transparent); transform: scale(1.06); }
+.os-punkt.os-punkt-start.os-punkt-an { color: #fff; background: var(--os-akzent); border-color: transparent; }
+.os-punkt-haus { width: 1.15rem; height: 1.15rem; }
+@media (pointer: coarse), (max-width: 767px) { .os-punkt.os-punkt-start { width: 2.75rem; height: 2.75rem; } .os-punkt-haus { width: 1.4rem; height: 1.4rem; } }
 .os-dock {
   display: flex;
   max-width: 100%;
   align-items: flex-end;
   gap: 0.3rem;
-  padding: 0.35rem 0.45rem;
-  border-radius: 1.4rem;
+  padding: 0.28rem 0.4rem;
+  border-radius: 1.2rem;
   background: color-mix(in oklab, var(--color-bg) 40%, transparent);
-  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
 }
 .os-dock-fenster { display: flex; min-width: 0; align-items: flex-end; gap: 0.3rem; overflow-x: auto; overflow-y: visible; scrollbar-width: none; padding-top: 1rem; margin-top: -1rem; }
-.os-dock-trenner { width: 1px; height: 2.4rem; margin: 0 0.2rem 0.3rem; flex-shrink: 0; background: color-mix(in oklab, var(--color-fg) 18%, transparent); }
+.os-dock-trenner { width: 1px; height: 2rem; margin: 0 0.2rem 0.25rem; flex-shrink: 0; background: color-mix(in oklab, var(--color-fg) 18%, transparent); }
 .os-dock-symbol {
   position: relative;
   display: inline-flex;
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 0.8rem;
+  border-radius: 0.7rem;
   transform-origin: bottom center;
   transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s;
 }
-.os-dock-symbol .os-symbol { width: 2.75rem; height: 2.75rem; border-radius: 0.72rem; }
+.os-dock-symbol .os-symbol { width: 2.3rem; height: 2.3rem; border-radius: 0.62rem; }
 .os-dock-fyos {
   background:
     radial-gradient(120% 120% at 30% 10%, color-mix(in oklab, var(--os-neon-3) 45%, #10131c), #07080d);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 4px 12px -4px rgb(0 0 0 / 0.6);
-  width: 2.75rem;
-  height: 2.75rem;
-  margin: 0.125rem;
-  border-radius: 0.72rem;
+  width: 2.3rem;
+  height: 2.3rem;
+  margin: 0.1rem;
+  border-radius: 0.62rem;
 }
 @media (hover: hover) {
   .os-dock-symbol:hover { transform: translateY(-0.35rem) scale(1.14); }
@@ -641,7 +671,8 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
   background: var(--os-menue-bg);
   border: 1px solid var(--os-glas-rand);
   box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.6);
-  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: var(--os-glas-filter-leicht);
+  backdrop-filter: var(--os-glas-filter-leicht);
   opacity: 0;
   transform: translate(-50%, 4px);
   transition: opacity 0.12s, transform 0.12s;
@@ -713,7 +744,17 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
 }
 .os-band-zieht { transition: none; }
 .os-platz { position: relative; flex: 0 0 100%; min-width: 0; height: 100%; }
+/* Verdeckte Bildschirme zeichnet der Browser nicht: besuchte Bildschirme bleiben gemountet,
+   damit nichts neu lädt, aber außerhalb des Bilds überspringt content-visibility Stil, Layout und Malen (auch ihrer
+   iframes). Beim Wischen und in der Übersicht sind sie im Bild und erscheinen sofort. */
+.os-band > .os-platz { content-visibility: auto; }
+/* In der Übersicht sind alle im Bild; dort stehen Name und Schatten außerhalb der Karte und dürfen nicht abgeschnitten werden. */
+.os-uebersicht .os-band > .os-platz { content-visibility: visible; }
 .os-platz > .os-bildschirm { width: 100%; height: 100%; overflow: auto; }
+/* Ist ein Raum vorn, schaut im Rand um ihn (m-3) und über dem Dock nur die Tapete hervor, nicht die Zentrale.
+   visibility statt Ausblenden per Show: die Bildschirme bleiben gemountet und laden nichts neu, sind aber weder zu sehen
+   noch per Tab erreichbar. Ein Werkzeug öffnet ohnehin außerhalb des Raums (Shell: raumVerlassen). */
+.os-im-raum .os-bildschirm { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .os-band { transition: none; }
 }
@@ -822,7 +863,8 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
   background: var(--os-menue-bg);
   border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
   box-shadow: 0 20px 60px -16px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.07);
-  backdrop-filter: blur(34px) saturate(180%);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
 }
 .os-kz-kachel { padding: 0.7rem 0.75rem; border-radius: 0.9rem; background: color-mix(in oklab, var(--color-fg) 6%, transparent); }
 .os-kz-titel { margin: 0 0 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-fg-muted); }
@@ -910,7 +952,8 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
   padding: 1rem 1rem 0.5rem;
   border-radius: 1.4rem;
   background: color-mix(in oklab, var(--color-bg) 72%, transparent);
-  backdrop-filter: blur(40px) saturate(1.8);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
   box-shadow:
     inset 0 0 0 0.5px rgb(255 255 255 / 0.22),
     0 0 0 0.5px rgb(0 0 0 / 0.5),
@@ -935,7 +978,43 @@ html[data-theme="light"] .os-start-panel {
 }
 .os-start-suche:focus { box-shadow: 0 0 0 3px color-mix(in oklab, var(--os-akzent) 45%, transparent); border-color: var(--os-akzent); }
 .os-start-inhalt { flex: 1; min-height: 0; overflow: auto; padding: 0 0.15rem 0.75rem; display: flex; flex-direction: column; gap: 1.25rem; scrollbar-width: thin; }
+/* Suche über alles: Treffer aus Vorgängen, Mail, Dateien, Notizen … in Gruppen unter den Flächen */
+.os-treffer {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.7rem;
+  text-align: left;
+  transition: background-color 0.15s;
+}
+.os-treffer:hover:not(:disabled) { background: color-mix(in oklab, var(--color-fg) 7%, transparent); }
+.os-treffer:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+.os-treffer:disabled { cursor: default; }
+.os-treffer-titel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+.os-treffer-auszug { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; color: var(--color-fg-muted); }
 .os-start-panel .os-kachel .os-symbol { width: 3rem; height: 3rem; border-radius: 0.8rem; }
+/* Suche über alles: Treffer aus Vorgängen, Mail, Dateien, Notizen … in Gruppen unter den Flächen */
+.os-treffer {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.7rem;
+  text-align: left;
+  transition: background-color 0.15s;
+}
+.os-treffer:hover:not(:disabled) { background: color-mix(in oklab, var(--color-fg) 7%, transparent); }
+.os-treffer:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+.os-treffer:disabled { cursor: default; }
+.os-treffer-titel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+.os-treffer-auszug { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; color: var(--color-fg-muted); }
 @keyframes os-start-auf { from { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.96); } }
 @keyframes os-start-schleier { from { opacity: 0; } }
 @media (max-width: 767px) {
@@ -943,9 +1022,19 @@ html[data-theme="light"] .os-start-panel {
 }
 @media (prefers-reduced-motion: reduce) { .os-start, .os-start-panel { animation: none; } }
 
-/* ── Arbeitsbildschirm endlos, Pfeil zum Startbildschirm ───────────────────────────────── */
-/* Das Raster füllt zuerst den sichtbaren Bildschirm; darunter geht es weiter (os-weiter). */
-.os-raster-flaeche { flex: 1 0 auto; min-height: calc(100dvh - var(--os-leiste-hoehe) - 9rem); }
+/* ── Arbeitsbildschirm, Pfeil zum Startbildschirm ───────────────────────────── */
+/* Das Raster füllt den sichtbaren Bildschirm. */
+.os-raster-flaeche { flex: 1 0 auto; min-height: calc(100dvh - var(--os-leiste-hoehe) - 7rem); }
+/* Fensterhöhe gedeckelt: in der Automatik wird kein Fenster höher als der sichtbare
+   Bildschirm. Der Inhalt scrollt im Fenster und reicht am Ende an die
+   Fläche weiter. Von Hand gezogene Größen (Handmodus) bleiben unberührt. */
+.os-fenster-gedeckelt { min-height: 0; max-height: calc(100dvh - var(--os-leiste-hoehe) - 7rem); }
+.os-fenster-gedeckelt > [data-kontext="inhalt"] { overflow-y: auto; scrollbar-width: thin; }
+/* Höchstens vier Fenster, genau ein Bildschirm:
+   in der Automatik ist das Raster so hoch wie die sichtbare Fläche, die Zeilen teilen sie (Raster.tsx rasterStil).
+   Der Schreibtisch ist dann genau so hoch wie der Bildschirm, das Raster nimmt den Rest unter der Kopfzeile. */
+.os-schreibtisch:has(> .os-raster-voll) { height: 100%; }
+.os-raster-flaeche.os-raster-voll { flex: 1 1 0; min-height: 0; }
 .os-weiter {
   display: grid;
   place-items: center;
@@ -974,7 +1063,8 @@ html[data-theme="light"] .os-start-panel {
   font-size: 0.8rem;
   font-weight: 550;
   background: color-mix(in oklab, var(--color-bg) 70%, transparent);
-  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
   box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.22), 0 8px 22px -8px rgb(0 0 0 / 0.55);
   opacity: 0;
   transform: translateY(-0.7rem) scale(0.92);
@@ -985,6 +1075,80 @@ html[data-theme="light"] .os-start-panel {
 .os-hoch-da, .os-hoch:focus-visible { opacity: 1; transform: none; pointer-events: auto; }
 .os-hoch:hover { color: #fff; background: color-mix(in oklab, var(--os-akzent) 88%, transparent); }
 @media (prefers-reduced-motion: reduce) { .os-hoch { transition: opacity 0.1s; transform: none; } }
+
+/* ── Fähigkeiten: feste Schalter in der Menüleiste (Agent, Stimme, Augen) ──────────────────────
+   An = farbiger Punkt am Symbol (Stimme orange wie das Mikrofon-Zeichen am Mac, Augen grün wie die Kamera-Leuchte,
+   der Agent im Akzent). */
+.os-faehigkeit { position: relative; gap: 0.35rem; }
+.os-faehigkeit > svg { width: 0.95rem; height: 0.95rem; }
+.os-faehigkeit-weg > svg { opacity: 0.4; }
+.os-faehigkeit-an::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: calc(0.5rem + 0.75rem);
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--os-faehigkeit-farbe, var(--os-akzent));
+  box-shadow: 0 0 0 1.5px var(--os-menue-bg);
+}
+[data-faehigkeit="stimme"] { --os-faehigkeit-farbe: #ff9f0a; }
+[data-faehigkeit="augen"] { --os-faehigkeit-farbe: #30d158; }
+[data-faehigkeit="agent"] { --os-faehigkeit-farbe: var(--os-akzent); }
+.os-faehigkeit-panel { width: min(18.5rem, calc(100vw - 1rem)); gap: 0.35rem; }
+.os-faehigkeit-kopf { display: flex; align-items: center; gap: 0.65rem; padding: 0.35rem 0.35rem 0.5rem; }
+.os-faehigkeit-symbol {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--color-fg);
+  background: color-mix(in oklab, var(--color-fg) 10%, transparent);
+  transition: background 0.2s, color 0.2s;
+}
+.os-faehigkeit-symbol.os-faehigkeit-an { color: #fff; background: var(--os-faehigkeit-farbe); }
+.os-faehigkeit-symbol.os-faehigkeit-an::after { display: none; }
+.os-faehigkeit-symbol > svg { width: 1.05rem; height: 1.05rem; }
+.os-faehigkeit-liste { margin: 0; padding: 0.25rem; list-style: none; border-radius: 0.8rem; background: color-mix(in oklab, var(--color-fg) 6%, transparent); }
+.os-faehigkeit-liste > li { display: flex; align-items: center; gap: 0.6rem; min-height: 2.25rem; padding: 0.2rem 0.45rem; }
+.os-faehigkeit-liste > li + li { border-top: 0.5px solid color-mix(in oklab, var(--color-fg) 10%, transparent); }
+.os-faehigkeit-mehr { padding: 0.45rem 0.55rem; border-radius: 0.5rem; text-align: left; color: var(--color-fg); }
+.os-faehigkeit-mehr:hover { background: color-mix(in oklab, var(--color-fg) 8%, transparent); }
+.os-faehigkeit-anruf { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: #30d158; }
+.os-faehigkeit-anruf svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+.os-faehigkeit-anruf kbd { margin-left: auto; font: inherit; font-size: 0.72rem; font-weight: 400; color: var(--color-fg-muted); }
+/* Kippschalter wie unter macOS */
+.os-kipper { position: relative; display: inline-flex; flex-shrink: 0; cursor: pointer; }
+.os-kipper > input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: inherit; }
+.os-kipper > span {
+  width: 2.1rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-fg) 22%, transparent);
+  transition: background 0.18s;
+  position: relative;
+}
+.os-kipper > span::after {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.os-kipper > input:checked + span { background: var(--os-faehigkeit-farbe, var(--os-akzent)); }
+.os-kipper > input:checked + span::after { transform: translateX(0.85rem); }
+.os-kipper > input:focus-visible + span { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-kipper > input:disabled + span { opacity: 0.5; }
+.os-faehigkeit-panel[aria-label="Stimme"] { --os-faehigkeit-farbe: #ff9f0a; }
+.os-faehigkeit-panel[aria-label="Augen"] { --os-faehigkeit-farbe: #30d158; }
 
 /* ── Handy-Ziele: Bedienelemente der Shell mindestens 44 px (Ampel, Punkte, Menüleiste) ──
    Greift bei Touch ODER schmalem Fenster (die Prüfung lief ohne Touch-Emulation bei 390 px). */

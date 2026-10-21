@@ -28,6 +28,8 @@ Beiträge zu den gemeinsamen Ansichten: ``zeitplan()`` (Cron des Agenten neben d
 Konfiguration (alles optional, sonst Umgebung):
     gateway_url       FYOS_AGENT_URL, z. B. http://agent:18789 (leer: Plugin ist aus)
     token             FYOS_AGENT_TOKEN, das Gateway-Token (Abfragen und Prüfung der Signatur)
+    agent_ca          FYOS_AGENT_CA, Pfad zu einer CA- oder Zertifikatsdatei für ein selbstsigniertes Gateway (https)
+    agent_tls_pruefen FYOS_AGENT_TLS_PRUEFEN, false schaltet die Zertifikatsprüfung ab (nur interne Netze; Vorgabe: prüfen)
     vorgaenge_url     FYOS_VORGAENGE_URL (leer: Workboard ist die Ablage)
     vorgang_link      FYOS_VORGANG_LINK, Verweis je Vorgang mit {id}, z. B. https://fyos.example/vorgaenge/{id}
     board             Board der Vorgänge (Vorgabe: fyos im Spiegel, default als Ablage)
@@ -75,6 +77,7 @@ from .. import takt as _takt
 from .. import termine as _termine
 from .. import umschlag as U
 from .. import vorgaenge as _vorgangsquellen
+from ..agent_tls import kontext as _tls_kontext
 from ..audit_log import AuditEvent, schwaerzen
 from ..plugin import HubPlugin, ToolDescriptor
 from ..vorgaenge import (
@@ -176,6 +179,10 @@ class OpenClawPlugin(HubPlugin):
         cfg = config or {}
         self.gateway_url = str(cfg.get("gateway_url") or os.getenv("FYOS_AGENT_URL") or "").strip().rstrip("/")
         self._token = str(cfg.get("token") or os.getenv("FYOS_AGENT_TOKEN") or "").strip()
+        # TLS zum Gateway: Vorgabe prüfen; interne Netze mit eigenem Zertifikat über CA-Datei oder (offen) ohne Prüfung
+        self._tls_ca = str(cfg.get("agent_ca") or "").strip() or None
+        self._tls_pruefen = cfg.get("agent_tls_pruefen")
+        self._tls: Any = False  # False: noch nicht gebaut (None ist ein gültiger Wert: Vorgabe von urllib)
         self.vorgaenge_url = str(cfg.get("vorgaenge_url") or os.getenv("FYOS_VORGAENGE_URL") or "").strip().rstrip("/")
         if self.vorgaenge_url.endswith("/hub/vorgaenge"):
             # Die eigene Ablage als Vorgangs-Dienst hieße: das Workboard auf sich selbst spiegeln.
@@ -251,7 +258,7 @@ class OpenClawPlugin(HubPlugin):
 
             os_bruecke.kanal_anmelden(self.kanal_mitteilen)
         if self.vorgaenge_url:
-            dienst_anmelden(self.vorgaenge_url, self.vorgaenge_kopf)
+            dienst_anmelden(self.vorgaenge_url, self.vorgaenge_kopf, self._kontext)
         elif self.modus == "ablage":
             ablage_anmelden(self)
         if self.gateway_url and self._faden is None:
@@ -276,12 +283,18 @@ class OpenClawPlugin(HubPlugin):
 
     # ── Wege zum Gateway und zum Vorgangs-Dienst ──────────────────────────────────────────────
 
+    def _kontext(self) -> Any:
+        """SSL-Kontext für https-Adressen des Gateways und des Vorgangs-Dienstes (``None``: Vorgabe, prüfen)."""
+        if self._tls is False:
+            self._tls = _tls_kontext(self._tls_ca, self._tls_pruefen)
+        return self._tls
+
     def _get(self, url: str, zeit_s: float = 4.0) -> tuple[int, dict[str, Any]]:
         if self._http_get is not None:
             return self._http_get(url)
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=zeit_s) as r:  # noqa: S310 — Adresse aus der Konfiguration
+            with urllib.request.urlopen(req, timeout=zeit_s, context=self._kontext()) as r:  # noqa: S310 — Adresse aus der Konfiguration
                 status, roh = r.status, r.read(65536)
         except urllib.error.HTTPError as e:
             status, roh = e.code, e.read(65536) if e.fp else b""
@@ -307,7 +320,7 @@ class OpenClawPlugin(HubPlugin):
                     headers={"Content-Type": "application/json", "Authorization": f"Bearer {self._token}"},
                 )
                 try:
-                    with urllib.request.urlopen(req, timeout=zeit_s) as r:  # noqa: S310
+                    with urllib.request.urlopen(req, timeout=zeit_s, context=self._kontext()) as r:  # noqa: S310
                         roh = r.read(8 * 1024 * 1024)
                 except urllib.error.HTTPError as e:
                     text = (e.read(600) if e.fp else b"").decode(errors="replace")
@@ -410,7 +423,7 @@ class OpenClawPlugin(HubPlugin):
                                      headers={"Content-Type": "application/json", "Accept": "application/json",
                                               **self.vorgaenge_kopf})
         try:
-            with urllib.request.urlopen(req, timeout=zeit_s) as r:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=zeit_s, context=self._kontext()) as r:  # noqa: S310
                 roh = r.read(4 * 1024 * 1024)
         except urllib.error.HTTPError as e:
             text = (e.read(400) if e.fp else b"").decode(errors="replace")

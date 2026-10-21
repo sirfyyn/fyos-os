@@ -94,7 +94,7 @@ def test_die_probe_kennt_ihre_sdk_fassung():
     """Selbstprobe — der Test muss sagen koennen, WAS er gerade prueft."""
     assert isinstance(hub_server._SDK_V2, bool)
     # v1: FastMCP, v2: MCPServer. Beides zulaessig, aber nicht irgendetwas.
-    assert type(hub_server.mcp).__name__ in ("FastMCP", "MCPServer")
+    assert {k.__name__ for k in type(hub_server.mcp).__mro__} & {"FastMCP", "MCPServer"}
 
 
 def test_app_baut_durch(app):

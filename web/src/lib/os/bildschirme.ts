@@ -9,6 +9,7 @@
  * Reine Funktionen; gespeichert im Browser, gemeldet an den Hub (Plugin shell).
  */
 import { listePruefen, oeffnen as fensterOeffnen, ohneMax, type Fenster, type StartZustand } from './anordnung';
+import { tapetePruefen, type Tapete } from './tapete';
 
 export interface Bildschirm {
   id: string;
@@ -22,6 +23,8 @@ export interface Bildschirm {
   vollbild?: boolean;
   /** Vollbild-Bildschirm: der Bildschirm, von dem die Anwendung kam und auf den sie beim Verlassen zurückkehrt. */
   vollbildVon?: string;
+  /** Eigene Tapete (lib/os/tapete.ts); ohne zeigt der Bildschirm die Kulisse */
+  tapete?: Tapete;
 }
 
 export interface Arbeitsplatz {
@@ -30,6 +33,8 @@ export interface Arbeitsplatz {
   aktiv: number;
   /** Zuletzt benutzter Arbeitsbildschirm (1…), Ziel für Flächen, die auf dem Start geöffnet werden */
   zuletzt: number;
+  /** Tapete des Starts (der Zentrale); der Start ist kein Eintrag in `bildschirme` */
+  startTapete?: Tapete;
 }
 
 export const START = 0;
@@ -68,7 +73,7 @@ export function neuerBildschirm(ap: Arbeitsplatz, name?: string, fenster: Fenste
   const n = ap.bildschirme.length + 1;
   const b: Bildschirm = { id: neueId(), name: (name ?? `Bildschirm ${n}`).trim().slice(0, NAME_MAX) || `Bildschirm ${n}`, fenster };
   const bildschirme = [...ap.bildschirme, b];
-  return { bildschirme, aktiv: bildschirme.length, zuletzt: bildschirme.length };
+  return { ...ap, bildschirme, aktiv: bildschirme.length, zuletzt: bildschirme.length };
 }
 
 /** Umbenennen; ein leerer Name gibt den Bildschirm wieder der Automatik (er heißt dann nach seinen Fenstern). */
@@ -105,12 +110,58 @@ export function anzeigeName(b: Bildschirm, i: number, titel: (id: string) => str
   return `${erster}, ${zweiter} +${offen.length - 2}`;
 }
 
+/** Tapete eines Bildschirms (0 = Start) setzen; `undefined` = zurück zur Kulisse. */
+export function tapeteSetzen(ap: Arbeitsplatz, i: number, tapete: Tapete | undefined): Arbeitsplatz {
+  const t = tapetePruefen(tapete);
+  if (i === START) {
+    const { startTapete: _alt, ...rest } = ap;
+    return t ? { ...rest, startTapete: t } : rest;
+  }
+  if (!bildschirmBei(ap, i)) return ap;
+  return {
+    ...ap,
+    bildschirme: ap.bildschirme.map((x, j) => {
+      if (j !== i - 1) return x;
+      const { tapete: _alt, ...rest } = x;
+      return t ? { ...rest, tapete: t } : rest;
+    }),
+  };
+}
+
+/** Tapete von Bildschirm `i` (0 = Start) oder undefined. */
+export const tapeteVon = (ap: Arbeitsplatz, i: number): Tapete | undefined =>
+  i === START ? ap.startTapete : bildschirmBei(ap, i)?.tapete;
+
+/**
+ * Tapeten aus der Hub-Meldung (shell.zustand) übernehmen, geräteübergreifend: nur wo hier keine gesetzt ist, je
+ * Bildschirm über die Kennung, der Start über `startTapete`. Eigene Wahl dieses Geräts bleibt; ändert sich nichts,
+ * kommt derselbe Arbeitsplatz zurück.
+ */
+export function tapetenUebernehmen(ap: Arbeitsplatz, hub: { bildschirme?: unknown; startTapete?: unknown }): Arbeitsplatz {
+  const vomHub = new Map<string, Tapete>();
+  for (const b of Array.isArray(hub.bildschirme) ? hub.bildschirme : []) {
+    const t = b && typeof b === 'object' ? tapetePruefen((b as Bildschirm).tapete) : undefined;
+    if (t && typeof (b as Bildschirm).id === 'string') vomHub.set((b as Bildschirm).id, t);
+  }
+  let geaendert = false;
+  const bildschirme = ap.bildschirme.map((b) => {
+    const t = b.tapete ? undefined : vomHub.get(b.id);
+    if (!t) return b;
+    geaendert = true;
+    return { ...b, tapete: t };
+  });
+  const start = ap.startTapete ? undefined : tapetePruefen(hub.startTapete);
+  if (!geaendert && !start) return ap;
+  return { ...ap, bildschirme, ...(start ? { startTapete: start } : {}) };
+}
+
 /** Arbeitsbildschirm `i` entfernen (seine Fenster schließen mit). Der Start bleibt immer. */
 export function entfernen(ap: Arbeitsplatz, i: number): Arbeitsplatz {
   if (!bildschirmBei(ap, i)) return ap;
   const bildschirme = ap.bildschirme.filter((_, j) => j !== i - 1);
   const anpassen = (k: number): number => (k > i ? k - 1 : k === i ? Math.min(i, bildschirme.length) : k);
   return {
+    ...ap,
     bildschirme,
     aktiv: Math.max(0, Math.min(bildschirme.length, anpassen(ap.aktiv))),
     zuletzt: Math.max(1, Math.min(Math.max(1, bildschirme.length), anpassen(ap.zuletzt))),
@@ -175,7 +226,7 @@ export function flaecheOeffnen(
   const nachher = fensterOeffnen(vorher, id, opt);
   if (nachher === vorher) {
     // Links („In FYOS öffnen“, ?offen=, Links aus Apps) zeigen die App immer: ist der Bildschirm voll, auf einem neuen.
-    // Live 04.10.: ein Link auf die MCP-App öffnete auf einem Bildschirm mit 9 Fenstern schweigend nichts.
+    // ein Link auf die MCP-App öffnete auf einem Bildschirm mit 9 Fenstern schweigend nichts.
     const frisch = opt.sonstNeu ? neuerBildschirm(basis) : basis;
     if (frisch === basis) return { ap: wechseln(basis, ziel), voll: true };
     const dort = fensterOeffnen([], id, opt);
@@ -289,6 +340,8 @@ export function pruefen(roh: unknown): Arbeitsplatz {
     const name = typeof (b as Bildschirm).name === 'string' ? (b as Bildschirm).name.trim().slice(0, NAME_MAX) : '';
     const id = typeof (b as Bildschirm).id === 'string' && (b as Bildschirm).id ? (b as Bildschirm).id : neueId();
     const neu: Bildschirm = { id, name: name || `Bildschirm ${bildschirme.length + 1}`, fenster };
+    const tapete = tapetePruefen((b as Bildschirm).tapete);
+    if (tapete) neu.tapete = tapete;
     // Vollbild-Bildschirm: genau eine Anwendung, maximiert. Mit mehr oder keinem Fenster ist es ein gewöhnlicher Bildschirm.
     if ((b as Bildschirm).vollbild === true && fenster.length === 1) {
       neu.fenster = [{ ...fenster[0]!, max: true }];
@@ -299,7 +352,8 @@ export function pruefen(roh: unknown): Arbeitsplatz {
     bildschirme.push(neu);
   }
   const zahl = (x: unknown, std: number) => (typeof x === 'number' && Number.isInteger(x) ? x : std);
-  const ap: Arbeitsplatz = { bildschirme, aktiv: 0, zuletzt: 1 };
+  const startTapete = tapetePruefen(r.startTapete);
+  const ap: Arbeitsplatz = { bildschirme, aktiv: 0, zuletzt: 1, ...(startTapete ? { startTapete } : {}) };
   ap.aktiv = grenzeIndex(ap, zahl(r.aktiv, 0));
   ap.zuletzt = Math.max(1, Math.min(Math.max(1, bildschirme.length), zahl(r.zuletzt, 1)));
   return ap;

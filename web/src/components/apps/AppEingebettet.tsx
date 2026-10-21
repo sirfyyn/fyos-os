@@ -20,6 +20,8 @@ import type { StartZustand } from '~/lib/os/anordnung';
 export default function AppEingebettet(props: {
   name: string;
   titel?: string;
+  /** Titel nur für Ladehinweis und Vorlesen, ohne Überschrift (wenn der Rahmen ihn schon nennt, z. B. Raum Vorhaben) */
+  ohneKopf?: boolean;
   hoehe?: number;
   fuellen?: boolean;
   /**
@@ -34,10 +36,16 @@ export default function AppEingebettet(props: {
   const [fehler, setFehler] = createSignal('');
   // Bis die App ihre Höhe meldet, steht ein Platzhalter da (sonst stünde eine leere Karte
   // ohne Hinweis da); kommt nach 10 s nichts, steht da, was los ist, und ein Knopf zum Neuversuch.
+  // Die 10 s schließen den ersten Werkzeugaufruf ein, und der dauert bei großen Apps länger: darum erst
+  // „braucht länger“, und „konnte nicht geladen werden“ erst nach 30 s ohne Höhe.
   const [bereit, setBereit] = createSignal(false);
   const [zuLang, setZuLang] = createSignal(false);
+  const [aufgegeben, setAufgegeben] = createSignal(false);
+  // Die erste Höhe kam an: bis dahin hält der Platzhalter seine Mindesthöhe, auch wenn die App schon zu sehen ist
+  const [gemessen, setGemessen] = createSignal(false);
   let zeitgeber: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(zeitgeber));
+  let spaeter: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => { clearTimeout(zeitgeber); clearTimeout(spaeter); });
   let rahmen: HTMLIFrameElement | undefined;
   let abmelden: (() => void) | undefined;
   // Zählt die Ladeversuche. Wer nach einem `await` merkt, dass inzwischen ein neuer Versuch läuft oder das Fenster
@@ -60,8 +68,11 @@ export default function AppEingebettet(props: {
     setFehler('');
     setBereit(false);
     setZuLang(false);
+    setAufgegeben(false);
     clearTimeout(zeitgeber);
+    clearTimeout(spaeter);
     zeitgeber = setTimeout(() => { if (!bereit()) setZuLang(true); }, 10_000);
+    spaeter = setTimeout(() => { if (!bereit()) setAufgegeben(true); }, 30_000);
     try {
       const liste = await apps(true);
       if (mein !== versuch) return;
@@ -93,7 +104,11 @@ export default function AppEingebettet(props: {
         onMessage: props.schluessel
           ? (text) => agentFragen({ text, kontext: { app: app.name, titel: props.titel ?? app.titel ?? app.title ?? app.name }, quelle: 'app' })
           : undefined,
-        onHeight: (h) => { setBereit(true); setZuLang(false); setHoehe(h); },
+        onHeight: (h) => { setBereit(true); setGemessen(true); setZuLang(false); setAufgegeben(false); setHoehe(h); },
+        // Bereit, sobald die App zuhört, nicht erst mit ihrer ersten Höhe: eine lange App blieb sonst unsichtbar, bis
+        // die Messung kam (bei Tausenden Einträgen rund 40 s). Wachsend zeigt sie bis dahin ihren Anfang in der
+        // Platzhalterhöhe und wächst, sobald size-changed kommt.
+        onInitialized: () => { setBereit(true); setZuLang(false); setAufgegeben(false); },
       });
       if (mein !== versuch) return ab(); // Fenster zu oder neuer Versuch, während die App einhing
       abmelden = ab;
@@ -126,9 +141,9 @@ export default function AppEingebettet(props: {
         : props.wachsen
           ? 'relative flex flex-col'
           : 'rounded-xl border border-(--color-border) bg-(--color-card) p-3'}
-      style={props.wachsen && !bereit() ? { 'min-height': '12rem' } : undefined}
+      style={props.wachsen && !gemessen() ? { 'min-height': '12rem' } : undefined}
     >
-      <Show when={props.titel}>
+      <Show when={props.titel && !props.ohneKopf}>
         <h2 class="mb-2 text-xs font-semibold tracking-wide text-(--color-fg-muted) uppercase">{props.titel}</h2>
       </Show>
       <Show when={fehler()}>
@@ -150,7 +165,14 @@ export default function AppEingebettet(props: {
         >
           {zuLang() ? (
             <span class="flex flex-col items-center">
-              {props.titel ?? 'Die App'} konnte nicht geladen werden.
+              <span class="inline-flex items-center gap-2.5">
+                <Show when={!aufgegeben()}>
+                  <span aria-hidden="true" class="inline-block size-3.5 animate-spin rounded-full border-2 border-(--color-fg-muted)/25 border-t-(--color-accent)" />
+                </Show>
+                {aufgegeben()
+                  ? `${props.titel ?? 'Die App'} konnte nicht geladen werden.`
+                  : `${props.titel ?? 'Die App'} braucht länger als gewohnt …`}
+              </span>
               <button
                 type="button"
                 class="pointer-events-auto mt-3 inline-flex min-h-8 items-center rounded-full border border-(--color-border) bg-(--color-card) px-3.5 text-(--color-fg) hover:bg-(--color-card-hover) focus-visible:outline-2 focus-visible:outline-(--color-accent)"

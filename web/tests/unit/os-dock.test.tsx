@@ -42,6 +42,16 @@ describe('Dock: Bildschirm-Punkte', () => {
     expect(wechseln.mock.calls.map((c) => c[0])).toEqual([2, 0, 2, 0]);
   });
 
+  it('Start ist ein Home-Knopf mit Haus, die übrigen bleiben Punkte', () => {
+    const wechseln = dock(2);
+    const [start, ...rest] = screen.getAllByRole('tab');
+    expect(start.classList.contains('os-punkt-start')).toBe(true);
+    expect(start.querySelector('.os-punkt-haus')).not.toBeNull();
+    expect(rest.every((r) => !r.classList.contains('os-punkt-start') && !r.querySelector('.os-punkt-haus'))).toBe(true);
+    fireEvent.click(start);
+    expect(wechseln).toHaveBeenCalledWith(0);
+  });
+
   it('am Ende ändert ArrowRight nichts', () => {
     const wechseln = dock(2);
     fireEvent.keyDown(screen.getByRole('tablist', { name: 'Bildschirme' }), { key: 'ArrowRight' });

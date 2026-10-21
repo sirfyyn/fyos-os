@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mail</title>
+<style>/*STIL*/
+  /* Eigene Klassen der App tragen den Vorsatz m- (die Klassen der gemeinsamen Schicht gehören _stil.css) */
+  .m-raster { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 760px) { .m-raster { grid-template-columns: minmax(260px, 2fr) minmax(0, 3fr); } }
+  .m-suche { display: flex; gap: 8px; margin: 0 0 12px; }
+  .m-suche input { flex: 1 1 auto; min-width: 0; }
+  .m-kopf { font-size: 16px; font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; margin: 0 0 4px; }
+  .m-meta { font-size: 12.5px; color: var(--mut); margin: 0 0 4px; overflow-wrap: anywhere; }
+  .m-text { margin: 12px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; max-height: 520px; overflow: auto; }
+  .m-hinweis { margin: 12px 0 0; font-size: 12.5px; color: var(--mut); }
+  .zeile.ungelesen .zeile-titel { font-weight: var(--font-weight-semibold); }
+  /* Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt ein Fenster zur Zeit, Liste oder Mail; die Mail kürzer */
+  .m-weitere { margin: 0; padding: 8px 4px 0; font-size: 12.5px; color: var(--mut); text-align: center; }
+  .m-aktionen { margin: 0 0 8px; }
+  html:is([data-stufe="blick"], [data-stufe="kompakt"]) .m-text { max-height: 200px; }
+  html[data-stufe="blick"] .m-text { max-height: 96px; }
+  html[data-stufe="weit"] .m-text { max-height: 760px; }
+</style>
+</head>
+<body>
+<!--KOPF-->
+  <button id="knopf-neuladen" class="rund drehen" title="Aktualisieren" aria-label="Aktualisieren"><svg class="ico" data-symbol="refresh-cw"></svg></button>
+<!--/KOPF-->
+<main>
+  <form id="suche-form" class="m-suche" data-ab="normal" autocomplete="off">
+    <input id="suche" type="search" maxlength="300" placeholder="Mails suchen (from:, subject:, is:unread …)" aria-label="Mails suchen">
+    <button type="submit" class="zweit"><svg class="ico" data-symbol="search"></svg>Suchen</button>
+  </form>
+  <div class="m-raster">
+    <div id="liste"><div class="laedt">Lädt …</div></div>
+    <div id="detail"></div>
+  </div>
+</main>
+<script>
+/*BRUECKE*/
+const $ = (id) => document.getElementById(id);
+const { esc, symbol, zustand, satz } = App;
+const rufen = (name, args) => App.rufen("posteingang__" + name, args);
+
+let mails = [];
+let ungelesen = null;
+let abfrage = "";
+let zustandText = "";     // "nicht eingerichtet" | "fehler" | ""
+let meldung = "";
+let offen = "";
+let bekommen = false;
+
+// Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt ein Fenster zur Zeit, entweder die Liste oder die Mail
+const klein = () => App.stufe === "blick" || App.stufe === "kompakt";
+const weitere = (n) => (n > 0 ? `<div class="m-weitere">${n === 1 ? "1 weitere Mail" : `${n} weitere Mails`} im größeren Fenster</div>` : "");
+
+function zeichnen() {
+  $("suche-form").dataset.ab = abfrage ? "" : "normal";  // die Suche erst ab normal, solange nichts gesucht wird
+  $("liste").hidden = klein() && !!offen && !zustandText;
+  $("detail").hidden = klein() && !offen;
+  if (zustandText === "nicht eingerichtet") {
+    satz("Kein Postfach eingerichtet", "warn");
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "mail", ton: "warn", titel: "Kein Postfach eingerichtet", text: meldung || "Trag einen Mail-Dienst ein oder installiere das Mail-Plugin." }) + "</div>";
+    return;
+  }
+  if (zustandText === "fehler") {
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Das Postfach antwortet nicht", text: meldung, klein: true }) + "</div>";
+    return;
+  }
+  satz(mails.length ? `${mails.length} Mail${mails.length === 1 ? "" : "s"}${ungelesen ? ", " + ungelesen + " ungelesen" : ""}` : (abfrage ? "Nichts gefunden" : "Der Posteingang ist leer"), mails.length ? "gut" : "");
+  if (!mails.length) {
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: abfrage ? "search" : "inbox", titel: abfrage ? "Nichts gefunden" : "Keine Mails", text: abfrage ? `Für „${abfrage}“ gibt es keine Mail.` : "Der Posteingang ist leer.", klein: true }) + "</div>";
+    return;
+  }
+  // Im Blick und kompakt zuerst die ungelesenen, und nur so viele, wie das Fenster zeigt
+  const sicht = klein() ? [...mails].sort((a, b) => Number(a.gelesen) - Number(b.gelesen)).slice(0, App.anzahl({ blick: 3, kompakt: 6 })) : mails;
+  $("liste").innerHTML = '<div class="karte zeilen">' + sicht.map((m) => {
+    const datum = App.stufe === "weit" && m.datum && Number.isFinite(Date.parse(m.datum)) ? " · " + App.zeit.vor(Date.parse(m.datum)) : "";
+    return `<button type="button" class="zeile mitte${m.gelesen ? "" : " ungelesen"}${m.id === offen ? " an" : ""}" data-aktion="oeffne" data-id="${esc(m.id)}" data-typ="mail" data-label="${esc(m.betreff)}">`
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(m.betreff)}</span><span class="zeile-unter">${esc(m.von || "")}${esc(datum)}${m.ausschnitt ? " · " + esc(m.ausschnitt) : ""}</span></span></button>`;
+  }).join("") + "</div>" + weitere(mails.length - sicht.length);
+}
+
+function detailZeichnen(d) {
+  // Im Blick und kompakt oben „Zurück“ zur Liste; das Konto nur weit, die Erklärung nur ab normal
+  const zurueck = klein() ? App.knoepfe([{ text: "Zurück", symbol: "arrow-left", klasse: "leise", aktion: "zurueck" }], { klasse: "m-aktionen" }) : "";
+  $("detail").innerHTML = `<div class="karte">${zurueck}<h2 class="m-kopf">${esc(d.betreff)}</h2>`
+    + `<p class="m-meta">Von ${esc(d.von || "?")}${d.datum ? " · " + esc(App.zeit.voll(Date.parse(d.datum))) : ""}</p>`
+    + (d.an ? `<p class="m-meta">An ${esc(d.an)}</p>` : "")
+    + (App.stufe === "weit" && d.konto ? `<p class="m-meta">Konto ${esc(d.konto)}</p>` : "")
+    + (d.anhaenge && d.anhaenge.length ? `<p class="m-meta">${symbol("paperclip")} ${esc(d.anhaenge.map((a) => a.name).join(", "))}</p>` : "")
+    + `<div class="m-text">${esc(d.text || "(kein Text)")}${d.gekuerzt ? "\n\n[gekürzt]" : ""}</div>`
+    + (klein() ? "" : `<p class="m-hinweis">Zieh die Mail auf „Vorgänge“, um daraus einen Vorgang zu machen, oder auf den Agenten, um dazu zu fragen. Der Text stammt von außen.</p>`)
+    + `</div>`;
+}
+
+async function laden() {
+  try {
+    const d = await rufen("zeigen", { abfrage: abfrage || undefined });
+    zustandText = d.zustand === "ok" ? "" : (d.zustand || "");
+    meldung = d.hinweis || d.error || "";
+    mails = Array.isArray(d.mails) ? d.mails : [];
+    ungelesen = d.ungelesen ?? null;
+    bekommen = true;
+  } catch (e) { zustandText = "fehler"; meldung = App.fehlertext(e); }
+  zeichnen();
+}
+
+async function oeffnen(id) {
+  offen = id;
+  zeichnen();
+  if (klein()) $("detail").innerHTML = '<div class="karte"><div class="laedt">Lädt …</div></div>';
+  try { detailZeichnen(await rufen("lesen", { id })); }
+  catch (e) { $("detail").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Mail nicht lesbar", text: App.fehlertext(e), klein: true }) + "</div>"; }
+}
+
+App.bei("oeffne", (el) => oeffnen(el.dataset.id));
+App.bei("zurueck", () => { offen = ""; zeichnen(); });
+$("suche-form").addEventListener("submit", (ev) => { ev.preventDefault(); abfrage = $("suche").value.trim(); laden(); });
+$("knopf-neuladen").addEventListener("click", laden);
+
+// Jede Mail ist ein ziehbares Ding (Typ „mail“): auf „Vorgänge“ wird sie ein Vorgang, auf den Agenten ein Kontext.
+App.ziehbar(document.body, { selektor: "[data-typ]" });
+App.auf("fyos/oeffne", (d) => { if (d && d.typ === "mail" && typeof d.id === "string" && d.id) { offen = d.id; oeffnen(d.id); } });
+App.auf("ui/notifications/tool-result", (r) => { const d = App.daten(r); if (d && Array.isArray(d.mails)) { bekommen = true; zustandText = d.zustand === "ok" ? "" : (d.zustand || ""); mails = d.mails; ungelesen = d.ungelesen ?? null; zeichnen(); } });
+// Andere Kachelgröße, andere Ansicht (Entscheidung 507)
+window.addEventListener("app-stufe", () => { if (bekommen) zeichnen(); });
+App.start("fyos-posteingang").then(() => setTimeout(() => { if (!bekommen) laden(); }, 1500)).catch(() => {});
+</script>
+</body>
+</html>

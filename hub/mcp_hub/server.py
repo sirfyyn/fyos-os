@@ -30,6 +30,7 @@ from typing import Any
 try:
     # mcp >= 2.0: `mcp.server.fastmcp` ist weg, die Klasse heisst MCPServer.
     from mcp.server.mcpserver import MCPServer as _HubServer
+    from mcp.server.mcpserver.exceptions import ToolError as _ToolError
     from mcp_types import CallToolResult as _CallToolResult
     from mcp_types import Icon as _Icon
 
@@ -37,6 +38,7 @@ try:
 except ModuleNotFoundError:
     # mcp 1.x. Der Leitfaden nennt genau diesen Rueckfall ausdruecklich als tragfaehig.
     from mcp.server.fastmcp import FastMCP as _HubServer
+    from mcp.server.fastmcp.exceptions import ToolError as _ToolError
     from mcp.types import CallToolResult as _CallToolResult
     from mcp.types import Icon as _Icon
 
@@ -51,7 +53,9 @@ from starlette.routing import Mount, Route
 from . import __version__ as HUB_VERSION
 from . import ansicht as _ansicht
 from . import hybrid as _hybrid
+from . import liste_geaendert as _liste_geaendert
 from . import metriken as _metriken
+from . import plugins_live as _plugins_live
 from . import suchrang as _suchrang
 from . import suchspur as _suchspur
 from .anmeldung import AnmeldungMiddleware
@@ -118,7 +122,31 @@ _TRANSPORT: dict[str, Any] = {
     "streamable_http_path": "/",
 }
 
-mcp = _HubServer(
+class _HubMitSitzungen(_HubServer):
+    """Merkt sich die Sitzung jedes Clients, der `tools/list` abruft (Hot-Reload Stufe 2, nur mit `mcp_sitzungen`).
+
+    Sonst tut sie nichts (`MELDER.sitzung_merken` weist ab). Fehler beim Merken dürfen `tools/list` nie stören."""
+
+    if _SDK_V2:
+
+        async def _handle_list_tools(self, ctx: Any, params: Any) -> Any:
+            if _liste_geaendert.MELDER.sitzungen_an:
+                with contextlib.suppress(Exception):
+                    _liste_geaendert.MELDER.sitzung_merken(
+                        getattr(ctx, "session", None), getattr(ctx, "protocol_version", None)
+                    )
+            return await super()._handle_list_tools(ctx, params)
+
+    else:
+
+        async def list_tools(self) -> Any:
+            if _liste_geaendert.MELDER.sitzungen_an:
+                with contextlib.suppress(Exception):
+                    _liste_geaendert.MELDER.sitzung_merken(self.get_context().session)
+            return await super().list_tools()
+
+
+mcp = _HubMitSitzungen(
     name="FYOS MCP-Hub",
     instructions=(
         "FYOS MCP-Hub (Federated Mode). Exposes 9 meta-tools over all "
@@ -430,6 +458,10 @@ def _health_bericht(reg: Any) -> dict[str, Any]:
         # "unhealthy" (der Hub selbst ist gesund), sondern in die eigene Liste.
         tot = str(res.get("status", "")).lower() == "unreachable"
         plugins[name] = {"healthy": flag, "aus": aus, "unreachable": tot, **res}
+        # Mit plugins_live: woher kommt der Code, welcher Commit, letzter Ladefehler. Ohne Live-Laden kein Feld.
+        live = _plugins_live.plugin_status(reg.plugins[name]) if name in getattr(reg, "plugins", {}) else None
+        if live is not None:
+            plugins[name]["live"] = live
         if tot:
             unreachable.append(name)
         # Nur ECHTE Ausfaelle zaehlen. Ein `aus`-Plugin gehoert nicht in die
@@ -447,7 +479,9 @@ def _health_bericht(reg: Any) -> dict[str, Any]:
             "reason": grund,
         }
         unhealthy.append(name)
+    bericht_live = _plugins_live.uebersicht()
     return {
+        **({"live": bericht_live} if bericht_live is not None else {}),
         "ok": True,
         "count": len(plugins),
         "unhealthy": unhealthy,
@@ -630,6 +664,20 @@ def konto_elicitation(fehlt: dict[str, Any], text: str | None = None) -> Excepti
     )
 
 
+def _app_fehler(res: dict[str, Any], fqtn: str) -> Exception:
+    """Fehler eines direkten App-Werkzeugs (`gui__bauen`) fuer den Agenten.
+
+    mcp 2.x zeigt dem Client nur den Text eines `ToolError`; jede andere Ausnahme wird zu „Error executing tool
+    <name>“ ohne Grund (2026-10-18, gui__bauen mit falschen Vorlagendaten). `bad_arguments` ist der Fehler des
+    Aufrufers (Plugins werfen dafuer ValueError mit Feldnamen) und soll ankommen, wie ueber hub__call_tool.
+    Alles andere (Plugin-Absturz, Upstream, Zeitlimit) bleibt verborgen.
+    """
+    text = res.get("error") or f"{fqtn} fehlgeschlagen"
+    if res.get("kind") == "bad_arguments":
+        return _ToolError(text)
+    return RuntimeError(text)
+
+
 def _app_fn(reg: PluginRegistry, fqtn: str, schema: dict[str, Any]):
     import inspect  # noqa: PLC0415
 
@@ -639,7 +687,7 @@ def _app_fn(reg: PluginRegistry, fqtn: str, schema: dict[str, Any]):
         if not res.get("ok") and res.get("kind") == "konto_fehlt":
             raise konto_elicitation(res.get("result") or {}, res.get("error"))
         if not res.get("ok"):
-            raise RuntimeError(res.get("error") or f"{fqtn} fehlgeschlagen")
+            raise _app_fehler(res, fqtn)
         out = res.get("result")
         out = out if isinstance(out, dict) else {"result": out}
         link = oeffnen_link_fuer(reg, fqtn, args)
@@ -774,6 +822,65 @@ async def dispatch_im_thread(
     Der MCP-Weg laeuft ohnehin in Arbeitsthreads; der Kontext (AUFRUFER) wandert mit.
     """
     return await asyncio.to_thread(dispatch, reg, fqtn, arguments)
+
+
+def _nach_plugin_aenderung(ergebnis: dict[str, Any]) -> None:
+    """Nach einem Live-Nachladen: App-Werkzeuge und ui://-Ressourcen neu anmelden, Suchvektoren auffrischen,
+    Ereignis „Plugin neu geladen“ auf den Bus und offene Sitzungen/Listen-Ströme benachrichtigen (Hot-Reload Stufe 2).
+    Läuft unter der Sperre des Nachladens."""
+    reg = _REGISTRY
+    if reg is None:
+        return
+    _apps_anbinden(reg)
+    _hybrid.HYBRID.vorwaermen(search_tools(reg, ""))
+    _plugins_live.ereignis(reg, ergebnis)
+    _liste_geaendert.MELDER.melden()
+
+
+_WAECHTER: _plugins_live.Waechter | None = None
+
+
+def _waechter_starten() -> None:
+    """Hintergrund-Waechter fuer Live-Plugins starten (nur mit plugins_live und einer Quelle; sonst nichts)."""
+    global _WAECHTER
+    if not _plugins_live.aktiv() or _REGISTRY is None or _CONFIG is None:
+        return
+    if _WAECHTER is not None:
+        _WAECHTER.stop()
+    _WAECHTER = _plugins_live.Waechter(
+        _REGISTRY, _CONFIG, takt_s=_CONFIG.plugins_live_takt_s, nach_aenderung=_nach_plugin_aenderung
+    )
+    _WAECHTER.start()
+
+
+async def rest_plugins_neu_laden(request: Request) -> JSONResponse:
+    """POST /hub/plugins/neu-laden {plugin?: name, erzwingen?: bool} — geaenderte Plugins sofort aus den Quellen laden.
+
+    Ohne Koerper: alle geaenderten. Nur intern erreichbar wie die anderen schreibenden /hub/-Wege (Herkunftspruefung
+    in HerkunftMiddleware, Anmeldung von aussen in AnmeldungMiddleware); keine eigene Berechtigung.
+    """
+    if _REGISTRY is None or _CONFIG is None:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "not_initialized"})
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — leerer Koerper ist erlaubt
+        body = {}
+    if not isinstance(body, dict):
+        return _anfrage_fehler("Der Anfragekörper muss ein JSON-Objekt sein.")
+    nur = body.get("plugin")
+    if nur is not None and not isinstance(nur, str):
+        return _anfrage_fehler("`plugin` muss ein Text sein.")
+    res = await asyncio.to_thread(
+        _plugins_live.nachladen,
+        _REGISTRY,
+        _CONFIG,
+        nur=nur or None,
+        erzwingen=bool(body.get("erzwingen")),
+        nach_aenderung=_nach_plugin_aenderung,
+    )
+    res["liste_melden"] = _liste_geaendert.MELDER.zustand()
+    status = 200 if res.get("ok") else {"aus": 409, "not_found": 404}.get(str(res.get("kind")), 500)
+    return JSONResponse(status_code=status, content=res)
 
 
 async def rest_search(request: Request) -> JSONResponse:
@@ -1186,8 +1293,34 @@ async def lifespan(app: Starlette):
         len(_REGISTRY.plugins) if _REGISTRY else 0,
         len(_REGISTRY.tools) if _REGISTRY else 0,
     )
-    async with mcp.session_manager.run():
-        yield
+    _liste_geaendert.MELDER.schleife_setzen(asyncio.get_running_loop())
+    _waechter_starten()
+    try:
+        async with mcp.session_manager.run():
+            yield
+    finally:
+        _liste_geaendert.MELDER.schleife_setzen(None)
+        if _WAECHTER is not None:
+            _WAECHTER.stop()
+
+
+def _liste_melden_einrichten(cfg: HubConfig) -> None:
+    """Schalter `liste_melden` / `mcp_sitzungen` (Hot-Reload Stufe 2) auf Verteiler, Transport und Handshake anwenden.
+
+    Muss vor `mcp.streamable_http_app()` laufen: dort entsteht der Sitzungsverwalter mit dem Wert `stateless_http`."""
+    verteiler = getattr(mcp, "_subscriptions", None) if _SDK_V2 else None
+    _liste_geaendert.MELDER.konfigurieren(
+        melden=cfg.liste_melden, sitzungen=cfg.mcp_sitzungen, verteiler=verteiler
+    )
+    zustandslos = not _liste_geaendert.MELDER.sitzungen_an
+    _TRANSPORT["stateless_http"] = zustandslos
+    if not _SDK_V2:
+        mcp.settings.stateless_http = zustandslos
+    if zustandslos:
+        return
+    lowlevel = getattr(mcp, "_lowlevel_server", None) if _SDK_V2 else getattr(mcp, "_mcp_server", None)
+    _liste_geaendert.listchanged_ankuendigen(lowlevel)
+    logger.info("mcp-hub: zustandsbehaftete MCP-Sitzungen an (mcp_sitzungen) — nur mit einer Replika oder Sticky-Routing")
 
 
 def _plugin_routen(registry: Any, belegt: set[str]) -> list[Any]:
@@ -1252,6 +1385,7 @@ def build_app(config_path: str | None = None) -> Starlette:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("mcp_hub.server: registry_anbinden(%s) failed: %s", plugin.name, exc)
     _apps_anbinden(_REGISTRY)
+    _liste_melden_einrichten(_CONFIG)
     mount_path = _CONFIG.path or DEFAULT_PATH
     kern = [
         Route("/health", health),
@@ -1269,6 +1403,8 @@ def build_app(config_path: str | None = None) -> Starlette:
         # Gebaute Ansichten (Plugin gui) als eigenstaendige Seite und ihre frischen Daten: nur lesend
         Route("/hub/gui/{id}", rest_gui_seite, methods=["GET"]),
         Route("/hub/gui/{id}/daten", rest_gui_daten, methods=["GET"]),
+        # Plugins aus den Quellen sofort nachladen (nur mit plugins_live; sonst 409)
+        Route("/hub/plugins/neu-laden", rest_plugins_neu_laden, methods=["POST"]),
         # OS-Bruecke: Browser-Kanal, ueber den ein Agent auf das offene OS wirkt (SSE + 2x POST)
         *os_routen(),
     ]

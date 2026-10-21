@@ -20,6 +20,7 @@ import {
 import { aufloesen, farbschemaLaden, farbschemaSetzen, hoereFarbschema, type Aufgeloest, type Farbschema } from '~/lib/einstellungen/farbschema';
 import { FOKUS, KNOPF_LEISE, Regler, SchalterZeile, Wahl, Zeile, radioTaste } from './bausteine';
 import KulisseVorschau from './KulisseVorschau';
+import { TAPETE_EREIGNIS } from '~/lib/os/tapete';
 
 // ── Farbschema ──────────────────────────────────────────────────────────────
 
@@ -297,6 +298,11 @@ function KulisseRegler(p: { titelId: string }): JSX.Element {
           gesperrt={still() || wenigBewegung()}
           onWahl={(w) => aendern({ tempo: TEMPI.find((t) => t.wert === w)?.tempo ?? 1 })}
         />
+      </Zeile>
+      <Zeile id={`${id}-tapete`} titel="Tapete je Bildschirm" unter="Eigenes Bild oder Verlauf statt der Kulisse, für jeden Bildschirm einzeln (auch den Start).">
+        <button type="button" class="os-chip" onClick={() => window.dispatchEvent(new CustomEvent(TAPETE_EREIGNIS))}>
+          Tapete wählen …
+        </button>
       </Zeile>
       <Zeile id={`${id}-glas`} titel="Glas" unter="Unschärfe hinter Fenstern und Leisten.">
         <Regler beschriftetVon={`${id}-glas`} wert={k().glas} min={0} max={40} onWert={(glas) => aendern({ glas })} anzeige={(w) => `${Math.round(w)} px`} links="klar" rechts="milchig" />

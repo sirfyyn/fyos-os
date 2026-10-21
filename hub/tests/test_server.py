@@ -75,8 +75,8 @@ def test_search_tools_finds_echo():
 
 
 def test_search_tools_empty_query_returns_all():
-    """Empty query returns every registered tool."""
-    result = hub_server.hub__search_tools(query="")
+    """Empty query returns every registered tool (voll: sonst nur die ersten 25, und neue Plugins schieben echo.say hinaus)."""
+    result = hub_server.hub__search_tools(query="", voll=True)
     assert result["count"] >= 1
     assert any(t["name"] == "echo.say" for t in result["tools"])
 

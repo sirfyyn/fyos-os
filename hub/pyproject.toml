@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fyos-hub"
-version = "0.1.1"
+version = "0.1.2"
 description = "Der MCP-Hub von FYOS - For Your Own Sake: ein Server, viele Plugins, Apps mit Oberflaeche."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -45,6 +45,13 @@ openclaw = "mcp_hub.plugins.openclaw:OpenClawPlugin"
 gui = "mcp_hub.plugins.gui:GuiPlugin"
 os = "mcp_hub.plugins.os:OsPlugin"
 dateien = "mcp_hub.plugins.dateien:DateienPlugin"
+desktop = "mcp_hub.plugins.desktop:DesktopPlugin"
+suche = "mcp_hub.plugins.suche:SuchePlugin"
+vorgaenge = "mcp_hub.plugins.vorgaenge_app:VorgaengePlugin"
+posteingang = "mcp_hub.plugins.posteingang:PosteingangPlugin"
+termine = "mcp_hub.plugins.termine_app:TerminePlugin"
+agent = "mcp_hub.plugins.agent:AgentPlugin"
+lesen = "mcp_hub.plugins.lesen:LesenPlugin"
 
 # Skills aus Paketen: Der Kern bringt den Skill `generative-ui` samt Vorlagen als Paketdaten mit
 # (mcp_hub/skills/); das Plugin `skills` findet sie ueber diese Gruppe (Quelle `kern`).

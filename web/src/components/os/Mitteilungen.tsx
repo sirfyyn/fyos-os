@@ -18,6 +18,7 @@ import { ANZEIGE_MS, ANZEIGE_NACHGEHOLT_MS, nachholZeit, zeitText, type Mitteilu
 import { agentName } from '~/lib/config';
 import { menue, menueOeffnen, type MenuePunkt } from '~/lib/os/menue';
 import { deeplink } from '~/lib/os/oeffnen';
+import type { RueckHinweis } from '~/lib/os/rueckgaengig';
 import Symbol, { Glyphe } from './Symbol';
 
 /** So lange spielt die Ausblend-Bewegung (CSS: os-mitteilung-aus) — danach wird die Karte entfernt. */
@@ -25,11 +26,11 @@ const AUS_MS = 200;
 /** Mindestens so lange bleibt eine Karte noch stehen, wenn man die Maus wieder wegnimmt. */
 const REST_MIN_MS = 4_000;
 
-/** Eine kurze Rückmeldung mit „Rückgängig“ — nach „stumm“ oder „ausschalten“, damit das nicht ohne Rückweg bleibt. */
-export interface Hinweis {
-  text: string;
-  zurueck: () => void;
-}
+/**
+ * Eine kurze Rückmeldung mit „Rückgängig“ — nach „stumm“ oder „ausschalten“, damit das nicht ohne Rückweg bleibt, und seit
+ * nach dem Schließen eines Fensters oder Bildschirms (lib/os/rueckgaengig.ts).
+ */
+export type Hinweis = RueckHinweis;
 const HINWEIS_MS = 8_000;
 
 export interface MitteilungenProps {
@@ -68,18 +69,22 @@ function HinweisKarte(p: { h: Hinweis; onWeg: () => void }): JSX.Element {
       onFocusIn={() => setUeber(true)}
       onFocusOut={() => setUeber(false)}
     >
-      <Glyphe name="bell-off" class="os-mitteilung-hinweis-symbol" />
+      <Glyphe name={p.h.symbol ?? 'bell-off'} class="os-mitteilung-hinweis-symbol" />
       <span class="os-mitteilung-hinweis-text">{p.h.text}</span>
-      <button
-        type="button"
-        class="os-mitteilung-rueckgaengig"
-        onClick={() => {
-          p.h.zurueck();
-          schliessen();
-        }}
-      >
-        Rückgängig
-      </button>
+      <Show when={p.h.zurueck}>
+        {(zurueck) => (
+          <button
+            type="button"
+            class="os-mitteilung-rueckgaengig"
+            onClick={() => {
+              zurueck()();
+              schliessen();
+            }}
+          >
+            Rückgängig
+          </button>
+        )}
+      </Show>
     </div>
   );
 }

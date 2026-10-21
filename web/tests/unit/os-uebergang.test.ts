@@ -107,7 +107,7 @@ describe('mit Animation', () => {
 describe('inDenBlick (Fokus holt das Fenster in den Blick)', () => {
   const rect = (top: number) => ({ left: 0, top, width: 700, height: 400, right: 700, bottom: top + 400, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
 
-  it('scrollt ein Fenster weit unterhalb, ein sichtbares nicht (live 04.10.: Verlauf 4200 px tief)', () => {
+  it('scrollt ein Fenster weit unterhalb, ein sichtbares nicht', () => {
     const { fenster } = aufbau();
     const blick = vi.fn();
     fenster.scrollIntoView = blick;
@@ -120,7 +120,7 @@ describe('inDenBlick (Fokus holt das Fenster in den Blick)', () => {
     expect(blick).not.toHaveBeenCalled();
   });
 
-  it('springt weite Wege sofort, weich nur kurze (live 04.10.: smooth bewegte im Hintergrund-Tab nichts)', () => {
+  it('springt weite Wege sofort, weich nur kurze', () => {
     const { fenster } = aufbau();
     const blick = vi.fn();
     fenster.scrollIntoView = blick;

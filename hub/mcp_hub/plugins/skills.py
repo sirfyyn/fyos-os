@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from ..plugin import HubPlugin, ToolDescriptor
+from . import _klonstand
 
 VORGABE_QUELLE = "/opt/fyos/skills"
 TEXT_MAX = 60_000
@@ -133,9 +134,14 @@ class SkillsPlugin(HubPlugin):
         self.repo = self.quellen[0][0] if self.quellen else Path(VORGABE_QUELLE)
         self.ttl = float(cfg.get("scan_ttl_s", 30))
         self._beitraege = bool(cfg.get("beitraege", True))
+        # Plugin-Einstellung `nur_sichtbar: {<Quelle>: [Skill-Namen]}`: aus dieser Quelle erscheinen in `suchen` nur die
+        # genannten Skills (ein grosses fremdes Paket verstopft sonst die Suche). Nichts wird geloescht: `lesen` geht weiter.
+        nur = cfg.get("nur_sichtbar")
+        self.nur_sichtbar = {str(q): frozenset(_liste(n)) for q, n in nur.items()} if isinstance(nur, dict) else {}
         self._registry: Any = None
         self._katalog: dict[str, dict[str, Any]] = {}
         self._stand = 0.0
+        self._commit: str | None = None  # Commit des Klons beim letzten Scan: neuer Commit = Verzeichnis neu lesen
         self._lock = threading.Lock()
 
     def registry_anbinden(self, registry: Any) -> None:
@@ -211,8 +217,9 @@ class SkillsPlugin(HubPlugin):
 
     # ── Katalog ─────────────────────────────────────────────────────────────
     def katalog(self) -> dict[str, dict[str, Any]]:
+        commit = _klonstand.commit(self.repo)
         with self._lock:
-            if self._katalog and time.monotonic() - self._stand < self.ttl:
+            if self._katalog and commit == self._commit and time.monotonic() - self._stand < self.ttl:
                 return self._katalog
             neu: dict[str, dict[str, Any]] = {}
             for wurzel, quelle in self.quellen:
@@ -227,11 +234,14 @@ class SkillsPlugin(HubPlugin):
                     # die zuerst genannte Quelle hat Vorrang bei gleichem Namen
                     if e["name"] in neu:
                         continue
+                    e["ausgeblendet"] = quelle in self.nur_sichtbar and e["name"] not in self.nur_sichtbar[quelle]
                     neu[e["name"]] = e
             for e in self._beitraege_lesen():
+                e.setdefault("ausgeblendet", False)
                 neu.setdefault(e["name"], e)
             self._katalog = neu
             self._stand = time.monotonic()
+            self._commit = commit
             return neu
 
     def _rang_quelle(self, quelle: str) -> int:
@@ -301,11 +311,13 @@ class SkillsPlugin(HubPlugin):
         raise ValueError(f"skills hat kein Werkzeug {method!r}")
 
     def suchen(self, q: str, quelle: str = "") -> dict[str, Any]:
-        alle = [e for e in self.katalog().values() if not quelle or e["quelle"] == quelle]
+        stand = _klonstand.stand(self.repo)
+        alle = [e for e in self.katalog().values() if (not quelle or e["quelle"] == quelle) and not e.get("ausgeblendet")]
         woerter = [w.lower() for w in _WORT.findall(q)]
         if not woerter:
             liste = [self._oeffentlich(e, kurz=True) for e in sorted(alle, key=lambda e: (self._rang_quelle(e["quelle"]), e["name"]))]
-            return {"satz": f"{len(liste)} Skills im Verzeichnis.", "art": "verzeichnis", "anzahl": len(liste), "skills": liste}
+            return {"satz": f"{len(liste)} Skills im Verzeichnis.", "art": "verzeichnis", "anzahl": len(liste),
+                    "skills": liste, "stand": stand}
         bewertet = []
         for e in alle:
             punkte, getroffen = 0, 0
@@ -320,7 +332,7 @@ class SkillsPlugin(HubPlugin):
         auswahl = sorted(voll or bewertet, key=lambda b: (-b[1], b[2]["name"]))[:TREFFER_MAX]
         liste = [self._oeffentlich(b[2], kurz=True) for b in auswahl]
         satz = (f"{len(liste)} Skills zu „{q}“." if liste else f"Kein Skill zu „{q}“ — skills.suchen ohne q zeigt alle.")
-        return {"satz": satz, "art": art, "anzahl": len(liste), "skills": liste}
+        return {"satz": satz, "art": art, "anzahl": len(liste), "skills": liste, "stand": stand}
 
     def lesen(self, name: Any, datei: Any = None) -> dict[str, Any]:
         if not isinstance(name, str) or not name:
@@ -347,10 +359,14 @@ class SkillsPlugin(HubPlugin):
             pfad = pfad.parent / "references" / datei
         text = pfad.read_text(encoding="utf-8", errors="replace")
         gekuerzt = len(text) > TEXT_MAX
-        return {
+        out = {
             **self._oeffentlich(e, kurz=False),
             "datei": datei or "SKILL.md",
             "text": text[:TEXT_MAX],
             "gekuerzt": gekuerzt,
             "pfad": str(pfad),
+            "stand": _klonstand.stand(self.repo),
         }
+        if e.get("ausgeblendet"):
+            out["ausgeblendet"] = True  # nicht in skills.suchen, aber lesbar
+        return out

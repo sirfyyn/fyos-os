@@ -1244,6 +1244,40 @@ tr:hover > td { background: color-mix(in oklab, var(--fg) 3%, transparent); }
   *::after { animation: none !important; transition: none !important; }
 }
 
+/* ── 11b. Dichte in der Shell ──────────────────────────────────────────────────────────────────
+ * In der Shell (data-host="fyos") gelten die Abstände der Stufe kompakt immer, auch im freien Rahmen des Fensters,
+ * damit mehr Inhalt zu sehen ist; Schriftgrößen bleiben. Bedienhöhen werden etwas kleiner, aber nur mit Maus: am
+ * Touchgerät und unter 600 px hebt Abschnitt 11 sie wieder auf 40 px. Fremde Hosts behalten die großzügige Grundstufe.
+ * Steht vor Abschnitt 12, damit die Stufen kompakt und blick (gleiche Spezifität) danach noch enger setzen dürfen.
+ * Höhen mit :where(html…) ohne Spezifität: eigene Größen einer App (.knopf-sym, Chips im eigenen <style>) gehen vor. */
+html[data-host="fyos"] { --abstand: 10px; }
+html[data-host="fyos"] body { padding: 12px 14px 16px; }
+html[data-host="fyos"][data-stufe="weit"] body:not([data-breite="voll"]) { padding-inline: max(14px, calc((100vw - 1440px) / 2)); }
+html[data-host="fyos"] .kopf { gap: 8px 10px; margin-bottom: 10px; }
+html[data-host="fyos"] .aktionen { gap: 6px; }
+html[data-host="fyos"] .abschnitt { margin-top: 16px; }
+html[data-host="fyos"] .abschnitt:first-child,
+html[data-host="fyos"] .kopf + .abschnitt { margin-top: 0; }
+html[data-host="fyos"] :where(h2) { margin: 16px 0 8px; }
+html[data-host="fyos"] .abschnitt > :where(h2),
+html[data-host="fyos"] .karte > :where(h2):first-child { margin-top: 0; }
+html[data-host="fyos"] .karte { padding: 12px 14px; }
+html[data-host="fyos"] .satz { gap: 10px; padding: 10px 13px; }
+html[data-host="fyos"] .hinweis { padding: 8px 11px; }
+html[data-host="fyos"] .zeile { gap: 10px; min-height: 46px; padding: 8px 12px; }
+html[data-host="fyos"] .kennzahlen { gap: 8px; }
+html[data-host="fyos"] .kennzahl { gap: 4px; padding: 10px 12px 11px; }
+html[data-host="fyos"] .zustand { gap: 4px; padding: 18px 12px 16px; }
+html[data-host="fyos"] .laedt.gross { padding: 24px 6px; }
+html[data-host="fyos"] .fuss { margin-top: 12px; }
+@media (pointer: fine) and (min-width: 601px) {
+  :where(html[data-host="fyos"]) :where(button) { min-height: 32px; padding: 0 13px; }
+  :where(html[data-host="fyos"]) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select) { min-height: 34px; }
+  :where(html[data-host="fyos"]) .rund { width: 32px; min-width: 32px; height: 32px; min-height: 32px; padding: 0; }
+  :where(html[data-host="fyos"]) .chip { min-height: 28px; padding: 0 11px; }
+  :where(html[data-host="fyos"]) .klein { min-height: 28px; padding: 0 10px; }
+}
+
 /* ── 12. Größenstufen des Rahmens ──────────────────────────────────────────────────────────────
  * Ändert sich die Kachelgröße, soll sich auch der Inhalt anpassen. Die Brücke setzt data-stufe
  * aus hostContext.containerDimensions (_bruecke.js, stufeAus): blick und kompakt nur in einem Rahmen mit fester Höhe
@@ -1291,6 +1325,21 @@ html[data-stufe="blick"] .zeile { min-height: 42px; padding: 7px 11px; }
 html[data-stufe="blick"] .zeile-unter { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-stufe="blick"] .satz { padding: 9px 12px; font-size: 13.5px; }
 html[data-stufe="blick"] .satz > .kachel { width: 30px; height: 30px; border-radius: 9px; font-size: 16px; }
+
+/* 12b. Eine Ansicht je Größe (Entscheidung 507, 20.10.2026: „für jede kachelgröße einer ansicht sollte sie eine eigene ansicht haben …
+ * auf eine große kommt natürlich mehr, je kleiner desto wichtiger werden die anzeigen und desto weniger“).
+ * Apps sagen am Block, ab welcher Stufe er erscheint; die Reihenfolge ist blick < kompakt < normal < weit.
+ *   data-ab="kompakt"   erst ab kompakt (im Blick weg)
+ *   data-ab="normal"    erst ab normal (in blick und kompakt weg)
+ *   data-ab="weit"      nur weit (sehr breiter Rahmen)
+ *   data-bis="blick"    nur im Blick (kleine Ersatzanzeige, z. B. eine Zeile statt einer Tabelle)
+ *   data-bis="kompakt"  nur in blick und kompakt
+ * Ohne data-stufe (freier Rahmen, fremder Host) gilt normal. Listenlängen je Stufe: App.anzahl({blick: 3, kompakt: 6}). */
+html[data-stufe="blick"] [data-ab="kompakt"],
+html:is([data-stufe="blick"], [data-stufe="kompakt"]) [data-ab="normal"],
+html:not([data-stufe="weit"]) [data-ab="weit"],
+html:not([data-stufe="blick"]) [data-bis="blick"],
+html:not([data-stufe="blick"]):not([data-stufe="kompakt"]) [data-bis="kompakt"] { display: none !important; }
 
 /* ── 13. Eine Scrollebene in der Shell ─────────────────────────────────────────────────────────────
  * Apps sollen nicht selbst scrollen müssen. In der Shell bestimmt die App

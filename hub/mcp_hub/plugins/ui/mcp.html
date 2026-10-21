@@ -105,6 +105,14 @@
     #reiter { display: flex; }
     #reiter button { flex: 1 1 0; padding: 0 8px; }
   }
+
+  /* Eine Ansicht je Größe (Entscheidung 507): „N weitere im größeren Fenster“ */
+  .k-weitere { padding: 10px 12px; font-size: 13px; color: var(--mut); text-align: center; }
+  html[data-stufe="weit"] .k-wz .zeile-unter { -webkit-line-clamp: 3; }
+  html[data-stufe="blick"] .k-wz .zeile-unter,
+  html[data-stufe="kompakt"] .k-wz .zeile-unter { -webkit-line-clamp: 1; }
+  html[data-stufe="kompakt"] .k-text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; max-height: none; }
+  html[data-stufe="weit"] .k-text.lang { max-height: none; overflow: visible; }
 </style>
 </head>
 <body data-breite="voll">
@@ -112,7 +120,7 @@
   <button id="neu" class="rund drehen" title="Aktualisieren" aria-label="Aktualisieren"><svg class="ico" data-symbol="refresh-cw"></svg></button>
 <!--/KOPF-->
 <div id="meldung" class="hinweis fehler" role="alert" hidden></div>
-<nav class="reiter" id="reiter" role="tablist" aria-label="Ansicht" data-klebt hidden></nav>
+<nav class="reiter" id="reiter" role="tablist" aria-label="Ansicht" data-ab="kompakt" data-klebt hidden></nav>
 <main id="haupt"><div class="laedt gross">Der Werkzeugkasten wird geladen …</div></main>
 
 <script>
@@ -174,6 +182,12 @@ const appVon = (uri) => (daten && uri ? daten.apps.find((a) => a.uri === uri) : 
 const werkzeugVon = (id) => (daten ? daten.werkzeuge.find((w) => w.id === id) : null) || null;
 const pluginVon = (name) => (daten ? daten.plugins.find((p) => p.name === name) : null) || null;
 const zahlWort = (n, eins, viele) => `${n} ${n === 1 ? eins : viele}`;
+// Eine Ansicht je Größe (Entscheidung 507): Hinweis unter einer gekürzten Liste, und die Liste selbst je Stufe
+const weitereZeile = (n) => `<div class="k-weitere">${n === 1 ? "1 weiteres" : `${n} weitere`} im größeren Fenster</div>`;
+const kurzeListe = (liste, zeile) => { // im Blick drei, kompakt sechs Zeilen, der Rest als Hinweis
+  const n = App.anzahl({ blick: 3, kompakt: 6 }), rest = liste.length - Math.min(liste.length, n);
+  return `<ul class="zeilen">${liste.slice(0, n).map(zeile).join("")}</ul>` + (rest > 0 ? weitereZeile(rest) : "");
+};
 
 // ── Kopfsatz ───────────────────────────────────────────────────────────────────────────────────
 function zeichneSatz() {
@@ -202,8 +216,10 @@ function zeichnen() {
   zeichneSatz();
   zeichneReiter();
   const ort = $("haupt");
-  if (S.ansicht === "apps") ort.innerHTML = appsHtml();
-  else if (S.ansicht === "protokolle") ort.innerHTML = protokolleHtml();
+  // Eine Ansicht je Größe (Entscheidung 507): im Blick bleibt es beim Werkzeugkasten, die Reiter fallen dort weg
+  const ansicht = App.stufe === "blick" ? "kasten" : S.ansicht;
+  if (ansicht === "apps") ort.innerHTML = appsHtml();
+  else if (ansicht === "protokolle") ort.innerHTML = protokolleHtml();
   else { ort.innerHTML = kastenHtml(); zeichneListe(); zeichneDetail(); }
 }
 
@@ -221,8 +237,10 @@ function pluginsHtml() {
   const liste = [...daten.plugins].sort((a, b) => rang(a) - rang(b) || a.name.localeCompare(b.name));
   const alle = `<button type="button" class="zeile mitte k-pl alle${S.plugin === "" ? " an" : ""}" data-plugin=""${S.plugin === "" ? ' aria-current="true"' : ""}>`
     + `<span class="kachel klein grau">${symbol("boxes")}</span><span class="zeile-text"><span class="zeile-titel">Alle Plugins</span></span><span class="zeile-ende">${daten.zaehler.werkzeuge}</span></button>`;
+  // Eine Ansicht je Größe (Entscheidung 507): im Blick drei, kompakt sechs Plugins; die gestörten stehen oben
+  const n = App.anzahl({ blick: 3, kompakt: 6 }), rest = liste.length - Math.min(liste.length, n);
   return `<h2>${symbol("plug")}Plugins<span class="anzahl">${daten.plugins.length}</span></h2>`
-    + `<div class="k-scroll"><div class="gruppe">${alle}${liste.map(pluginReihe).join("")}</div></div>`;
+    + `<div class="k-scroll"><div class="gruppe">${alle}${liste.slice(0, n).map(pluginReihe).join("")}${rest > 0 ? weitereZeile(rest) : ""}</div></div>`;
 }
 
 // ── Werkzeugkasten: Werkzeugliste ──────────────────────────────────────────────────────────────
@@ -268,15 +286,15 @@ function pluginKopf() {
     + `<span class="marke ${ton}"><span class="punkt ${st.punkt}" aria-hidden="true"></span>${esc(st.text)}</span>`
     + (p.version ? `<span class="marke">v${esc(p.version)}</span>` : "")
     + (p.sicherung && p.sicherung !== "closed" ? `<span class="marke schlecht" title="Die Sicherung des Hubs hat dieses Plugin vorübergehend gesperrt">${symbol("shield-check")}Sicherung ${esc(p.sicherung)}</span>` : "")
-    + `</div>${p.beschreibung ? `<p>${esc(p.beschreibung)}</p>` : ""}`
+    + `</div>${p.beschreibung ? `<p data-ab="normal">${esc(p.beschreibung)}</p>` : ""}`
     + (p.grund ? `<div class="hinweis ${p.status === "aus" ? "info" : "fehler"}">${symbol(p.status === "aus" ? "info" : "circle-alert")}<span>${esc(p.grund)}</span></div>` : "")
     + `</div>`;
 }
 function werkzeugeHtml() {
   const filter = FILTER.map((f) => `<button type="button" class="chip${S.filter === f.id ? " an" : ""}" data-filter="${f.id}" aria-pressed="${S.filter === f.id}">${esc(f.text)}</button>`).join("");
   return pluginKopf()
-    + `<div class="leiste k-leiste"><input type="search" id="suche" placeholder="Werkzeug suchen" aria-label="Werkzeug suchen" value="${esc(S.suche)}" autocomplete="off"></div>`
-    + `<div class="knoepfe k-leiste" role="group" aria-label="Filter">${filter}</div>`
+    + `<div class="leiste k-leiste" data-ab="kompakt"><input type="search" id="suche" placeholder="Werkzeug suchen" aria-label="Werkzeug suchen" value="${esc(S.suche)}" autocomplete="off"></div>`
+    + `<div class="knoepfe k-leiste" role="group" aria-label="Filter" data-ab="normal">${filter}</div>`
     + `<div id="liste" class="k-liste"></div>`;
 }
 function zeichneListe() {
@@ -292,10 +310,13 @@ function zeichneListe() {
     })}</div>`;
     return;
   }
-  const sicht = alle.slice(0, S.zeilen);
+  // Eine Ansicht je Größe (Entscheidung 507): blick drei, kompakt sechs Werkzeuge mit Hinweis; normal wie bisher mit
+  // „Weitere anzeigen“; weit eine Seite mehr
+  const sicht = alle.slice(0, App.anzahl({ blick: 3, kompakt: 6, normal: S.zeilen, weit: S.zeilen + SEITE }));
   const rest = alle.length - sicht.length;
+  const knapp = App.stufe === "blick" || App.stufe === "kompakt";
   ort.innerHTML = `<div class="k-scroll"><div class="gruppe">${sicht.map(werkzeugReihe).join("")}`
-    + (rest > 0 ? `<button type="button" class="k-mehr" data-mehr="1">${symbol("chevron-down")}Weitere ${rest} anzeigen</button>` : "")
+    + (rest > 0 ? (knapp ? weitereZeile(rest) : `<button type="button" class="k-mehr" data-mehr="1">${symbol("chevron-down")}Weitere ${rest} anzeigen</button>`) : "")
     + `</div></div>`;
 }
 function kastenHtml() {
@@ -401,7 +422,7 @@ function inspectorKnopf() {
 function inspectorAbschnitt() {
   const i = daten && daten.inspector;
   if (!i || !i.url) return "";
-  return `<section class="abschnitt"><h2>${symbol("microscope")}Offizieller Inspector</h2><div class="karte k-zugang">`
+  return `<section class="abschnitt" data-ab="normal"><h2>${symbol("microscope")}Offizieller Inspector</h2><div class="karte k-zugang">`
     + `<p>${esc(i.hinweis)}</p>`
     + `<dl class="kv" style="margin:0"><dt>Version</dt><dd><code>${esc(i.version)}</code></dd><dt>Voreingestellter Server</dt><dd><code>${esc(i.hub_ziel)}</code> (Streamable HTTP)</dd></dl>`
     + `<div class="knoepfe">${inspectorKnopf()}</div></div></section>`;
@@ -411,7 +432,7 @@ function appKarte(w, d) {
   if (!app) return "";
   const knopf = d && d.oeffnen
     ? `<button type="button" class="zweit klein" data-oeffnen="${esc(d.oeffnen)}">${symbol("square-arrow-out-up-right")}In FYOS öffnen</button>` : "";
-  return `<div class="k-abschnitt"><h2>${symbol("layout-grid")}App</h2><div class="karte k-app">`
+  return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("layout-grid")}App</h2><div class="karte k-app">`
     + `<span class="kachel app gross" style="--h:${Number(app.ton) || 230}">${symbol(app.symbol)}</span>`
     + `<span class="zeile-text"><span class="zeile-titel">${esc(app.titel)}</span><span class="zeile-unter">${esc(app.untertitel)}</span></span>${knopf}</div>`
     + `<p class="mut" style="margin:8px 2px 0">Oberfläche <code>${esc(app.uri)}</code>${d && !d.oeffnen ? " · der Link „In FYOS öffnen“ braucht Eingaben oder ist hier nicht erlaubt" : ""}</p></div>`;
@@ -425,7 +446,7 @@ function kurzeAnsichtHtml(d) {
     + `<code>hub__mehr</code> holt den Rest. Ein Feld, nach dem ${k.schwelle}-mal gefragt wurde, steht danach von selbst darin; ${k.verfall_tage} Tage ohne Nutzung, dann fällt es wieder heraus.</p>`;
   const felder = k.felder || [];
   if (!felder.length) {
-    return `<div class="k-abschnitt"><h2>${symbol("filter")}Kurze Ansicht für Modelle</h2><div class="karte"><span class="mut">Keine eigene Sicht: In Listen stehen die Kernfelder (`
+    return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("filter")}Kurze Ansicht für Modelle</h2><div class="karte"><span class="mut">Keine eigene Sicht: In Listen stehen die Kernfelder (`
       + `${(k.kern || []).slice(0, 8).map((f) => `<code>${esc(f)}</code>`).join(", ")} …).</span></div>${fuss}</div>`;
   }
   const herkunft = (e) => e.herkunft === "plugin" ? marke("mitgeliefert", "akz", "package")
@@ -435,13 +456,13 @@ function kurzeAnsichtHtml(d) {
   for (const e of felder) { if (!pfade.has(e.pfad)) pfade.set(e.pfad, []); pfade.get(e.pfad).push(e); }
   const zeilen = [...pfade].map(([pfad, liste]) => `<dt><code>${esc(pfad || "oberste Ebene")}</code></dt><dd>`
     + liste.map((e) => `<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 4px 0"><code>${esc(e.feld)}</code>${herkunft(e)}</span>`).join("") + "</dd>").join("");
-  return `<div class="k-abschnitt"><h2>${symbol("filter")}Kurze Ansicht für Modelle<span class="anzahl">${felder.length}</span></h2>`
+  return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("filter")}Kurze Ansicht für Modelle<span class="anzahl">${felder.length}</span></h2>`
     + `<div class="karte"><dl class="kv" style="margin:0">${zeilen}</dl></div>${fuss}</div>`;
 }
 function detailHtml() {
   const w = werkzeugVon(S.werkzeug);
   if (!w) {
-    return `<div class="k-leer-detail"><div class="gruppe">${zustand({ symbol: "toolbox", ton: "grau", titel: "Werkzeug wählen",
+    return `<div class="k-leer-detail" data-ab="normal"><div class="gruppe">${zustand({ symbol: "toolbox", ton: "grau", titel: "Werkzeug wählen",
       text: "Links ein Plugin, in der Mitte ein Werkzeug: hier stehen dann Beschreibung, Eingabe und der Weg, es zu rufen." })}</div></div>`;
   }
   const d = details.get(w.id);
@@ -463,15 +484,17 @@ function detailHtml() {
   const taste = an
     ? `<div class="k-aktion"><button type="button" class="haupt" data-aktion="probieren" id="probieren"${(probe.get(w.id) || {}).laeuft ? " disabled" : ""}>${symbol("play")}Ausprobieren</button>`
       + `<span class="mut">Ruft das lesende Werkzeug wirklich auf; im Audit-Log steht es wie jeder Aufruf.</span></div>` : "";
+  // Eine Ansicht je Größe (Entscheidung 507): blick nur der Kopf und der Hinweis, kompakt ohne Aufruf, App, Schema und Erreichbarkeit
   return kopf
-    + `<p class="k-text${lang ? " lang" : ""}">${esc(d.beschreibung || "Keine Beschreibung.")}</p>`
-    + `<div class="k-abschnitt" style="margin-top:0"><h2>${symbol("sliders-horizontal")}Eingabe${felder.length ? `<span class="anzahl">${felder.length}</span>` : ""}</h2>${formular}${hinweis}${taste}</div>`
-    + `<div id="ergebnis">${ergebnisHtml(w.id)}</div>`
-    + `<div class="k-abschnitt"><h2>${symbol("terminal")}Aufruf</h2><pre class="k-pre" id="aufruf"><code>${esc(aufrufText(w, d))}</code></pre>${daten.inspector ? `<div class="k-aktion">${inspectorKnopf()}<span class="mut">Im Inspector: Tool <code>hub__call_tool</code> mit <code>${esc(w.id)}</code>.</span></div>` : ""}</div>`
+    + `<div class="k-weitere" data-bis="blick">Beschreibung, Eingabe und Aufruf im größeren Fenster</div>`
+    + `<p class="k-text${lang ? " lang" : ""}" data-ab="kompakt">${esc(d.beschreibung || "Keine Beschreibung.")}</p>`
+    + `<div class="k-abschnitt" style="margin-top:0" data-ab="kompakt"><h2>${symbol("sliders-horizontal")}Eingabe${felder.length ? `<span class="anzahl">${felder.length}</span>` : ""}</h2>${formular}${hinweis}${taste}</div>`
+    + `<div id="ergebnis" data-ab="kompakt">${ergebnisHtml(w.id)}</div>`
+    + `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("terminal")}Aufruf</h2><pre class="k-pre" id="aufruf"><code>${esc(aufrufText(w, d))}</code></pre>${daten.inspector ? `<div class="k-aktion">${inspectorKnopf()}<span class="mut">Im Inspector: Tool <code>hub__call_tool</code> mit <code>${esc(w.id)}</code>.</span></div>` : ""}</div>`
     + appKarte(w, d)
     + kurzeAnsichtHtml(d)
-    + `<div class="k-abschnitt"><h2>${symbol("route")}Wo erreichbar</h2><div class="karte">${erreichbarHtml(w)}</div></div>`
-    + `<div class="k-abschnitt k-roh"><details><summary>JSON-Schema der Eingabe</summary><pre class="k-pre"><code>${esc(JSON.stringify(d.schema, null, 2))}</code></pre></details></div>`;
+    + `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("route")}Wo erreichbar</h2><div class="karte">${erreichbarHtml(w)}</div></div>`
+    + `<div class="k-abschnitt k-roh" data-ab="normal"><details${App.stufe === "weit" ? " open" : ""}><summary>JSON-Schema der Eingabe</summary><pre class="k-pre"><code>${esc(JSON.stringify(d.schema, null, 2))}</code></pre></details></div>`;
 }
 function zeichneDetail() {
   const ort = $("detail");
@@ -513,9 +536,12 @@ async function probieren() {
 // ── Apps ───────────────────────────────────────────────────────────────────────────────────────
 function appsHtml() {
   if (!daten.apps.length) return `<div class="gruppe">${zustand({ symbol: "layout-grid", ton: "grau", titel: "Keine Apps", text: "Der Hub liefert gerade keine Werkzeuge mit Oberfläche." })}</div>`;
+  // Eine Ansicht je Größe (Entscheidung 507): kompakt sechs Apps, der Rest als Hinweis; normal und weit alle
+  const n = App.anzahl({ kompakt: 6 }), rest = daten.apps.length - Math.min(daten.apps.length, n);
   const nachKategorie = new Map();
-  for (const a of daten.apps) { const k = a.kategorie || "Weitere"; if (!nachKategorie.has(k)) nachKategorie.set(k, []); nachKategorie.get(k).push(a); }
-  return [...nachKategorie].map(([k, liste]) => `<section class="abschnitt"><h2>${symbol("layout-grid")}${esc(k)}<span class="anzahl">${liste.length}</span></h2><div class="raster">${liste.map(appKarteHtml).join("")}</div></section>`).join("");
+  for (const a of daten.apps.slice(0, n)) { const k = a.kategorie || "Weitere"; if (!nachKategorie.has(k)) nachKategorie.set(k, []); nachKategorie.get(k).push(a); }
+  return [...nachKategorie].map(([k, liste]) => `<section class="abschnitt"><h2>${symbol("layout-grid")}${esc(k)}<span class="anzahl">${liste.length}</span></h2><div class="raster">${liste.map(appKarteHtml).join("")}</div></section>`).join("")
+    + (rest > 0 ? weitereZeile(rest) : "");
 }
 function appKarteHtml(a) {
   const chips = a.werkzeuge.map((id) => `<button type="button" class="chip" data-springe="${esc(id)}" title="Im Werkzeugkasten zeigen">${esc(id.split(".")[1] || id)}</button>`).join("");
@@ -559,7 +585,7 @@ function messungAbschnitt() {
       + `<span class="zeile-ende">${p == null ? "" : marke(`${App.zahl(p, 0)} % gespart`, ton === "grau" ? "" : ton, "trending-down")}</span></li>`;
   };
   const zeilen = m.aufrufer || [];
-  return `<section class="abschnitt"><h2>${symbol("filter")}Kurze Ansicht — Ersparnis ${m.tage} Tage</h2>`
+  return `<section class="abschnitt" data-ab="normal"><h2>${symbol("filter")}Kurze Ansicht — Ersparnis ${m.tage} Tage</h2>`
     + (zeilen.length
       ? `<div class="gruppe"><ul class="zeilen">${[m.gesamt, ...zeilen].map(reihe).join("")}</ul></div>`
       : `<div class="gruppe">${zustand({ symbol: "filter", ton: "grau", klein: true, titel: "Noch nichts gemessen", text: "Sobald ein Modell ein Werkzeug über den Hub ruft, steht es hier." })}</div>`)
@@ -569,7 +595,7 @@ function protokolleHtml() {
   const h = daten.hub;
   const modernText = h.modern.length ? "Der Hub spricht beide Zeitalter: den Handshake (initialize) und die zustandslose Fassung 2026-07-28 (server/discover)." : "Dieses SDK kennt nur den Handshake; 2026-07-28 spricht erst mcp 2.x.";
   return `<section class="abschnitt"><h2>${symbol("waypoints")}Protokollversionen</h2>`
-    + `<div class="hinweis info">${symbol("info")}<span>${esc(modernText)}</span></div>`
+    + `<div class="hinweis info" data-ab="normal">${symbol("info")}<span>${esc(modernText)}</span></div>`
     + `<dl class="kv" style="margin:14px 2px 0"><dt>Hub</dt><dd>Version ${esc(h.version)}, gestartet ${esc(App.zeit.vor(h.gestartet))}</dd><dt>SDK</dt><dd><code>${esc(h.sdk)}</code></dd>`
     + `<dt>Handshake</dt><dd><span class="k-versionen">${versionen(h.handshake, h.modern)}</span></dd>`
     + `<dt>Zustandslos</dt><dd><span class="k-versionen">${versionen(h.modern, h.modern)}</span></dd>`
@@ -579,12 +605,12 @@ function protokolleHtml() {
     + `<section class="abschnitt"><h2>${symbol("plug")}Zugänge<span class="anzahl">${daten.zugaenge.length}</span></h2><div class="raster">${daten.zugaenge.map(zugangHtml).join("")}</div></section>`
     + `<section class="abschnitt"><h2>${symbol("history")}Zuletzt gesehen<span class="anzahl">${daten.flaechen.length}</span></h2>`
     + (daten.flaechen.length
-      ? `<div class="gruppe"><ul class="zeilen">${daten.flaechen.map(flaecheReihe).join("")}</ul></div>`
+      ? `<div class="gruppe">${kurzeListe(daten.flaechen, flaecheReihe)}</div>`
       : `<div class="gruppe">${zustand({ symbol: "unplug", ton: "grau", klein: true, titel: "Noch niemand seit dem Start", text: "Sobald ein Client den Hub anspricht, steht er hier." })}</div>`)
-    + `<p class="fuss" style="text-align:left;margin:8px 2px 0">${esc(daten.flaechen_hinweis)}</p></section>`
+    + `<p class="fuss" style="text-align:left;margin:8px 2px 0" data-ab="normal">${esc(daten.flaechen_hinweis)}</p></section>`
     + `<section class="abschnitt"><h2>${symbol("app-window")}Oberflächen (ui://)<span class="anzahl">${daten.ressourcen.length}</span></h2>`
     + (daten.ressourcen.length
-      ? `<div class="gruppe"><ul class="zeilen">${daten.ressourcen.map((r) => `<li class="zeile"><span class="kachel klein grau">${symbol("app-window")}</span><span class="zeile-text"><span class="zeile-titel"><code>${esc(r.uri)}</code></span><span class="zeile-unter">${esc(r.name)} · Plugin ${esc(r.plugin)}</span></span><span class="zeile-ende"><span class="marke">${esc(String(r.mime).replace("text/html;profile=", ""))}</span></span></li>`).join("")}</ul></div>`
+      ? `<div class="gruppe">${kurzeListe(daten.ressourcen, (r) => `<li class="zeile"><span class="kachel klein grau">${symbol("app-window")}</span><span class="zeile-text"><span class="zeile-titel"><code>${esc(r.uri)}</code></span><span class="zeile-unter">${esc(r.name)} · Plugin ${esc(r.plugin)}</span></span><span class="zeile-ende"><span class="marke">${esc(String(r.mime).replace("text/html;profile=", ""))}</span></span></li>`)}</div>`
       : `<div class="gruppe">${zustand({ symbol: "app-window", ton: "grau", klein: true, titel: "Keine Oberflächen", text: "Kein Plugin liefert eine ui://-Ressource." })}</div>`)
     + `</section>`;
 }
@@ -624,6 +650,18 @@ App.bei("neu", () => neu(true));
 App.bei("zuruecksetzen", () => { S.suche = ""; S.filter = "alle"; zeichnen(); });
 App.bei("probieren", probieren);
 App.bei("detail-neu", () => { if (S.werkzeug) ladeDetail(S.werkzeug, true); });
+// Eine Ansicht je Größe (Entscheidung 507): bei jedem Stufenwechsel neu zeichnen. Solange in einem Feld getippt wird,
+// wartet das Zeichnen, sonst verliert die Eingabe den Fokus; beim Verlassen des Feldes wird nachgeholt.
+let stufeWartet = false;
+function stufeZeichnen() {
+  if (!daten) return;
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { stufeWartet = true; return; }
+  stufeWartet = false;
+  zeichnen();
+}
+window.addEventListener("app-stufe", stufeZeichnen);
+document.addEventListener("focusout", () => { if (stufeWartet) setTimeout(stufeZeichnen, 0); });
 
 // ── Bedienung ──────────────────────────────────────────────────────────────────────────────────
 document.addEventListener("click", (ev) => {

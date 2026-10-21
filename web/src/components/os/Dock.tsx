@@ -95,10 +95,21 @@ export default function Dock(p: DockProps): JSX.Element {
                 data-kontext={`bildschirm:${b().index}`}
                 title={b().index === 0 ? 'Startbildschirm' : b().name}
                 class="os-punkt no-touch"
-                classList={{ 'os-punkt-an': p.aktiv === b().index, 'os-ziel-an': zielPunkt() === b().index, 'os-puls': p.puls === b().index }}
+                classList={{
+                  'os-punkt-an': p.aktiv === b().index,
+                  'os-punkt-start': b().index === 0,
+                  'os-ziel-an': zielPunkt() === b().index,
+                  'os-puls': p.puls === b().index,
+                }}
                 onClick={() => p.onWechseln(b().index)}
                 {...ziel}
               >
+                {/* Start ist der Heimweg zum Startbildschirm: ein Knopf mit Haus statt eines Punkts, größer als die Punkte */}
+                <Show when={b().index === 0}>
+                  <svg class="os-punkt-haus" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M3.5 9.2 10 3.8l6.5 5.4V16a.8.8 0 0 1-.8.8h-3.4v-4.6H7.7v4.6H4.3a.8.8 0 0 1-.8-.8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                  </svg>
+                </Show>
                 {/* Sofort sichtbares Namensschild über dem Punkt (der title-Tooltip kommt erst nach einer Sekunde) */}
                 <span class="os-punkt-name" aria-hidden="true">{b().name}</span>
               </button>

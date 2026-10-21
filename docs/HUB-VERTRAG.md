@@ -25,6 +25,9 @@ Was der Hub (`hub/`, Paket `mcp_hub`) nach außen zusagt: HTTP-Wege, Formate, Pl
 | `/hub/os/melden` | POST | OS-Brücke: Zustand der Sitzung melden |
 | `/hub/os/antwort` | POST | OS-Brücke: Antwort auf einen Befehl |
 | `/hub/dateien/datei?pfad=` | GET, PUT | Dateiablage (Plugin `dateien`): eine Datei herunterladen oder anzeigen (GET, `laden=1` erzwingt Herunterladen) und hochladen (PUT, der Körper ist der Inhalt, `ueberschreiben=1` ersetzt eine vorhandene); Abschnitt „Dateien“ unten |
+| `/hub/agent/eingang` | GET, POST | Agenten-Eingang (Plugin `agent`): Quellen werfen ein (POST), der Runner liest per Long-Poll (GET `?nach=&warte=&anzahl=&agent=`); Abschnitt „Agenten-Runner“ unten |
+| `/hub/agent/melden` | POST | Agenten-Ausgang: der Runner meldet seine Sitzung gebündelt in den Strom `fyos:agent` |
+| `/hub/agent/alarm` | POST | Alertmanager-Webhook (v4) als entprellte Alarme in den Agenten-Eingang |
 | `/hub/<eigener Weg>` | je Plugin | Wege aus Plugins (`routen()`, Abschnitt 4), nach denen des Kerns; etwa `/hub/openclaw/ereignisse` und `/hub/vorgaenge/tickets…` (KOPPLUNG-OPENCLAW.md) |
 
 ### nginx der Shell
@@ -238,3 +241,19 @@ Anfragen von außen ein Bearer-Token (JWT, RS256/ES256/EdDSA, Schlüssel per Dis
 ladbar 503. Variablen: `FYOS_OIDC_ISSUER`, `FYOS_OIDC_CLIENTS`, `FYOS_OIDC_MODUS` (`aus|an|streng`),
 `FYOS_OIDC_HOSTS`, `FYOS_OIDC_REST` (Vorgabe `/hub/app-call`, nie `/hub/call`), `FYOS_OIDC_BENUTZER` (Vorgabe `*`),
 `FYOS_OIDC_SCOPES`, `FYOS_OIDC_JWKS_URL`, `FYOS_OIDC_LEEWAY_S`. Der `Authorization`-Kopf wird nicht weitergereicht.
+
+## Agenten-Runner (Plugin `agent`)
+
+Ein Agenten-Runner (ein Modell-Agent im RPC-Modus, etwa als Systemdienst) braucht keinen Zugang zu Redis: Er liest
+seinen Eingang `fyos:agent:eingang` per Long-Poll über `GET /hub/agent/eingang` und meldet über
+`POST /hub/agent/melden` in den Ausgang `fyos:agent`, den Oberflächen und Brücken lesen. Quellen (Web-Chat, Matrix,
+Vorgangssystem, Zeitplan, Beobachtungen) werfen über `POST /hub/agent/eingang` ein, Alertmanager über
+`POST /hub/agent/alarm` (severity → `schwere`, Wiederholungen entprellt, „Behoben“ nur für Eingeworfenes). Die
+Verträge stehen in `hub/mcp_hub/plugins/_agenteneingang.py`, `_agentenstrom.py` und `_agentenalarm.py`.
+
+Alle Wege verlangen `application/json` (415 sonst). Ohne Quellen-Tokens sind sie innen offen wie der übrige Hub. Mit
+`FYOS_AGENT_TOKENS` (`rolle=token`, getrennt durch Komma oder Zeilenumbruch; Rollen sind die Quellen des Eingangs
+und `runner`) verlangt jeder Weg ein Token (`Authorization: Bearer …` oder `X-Agent-Token`), und die Quelle eines
+eingeworfenen Ereignisses folgt dem Token, nicht dem Rumpf. `runner` darf lesen und melden, `alarm` den Alarm-Weg,
+jede andere Quelle nur einwerfen. `FYOS_AGENT_STRENG=1` schließt alles, solange kein brauchbares Token da ist. Den
+gemeinsamen Hub-Schlüssel nicht auf `/hub/agent` legen: Er entfernt `Authorization`, die Quellen-Tokens kämen nie an.

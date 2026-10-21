@@ -1,0 +1,60 @@
+/* Griffe: Vorschlagsliste „Schalten“ unter dem Befehlsfeld und im Start (components/os/Griffe.tsx) */
+.griff-liste {
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.griff {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.65rem;
+  text-align: left;
+  font-size: 0.9rem;
+  transition: background-color 0.12s;
+}
+.griff:hover, .griff-aktiv { background: color-mix(in oklab, var(--color-fg) 8%, transparent); }
+.griff-aktiv { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--os-akzent, var(--color-accent)) 55%, transparent); }
+.griff:focus-visible { outline: 2px solid var(--os-akzent, var(--color-accent)); outline-offset: 1px; }
+.griff-symbol { width: 1.1rem; height: 1.1rem; color: var(--os-akzent, var(--color-accent)); }
+.griff-titel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.griff-art { font-size: 0.72rem; color: var(--color-fg-muted); white-space: nowrap; }
+.griff-schon { opacity: 0.6; }
+
+.griff-frage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+.griff-ja, .griff-nein { min-height: 2rem; padding: 0 0.75rem; border-radius: 0.6rem; font-size: 0.85rem; }
+.griff-ja { background: var(--os-akzent, var(--color-accent)); color: #fff; }
+.griff-nein { border: 1px solid var(--os-glas-rand, var(--color-border)); }
+
+/* Unter der Pille der Befehlszeile: wie die Bestätigung, eine schwebende Glasblase */
+.befehl-griffe {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  border-radius: 0.9rem;
+  border: 1px solid var(--os-glas-rand, var(--color-border));
+  background: var(--os-glas-tief, var(--color-card));
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: 0 12px 28px -14px color-mix(in oklab, #000 60%, transparent);
+}
+
+@media (pointer: coarse) {
+  .griff { min-height: 2.75rem; }
+}

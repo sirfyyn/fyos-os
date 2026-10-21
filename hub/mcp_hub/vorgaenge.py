@@ -32,6 +32,8 @@ import urllib.request
 from collections.abc import Iterable
 from typing import Any, Callable, Protocol
 
+from .agent_tls import kontext as _tls_kontext
+
 VORGANG_STATUS = ("new", "triage", "in_progress", "waiting_approval", "resolved", "closed")
 OFFEN = ("new", "triage", "in_progress", "waiting_approval")
 FREIGABE = "waiting_approval"
@@ -92,6 +94,8 @@ class Ablage(Protocol):
 _sperre = threading.Lock()
 _ablage: Ablage | None = None
 _dienst: tuple[str, dict[str, str]] | None = None
+#: Liefert den SSL-Kontext des angemeldeten Dienstes (das Plugin ``openclaw`` reicht seine Gateway-Einstellung durch)
+_dienst_tls: Callable[[], Any] | None = None
 
 
 def ablage_anmelden(ablage: Ablage | None) -> None:
@@ -106,12 +110,15 @@ def angemeldete_ablage() -> Ablage | None:
         return _ablage
 
 
-def dienst_anmelden(url: str | None, kopf: dict[str, str] | None = None) -> None:
+def dienst_anmelden(url: str | None, kopf: dict[str, str] | None = None,
+                    tls: Callable[[], Any] | None = None) -> None:
     """Das Plugin ``openclaw`` meldet im Spiegel-Betrieb den Dienst an, den es spiegelt (Adresse und Kopfzeile aus
-    seiner ``config`` oder der Umgebung): so fragen alle Plugins denselben Dienst. ``None`` meldet ab."""
-    global _dienst
+    seiner ``config`` oder der Umgebung): so fragen alle Plugins denselben Dienst. ``tls`` liefert den SSL-Kontext für
+    https-Adressen (sonst ``FYOS_AGENT_CA``/``FYOS_AGENT_TLS_PRUEFEN`` aus der Umgebung). ``None`` meldet ab."""
+    global _dienst, _dienst_tls
     with _sperre:
         _dienst = (url.strip().rstrip("/"), dict(kopf or {})) if url and url.strip() else None
+        _dienst_tls = tls if _dienst is not None else None
 
 
 def angemeldeter_dienst() -> tuple[str, dict[str, str]] | None:
@@ -213,10 +220,15 @@ class Dienst(Quelle):
     art = "dienst"
 
     def __init__(self, url: str, kopf: dict[str, str] | None = None,
-                 aufruf: Callable[[str, str, Any, float], tuple[int, Any]] | None = None) -> None:
+                 aufruf: Callable[[str, str, Any, float], tuple[int, Any]] | None = None,
+                 tls: Callable[[], Any] | None = None) -> None:
         self.url = url.rstrip("/")
         self.kopf = dict(kopf or {})
         self._aufruf = aufruf
+        self._tls = tls
+
+    def _kontext(self) -> Any:
+        return self._tls() if self._tls is not None else _tls_kontext()
 
     def beschreibung(self) -> str:
         teile = urllib.parse.urlsplit(self.url)
@@ -231,7 +243,7 @@ class Dienst(Quelle):
             kopf["Content-Type"] = "application/json"
         req = urllib.request.Request(self.url + pfad, data=daten, method=methode, headers=kopf)
         try:
-            with urllib.request.urlopen(req, timeout=frist) as r:  # noqa: S310 — Adresse aus der Konfiguration
+            with urllib.request.urlopen(req, timeout=frist, context=self._kontext()) as r:  # noqa: S310 — Adresse aus der Konfiguration
                 roh, status = r.read(ANTWORT_MAX), r.status
         except urllib.error.HTTPError as e:
             roh, status = (e.read(65536) if e.fp else b""), e.code
@@ -429,7 +441,9 @@ def quelle(url: str | None = None, kopf: str | None = None) -> Quelle:
     (``…/hub/vorgaenge``) zählt nicht als Dienst: das wäre das Workboard über einen Umweg."""
     gespiegelt = angemeldeter_dienst() if url is None else None
     if gespiegelt is not None:
-        return Dienst(gespiegelt[0], gespiegelt[1] if kopf is None else kopf_aus(kopf))
+        with _sperre:
+            tls = _dienst_tls
+        return Dienst(gespiegelt[0], gespiegelt[1] if kopf is None else kopf_aus(kopf), tls=tls)
     adresse = (os.getenv("FYOS_VORGAENGE_URL", "") if url is None else url).strip().rstrip("/")
     if adresse and not adresse.endswith("/hub/vorgaenge"):
         return Dienst(adresse, kopf_aus(os.getenv("FYOS_VORGAENGE_KOPF", "") if kopf is None else kopf))

@@ -2,16 +2,19 @@
  * Hilfe — Tastenkürzel, Gesten und Ziehen und Ablegen des OS auf einen Blick (Menüleiste › Hilfe, ⌘/).
  */
 import { For, onCleanup, onMount, type JSX } from 'solid-js';
-import { IST_MAC, altUmschalt, mod, modAlt } from '~/lib/os/menue';
+import { IST_MAC, altUmschalt, mod, modAlt, modAltUmschalt } from '~/lib/os/menue';
 
 const KUERZEL: [string, string][] = [
   [mod('K'), 'Alle Flächen (Start) öffnen und suchen'],
   [mod('J'), 'Agent ein- und ausblenden'],
   [modAlt('↑'), 'Übersicht aller Bildschirme'],
-  [`${modAlt('←')}  ${modAlt('→')}`, 'Vorheriger / nächster Bildschirm'],
+  [`${modAlt('←')}  ${modAlt('→')}`, 'Vorheriger / nächster Bildschirm, im Raum: Raum'],
+  [mod('0'), 'Heim in die Zentrale (mit Räumen)'],
   [modAlt('1–9'), 'Zum Bildschirm springen'],
   [mod(','), 'Einstellungen'],
   [`${altUmschalt('←')}  ${altUmschalt('→')}`, 'Fenster im Kopf: nach links / rechts rücken'],
+  [`${modAltUmschalt('←')}  ${modAltUmschalt('→')}  ${modAltUmschalt('↑')}`, 'Fenster im Fokus einrasten: linke / rechte Hälfte / ganz'],
+  [modAltUmschalt('U I J K'), 'Fenster im Fokus als Viertel: oben links, oben rechts, unten links, unten rechts'],
   [IST_MAC ? '⇧F10' : 'Umschalt+F10', 'Menü des Fensters (Kopf mit Fokus)'],
   [mod('/'), 'Diese Hilfe'],
   ['Esc', 'Menü, Start oder Übersicht schließen'],
@@ -29,6 +32,7 @@ const GESTEN: [string, string][] = [
 /** Ziehen und Ablegen (lib/os/ziehen.ts): was sich ziehen lässt und was jedes Ziel daraus macht. */
 const ZIEHEN: [string, string][] = [
   ['Fensterkopf oder Dock-Symbol', 'Ein Fenster. Auf ein anderes Fenster: davor einordnen'],
+  ['Fensterkopf an den linken oder rechten Rand', 'Einrasten als Hälfte, in den Ecken als Viertel (die Vorschau zeigt es)'],
   ['Fläche im Startmenü', 'Öffnet sie dort, wo du sie loslässt'],
   ['Objekte aus Listen (Notiz, Termin …)', 'Öffnet das Objekt in seiner Fläche, gleich aufgeschlagen'],
   ['… auf einen Bildschirm-Punkt', 'Dorthin verschieben bzw. dort öffnen. Kurz verweilen wechselt den Bildschirm'],

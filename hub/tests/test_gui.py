@@ -24,7 +24,7 @@ from mcp_hub.plugins import gui as gui_mod
 from mcp_hub.plugins.gui import GuiPlugin, dokument_id, dokument_pruefen
 from mcp_hub.plugins.skills import SkillsPlugin
 
-VORLAGEN = {"ablauf", "balken", "diagramm", "kennzahlen", "status", "tabelle", "vergleich", "verlauf", "zeitleiste"}
+VORLAGEN = {"ablauf", "artikel", "balken", "diagramm", "kennzahlen", "status", "tabelle", "vergleich", "verlauf", "zeitleiste"}
 
 
 @pytest.fixture()
@@ -142,6 +142,70 @@ def test_oeffnen_ziel_lenkt_bauen_um(plugin):
     args = {"titel": "T", "html": "<p/>"}
     assert plugin.oeffnen_ziel("bauen", args) == ("gui.zeigen", {"id": dokument_id(dokument_pruefen(args))})
     assert plugin.oeffnen_ziel("zeigen", {"id": "g-000000000000"}) is None
+
+
+# ── Dateiablage (Plugin-Config `daten`) ─────────────────────────────────────────────────────────────────
+
+def test_dateiablage_legt_unter_daten_gui_ab_und_liest_wieder(tmp_path):
+    p = GuiPlugin(config={"daten": str(tmp_path)})
+    p._r = _AblageDefekt()   # Redis darf in diesem Modus nie gefragt werden
+    r = p.call("bauen", {"titel": "Rechner", "html": "<p>x</p>", "js": "1"})
+    assert r["abgelegt"] is True
+    datei = tmp_path / "gui" / f"{r['id']}.json"
+    abgelegt = json.loads(datei.read_text(encoding="utf-8"))
+    assert abgelegt["titel"] == "Rechner" and abgelegt["id"] == r["id"] and abgelegt["angelegt"]
+    d = p.call("zeigen", {"id": r["id"]})
+    assert d["dokument"]["titel"] == "Rechner" and d["angelegt"] == abgelegt["angelegt"]
+    assert [a["id"] for a in p.call("zeigen", {})["ansichten"]] == [r["id"]]
+    assert p.health() == {"ok": True, "status": "healthy", "ablage": "datei", "ansichten": 1}
+    with pytest.raises(ValueError, match="gibt es nicht"):
+        p.call("zeigen", {"id": "g-000000000000"})
+
+
+def test_dateiablage_liest_ansichten_einer_aelteren_installation(tmp_path):
+    """Dasselbe Dateiformat wie bisher: schon abgelegte Ansichten bleiben nach dem Umstieg erhalten."""
+    (tmp_path / "gui").mkdir()
+    alt = {"id": "g-0123456789ab", "titel": "Alt", "beschreibung": "von früher", "html": "<p>alt</p>", "css": "", "js": "",
+           "hoehe": 300, "angelegt": "2026-10-01T10:00:00+02:00"}
+    (tmp_path / "gui" / "g-0123456789ab.json").write_text(json.dumps(alt) + "\n", encoding="utf-8")
+    p = GuiPlugin(config={"daten": str(tmp_path)})
+    d = p.call("zeigen", {"id": "g-0123456789ab"})
+    assert d["dokument"] == {"titel": "Alt", "beschreibung": "von früher", "html": "<p>alt</p>", "css": "", "js": "", "hoehe": 300}
+    assert d["angelegt"] == "2026-10-01T10:00:00+02:00"
+    assert [a["titel"] for a in p.call("zeigen", {})["ansichten"]] == ["Alt"]
+
+
+def test_dateiablage_aus_der_umgebung_und_vorrang_der_config(tmp_path, monkeypatch):
+    monkeypatch.setenv("FYOS_GUI_DATEN", str(tmp_path / "env"))
+    assert GuiPlugin().ordner == tmp_path / "env" / "gui"
+    assert GuiPlugin(config={"daten": str(tmp_path / "cfg")}).ordner == tmp_path / "cfg" / "gui"
+    monkeypatch.delenv("FYOS_GUI_DATEN")
+    assert GuiPlugin().ordner is None   # Vorgabe bleibt mcp_hub.kv
+
+
+def test_dateiablage_haelt_nur_die_letzten_und_neu_gebaute_ruecken_nach(tmp_path, monkeypatch):
+    import os
+
+    monkeypatch.setattr(gui_mod, "ABLAGE_MAX", 3)
+    p = GuiPlugin(config={"daten": str(tmp_path)})
+    ids = []
+    for i in range(3):
+        ids.append(p.bauen({"titel": f"T{i}", "html": f"<p>{i}</p>"})["id"])
+        os.utime(tmp_path / "gui" / f"{ids[-1]}.json", (1000 + i, 1000 + i))   # eindeutige Reihenfolge
+    p.bauen({"titel": "T0", "html": "<p>0</p>"})   # dieselbe Ansicht noch einmal: gilt als benutzt
+    neu = p.bauen({"titel": "T3", "html": "<p>3</p>"})["id"]
+    assert sorted(f.stem for f in (tmp_path / "gui").glob("g-*.json")) == sorted([ids[0], ids[2], neu])   # T1 am längsten unbenutzt
+    with pytest.raises(ValueError, match="gibt es nicht"):
+        p.zeigen({"id": ids[1]})
+
+
+def test_dateiablage_ohne_ordner_zeigt_trotzdem(tmp_path):
+    p = GuiPlugin(config={"daten": str(tmp_path / "gibt-es-nicht" / "tief")})
+    (tmp_path / "gibt-es-nicht").write_text("eine Datei, kein Ordner", encoding="utf-8")   # mkdir scheitert
+    r = p.call("bauen", {"titel": "T", "html": "<p/>"})
+    assert r["abgelegt"] is False and "Nicht abgelegt" in r["satz"]
+    assert p.health()["ok"] is False and p.health()["status"] == "unhealthy"
+    assert p.call("zeigen", {})["ansichten"] == []
 
 
 @pytest.fixture()
@@ -318,6 +382,32 @@ def test_bauen_mit_vorlage_prueft_die_daten(plugin):
     r = plugin.bauen({"titel": "T", "vorlage": "kennzahlen", "daten": {"n": 3}, "umformen": "d => ({kacheln: [{titel: 'n', wert: d.n}]})"})
     js = plugin.zeigen({"id": r["id"]})["dokument"]["js"]
     assert js.startswith("GUI.umformen = (d => ({kacheln:")
+
+
+def test_direkter_aufruf_nennt_das_falsche_feld(reg, plugin, monkeypatch):
+    """18.10.2026: mcp 2.x zeigte dem Agenten bei `gui__bauen` nur „Error executing tool gui__bauen“.
+
+    Ein Eingabefehler (bad_arguments) muss mit Feldnamen ankommen wie über hub__call_tool; ein Absturz des
+    Plugins bleibt verborgen (mcp 2.x maskiert ihn selbst, mcp 1.x reicht jede Ausnahme durch).
+    """
+    hub_server._apps_anbinden(reg)
+    monkeypatch.setattr(hub_server, "_REGISTRY", reg)
+    falsch = {"titel": "x", "vorlage": "kennzahlen", "daten": {"kacheln": [{"titel": "x"}]}}
+    gesperrt = hub_server.hub__call_tool(tool="gui.bauen", arguments=falsch)
+    assert gesperrt["kind"] == "bad_arguments" and "daten.kacheln[0].wert fehlt" in gesperrt["error"]
+
+    with pytest.raises(Exception) as direkt:
+        asyncio.run(hub_server.mcp.call_tool("gui__bauen", falsch))
+    assert "daten.kacheln[0].wert fehlt" in str(direkt.value)
+
+    def abgestuerzt(_args):
+        raise RuntimeError("geheimes Detail")
+
+    monkeypatch.setattr(plugin, "bauen", abgestuerzt)
+    with pytest.raises(Exception) as absturz:
+        asyncio.run(hub_server.mcp.call_tool("gui__bauen", {"titel": "x", "html": "<p/>"}))
+    if hub_server._SDK_V2:
+        assert "geheimes Detail" not in str(absturz.value)
 
 
 def test_vorlagen_werkzeug_liefert_form_und_beispiel(plugin):

@@ -111,6 +111,51 @@ def test_merken_verwirft_ungueltiges_und_doppeltes(plugin):
     assert len(plugin.call("zustand", {})["fenster"]) == shell.FENSTER_MAX
 
 
+def test_merken_nimmt_tapeten_mit(plugin):
+    """Tapete je Bildschirm und am Start (20.10.2026): geräteübergreifend über den Hub."""
+    plugin.call(
+        "merken",
+        {
+            "fenster": [],
+            "bildschirme": [
+                {"id": "b1", "name": "Haus", "fenster": [], "tapete": {"art": "auswahl", "wert": "tiefsee", "dunkel": 30, "weich": 4}},
+                {"id": "b2", "name": "Arbeit", "fenster": [], "tapete": {"art": "datei", "wert": "FYOS/Tapeten/b2-abc.jpg", "dunkel": 99, "weich": -3}},
+                {"id": "b3", "name": "Ohne", "fenster": []},
+            ],
+            "startTapete": {"art": "url", "wert": "https://bilder.example/berg.jpg"},
+        },
+    )
+    z = plugin.call("zustand", {})
+    assert z["bildschirme"][0]["tapete"] == {"art": "auswahl", "wert": "tiefsee", "dunkel": 30, "weich": 4}
+    # Regler werden auf ihre Grenzen gezogen
+    assert z["bildschirme"][1]["tapete"] == {"art": "datei", "wert": "FYOS/Tapeten/b2-abc.jpg", "dunkel": 80, "weich": 0}
+    assert "tapete" not in z["bildschirme"][2]
+    assert z["startTapete"] == {"art": "url", "wert": "https://bilder.example/berg.jpg", "dunkel": 20, "weich": 0}
+
+
+@pytest.mark.parametrize(
+    "tapete",
+    [
+        {"art": "url", "wert": "http://unsicher.example/x.jpg"},
+        {"art": "url", "wert": "javascript:alert(1)"},
+        {"art": "url", "wert": "//fremd.example/x.jpg"},
+        {"art": "url", "wert": "data:image/png;base64,AAAA"},
+        {"art": "datei", "wert": "/etc/passwd"},
+        {"art": "datei", "wert": "FYOS/../geheim.jpg"},
+        {"art": "datei", "wert": "FYOS//x.jpg"},
+        {"art": "datei", "wert": "x" * 401},
+        {"art": "auswahl", "wert": "Gross Und Leer"},
+        {"art": "bild", "wert": "tiefsee"},
+        {"art": "auswahl"},
+        "tiefsee",
+    ],
+)
+def test_ungueltige_tapete_faellt_weg(plugin, tapete):
+    plugin.call("merken", {"fenster": [], "bildschirme": [{"id": "b1", "name": "A", "fenster": [], "tapete": tapete}], "startTapete": tapete})
+    z = plugin.call("zustand", {})
+    assert "tapete" not in z["bildschirme"][0] and "startTapete" not in z
+
+
 @pytest.mark.parametrize("flaeche", ["seite:finance", "app:leitstand__lagebild", "agent"])
 def test_befehl_wird_vorgemerkt_und_von_der_shell_abgeholt(plugin, flaeche):
     r = plugin.call("befehl", {"aktion": "oeffnen", "flaeche": flaeche})

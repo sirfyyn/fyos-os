@@ -30,19 +30,29 @@ import Kulisse from './Kulisse';
 import Menue from './Menue';
 import Menueleiste, { type LeistenMenue } from './Menueleiste';
 import Raster from './Raster';
+import RaeumeLeiste from './RaeumeLeiste';
+import { ZENTRALE, raeume, raeumeSetzen, raumZu, schritt as raumSchritt, wechseln as raumWechseln, type RaumId } from '~/lib/os/raeume';
 import type { Vorlage } from './Start';
+import { useGriffe } from './Griffe';
+import { griffAusfuehren, type Griff } from '~/lib/griffe';
 import { hub } from '~/lib/hub';
-import { apps as hubApps, uebergabeStarten, type McpApp } from '~/lib/mcp-apps/host';
+import { alleSuchen, apps as hubApps, dingLesen, uebergabeStarten, type McpApp } from '~/lib/mcp-apps/host';
 import { registrierteDinge } from '~/lib/os/register';
-import { MAX_OFFEN, alleEinblenden, automatisch, laden as altLaden, minimieren, schliessen, startPruefen, zeilenFuerHoehe, type Fenster, type StartZustand } from '~/lib/os/anordnung';
+import { sucheStarten, trefferWeg, type SucheZustand, type Treffer } from '~/lib/os/suche';
+import { frageMitKontext } from '~/lib/os/uebergaben';
+import { MAX_OFFEN, RAST_TASTEN, alleEinblenden, automatisch, laden as altLaden, minimieren, schliessen, startPruefen, zeilenFuerHoehe, type Fenster, type RastZiel, type StartZustand } from '~/lib/os/anordnung';
+import { bildschirmZurueck, fensterZurueck, geschlossene, rueckgaengigAnbieten, schliessText } from '~/lib/os/rueckgaengig';
 import { appFragen, heften, kannHeften } from '~/lib/os/app-aktionen';
 import {
   BILDSCHIRME_MAX, START, aktueller, alleFenster, anzeigeName, bereinigen, bildschirmBei, entfernen, fensterAendern, flaecheOeffnen, fremdesSpeichern, idsUmbenennen, laden as apLaden,
-  istVollbild, leer, nachLinks, nachRechts, neuerBildschirm, pruefen, speichern as apSpeichern, umbenennen, verschiebenNach, vollbildAn, vollbildAus, wechseln, wo,
+  istVollbild, leer, nachLinks, nachRechts, neuerBildschirm, pruefen, speichern as apSpeichern, tapeteSetzen, tapetenUebernehmen, tapeteVon, umbenennen, verschiebenNach, vollbildAn, vollbildAus, wechseln, wo,
   type Arbeitsplatz, type Bildschirm,
 } from '~/lib/os/bildschirme';
 import { AGENT_ID, alleFlaechen, appFlaecheZu, flaecheZu, gruppiert, standardPlaetze, type Flaeche } from '~/lib/os/flaechen';
 import { inNeuemTab, osTabMelden, zielAufloesen } from '~/lib/os/allein';
+import { TAPETEN, TAPETE_EREIGNIS, type Tapete } from '~/lib/os/tapete';
+import TapeteEbene from './TapeteEbene';
+import { osAnsichtRuecken, zugFestgefahren } from '~/lib/os/ansicht';
 import { abstand, gummiband, kneifen, wischZiel } from '~/lib/os/gesten';
 import { kulisseLaden, kulisseSpeichern, type KulisseFarben, type KulisseStil } from '~/lib/os/kulisse';
 import { aufraeumen, menue, menueOeffnen, menueZu, mod, modAlt, type MenuePunkt } from '~/lib/os/menue';
@@ -62,6 +72,7 @@ import {
 } from '~/lib/os/ziehen';
 import { istAngepinnt } from '~/lib/mcp-apps/pins';
 
+
 type Platz = { name: string; fenster: Fenster[] };
 type Befehl = { aktion: string; flaeche?: string; name?: string; index?: number };
 
@@ -69,7 +80,9 @@ type Befehl = { aktion: string; flaeche?: string; name?: string; index?: number 
 // Kurz nach dem Aufbau wird vorgeladen (onMount), damit das erste Öffnen nicht auf das Netz wartet.
 const Start = lazy(() => import('./Start'));
 const Hilfe = lazy(() => import('./Hilfe'));
+const TapeteDialog = lazy(() => import('./Tapete'));
 const Kontrollzentrum = lazy(() => import('./Kontrollzentrum'));
+const Raum = lazy(() => import('./Raum'));
 
 const UNTAETIG_MS = 60_000;
 const VOLL = `Auf diesem Bildschirm sind schon ${MAX_OFFEN} Flächen offen. Minimiere oder schließe eine, oder nimm einen neuen Bildschirm.`;
@@ -128,6 +141,8 @@ export default function Shell(): JSX.Element {
   const [uhr, setUhr] = createSignal('');
   const [datum, setDatum] = createSignal('');
   const [bereit, setBereit] = createSignal(false);
+  /** Hub-Meldung beim Start gelesen (oder Frist um): erst dann meldet die Shell selbst (Tapeten nicht überschreiben) */
+  const [hubGelesen, setHubGelesen] = createSignal(false);
   const [plaetze, setPlaetze] = createSignal<Platz[]>([]);
   const [vorlageName, setVorlageName] = createSignal('');
   const [vorlageFehler, setVorlageFehler] = createSignal('');
@@ -138,6 +153,8 @@ export default function Shell(): JSX.Element {
   const [uebersicht, setUebersicht] = createSignal(false);
   const [kz, setKz] = createSignal<number | null>(null);
   const [hilfe, setHilfe] = createSignal(false);
+  /** Offener Tapeten-Dialog: für welchen Bildschirm (0 = Start), sonst null */
+  const [tapeteFuer, setTapeteFuer] = createSignal<number | null>(null);
   const [benennen, setBenennen] = createSignal<number | null>(null);
   /** Versatz des Bands beim Wischen in px (0 = in Ruhe) */
   const [zug, setZug] = createSignal(0);
@@ -152,6 +169,7 @@ export default function Shell(): JSX.Element {
   /** Fenstermenü und „Neu verteilen“ je Bildschirm — das Raster meldet sie (es kennt die Maße). */
   const rasterMenue = new Map<string, (id: string) => MenuePunkt[]>();
   const rasterVerteilen = new Map<string, () => void>();
+  const rasterEinrasten = new Map<string, (id: string, ziel: RastZiel) => void>();
   const bid = (i: number) => bildschirmBei(ap(), i)?.id ?? '';
   /**
    * Das Raster meldet sich an (läuft in seinem Besitz): Eintrag folgt der Bildschirm-ID und geht mit dem Raster.
@@ -168,6 +186,11 @@ export default function Shell(): JSX.Element {
 
   const flaechen = createMemo(() => alleFlaechen(appListe()));
   const gruppen = createMemo(() => gruppiert(flaechen(), suche()));
+  // Suche über alles: neben den Flächen fragt ⌘K den Hub (Vorgänge, Mail, Dateien, Notizen, Quellen von Plugins), wenn die Eingabe ruht.
+  const [sucheStand, setSucheStand] = createSignal<SucheZustand>({ art: 'leer' });
+  const suchlauf = sucheStarten(alleSuchen, setSucheStand);
+  createEffect(() => suchlauf.eingabe(suche()));
+  onCleanup(suchlauf.stopp);
   const flaeche = (id: string): Flaeche | undefined =>
     flaecheZu(flaechen(), id) ?? (id === AGENT_ID ? flaechen().find((x) => x.id === AGENT_ID) : undefined);
   /** Name eines Bildschirms, eigener Name oder das, was darauf offen ist. */
@@ -196,7 +219,8 @@ export default function Shell(): JSX.Element {
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     return zeilenFuerHoehe(bereich?.clientHeight || window.innerHeight, rem);
   };
-  const oeffne = (id: string, vor?: string | null, startZustand?: StartZustand, sonstNeu = false) => {
+  // Ist der Bildschirm voll (MAX_OFFEN), geht die Fläche auf einen neuen Bildschirm, statt nur „voll“ zu melden
+  const oeffne = (id: string, vor?: string | null, startZustand?: StartZustand, sonstNeu = true) => {
     const fl = flaeche(id);
     if (!fl) return;
     // Fremde Dienste (Gruppe „Extern“) haben kein Fenster: neuer Tab.
@@ -206,6 +230,8 @@ export default function Shell(): JSX.Element {
       setUebersicht(false);
       return;
     }
+    // Ein Werkzeug öffnet vorn: aus einem Raum zurück auf die Arbeitsbildschirme, sonst läge das Fenster darunter
+    raumVerlassen();
     const neu = wo(ap(), id) < 1;
     const r = flaecheOeffnen(ap(), id, { vor, breit: flaeche(id)?.breit, start: startZustand, sonstNeu, gross: grossFuer(fl) });
     if (r.voll) kurzMelden(VOLL, 6000);
@@ -236,10 +262,14 @@ export default function Shell(): JSX.Element {
    * mit derselben Oberfläche, oder der Pfad einer Seite. Mit `eingabe` startet die App genau so (nur lesende
    * Werkzeuge — das prüft AppEingebettet). true = geöffnet; false = dafür gibt es hier keine Fläche.
    */
-  const oeffneZiel = (ziel: string, eingabe?: Record<string, unknown>): boolean => {
+  const oeffneZiel = (ziel: string, eingabe?: Record<string, unknown>, vorn = false): boolean => {
     const t = zielAufloesen(flaechen(), ziel, eingabe);
     if (!t) return false;
-    oeffne(t.f.id, null, t.start, true);
+    // vorn (Lesefenster): vor das erste offene Fenster des Zielbildschirms — im Raster lag es
+    // sonst unter hohen Fenstern weit außer Sicht.
+    const zielBildschirm = ap().aktiv >= 1 ? ap().aktiv : ap().zuletzt;
+    const erstes = vorn ? (bildschirmBei(ap(), zielBildschirm)?.fenster.find((w) => !w.min)?.id ?? null) : null;
+    oeffne(t.f.id, erstes, t.start, true);
     return true;
   };
   const neuerBildschirmAn = () => {
@@ -320,9 +350,28 @@ export default function Shell(): JSX.Element {
     if (ziel) vollbildUmschalten(ziel);
   };
   const gehe = (i: number) => {
+    raumVerlassen();
     setze(wechseln(ap(), i));
     setUebersicht(false);
   };
+
+  // ── Räume (lib/os/raeume.ts): ganze Seiten über den Arbeitsbildschirmen, Zentrale = Startbildschirm ─────
+  /** Ein Raum außer der Zentrale ist vorn */
+  const imRaum = () => raeume().an && raeume().aktiv !== ZENTRALE;
+  const raumVerlassen = () => {
+    if (raeume().aktiv !== ZENTRALE) raeumeSetzen(raumWechseln(raeume(), ZENTRALE));
+  };
+  const raumGehe = (id: RaumId) => {
+    if (id === ZENTRALE) {
+      gehe(START);
+      return;
+    }
+    raeumeSetzen(raumWechseln(raeume(), id));
+    setStart(false);
+    setUebersicht(false);
+  };
+  /** Nächster oder vorheriger Raum (⌥⌘←→ und Wischen im Raum); über das Ende hinaus geht es heim. */
+  const raumSchrittAn = (r: 1 | -1) => raumGehe(raumSchritt(raeume(), r).aktiv);
 
   // ── Ablegen (lib/os/ziehen.ts): jedes Ziel versteht Fenster, Flächen und Dinge ──────────────────
   /** Die Fläche, auf der ein Ding lebt (registriert über `dinge` in registriereFlaechen). */
@@ -352,6 +401,21 @@ export default function Shell(): JSX.Element {
     flaecheAuf(f.id, ort);
     zustellen(f.id, { [OEFFNE_NACHRICHT]: { typ: g.typ, id: g.id } });
   };
+  /** Ein Treffer der Suche über alles wurde angeklickt: ist er ein Ding, zeigt seine App es; sonst ist er nur eine Anzeige. */
+  const trefferOeffnen = (t: Treffer) => {
+    const w = trefferWeg(t);
+    if (!w) return;
+    setStart(false);
+    dingZeigen({ art: 'ding', typ: w.typ, id: w.id, label: w.label });
+  };
+  /** Den Agenten zu einem Ding fragen, mit dessen Inhalt als Kontext (Notiz → Agent); lässt es sich nicht lesen, bleibt es bei der Frage. */
+  const fragenMitInhalt = async (g: Extract<Gut, { art: 'ding' }>, frage: string) => {
+    const art = registrierteDinge(g.typ);
+    // Dinge ohne Lesewerkzeug gehen sofort, ohne Umweg
+    if (!art?.lesen) return agentFragen({ text: frage, quelle: 'ziehen' });
+    const text = await frageMitKontext(frage, art, g, dingLesen);
+    agentFragen({ text, quelle: 'ziehen' });
+  };
   /**
    * Ein Ding fiel auf das Fenster einer Hub-App. Nimmt sie es per Übergabe an, bereitet der Host das Zielwerkzeug vor (Ding lesen,
    * Felder einsetzen) und stellt es der App zu: sie zeigt Plan und fragt, erst „Ja“ legt etwas an. Gibt es keine Übergabe, bleibt
@@ -359,7 +423,7 @@ export default function Shell(): JSX.Element {
    */
   const dingAufApp = (f: Flaeche, g: Extract<Gut, { art: 'ding' }>, a: AppAblage) => {
     if (a.modus === 'agent') {
-      agentFragen({ text: frageUebergabe(g, f.titel), quelle: 'ziehen' });
+      void fragenMitInhalt(g, frageUebergabe(g, f.titel));
       return;
     }
     uebergabeStarten(f.id, a.uebergabe, g).catch((e: unknown) => kurzMelden(e instanceof Error ? e.message : 'Das ging nicht.', 5200));
@@ -387,7 +451,7 @@ export default function Shell(): JSX.Element {
       else agentFragen({ text: frageZu(g, f?.titel), quelle: 'ziehen' });
       return;
     }
-    agentFragen({ text: frageZu(g), quelle: 'ziehen' });
+    void fragenMitInhalt(g, frageZu(g));
   };
   const agentAblage = ablageZiel({ ziel: 'agent', ablegen: fragenZuGut, an: setAgentZiel });
 
@@ -470,7 +534,8 @@ export default function Shell(): JSX.Element {
   };
   const einstellungenDa = () => !!nativZu('nativ:einstellungen');
   const einstellungen = () => {
-    if (einstellungenDa()) oeffne('nativ:einstellungen');
+    if (raeume().an) raumGehe('einstellungen');
+    else if (einstellungenDa()) oeffne('nativ:einstellungen');
   };
 
   // ── Befehle des Agenten (Hub-Werkzeug shell.befehl) — nur, was die Shell sowieso darf ──────────
@@ -521,13 +586,66 @@ export default function Shell(): JSX.Element {
     const farbe = (f: KulisseFarben, text: string): MenuePunkt => ({ text, an: k.farben === f, tun: () => kulisseSpeichern({ ...kulisseLaden(), farben: f }) });
     return [stil('lava', 'Lava'), stil('ruhig', 'Ruhig'), stil('aus', 'Aus'), { art: 'trenner' }, farbe('neon', 'Neon'), farbe('aurora', 'Aurora'), farbe('glut', 'Glut')];
   };
+  /** Tapete von Bildschirm `i`: Kulisse, die eingebauten Verläufe, eigenes Bild oder Adresse (Dialog). */
+  const tapetePunkte = (i: number): MenuePunkt[] => {
+    const t = tapeteVon(ap(), i);
+    const regler = { dunkel: t?.dunkel ?? 20, weich: t?.weich ?? 0 };
+    return [
+      { text: 'Kulisse', an: !t, tun: () => setze(tapeteSetzen(ap(), i, undefined)) },
+      ...TAPETEN.map((v): MenuePunkt => ({ text: v.name, an: t?.art === 'auswahl' && t.wert === v.id, tun: () => setze(tapeteSetzen(ap(), i, { art: 'auswahl', wert: v.id, ...regler })) })),
+      { art: 'trenner' },
+      { text: 'Eigenes Bild, Adresse, Abdunkeln …', tun: () => setTapeteFuer(i) },
+    ];
+  };
   const fensterVon = (i: number) => bildschirmBei(ap(), i)?.fenster ?? [];
   const verteilen = (i: number) => {
     const fn = rasterVerteilen.get(bid(i));
     if (fn) fn();
     else setze(fensterAendern(ap(), i, automatisch));
   };
-  const bildschirmLoeschen = (i: number) => setze(entfernen(ap(), i));
+  /** Bildschirm entfernen; die Karte oben rechts bietet ein paar Sekunden „Rückgängig“ (lib/os/rueckgaengig.ts). */
+  const bildschirmLoeschen = (i: number) => {
+    const b = bildschirmBei(ap(), i);
+    if (!b) return;
+    const name = nameVon(b);
+    setze(entfernen(ap(), i));
+    rueckgaengigAnbieten({ text: schliessText([], name), symbol: 'circle-x', zurueck: () => setze(bildschirmZurueck(ap(), i, b)) });
+  };
+  /**
+   * Fensterliste eines Bildschirms aus dem Raster übernehmen. Fehlt danach ein Fenster (Schließen, „Andere schließen“),
+   * bietet die Karte oben rechts „Rückgängig“: es kommt an seine Stelle zurück, mit Größe und Startzustand.
+   */
+  const fensterSetzen = (i: number, l: Fenster[]) => {
+    const b = bildschirmBei(ap(), i);
+    if (!b) return;
+    const weg = geschlossene(b.fenster, l);
+    setze(fensterAendern(ap(), i, () => l));
+    if (!weg.length) return;
+    const titel = weg.map((e) => flaeche(e.fenster.id)?.titel ?? e.fenster.id);
+    rueckgaengigAnbieten({ text: schliessText(titel), symbol: 'circle-x', zurueck: () => setze(fensterZurueck(ap(), b.id, weg)) });
+  };
+  /**
+   * Griffe im Start (lib/griffe.ts): einen Griff tippen, Enter — geschaltet, ohne
+   * Fenster. Die Karte oben rechts sagt, was passiert ist, und nimmt An/Aus und Pausen mit „Rückgängig“ zurück.
+   */
+  const griffTreffer = useGriffe(suche);
+  const griffSchalten = async (g: Griff) => {
+    setStart(false);
+    try {
+      await griffAusfuehren(g);
+      const gegen = g.gegen;
+      rueckgaengigAnbieten({ text: g.erfolg, symbol: g.symbol, zurueck: gegen ? () => void griffSchalten(gegen) : undefined });
+    } catch (e) {
+      rueckgaengigAnbieten({ text: `${g.titel} ging nicht: ${e instanceof Error ? e.message : String(e)}`, symbol: 'circle-x' });
+    }
+  };
+  /** Einrasten des Fensters im Fokus (Tastenkürzel); das Raster des Bildschirms kennt die Höhe. */
+  const einrastenFokus = (ziel: RastZiel) => {
+    const i = aktiv();
+    const id = fokus();
+    if (i === START || !id || wo(ap(), id) !== i) return;
+    rasterEinrasten.get(bid(i))?.(id, ziel);
+  };
   const umbenennenAn = (i: number) => {
     if (i < 1) return;
     gehe(i);
@@ -555,6 +673,7 @@ export default function Shell(): JSX.Element {
       { art: 'trenner' },
       { art: 'unter', text: 'Erscheinungsbild', punkte: erscheinungPunkte() },
       { art: 'unter', text: 'Hintergrund', punkte: hintergrundPunkte() },
+      { art: 'unter', text: 'Tapete dieses Bildschirms', punkte: tapetePunkte(i) },
       { text: 'Einstellungen …', kuerzel: mod(','), aus: !einstellungenDa(), tun: einstellungen },
     ];
   };
@@ -572,6 +691,8 @@ export default function Shell(): JSX.Element {
     { text: 'Übersicht', kuerzel: modAlt('↑'), tun: () => setUebersicht(true) },
     { art: 'trenner' },
     ...(i === START ? [{ text: 'Neuer Bildschirm', tun: neuerBildschirmAn }] : bildschirmEigenePunkte(i)),
+    { art: 'trenner' },
+    { art: 'unter', text: 'Tapete', punkte: tapetePunkte(i) },
   ];
   /** Menü eines Fensters auf dem aktuellen Bildschirm (vom Raster), sonst das Nötigste. */
   const fensterPunkte = (id: string): MenuePunkt[] => {
@@ -680,6 +801,7 @@ export default function Shell(): JSX.Element {
         { art: 'trenner' },
         { text: 'Fenster neu verteilen', aus: aktiv() === START || fensterVon(aktiv()).filter((w) => !w.min).length < 2, tun: () => verteilen(aktiv()) },
         { text: agentName(), kuerzel: mod('J'), an: agent(), tun: toggleAgent },
+        { text: 'Ansicht gerade rücken', tun: ansichtRueckenWunsch },
         { art: 'trenner' },
         { art: 'unter', text: 'Erscheinungsbild', punkte: erscheinungPunkte() },
         { art: 'unter', text: 'Hintergrund', punkte: hintergrundPunkte() },
@@ -736,15 +858,20 @@ export default function Shell(): JSX.Element {
   let wisch = { an: false, versatz: 0, zeit: 0, tempo: 0 };
   let wischEnde: ReturnType<typeof setTimeout> | undefined;
   let wischSperre = 0;
-  const kannLinks = () => aktiv() > START;
-  const kannRechts = () => aktiv() < ap().bildschirme.length;
-  const ziehenAuf = (versatz: number) => setZug(gummiband(versatz, flaecheGr().b, kannLinks(), kannRechts()));
+  // Im Raum wechselt Wischen den Raum (im Kreis); das Band der Bildschirme darunter bleibt stehen.
+  const kannLinks = () => imRaum() || aktiv() > START;
+  const kannRechts = () => imRaum() || aktiv() < ap().bildschirme.length;
+  const ziehenAuf = (versatz: number) => {
+    if (!imRaum()) setZug(gummiband(versatz, flaecheGr().b, kannLinks(), kannRechts()));
+  };
   const loslassen = () => {
-    const ziel = wischZiel(zug(), flaecheGr().b, wisch.tempo, kannLinks(), kannRechts());
+    const raum = imRaum();
+    const ziel = wischZiel(raum ? wisch.versatz : zug(), flaecheGr().b, wisch.tempo, kannLinks(), kannRechts());
     wisch = { an: false, versatz: 0, zeit: 0, tempo: 0 };
     setZieht(false);
     setZug(0);
-    if (ziel === -1) setze(nachLinks(ap()));
+    if (raum && ziel) raumSchrittAn(ziel);
+    else if (ziel === -1) setze(nachLinks(ap()));
     else if (ziel === 1) setze(nachRechts(ap()));
     if (ziel) wischSperre = Date.now() + 450;
   };
@@ -879,6 +1006,46 @@ export default function Shell(): JSX.Element {
       fingerStart = 0;
     }
   };
+
+  /**
+   * Ansicht gerade rücken (lib/os/ansicht.ts): Rollposition von Bereich, Shell und Seite auf null, ein hängengebliebener
+   * Wisch-Versatz weg. Läuft von selbst (Bildschirmwechsel, Größenänderung, jedes Scrollen des Bereichs, verwaister
+   * Wisch) und auf Wunsch (Doppelklick auf die Menüleiste, Darstellung → „Ansicht gerade rücken“).
+   */
+  const ansichtRuecken = (voll = false): boolean => {
+    let war = osAnsichtRuecken() > 0;
+    // Den Wisch-Zustand nur auf Wunsch oder bei verwaistem Wisch anfassen, nie mitten in einer Geste
+    if (voll && (zug() !== 0 || zieht() || wisch.an || finger.size > 0)) {
+      clearTimeout(wischEnde);
+      clearTimeout(langdruck);
+      finger.clear();
+      fingerAchse = null;
+      fingerStart = 0;
+      wisch = { an: false, versatz: 0, zeit: 0, tempo: 0 };
+      setZieht(false);
+      setZug(0);
+      war = true;
+    }
+    return war;
+  };
+  const ansichtRueckenWunsch = () => {
+    kurzMelden(ansichtRuecken(true) ? 'Ansicht gerade gerückt.' : 'Die Ansicht sitzt gerade.', 1800);
+  };
+  // Nach jedem Bildschirmwechsel, wenn das Band angekommen ist (480 ms Gleiten), und bei Größenänderung
+  createEffect(() => {
+    aktiv();
+    flaecheGr();
+    const t = setTimeout(() => ansichtRuecken(), 520);
+    onCleanup(() => clearTimeout(t));
+  });
+  // Wischversatz ohne Finger und ohne Rad-Schritte: verwaist (pointerup ging verloren), das Band bleibt sonst stehen
+  createEffect(() => {
+    if (zug() === 0) return;
+    const t = setInterval(() => {
+      if (zugFestgefahren(zug(), finger.size, Date.now() - (wisch.zeit || 0))) ansichtRuecken(true);
+    }, 400);
+    onCleanup(() => clearInterval(t));
+  });
 
   onMount(() => {
     void konfigurationLaden();
@@ -1020,6 +1187,8 @@ export default function Shell(): JSX.Element {
     const gewuenscht = suche.get('offen');
     const linkEingabe = eingabeLesen(suche.get('eingabe'));
     if (gewuenscht) {
+      // Wie oeffne(): ein Link öffnet vorn, also raus aus dem Raum, sonst läge das Fenster unsichtbar darunter
+      raumVerlassen();
       gewuenscht.split(',').filter(Boolean).forEach((id, i) => {
         const startZustand = i === 0 && linkEingabe && id.startsWith('app:') ? startPruefen({ werkzeug: id.slice(4), eingabe: linkEingabe }) : undefined;
         a = flaecheOeffnen(a, id, { start: startZustand, sonstNeu: true }).ap;
@@ -1028,9 +1197,12 @@ export default function Shell(): JSX.Element {
     // Aus Apps und Menüs: `fyos:oeffnen` (lib/os/oeffnen.ts) — ui/open-link mit einer Adresse von fyos, Links in Apps
     const oeffnenHoerer = (e: Event) => {
       const d = (e as CustomEvent<OsZiel | undefined>).detail;
-      if (d && typeof d.ziel === 'string' && oeffneZiel(d.ziel, d.eingabe)) e.preventDefault();
+      if (d && typeof d.ziel === 'string' && oeffneZiel(d.ziel, d.eingabe, d.vorn === true)) e.preventDefault();
     };
     window.addEventListener(OEFFNEN, oeffnenHoerer);
+    const tapeteHoerer = () => setTapeteFuer(aktiv());
+    window.addEventListener(TAPETE_EREIGNIS, tapeteHoerer);
+    onCleanup(() => window.removeEventListener(TAPETE_EREIGNIS, tapeteHoerer));
     onCleanup(() => window.removeEventListener(OEFFNEN, oeffnenHoerer));
     // Allein geöffnete Flächen finden über Namen und Kanal zu diesem Tab zurück (lib/os/allein.ts)
     onCleanup(osTabMelden());
@@ -1047,21 +1219,33 @@ export default function Shell(): JSX.Element {
     const erstesZiel = gewuenscht?.split(',').find(Boolean);
     if (erstesZiel && wo(a, erstesZiel) >= 1) setFokus(erstesZiel);
     apSpeichern(a);
-    // Neues Gerät (nichts gespeichert): die zuletzt gemeldete Anordnung aus dem Hub übernehmen.
-    if (alleFenster(a).length === 0 && !gewuenscht) {
-      void hub<{ bekannt: boolean; fenster?: Fenster[]; bildschirme?: unknown; aktiv?: number; agent?: boolean }>('shell.zustand')
-        .then((z) => {
-          if (!z?.bekannt || alleFenster(ap()).length) return;
-          if (Array.isArray(z.bildschirme) && z.bildschirme.length) setze(pruefen({ bildschirme: z.bildschirme, aktiv: z.aktiv ?? 0 }));
+    // Hub-Meldung lesen. Neues Gerät (nichts gespeichert): die zuletzt gemeldete Anordnung übernehmen. Sonst nur
+    // Tapeten, wo hier keine gesetzt ist. Gemeldet wird erst danach, sonst
+    // überschriebe dieses Gerät die Tapeten im Hub, bevor es sie gelesen hat.
+    const neuesGeraet = alleFenster(a).length === 0 && !gewuenscht;
+    const abgleichFrist = setTimeout(() => setHubGelesen(true), 4000);
+    onCleanup(() => clearTimeout(abgleichFrist));
+    void hub<{ bekannt: boolean; fenster?: Fenster[]; bildschirme?: unknown; aktiv?: number; agent?: boolean; startTapete?: unknown }>('shell.zustand')
+      .then((z) => {
+        if (!z?.bekannt) return;
+        if (neuesGeraet && !alleFenster(ap()).length) {
+          if (Array.isArray(z.bildschirme) && z.bildschirme.length)
+            setze(pruefen({ bildschirme: z.bildschirme, aktiv: z.aktiv ?? 0, startTapete: z.startTapete }));
           // Alte Meldung (eine Liste): wird „Bildschirm 1“; man landet wie beim Übernehmen im Browser auf dem Start.
           else if (z.fenster?.length) setze({ ...neuerBildschirm(leer(), 'Bildschirm 1', z.fenster), aktiv: START });
           if (z.agent) {
             setAgent(true);
             setAgentGeladen(true);
           }
-        })
-        .catch(() => {});
-    }
+        }
+        const mitTapeten = tapetenUebernehmen(ap(), z);
+        if (mitTapeten !== ap()) setze(mitTapeten);
+      })
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(abgleichFrist);
+        setHubGelesen(true);
+      });
     // Hub-Apps nachladen; Fenster einer abgebauten App verschwinden still. Nicht nur beim Start:
     // alle 2 Minuten, solange sichtbar, und beim
     // Zurückkehren in den Tab — eine neue App steht dann im Dock und Katalog, ohne dass jemand neu lädt.
@@ -1103,10 +1287,23 @@ export default function Shell(): JSX.Element {
     const taste = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       const wechsel = (e.metaKey && e.altKey) || (e.ctrlKey && e.altKey);
-      if (e.code === 'KeyF' && ((e.ctrlKey && e.metaKey) || (e.ctrlKey && e.altKey)) && !e.shiftKey) {
+      // ⌥⌘⇧ (⌃⌥⇧): Fenster im Fokus einrasten — ←/→ Hälfte, ↑ ganz, U I J K die Viertel (wie Rectangle am Mac)
+      const rast = wechsel && e.shiftKey ? RAST_TASTEN[e.code] : undefined;
+      if (rast) {
+        e.preventDefault();
+        einrastenFokus(rast);
+      } else if (e.code === 'KeyF' && ((e.ctrlKey && e.metaKey) || (e.ctrlKey && e.altKey)) && !e.shiftKey) {
         // ⌃⌘F (Windows und Linux: Strg+Alt+F): die Anwendung in den Vollbild-Bildschirm und wieder zurück. e.code, weil ⌥ auf dem Mac ein anderes Zeichen macht.
         e.preventDefault();
         vollbildTaste();
+      } else if (wechsel && imRaum() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        // Im Raum: ⌥⌘←→ wechselt den Raum, nicht den Bildschirm darunter
+        e.preventDefault();
+        raumSchrittAn(e.key === 'ArrowLeft' ? -1 : 1);
+      } else if (mod && !e.altKey && !e.shiftKey && e.key === '0' && raeume().an) {
+        // ⌘0: heim auf den Räume-Start (nur mit Räumen, sonst bleibt es das Zurücksetzen des Zooms)
+        e.preventDefault();
+        raumGehe(ZENTRALE);
       } else if (wechsel && e.key === 'ArrowLeft') {
         e.preventDefault();
         setze(nachLinks(ap()));
@@ -1203,12 +1400,13 @@ export default function Shell(): JSX.Element {
     const a = ap();
     const ag = agent();
     const v = flaechen();
-    if (!bereit()) return;
+    if (!bereit() || !hubGelesen()) return;
     clearTimeout(meldeZeit);
     meldeZeit = setTimeout(() => {
       void hub('shell.merken', {
         fenster: alleFenster(a),
-        bildschirme: a.bildschirme.map((b) => ({ id: b.id, name: b.name, fenster: b.fenster })),
+        bildschirme: a.bildschirme.map((b) => ({ id: b.id, name: b.name, fenster: b.fenster, ...(b.tapete ? { tapete: b.tapete } : {}) })),
+        ...(a.startTapete ? { startTapete: a.startTapete } : {}),
         aktiv: a.aktiv,
         agent: ag,
         verfuegbar: v.map((f) => ({ id: f.id, titel: f.titel })),
@@ -1237,6 +1435,7 @@ export default function Shell(): JSX.Element {
   };
   const ruhe = () => (aktiv() !== START && !uebersicht()) || untaetig() || versteckt() || start();
   const vorne = () => {
+    if (imRaum()) return raumZu(raeume().aktiv)?.name ?? '';
     if (uebersicht()) return 'Übersicht';
     const f = fokus();
     if (f && wo(ap(), f) === aktiv() && aktiv() !== START) return flaeche(f)?.titel ?? '';
@@ -1280,7 +1479,7 @@ export default function Shell(): JSX.Element {
           flaeche={flaeche}
           aktiv={fokus()}
           setAktiv={setFokus}
-          setze={(l) => setze(fensterAendern(ap(), i(), () => l))}
+          setze={(l) => fensterSetzen(i(), l)}
           ziehen={ziehen()}
           setZiehen={setZiehen}
           schmal={schmal()}
@@ -1298,6 +1497,7 @@ export default function Shell(): JSX.Element {
           onPunkte={(bau) => anmelden(rasterMenue, b, bau)}
           onVerteilen={(fn) => anmelden(rasterVerteilen, b, fn)}
           onVollbild={vollbildUmschalten}
+          onEinrasten={(fn) => anmelden(rasterEinrasten, b, fn)}
         />
       </Show>
     );
@@ -1321,6 +1521,7 @@ export default function Shell(): JSX.Element {
       onClick={() => { if (uebersicht()) gehe(index()); }}
       {...ablage}
     >
+      <TapeteEbene tapete={tapeteVon(ap(), index())} />
       <section
         class="os-bildschirm"
         aria-label={index() === START ? name() : `Bildschirm: ${name()}`}
@@ -1341,8 +1542,9 @@ export default function Shell(): JSX.Element {
   return (
     <div
       ref={wurzel}
-      class="relative flex h-full min-h-0 flex-col overflow-hidden"
+      class="relative flex h-full min-h-0 flex-col overflow-clip"
       data-shell
+      onScroll={() => ansichtRuecken()}
       data-zieht={aktuellerZug() ? '' : undefined}
       onContextMenu={(e) => {
         if (kontextAn(e.target as Element, e.clientX, e.clientY)) e.preventDefault();
@@ -1357,6 +1559,7 @@ export default function Shell(): JSX.Element {
       <Menueleiste
         menues={leistenMenues}
         vorne={vorne()}
+        onDoppelklick={ansichtRueckenWunsch}
         rechts={
           <>
             <button
@@ -1380,17 +1583,34 @@ export default function Shell(): JSX.Element {
       />
 
       <div class="relative z-[1] flex min-h-0 flex-1">
-        <div ref={bereich} class="relative min-w-0 flex-1 overflow-hidden" classList={{ 'os-uebersicht': uebersicht() }}>
+        <Show when={raeume().an && !schmal()}>
+          <RaeumeLeiste zustand={raeume()} onRaum={raumGehe} agentAn={agent()} onAgent={toggleAgent} />
+        </Show>
+        {/* overflow: clip statt hidden — hidden lässt sich per Skript scrollen (scrollIntoView, Fokus): das Band verrutschte
+            dann seitlich und blieb so (lib/os/ansicht.ts). Fehlt clip (alter Browser), rückt onScroll es zurück. */}
+        <div
+          ref={bereich}
+          data-os-bereich
+          class="relative min-w-0 flex-1 overflow-clip"
+          classList={{ 'os-uebersicht': uebersicht(), 'os-im-raum': imRaum() }}
+          onScroll={() => ansichtRuecken()}
+        >
           <Show when={meldung()}>
             <p role="status" class="os-glas os-glas-blur absolute top-3 left-1/2 z-[5] -translate-x-1/2 px-4 py-2 text-sm">{meldung()}</p>
+          </Show>
+          <Show when={imRaum()}>
+            <Raum id={raeume().aktiv} oeffne={(id) => oeffne(id)} schmal={schmal()} heim={() => raumGehe(ZENTRALE)} />
           </Show>
           <Show
             when={!schmal()}
             fallback={
-              <div class="os-bildschirm h-full overflow-auto">
-                <Show when={aktiv() === START} fallback={arbeitsInhalt(aktiv)}>
-                  {startInhalt()}
-                </Show>
+              <div class="os-bildschirm-schmal relative h-full">
+                <TapeteEbene tapete={tapeteVon(ap(), aktiv())} />
+                <div class="os-bildschirm h-full overflow-auto">
+                  <Show when={aktiv() === START} fallback={arbeitsInhalt(aktiv)}>
+                    {startInhalt()}
+                  </Show>
+                </div>
               </div>
             }
           >
@@ -1443,6 +1663,10 @@ export default function Shell(): JSX.Element {
             suche={suche()}
             setSuche={setSuche}
             gruppen={gruppen()}
+            suchstand={sucheStand()}
+            onTreffer={trefferOeffnen}
+            griffe={griffTreffer()}
+            onGriff={(g) => void griffSchalten(g)}
             offen={(id) => wo(ap(), id) >= 1}
             onOeffnen={(id) => oeffne(id)}
             onZiehEnde={() => zugEndet()}
@@ -1464,6 +1688,16 @@ export default function Shell(): JSX.Element {
         </Show>
         <Show when={hilfe()}>
           <Hilfe onSchliessen={() => setHilfe(false)} />
+        </Show>
+        <Show when={tapeteFuer() !== null}>
+          <TapeteDialog
+            ziele={[{ index: START, name: 'Startbildschirm' }, ...bildschirmNamen()]}
+            start={tapeteFuer()!}
+            kennung={(i) => (i === START ? 'start' : bildschirmBei(ap(), i)?.id ?? 'start')}
+            tapete={(i) => tapeteVon(ap(), i)}
+            setzen={(i, neu: Tapete | undefined) => setze(tapeteSetzen(ap(), i, neu))}
+            onSchliessen={() => setTapeteFuer(null)}
+          />
         </Show>
       </div>
 

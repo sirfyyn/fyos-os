@@ -43,7 +43,11 @@ export interface StartZustand {
   eingabe: Record<string, unknown>;
 }
 
-export const MAX_OFFEN = 8;
+/**
+ * Höchstens so viele offene Fenster je Bildschirm (das Raster wächst nicht nach unten ins Unendliche). Vier passen als 2×2 auf einen Bildschirm; ein fünftes öffnet die
+ * Shell auf einem neuen Bildschirm. Vorher 8.
+ */
+export const MAX_OFFEN = 4;
 export const SPALTEN = 12;
 export const SPALTEN_MIN = 3;
 export const ZEILEN_MIN = 4;
@@ -54,7 +58,7 @@ export const NEU_ZEILEN = 10;
 
 /** Höhe einer Rasterzeile in rem (Raster.tsx rechnet damit) und der Abstand zwischen zwei Zeilen. */
 export const ZEILE_REM = 2.5;
-const ABSTAND_REM = 0.75;
+const ABSTAND_REM = 0.5;
 
 const SCHLUESSEL = 'fyos:os:anordnung:v1';
 
@@ -62,7 +66,7 @@ const grenzen = (w: number, lo: number, hi: number): number => Math.min(hi, Math
 
 /**
  * Wie viele Rasterzeilen genau in die sichtbare Höhe eines Bildschirms passen (`hoehePx` = Höhe der Fläche, `remPx` = Schrift
- * der Seite; Rand oben 0,75 rem, unten 1,25 rem). Eine Anwendung öffnet so hoch: sie füllt den Bildschirm unter der Menüleiste.
+ * der Seite; Rand oben 0,5 rem, unten 0,75 rem). Eine Anwendung öffnet so hoch: sie füllt den Bildschirm unter der Menüleiste.
  */
 export function zeilenFuerHoehe(hoehePx: number, remPx = 16): number {
   const h = hoehePx / (remPx > 0 ? remPx : 16);
@@ -202,6 +206,41 @@ export function davorSetzen(liste: Fenster[], id: string, ziel: string | null): 
   const ohne = liste.filter((x) => x.id !== id);
   const j = ziel ? ohne.findIndex((x) => x.id === ziel) : -1;
   return j >= 0 ? [...ohne.slice(0, j), w, ...ohne.slice(j)] : [...ohne, w];
+}
+
+/**
+ * Einrasten: ein Fenster als Hälfte, Viertel oder ganz. Das Raster fließt (keine freien Positionen), also
+ * heißt Einrasten: Größe setzen und den Platz unter den sichtbaren Fenstern wählen. Links bzw. oben links ist der erste
+ * Platz, rechts bzw. oben rechts der zweite, unten links der dritte, unten rechts der vierte. `hoehe` ist die Zahl der
+ * Rasterzeilen, die in den sichtbaren Bereich passen; ein Viertel ist halb so hoch. Die Höhe wird festgehalten.
+ */
+export type RastZiel = 'links' | 'rechts' | 'oben-links' | 'oben-rechts' | 'unten-links' | 'unten-rechts' | 'voll';
+export const RAST_ZIELE: readonly RastZiel[] = ['links', 'rechts', 'oben-links', 'oben-rechts', 'unten-links', 'unten-rechts', 'voll'];
+/** Tastenkürzel (mit ⌥⌘⇧ bzw. ⌃⌥⇧, `KeyboardEvent.code`): Pfeile für Hälften und ganz, U I J K für die Viertel. */
+export const RAST_TASTEN: Readonly<Record<string, RastZiel>> = {
+  ArrowLeft: 'links', ArrowRight: 'rechts', ArrowUp: 'voll', KeyU: 'oben-links', KeyI: 'oben-rechts', KeyJ: 'unten-links', KeyK: 'unten-rechts',
+};
+const RAST_PLATZ: Record<RastZiel, number> = { voll: 0, links: 0, 'oben-links': 0, rechts: 1, 'oben-rechts': 1, 'unten-links': 2, 'unten-rechts': 3 };
+
+export function einrasten(
+  liste: Fenster[],
+  id: string,
+  ziel: RastZiel,
+  hoehe: number,
+  automatik?: Map<string, { spalten: number; zeilen: number }>,
+): Fenster[] {
+  const w = liste.find((x) => x.id === id);
+  if (!w || w.min) return liste;
+  const viertel = ziel.includes('-');
+  const zeilen = viertel ? Math.max(ZEILEN_MIN, Math.floor(hoehe / 2)) : hoehe;
+  const spalten = ziel === 'voll' ? SPALTEN : SPALTEN / 2;
+  const gesetzt = groesseSetzen(liste, id, { spalten, zeilen, fest: true }, automatik).map((x) =>
+    x.id === id && x.neueZeile ? (({ neueZeile: _n, ...rest }) => rest)(x) : x,
+  );
+  const sichtbar = gesetzt.filter((x) => !x.min && x.id !== id);
+  const platz = Math.min(RAST_PLATZ[ziel], sichtbar.length);
+  const neu = gesetzt.find((x) => x.id === id)!;
+  return [...sichtbar.slice(0, platz), neu, ...sichtbar.slice(platz), ...gesetzt.filter((x) => x.min)];
 }
 
 /** Ein Platz nach links (-1) oder rechts (+1) — die Tastatur-Entsprechung zum Ziehen. */

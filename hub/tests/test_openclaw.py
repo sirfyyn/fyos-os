@@ -397,6 +397,33 @@ def test_plan_aendert_titel_und_prioritaet_aus_dem_vorgang():
     assert "notes" in s.daten
 
 
+def test_kartentitel_wird_auf_180_gekuerzt_an_der_wortgrenze():
+    lang = " ".join(["Wortwort"] * 60)
+    t = V.titel({"id": "INC-1", "title": lang})
+    assert V._laenge(t) <= 180 and t.endswith("…") and t.startswith("[INC-1] ")
+    assert not t[:-1].endswith(" ") and t[:-1].split(" ")[-1] == "Wortwort"
+    assert V.titel({"id": "INC-2", "title": "kurz"}) == "[INC-2] kurz"
+
+
+def test_kartentitel_zaehlt_wie_das_gateway_utf16():
+    t = V.titel({"id": "INC-3", "title": "😀" * 200})
+    assert V._laenge(t) <= 180 and len(t.encode("utf-16-le")) // 2 <= 180 and t.endswith("…")
+    assert len(V._kurz("x" * 500, 180)) == 180
+
+
+def test_kartentitel_ohne_leerzeichen_wird_hart_gekuerzt():
+    assert V._kurz("a" * 300, 180) == "a" * 179 + "…"
+
+
+def test_karte_anlegen_und_plan_senden_nur_kurze_titel():
+    v = {"id": "INC-9", "title": "Lang " * 80, "status": "triage"}
+    assert len(V.karte_anlegen(v, "fyos")["title"].encode("utf-16-le")) // 2 <= 180
+    karte = {"id": "k1", "status": "backlog", "title": "alt", "priority": "normal", "notes": "",
+             "labels": ["vorgang:INC-9"], "updatedAt": 5}
+    (s,) = V.plan({"INC-9": v}, [karte], {"k1": {"u": 5, "s": "backlog", "e": 5}}, "fyos")
+    assert len(s.daten["title"].encode("utf-16-le")) // 2 <= 180
+
+
 # ── Beiträge: Zeitplan, Skills, Metriken, Zustand ───────────────────────────────────────────────
 
 

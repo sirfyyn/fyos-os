@@ -2,6 +2,7 @@
 @import "./os.css";
 @import "./os-eingebettet.css";
 @import "./os-apps.css";
+@import "./os-tapete.css";
 
 /*
  * global.css — Tokens und Grundstil der Shell.
@@ -117,6 +118,9 @@ html[data-theme="light"], [data-theme="light"] {
   :root {
     color-scheme: dark light;
   }
+  /* Bedienelemente und Scrollbalken folgen dem gewählten Thema, nicht dem Gerät */
+  html[data-theme="dark"] { color-scheme: dark; }
+  html[data-theme="light"] { color-scheme: light; }
 
   *,
   *::before,
@@ -138,7 +142,7 @@ html[data-theme="light"], [data-theme="light"] {
   }
 
   body {
-    min-height: 100vh;
+    min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -265,3 +269,9 @@ html[data-theme="light"][data-accent="emerald"],    [data-theme="light"][data-ac
   background: color-mix(in oklab, var(--color-accent) 60%, transparent); background-clip: padding-box;
 }
 :focus-visible { outline: 2px solid color-mix(in oklab, var(--color-accent) 70%, transparent); outline-offset: 1px; }
+
+/* iOS vergrößert die Seite, sobald ein Eingabefeld unter 16 px den Fokus bekommt. Am Touchgerät darum mindestens
+   16 px, ohne Ebene, damit es text-sm schlägt; mit Maus bleibt alles, wie es ist. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select { font-size: max(16px, 1em); }
+}

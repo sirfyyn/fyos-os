@@ -34,6 +34,11 @@ Vorlagen und Anleitung (Skill `generative-ui`) liegen als Paketdaten im Kern: `m
 Ablage: wie bei den anderen Kern-Plugins in `mcp_hub.kv` — Redis, wenn `REDIS_URL` gesetzt ist, sonst im Speicher des
 Prozesses (dann überlebt eine Ansicht keinen Neustart des Hubs; mit Redis so lange wie dessen Persistenz). Höchstens
 ABLAGE_MAX Ansichten; zuerst gehen die, die am längsten nicht (neu) gebaut wurden.
+
+Dateiablage statt `mcp_hub.kv`: mit der Plugin-Config `daten` (oder der Umgebung `FYOS_GUI_DATEN`) liegt jede Ansicht als
+`<daten>/gui/g-<12 Hex>.json` in einem Ordner, den mehrere Hub-Prozesse gemeinsam sehen (etwa eine Netzfreigabe). So
+bleiben auch schon abgelegte Ansichten einer älteren Installation erhalten: das Dateiformat ist dasselbe (`id`, `titel`,
+`beschreibung`, `html`, `css`, `js`, `hoehe`, `vorlage`, `quelle`, `angelegt`). Zuletzt benutzt zählt die Änderungszeit.
 """
 
 from __future__ import annotations
@@ -43,7 +48,9 @@ import datetime as dt
 import hashlib
 import json
 import logging
+import os
 import re
+import tempfile
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -71,6 +78,8 @@ GRENZEN = {"titel": 120, "beschreibung": 400, "html": 200_000, "css": 60_000, "j
 HOEHE_MIN, HOEHE_MAX = 120, 2400
 ABLAGE_MAX = 300
 LISTE_MAX = 20
+#: Unterordner der Dateiablage unter `daten`.
+UNTERORDNER = "gui"
 
 _STEUER = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
@@ -131,6 +140,20 @@ def dokument_id(doc: dict[str, Any]) -> str:
         felder["quelle"] = doc["quelle"]
     roh = json.dumps(felder, ensure_ascii=False, sort_keys=True)
     return "g-" + hashlib.sha256(roh.encode("utf-8")).hexdigest()[:12]
+
+
+def _atomar_schreiben(pfad: Path, text: str) -> None:
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{pfad.name}.", suffix=".tmp", dir=str(pfad.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(tmp, 0o664)
+        os.replace(tmp, pfad)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 # ── Vorlagen ───────────────────────────────────────────────────────────────────────────────────────────
@@ -429,6 +452,9 @@ class GuiPlugin(HubPlugin):
         cfg = config or {}
         #: Ordner mit eigenen Vorlagen (Aufbau wie `mcp_hub/skills/generative-ui/vorlagen`); leer = die des Kerns.
         self._vorlagen_konfig = cfg.get("vorlagen")
+        #: Dateiablage (siehe Modul): Ordner `<daten>/gui`; `None` = mcp_hub.kv.
+        daten = cfg.get("daten") or os.getenv("FYOS_GUI_DATEN")
+        self.daten: Path | None = Path(str(daten)) if daten else None
         self._reg: Any = None
         self._r: Any = None  # Tests setzen eine Attrappe
 
@@ -530,7 +556,17 @@ class GuiPlugin(HubPlugin):
             doc = mit_daten(doc, daten)
         return doc
 
+    @property
+    def ordner(self) -> Path | None:
+        return (self.daten / UNTERORDNER) if self.daten is not None else None
+
     def health(self) -> dict[str, Any]:
+        if self.daten is not None:
+            ok = self.daten.is_dir()
+            ordner = self.ordner
+            anzahl = len(list(ordner.glob("g-*.json"))) if ok and ordner is not None and ordner.is_dir() else 0
+            return {"ok": ok, "status": "healthy" if ok else "unhealthy", "ablage": "datei", "ansichten": anzahl,
+                    **({} if ok else {"grund": "Ablageordner (daten) nicht erreichbar"})}
         try:
             r = self.redis()
             anzahl = len(r.hgetall(SCHLUESSEL_INDEX))
@@ -541,6 +577,8 @@ class GuiPlugin(HubPlugin):
     # ── Ablage (mcp_hub.kv) ────────────────────────────────────────────────
     def _ablegen(self, i: str, doc: dict[str, Any]) -> bool:
         """Legt ab und räumt die am längsten unbenutzten weg. False, wenn die Ablage fehlt — die Ansicht wird trotzdem gezeigt."""
+        if self.ordner is not None:
+            return self._datei_ablegen(i, doc)
         try:
             r = self.redis()
             schluessel = SCHLUESSEL_DOKUMENT + i
@@ -564,6 +602,37 @@ class GuiPlugin(HubPlugin):
             r.delete(SCHLUESSEL_DOKUMENT + k)
             r.hdel(SCHLUESSEL_INDEX, k)
 
+    # ── Dateiablage ────────────────────────────────────────────────────────
+    def _datei_ablegen(self, i: str, doc: dict[str, Any]) -> bool:
+        ordner = self.ordner
+        assert ordner is not None
+        try:
+            pfad = ordner / f"{i}.json"
+            if pfad.exists():
+                os.utime(pfad)  # wieder benutzt: rückt beim Aufräumen nach hinten
+            else:
+                _atomar_schreiben(pfad, json.dumps({"id": i, **doc, "angelegt": _jetzt_iso()}, ensure_ascii=False) + "\n")
+            dateien = sorted(ordner.glob("g-*.json"), key=lambda p: p.stat().st_mtime)
+            for p in dateien[: max(0, len(dateien) - ABLAGE_MAX)]:
+                with contextlib.suppress(OSError):
+                    p.unlink()
+            return True
+        except OSError as e:
+            logger.info("gui: Ablage %s: %s", ordner, type(e).__name__)
+            return False
+
+    def _neueste_ids(self) -> list[str]:
+        """Ids der zuletzt benutzten Ansichten, die neueste zuerst (höchstens LISTE_MAX)."""
+        ordner = self.ordner
+        if ordner is not None:
+            try:
+                dateien = sorted(ordner.glob("g-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:LISTE_MAX]
+            except OSError:
+                return []
+            return [p.stem for p in dateien]
+        index = self._index()
+        return sorted(index, key=lambda k: _nummer(index[k]), reverse=True)[:LISTE_MAX]
+
     def _index(self) -> dict[str, str]:
         """id → laufende Nummer der letzten Benutzung."""
         try:
@@ -573,6 +642,12 @@ class GuiPlugin(HubPlugin):
             raise ValueError("Die Ablage der Ansichten (mcp_hub.kv) ist gerade nicht erreichbar") from None
 
     def _lesen(self, i: str) -> dict[str, Any] | None:
+        if self.ordner is not None:
+            try:
+                d = json.loads((self.ordner / f"{i}.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return None
+            return d if isinstance(d, dict) else None
         try:
             roh = self.redis().get(SCHLUESSEL_DOKUMENT + i)
         except Exception as e:  # noqa: BLE001
@@ -628,8 +703,7 @@ class GuiPlugin(HubPlugin):
                         raise
             return {**aus, "dokument": dokument}
         liste = []
-        index = self._index()
-        for k in sorted(index, key=lambda k: _nummer(index[k]), reverse=True)[:LISTE_MAX]:
+        for k in self._neueste_ids():
             d = self._lesen(k)
             if d:
                 liste.append({"id": k, "titel": _text(d.get("titel"), 120), "beschreibung": _text(d.get("beschreibung"), 200), "angelegt": d.get("angelegt")})

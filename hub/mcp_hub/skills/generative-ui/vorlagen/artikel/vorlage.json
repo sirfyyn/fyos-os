@@ -1,0 +1,37 @@
+{
+  "titel": "Artikel",
+  "zweck": "Einen Artikel lesen, ohne FYOS zu verlassen: Titel, Quelle, Datum, Lesezeit, Absätze in ruhiger Lesespalte, „Im Browser öffnen“. Daten am einfachsten live aus lesen.artikel {url}.",
+  "schema": {
+    "type": "object",
+    "required": ["titel", "absaetze"],
+    "properties": {
+      "titel": {"type": "string"},
+      "quelle": {"type": "string"},
+      "url": {"type": "string"},
+      "datum": {"type": "string"},
+      "autor": {"type": "string"},
+      "einleitung": {"type": "string"},
+      "lesezeit": {"type": "integer"},
+      "hinweis": {"type": "string"},
+      "absaetze": {
+        "type": "array", "maxItems": 300,
+        "items": {"type": "object", "required": ["text"], "properties": {
+          "art": {"type": "string", "description": "p (Absatz), h (Zwischenüberschrift), li (Aufzählung), zitat"},
+          "text": {"type": "string"}
+        }}
+      }
+    }
+  },
+  "beispiel": {
+    "titel": "Neue Batterien halten doppelt so lange",
+    "quelle": "Beispielzeitung",
+    "url": "https://example.org/artikel",
+    "datum": "2026-10-20T08:00:00+02:00",
+    "lesezeit": 2,
+    "absaetze": [
+      {"art": "p", "text": "Forschende haben eine Zelle vorgestellt, die nach tausend Ladezyklen noch neunzig Prozent ihrer Kapazität hält."},
+      {"art": "h", "text": "Was anders ist"},
+      {"art": "p", "text": "Statt Graphit nutzt die Anode eine dünne Siliziumschicht, die beim Laden weniger aufquillt."}
+    ]
+  }
+}

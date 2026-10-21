@@ -30,7 +30,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from .. import kv
+from .. import kv, suche_alles
 from ..plugin import HubPlugin, ResourceDescriptor, ToolDescriptor, build_dry_run_result, is_dry_run
 from . import _dinge, _identitaet
 from ._identitaet import identitaet
@@ -83,7 +83,17 @@ class BeispielAppPlugin(HubPlugin):
         return self._r if self._r is not None else kv.klient()
 
     def register(self) -> None:
-        return None
+        # Die Notizen sind eine Quelle der Suche über alles (⌘K): Typ „notiz“, ein Klick springt auf die Notiz.
+        suche_alles.registriere_quelle("notizen", "Notizen", self.suchen, typ="notiz")
+
+    def shutdown(self) -> None:
+        suche_alles.entferne_quelle("notizen", self.suchen)
+
+    def suchen(self, abfrage: str, anzahl: int) -> list[dict[str, Any]]:
+        """Notizen, in denen alle Wörter vorkommen (für die Suche über alles)."""
+        ws = abfrage.casefold().split()
+        gefunden = [n for n in self._lesen() if suche_alles.passt(ws, n.get("text"))]
+        return [{"id": n["id"], "titel": titel_der(str(n.get("text", ""))), "auszug": str(n.get("text", ""))} for n in gefunden[:anzahl]]
 
     def health(self) -> dict[str, Any]:
         return {"ok": True, "status": "healthy", "notizen": len(self._lesen())}

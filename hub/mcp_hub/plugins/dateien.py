@@ -17,6 +17,8 @@ Werkzeuge (``dateien.<name>``):
     versionen         frühere Fassungen einer Datei
     version_zurueck   eine frühere Fassung wieder einsetzen
     vorschau          Bild für die App (nur Oberfläche)
+    oeffnen_programme Programme, die eine Datei öffnen können (Papers, WordCraft, GridCraft auf dem Desktop-Rechner)
+    oeffnen_mit       Datei mit einem dieser Programme auf dem Rechner der Gegenstelle öffnen
 
 Alles Schreibende folgt dem Vertrag aus ``docs/ERWEITERN.md`` §2.8 und §3.6: ``__dry_run__`` zeigt den Plan, ein echter Lauf
 braucht ``bestaetigt: true``. Die App stellt dazu Anfragen (``App.beantragen``), der Agent gibt die Bestätigung selbst.
@@ -24,6 +26,9 @@ braucht ``bestaetigt: true``. Die App stellt dazu Anfragen (``App.beantragen``),
 HTTP (unter ``/hub/``, in der Shell als ``/hub-api/dateien/datei``):
     GET /hub/dateien/datei?pfad=…[&laden=1]                  Datei ausliefern (Anzeige im Browser oder Herunterladen)
     PUT /hub/dateien/datei?pfad=…[&ueberschreiben=1]         Datei hochladen (der Körper ist der Inhalt)
+
+„Öffnen mit“ braucht eine Gegenstelle (``config: {oeffnen: {gegenstelle: "http://rechner:18445", token_env: …}}``, siehe
+``mcp_hub/oeffnen.py``); ohne sie antworten beide Werkzeuge mit „nicht eingerichtet“.
 
 Wohin die Dateien kommen: ``FYOS_DATEIEN`` (oder ``config: {verzeichnis: …}``), siehe ``mcp_hub/dateien.py``.
 """
@@ -41,7 +46,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
-from .. import dateien
+from .. import dateien, oeffnen
 from ..plugin import (
     HubPlugin,
     ResourceDescriptor,
@@ -148,6 +153,7 @@ class DateienPlugin(HubPlugin):
         ui = self.config.get("ui_verzeichnis")
         self._ui_verzeichnis = ui if ui else None
         self._angemeldet = False
+        self._gegenstelle: tuple[tuple[str, str], oeffnen.Gegenstelle] | None = None
 
     def register(self) -> None:
         verz = self.config.get("verzeichnis")
@@ -292,6 +298,21 @@ class DateienPlugin(HubPlugin):
                 "Liefert ein Bild (bis 6 MB) als Basis-64 für die Anzeige in der App „Dateien“. Nur für die Oberfläche.",
                 {"pfad": pfad}, ["pfad"], ["read"], self._meta(nur_app=True),
             ),
+            werkzeug(
+                "oeffnen_programme", "Öffnen mit: Programme",
+                "Nennt die Programme, die eine Datei der Dateiablage auf dem Rechner der Gegenstelle öffnen können, nach "
+                "Dateiendung: PDF in Papers, Dokumente in WordCraft, Tabellen in GridCraft. Ohne Gegenstelle oder bei "
+                "unpassender Endung kommt eine leere Liste mit Hinweis. Nur lesend.",
+                {"pfad": pfad}, ["pfad"], ["read"],
+            ),
+            werkzeug(
+                "oeffnen_mit", "Öffnen mit",
+                "Öffnet eine Datei der Dateiablage mit einem Programm auf dem Rechner der Gegenstelle: sie wird dorthin "
+                "geladen und das Programm startet in einem Fenster. Das Programm kommt aus dateien.oeffnen_programme. Mit "
+                "`__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
+                {"pfad": pfad, "programm": {"type": "string", "maxLength": 60, "description": "Kennung aus dateien.oeffnen_programme, etwa papers"}, "bestaetigt": bestaetigt},
+                ["pfad", "programm"], ["exec"],
+            ),
         ]
 
     def describe_resources(self) -> list[ResourceDescriptor]:
@@ -313,6 +334,7 @@ class DateienPlugin(HubPlugin):
             "verschieben": self._verschieben, "loeschen": self._loeschen, "ordner_anlegen": self._ordner_anlegen,
             "papierkorb": self._papierkorb, "wiederherstellen": self._wiederherstellen, "versionen": self._versionen,
             "version_zurueck": self._version_zurueck, "vorschau": self._vorschau,
+            "oeffnen_programme": self._oeffnen_programme, "oeffnen_mit": self._oeffnen_mit,
         }
         if method not in werkzeuge:
             raise ValueError(f"dateien hat kein Werkzeug {method!r}")
@@ -335,7 +357,7 @@ class DateienPlugin(HubPlugin):
         return True
 
     def _plan(self, methode: str, was: str, wirkungen: list[str], args: dict[str, Any]) -> dict[str, Any]:
-        vorschau = {k: v for k, v in args.items() if k in ("pfad", "von", "nach", "id", "version", "ueberschreiben")}
+        vorschau = {k: v for k, v in args.items() if k in ("pfad", "von", "nach", "id", "version", "ueberschreiben", "programm")}
         return build_dry_run_result(
             would_execute=was, expected_side_effects=wirkungen, plugin=self.name, method=methode, args_preview=vorschau
         )
@@ -346,7 +368,8 @@ class DateienPlugin(HubPlugin):
         r = verz.liste(args.get("pfad"))
         n, o = len(r["eintraege"]), sum(1 for e in r["eintraege"] if e["art"] == "ordner")
         ort = f"„{r['pfad']}“" if r["pfad"] else "der obersten Ebene"
-        satz = f"{r['gesamt']} Einträge in {ort}" if r["gesamt"] else f"{ort[0].upper() + ort[1:]} ist leer"
+        leer = f"„{r['pfad']}“ ist leer" if r["pfad"] else "Die oberste Ebene ist leer"
+        satz = f"{r['gesamt']} Einträge in {ort}" if r["gesamt"] else leer
         if r["gesamt"]:
             satz += f" ({o} Ordner, {n - o} Dateien)" if not r["gekuerzt"] else f" (die ersten {n} gezeigt)"
         z = verz.zustand()
@@ -458,6 +481,58 @@ class DateienPlugin(HubPlugin):
                 wirkung.append(f"datei {r['pfad']}: die jetzige Fassung bleibt als Version")
             return self._plan("version_zurueck", f"Frühere Fassung von „{r['pfad']}“ wieder einsetzen", wirkung, args)
         return {**r, "ok": True, "satz": f"Frühere Fassung von „{r['pfad']}“ eingesetzt."}
+
+    # -- Öffnen mit (Gegenstelle auf dem Desktop-Rechner)
+    def _gegenstelle_holen(self) -> oeffnen.Gegenstelle:
+        """Die Gegenstelle aus Konfiguration und Umgebung; bleibt zwischen Aufrufen erhalten (Zwischenspeicher der Programme)."""
+        konf = self.config.get("oeffnen") if isinstance(self.config.get("oeffnen"), dict) else {}
+        g = oeffnen.aus_konfiguration(konf)
+        schluessel = g.schluessel
+        if self._gegenstelle and self._gegenstelle[0] == schluessel:
+            return self._gegenstelle[1]
+        self._gegenstelle = (schluessel, g)
+        return g
+
+    def _datei_pruefen(self, pfad: Any) -> str:
+        """Der normalisierte Pfad einer vorhandenen Datei in der Ablage (wirft sonst wie dateien.lesen)."""
+        return dateien.quelle().datei_pfad(pfad)[1]
+
+    def _oeffnen_programme(self, args: dict[str, Any]) -> dict[str, Any]:
+        rel = self._datei_pruefen(args.get("pfad"))
+        try:
+            programme = self._gegenstelle_holen().programme_fuer(rel)
+        except oeffnen.NichtEingerichtet as e:
+            return {"zustand": "nicht eingerichtet", "pfad": rel, "programme": [], "satz": "„Öffnen mit“ ist nicht eingerichtet.", "hinweis": str(e)}
+        except oeffnen.OeffnenFehler as e:
+            return {"zustand": "nicht erreichbar", "pfad": rel, "programme": [], "satz": "Die Gegenstelle für „Öffnen mit“ antwortet nicht.", "hinweis": str(e)}
+        schlicht = [{"id": p["id"], "name": p["name"]} for p in programme]
+        return {
+            "zustand": "ok", "pfad": rel, "programme": schlicht,
+            "satz": (f"„{rel}“ lässt sich öffnen mit: " + ", ".join(p["name"] for p in schlicht) + ".") if schlicht else f"Für „{rel}“ gibt es kein Programm.",
+        }
+
+    def _oeffnen_mit(self, args: dict[str, Any]) -> dict[str, Any]:
+        rel = self._datei_pruefen(args.get("pfad"))
+        programm = args.get("programm")
+        if not isinstance(programm, str) or not programm.strip():
+            raise ValueError("programm angeben (Kennung aus dateien.oeffnen_programme)")
+        echt = self._echt(args)
+        try:
+            g = self._gegenstelle_holen()
+            passend = {p["id"]: p for p in g.programme_fuer(rel)}
+            if programm not in passend:
+                raise ValueError(f"„{programm}“ öffnet „{rel}“ nicht; möglich: " + (", ".join(sorted(passend)) or "nichts"))
+            if not echt:
+                return self._plan(
+                    "oeffnen_mit", f"„{rel}“ mit {passend[programm]['name']} auf dem Rechner der Gegenstelle öffnen",
+                    [f"datei {rel}: wird auf {g.beschreibung()} geladen", f"programm {passend[programm]['name']}: startet in einem Fenster dort"], args,
+                )
+            r = g.oeffnen(rel, programm)
+        except oeffnen.NichtEingerichtet as e:
+            return {"ok": False, "zustand": "nicht eingerichtet", "error": str(e)}
+        except oeffnen.OeffnenFehler as e:
+            return {"ok": False, "zustand": "fehler", "error": str(e)}
+        return {"ok": True, "pfad": rel, "programm": r["programm"], "satz": f"„{rel}“ wird mit {r['programm']} geöffnet."}
 
     # ── HTTP: Herunterladen und Hochladen ────────────────────────────────────
     def routen(self) -> list[Any]:

@@ -48,6 +48,11 @@ export interface Flaeche {
   untertitel?: string;
   /** Hub-App: Kategorie im Katalog */
   kategorie?: string;
+  /**
+   * Zusätzliches Suchwort, falls Label und technischer Name (Slug/Daemon) auseinanderlaufen —
+   * z. B. „Kameras" vs. Daemon/Slug „cam". Nur fürs Finden, nicht angezeigt.
+   */
+  suchwort?: string;
   /** Hub-App: alle Werkzeuge mit derselben Oberfläche — ein Deeplink darf auch eines von ihnen nennen */
   mitglieder?: string[];
   /** Hub-App: darf an den Startbildschirm geheftet werden (nur lesend, ohne Pflichtfelder, ein Werkzeug) */
@@ -120,8 +125,8 @@ export function gruppiert(liste: Flaeche[], suche = ''): { gruppe: string; flaec
   const reihenfolge: string[] = [];
   const map = new Map<string, Flaeche[]>();
   for (const f of liste) {
-    // Apps lassen sich auch über ihre Zeile (Untertitel) und Kategorie finden
-    if (q && !`${f.titel} ${f.gruppe} ${f.untertitel ?? ''} ${f.kategorie ?? ''}`.toLowerCase().includes(q)) continue;
+    // Apps lassen sich auch über ihre Zeile (Untertitel) und Kategorie finden: „Szenen" → Haus
+    if (q && !`${f.titel} ${f.gruppe} ${f.untertitel ?? ''} ${f.kategorie ?? ''} ${f.suchwort ?? ''}`.toLowerCase().includes(q)) continue;
     if (!map.has(f.gruppe)) {
       map.set(f.gruppe, []);
       reihenfolge.push(f.gruppe);

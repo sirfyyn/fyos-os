@@ -54,7 +54,7 @@ def test_werkzeuge_haben_genau_einen_scope_und_sind_fuer_apps_freigegeben(plugin
     tools = {t.name: t for t in plugin.describe_tools()}
     assert set(tools) == {
         "liste", "lesen", "suchen", "schreiben", "verschieben", "loeschen", "ordner_anlegen",
-        "papierkorb", "wiederherstellen", "versionen", "version_zurueck", "vorschau",
+        "papierkorb", "wiederherstellen", "versionen", "version_zurueck", "vorschau", "oeffnen_programme", "oeffnen_mit",
     }
     for t in tools.values():
         assert len(SCOPES & set(t.tags)) == 1, t.name
@@ -128,6 +128,12 @@ def test_schreiben_lesen_liste_suchen(plugin):
     s = plugin.call("suchen", {"abfrage": "strom"})
     assert [t["pfad"] for t in s["treffer"]] == ["Projekt/Notizen/heute.md"] and s["treffer"][0]["treffer"] == "inhalt"
     assert "Fremdinhalt" in s["hinweis"]
+
+
+def test_leere_ablage_sagt_es_in_richtigem_deutsch(plugin):
+    assert plugin.call("liste", {})["satz"] == "Die oberste Ebene ist leer."
+    ausfuehren(plugin, "ordner_anlegen", pfad="Leer")
+    assert plugin.call("liste", {"pfad": "Leer"})["satz"] == "„Leer“ ist leer."
 
 
 def test_binaeres_kommt_als_angaben_mit_adresse(plugin):

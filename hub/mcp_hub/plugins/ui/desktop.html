@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop</title>
+<style>/*STIL*/
+  /* Eigene Klassen der App tragen den Vorsatz d- (die Klassen der gemeinsamen Schicht gehören _stil.css) */
+  .d-starter { display: flex; flex-wrap: wrap; gap: 8px; }
+  .d-bild { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); }
+  .d-hinweis { margin: 0 0 12px; color: var(--mut); font-size: 13px; }
+  .d-fokus { font-weight: var(--font-weight-medium); }
+  #antrag:empty { display: none; }
+  #antrag { margin: 0 0 12px; }
+  .d-zeile-knoepfe { display: flex; gap: 6px; flex: none; margin-left: auto; }
+  .d-ziele { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+  .d-ziele button[aria-pressed="true"] { border-color: var(--color-border-info); color: var(--color-text-info); background: var(--color-background-info); }
+  /* Eine Ansicht je Größe (Entscheidung 507): im Blick Lage und wenige Fenster; kompakt ohne Erklärtexte; weit Fenster in zwei Spalten */
+  .d-weitere { margin: 0; padding: 8px 4px 0; font-size: 12.5px; color: var(--mut); text-align: center; }
+  html:is([data-stufe="blick"], [data-stufe="kompakt"]) .d-hinweis { display: none; }
+  html[data-stufe="blick"] .d-zeile-knoepfe { display: none; }
+  html[data-stufe="weit"] #fenster .zeilen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+  html[data-stufe="weit"] #fenster .zeilen > :nth-child(2) { border-top: 0; }
+</style>
+</head>
+<body>
+<!--KOPF-->
+  <button id="knopf-bild" class="rund" title="Bildschirm ansehen" aria-label="Bildschirm ansehen" aria-pressed="false" data-ab="normal"><svg class="ico" data-symbol="eye"></svg></button>
+  <button id="knopf-neuladen" class="rund drehen" title="Aktualisieren" aria-label="Aktualisieren"><svg class="ico" data-symbol="refresh-cw"></svg></button>
+<!--/KOPF-->
+<main>
+  <div id="antrag"></div>
+  <div class="d-ziele" id="ziele" data-ab="kompakt">
+    <button type="button" class="zweit" data-ziel="mensch" aria-pressed="true">Mein Desktop</button>
+    <button type="button" class="zweit" data-ziel="agent" aria-pressed="false">Desktop des Agenten</button>
+  </div>
+  <div id="frei"></div>
+  <div id="bild" data-ab="normal"></div>
+  <div id="starter" data-ab="normal"></div>
+  <div id="fenster"><div class="laedt">Lädt …</div></div>
+  <div id="bildschirme" data-ab="weit"></div>
+</main>
+<script>
+/*BRUECKE*/
+const $ = (id) => document.getElementById(id);
+const { esc, symbol, zustand, satz } = App;
+let ziel = "mensch";
+const rufen = (name, args) => App.rufen("desktop__" + name, { ...(ziel === "agent" ? { ziel } : {}), ...(args || {}) });
+
+let daten = null;
+let fehlerText = "";
+let bildAn = false;
+let bild = "";
+let bildTyp = "image/jpeg";
+let bildLaeuft = false;
+
+function titelVon(f) { return (f.titel || "").trim() || "(ohne Titel)"; }
+// Eine Ansicht je Größe (Entscheidung 507): was im Blick oder kompakt abgeschnitten wird, steht als eine Zeile da
+const weitere = (n) => (n > 0 ? `<div class="d-weitere">${n === 1 ? "1 weiteres Fenster" : `${n} weitere Fenster`} im größeren Fenster</div>` : "");
+
+function zeichnen() {
+  if (!daten) {
+    $("fenster").innerHTML = '<div class="karte">' + zustand({ symbol: "monitor", ton: "schlecht", titel: "Der Desktop antwortet nicht", text: fehlerText, klein: true }) + "</div>";
+    $("starter").replaceChildren();
+    return;
+  }
+  const l = daten.lage || {}, m = (l.monitore || [{}])[0] || {};
+  satz(`${ziel === "agent" ? "Agent: " : ""}${(daten.fenster || []).length} Fenster · Arbeitsfläche ${l.arbeitsflaeche ?? "?"} · ${m.breite ?? "?"}×${m.hoehe ?? "?"} · ${l.modus || ""}`, "gut");
+
+  const e = daten.eingabe || {};
+  if (ziel === "agent") {
+    const u = !!e.uebernommen;
+    $("frei").innerHTML = '<div class="karte"><span class="marke ' + (u ? "schlecht" : "gut") + '">' + symbol(u ? "power" : "eye")
+      + (u ? "Du hast übernommen: der Agent ruht" : "Der Agent arbeitet hier frei") + "</span>"
+      + '<p class="d-hinweis">' + (u ? "Eingaben des Agenten werden abgewiesen, bis du zurückgibst." : "Du siehst zu. Mit „Übernehmen“ hältst du den Agenten an.") + "</p>"
+      + `<button type="button" class="${u ? "" : "zweit"}" data-uebernehmen="${u ? "aus" : "an"}">${symbol(u ? "play" : "power")}${u ? "Zurückgeben" : "Übernehmen"}</button></div>`;
+  } else $("frei").innerHTML = e.unbekannt ? "" : '<div class="karte"><span class="marke ' + (e.freigabe ? "schlecht" : "grau") + '">' + symbol(e.freigabe ? "eye" : "power")
+    + (e.freigabe ? `Computer Use freigegeben, noch ${Math.floor(e.rest_sekunden / 60)}:${String(e.rest_sekunden % 60).padStart(2, "0")} Minuten` : "Computer Use gesperrt") + "</span>"
+    + '<p class="d-hinweis">' + (e.freigabe ? "Der Agent darf klicken und tippen. Sperren: Klick auf „KI“ in der Leiste des Rechners oder Alt+Umschalt+K."
+      : "Klicken und Tippen für den Agenten gibt nur, wer am Rechner sitzt: Klick auf „KI“ in der Leiste oder Alt+Umschalt+K (10 Minuten).") + "</p></div>";
+
+  const st = daten.starter || [];
+  $("starter").innerHTML = st.length
+    ? '<div class="karte"><h2>Starten</h2><div class="d-starter">' + st.map((s) =>
+        `<button type="button" class="zweit" data-starter="${esc(s.id)}" data-name="${esc(s.name)}">${symbol("play")}${esc(s.name)}</button>`).join("") + "</div></div>"
+    : "";
+
+  // Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt das Fenster vorn zuerst und nur wenige; sonst alle
+  const alle = daten.fenster || [], klein = App.stufe === "blick" || App.stufe === "kompakt";
+  const fl = klein ? [...alle].sort((a, b) => Number(!!b.fokus) - Number(!!a.fokus)).slice(0, App.anzahl({ blick: 3, kompakt: 6 })) : alle;
+  $("fenster").innerHTML = '<div class="karte"><h2>Offene Fenster</h2>' + (fl.length
+    ? '<p class="d-hinweis">Zieh ein Fenster auf eine andere App oder auf den Agenten, um darüber zu sprechen. Nach vorn holen und Schließen fragen vorher nach.</p><div class="zeilen">'
+      + fl.map((f) =>
+        `<div class="zeile mitte" data-adresse="${esc(f.adresse)}" data-label="${esc(f.klasse + ": " + titelVon(f))}">`
+        + `<span class="zeile-text"><span class="zeile-titel${f.fokus ? " d-fokus" : ""}">${esc(titelVon(f))}</span>`
+        + `<span class="zeile-unter">${esc(f.klasse)} · Arbeitsfläche ${esc(f.arbeitsflaeche)}${f.fokus ? " · vorn" : ""}${f.vollbild ? " · Vollbild" : ""}</span></span>`
+        + `<span class="d-zeile-knoepfe"><button type="button" class="rund" data-fokus="1" title="Nach vorn holen" aria-label="Nach vorn holen">${symbol("square-arrow-out-up-right")}</button>`
+        + `<button type="button" class="rund" data-zu="1" title="Schließen" aria-label="Schließen">${symbol("x")}</button></span></div>`).join("") + "</div>"
+    : zustand({ symbol: "monitor", titel: "Kein Fenster offen", text: "Auf dem Desktop ist gerade nichts offen.", klein: true })) + weitere(alle.length - fl.length) + "</div>";
+  // weit: die Bildschirme einzeln (die Satzzeile nennt nur den ersten)
+  $("bildschirme").innerHTML = App.stufe !== "weit" || !(l.monitore || []).length ? "" : '<div class="karte"><h2>Bildschirme</h2><div class="zeilen">'
+    + l.monitore.map((mon, i) => `<div class="zeile mitte"><span class="zeile-text"><span class="zeile-titel">Bildschirm ${i + 1}</span><span class="zeile-unter">${esc(`${mon.breite ?? "?"} × ${mon.hoehe ?? "?"}`)}</span></span></div>`).join("")
+    + "</div></div>";
+}
+
+function bildZeichnen() {
+  $("knopf-bild").setAttribute("aria-pressed", String(bildAn));
+  if (!(bildAn && bild)) { $("bild").replaceChildren(); return; }
+  const quelle = `data:${bildTyp};base64,${bild}`;
+  const da = $("bild").querySelector("img.d-bild");
+  if (da) { da.src = quelle; return; }  // Bild an Ort und Stelle tauschen, sonst flackert die Live-Ansicht
+  $("bild").innerHTML = '<div class="karte"><img class="d-bild" alt="Bildschirm des Desktops"></div>';
+  $("bild").querySelector("img.d-bild").src = quelle;
+}
+
+async function bildLaden() {
+  if (!bildAn || App.stufe === "blick" || App.stufe === "kompakt") return; // das Bild gibt es erst ab normal (Entscheidung 507)
+  try {
+    const r = await rufen("bild", { skala: 0.5, format: "jpeg", qualitaet: 70 });
+    if (r && typeof r.daten_base64 === "string" && (r.typ === "image/jpeg" || r.typ === "image/png")) { bild = r.daten_base64; bildTyp = r.typ; bildZeichnen(); }
+  } catch (e) { satz(App.fehlertext(e), "schlecht"); }
+}
+
+async function laden() {
+  try {
+    const d = await rufen("zeigen");
+    if (d && d.ok === false) throw new Error(d.error || d.satz || "Der Desktop antwortet nicht.");
+    daten = d; fehlerText = "";
+  } catch (e) { daten = null; fehlerText = App.fehlertext(e); satz("Der Desktop antwortet nicht", "schlecht"); }
+  zeichnen();
+}
+
+async function beantragen(werkzeug, args, ja, sym) {
+  try {
+    const r = await App.beantragen({ werkzeug: "desktop__" + werkzeug, args: { ...(ziel === "agent" ? { ziel } : {}), ...args }, ort: $("antrag"), ja, symbol: sym });
+    if (r == null) return;
+    satz((r && r.satz) || "Erledigt.", "gut");
+    setTimeout(laden, 700);
+  } catch (e) { satz(App.fehlertext(e), "schlecht"); }
+}
+
+$("starter").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-starter]");
+  if (b) beantragen("starten", { starter: b.dataset.starter }, b.dataset.name + " starten", "play");
+});
+$("fenster").addEventListener("click", (e) => {
+  const z = e.target.closest(".zeile[data-adresse]");
+  if (!z) return;
+  if (e.target.closest("[data-fokus]")) beantragen("fokus", { adresse: z.dataset.adresse }, "Nach vorn holen", "square-arrow-out-up-right");
+  else if (e.target.closest("[data-zu]")) beantragen("schliessen", { adresse: z.dataset.adresse }, "Schließen", "x");
+});
+$("ziele").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ziel]");
+  if (!b || b.dataset.ziel === ziel) return;
+  ziel = b.dataset.ziel; daten = null; bild = "";
+  for (const k of $("ziele").querySelectorAll("[data-ziel]")) k.setAttribute("aria-pressed", String(k.dataset.ziel === ziel));
+  bildAn = ziel === "agent"; bildZeichnen(); laden(); bildLaden();  // beim Agenten gleich das Bild: zusehen ist der Zweck
+});
+$("frei").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-uebernehmen]");
+  if (!b) return;
+  const an = b.dataset.uebernehmen === "an";
+  try {
+    if (an) { const r = await rufen("uebernehmen", { an: true }); satz((r && r.satz) || "Übernommen.", "gut"); setTimeout(laden, 300); }
+    else await beantragen("uebernehmen", { an: false }, "Zurückgeben", "play");
+  } catch (er) { satz(App.fehlertext(er), "schlecht"); }
+});
+$("knopf-neuladen").addEventListener("click", () => { laden(); bildLaden(); });
+$("knopf-bild").addEventListener("click", () => { bildAn = !bildAn; bild = ""; bildZeichnen(); bildLaden(); });
+
+// Ein Fenster der Liste lässt sich als Ding ziehen (Typ desktop-fenster, Kennung = Fensteradresse).
+App.ziehbar($("fenster"), { typ: "desktop-fenster", id: (el) => el.dataset.adresse, label: (el) => el.dataset.label, selektor: ".zeile[data-adresse]" });
+
+App.auf("ui/notifications/tool-result", (r) => { const d = App.daten(r); if (d && Array.isArray(d.fenster) && d.lage) { daten = d; fehlerText = ""; zeichnen(); } });
+// Andere Kachelgröße, andere Ansicht (Entscheidung 507)
+window.addEventListener("app-stufe", () => { if (daten) zeichnen(); });
+App.takt(10000, laden);
+// Live-Ansicht: sobald ein Bild da ist, kommt das nächste; nie zwei Anfragen zugleich (JPEG, etwa drei Bilder je Sekunde)
+App.takt(300, async () => {
+  if (!bildAn || bildLaeuft) return;
+  bildLaeuft = true;
+  try { await bildLaden(); } finally { bildLaeuft = false; }
+});
+App.start("fyos-desktop").then(() => setTimeout(() => { if (!daten) laden(); }, 1500)).catch(() => {});
+</script>
+</body>
+</html>

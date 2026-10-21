@@ -447,12 +447,21 @@ def _discover_entry_points() -> list[tuple[str, type[HubPlugin]]]:
 
     for ep in eps:
         try:
+            # Mit plugins_live: ein anderer Stand des Moduls aus einer Quelle kommt vor dem Import (sonst nichts).
+            _live().vorladen(getattr(ep, "module", "") or "")
             cls = ep.load()
             if inspect.isclass(cls) and issubclass(cls, HubPlugin):
                 results.append((ep.name, cls))
         except Exception as exc:  # noqa: BLE001
             logger.warning("mcp_hub.registry: entry-point %s failed to load: %s", ep.name, exc)
     return results
+
+
+def _live() -> Any:
+    """`mcp_hub.plugins_live` (spät importiert: das Modul braucht seinerseits die Registry)."""
+    from . import plugins_live  # noqa: PLC0415
+
+    return plugins_live
 
 
 def plugins_ohne_eintrag(cfg: HubConfig, paket: str = "mcp_hub.plugins") -> list[PluginConfig]:
@@ -472,6 +481,8 @@ def plugins_ohne_eintrag(cfg: HubConfig, paket: str = "mcp_hub.plugins") -> list
         modul = f"{paket}.{info.name}"
         if info.name.startswith("_") or info.ispkg or modul in vergeben:
             continue
+        if paket == "mcp_hub.plugins":
+            _live().vorladen(modul)  # Stand aus einer Quelle vor dem Import (nur mit plugins_live)
         try:
             mod = importlib.import_module(modul)
         except Exception as exc:  # noqa: BLE001 — wie ein kaputter Eintrag: sichtbar, nicht tödlich
@@ -505,6 +516,8 @@ def build_registry(cfg: HubConfig) -> PluginRegistry:
        applied to the BreakerRegistry.
     """
     reg = PluginRegistry()
+    # Plugins live aus Quellverzeichnissen nachladen, falls an (plugins_live.py); sonst bleibt alles wie im Bild.
+    _live().konfigurieren(cfg)
     if getattr(cfg, "aufruf_zeitlimit_s", None) is not None and not os.getenv("MCP_HUB_AUFRUF_ZEITLIMIT_S"):
         reg.aufruf_zeitlimit_s = float(cfg.aufruf_zeitlimit_s)
 
@@ -528,8 +541,17 @@ def build_registry(cfg: HubConfig) -> PluginRegistry:
             reg.abgeschaltet.add(pcfg.name)
             continue
         _inject_plugin_secrets_into_env(pcfg)
+        aus_quelle = _live().vorladen(pcfg.module)
         try:
-            plugin = _instantiate_plugin(pcfg)
+            try:
+                plugin = _instantiate_plugin(pcfg)
+            except Exception as exc:  # noqa: BLE001
+                if not aus_quelle:
+                    raise
+                # Der Stand aus der Quelle baut nicht: Bild-Stand nehmen, der Fehler bleibt in der Health-Anzeige.
+                logger.error("mcp_hub.registry: %s aus der Quelle nicht baubar (%s) — Bild-Stand", pcfg.name, exc)
+                _live().auf_image_zurueck(pcfg.module, f"{type(exc).__name__}: {exc}")
+                plugin = _instantiate_plugin(pcfg)
         except Exception as exc:  # noqa: BLE001 — ein Plugin darf den Hub nicht mitreissen
             logger.error("mcp_hub.registry: failed to instantiate %s: %s", pcfg.name, exc)
             reg.nicht_geladen[pcfg.name] = f"{type(exc).__name__}: {exc}"
@@ -564,7 +586,15 @@ def build_registry(cfg: HubConfig) -> PluginRegistry:
             )
             continue
         try:
-            plugin = _instantiate_plugin(PluginConfig(name=ep_name, module="", class_name=""), klasse=cls)
+            try:
+                plugin = _instantiate_plugin(PluginConfig(name=ep_name, module="", class_name=""), klasse=cls)
+            except Exception as exc:  # noqa: BLE001
+                if not _live().aus_quelle(cls.__module__):
+                    raise
+                # Der Stand aus der Quelle baut nicht: Bild-Stand nehmen, der Fehler bleibt in der Health-Anzeige.
+                logger.error("mcp_hub.registry: %s aus der Quelle nicht baubar (%s) — Bild-Stand", ep_name, exc)
+                _live().auf_image_zurueck(cls.__module__, f"{type(exc).__name__}: {exc}")
+                plugin = _instantiate_plugin(PluginConfig(name=ep_name, module="", class_name=""), klasse=_entry_point_klasse(ep_name))
             declared_name = plugin.name or ep_name
             _register_one(reg, declared_name, plugin)
         except Exception as exc:  # noqa: BLE001 — ein Plugin darf den Hub nicht mitreissen

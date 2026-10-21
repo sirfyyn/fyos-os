@@ -66,6 +66,21 @@ describe('AppEingebettet im OS-Fenster (wachsen, eine Scrollebene)', () => {
     await waitFor(() => expect(rahmen.style.height).toBe('2600px'));
     expect(region.style.minHeight).toBe('');
   });
+
+  it('ist bereit, sobald die App zuhört, nicht erst mit ihrer ersten Höhe (lange Apps)', async () => {
+    apps.mockResolvedValue([{ name: 'studio__stuecke', tool: 'studio.stuecke', scope: 'READ', inputSchema: {}, _meta: { ui: {} } }]);
+    const { container } = render(() => <AppEingebettet name="studio__stuecke" titel="GameStudio" wachsen />);
+    await waitFor(() => expect(appEinhaengen).toHaveBeenCalled());
+    const rahmen = container.querySelector('iframe')!;
+    expect(rahmen.style.opacity).toBe('0');
+    appEinhaengen.mock.calls[0]![1].onInitialized();
+    await waitFor(() => expect(rahmen.style.opacity).toBe('1')); // ohne size-changed
+    expect(screen.queryByRole('status')).toBeNull(); // kein „wird geladen“ mehr
+    const region = screen.getByRole('region', { name: 'GameStudio' });
+    expect(region.style.minHeight).toBe('12rem'); // der Platzhalter hält, bis die erste Höhe kommt
+    appEinhaengen.mock.calls[0]![1].onHeight(900);
+    await waitFor(() => expect(region.style.minHeight).toBe(''));
+  });
 });
 
 describe('AppEingebettet mit Startzustand (Deeplink mit Eingabe)', () => {
@@ -217,7 +232,10 @@ describe('AppEingebettet: Aufräumen und Neuversuch', () => {
     render(() => <AppEingebettet name="werkstatt__suchen" titel="Werkstatt" />);
     await vi.advanceTimersByTimeAsync(0);
     expect(appEinhaengen).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(10_000); // die App meldet keine Höhe: „konnte nicht geladen werden“
+    await vi.advanceTimersByTimeAsync(10_000); // die App meldet keine Höhe: erst „braucht länger“
+    expect(screen.getByText('Werkstatt braucht länger als gewohnt …')).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(20_000); // nach 30 s: „konnte nicht geladen werden“
+    expect(screen.getByText('Werkstatt konnte nicht geladen werden.')).toBeTruthy();
     const knopf = await screen.findByRole('button', { name: 'Erneut versuchen' });
     fireEvent.click(knopf);
     await vi.advanceTimersByTimeAsync(0);

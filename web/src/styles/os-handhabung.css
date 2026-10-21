@@ -1,5 +1,6 @@
 /*
- * os-handhabung.css — wie sich Ziehen und Ablegen im OS anfühlt (lib/os/ziehen.ts). Drei Dinge machen das:
+ * os-handhabung.css — wie sich Ziehen und Ablegen im OS anfühlt (lib/os/ziehen.ts), dazu die Vorschau beim
+ * Einrasten (unten). Drei Dinge machen das:
  *   1. Die Ziele zeigen sich, sobald etwas gezogen wird: Die Bildschirm-Punkte blühen zu Schildern mit Namen auf,
  *      „+" und der Agent bekommen einen Rand. Man muss nicht wissen, wohin es gehen kann — man sieht es.
  *   2. Das Ziel unter dem Zeiger federt an (leichtes Überschwingen) und sagt in einer Zeile, was beim Loslassen
@@ -40,7 +41,8 @@
   background: var(--os-menue-bg);
   border: 1px solid color-mix(in oklab, var(--os-akzent) 55%, var(--os-glas-rand));
   box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.55);
-  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: var(--os-glas-filter-leicht);
+  backdrop-filter: var(--os-glas-filter-leicht);
   pointer-events: none;
   animation: os-hinweis-auf 220ms var(--os-feder) both;
 }
@@ -55,7 +57,8 @@
   gap: 0.4rem;
   border: 1px solid var(--os-glas-rand);
   background: color-mix(in oklab, var(--color-bg) 62%, transparent);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: var(--os-glas-filter-leicht);
+  backdrop-filter: var(--os-glas-filter-leicht);
   animation: os-aufbluehen 320ms var(--os-feder) both;
   transition: transform 0.25s var(--os-feder), border-color 0.15s, background-color 0.15s, box-shadow 0.2s;
 }
@@ -70,6 +73,7 @@
   border: 0;
   background: none;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
   opacity: 1;
   color: var(--color-fg-muted);
@@ -137,7 +141,35 @@ aside.os-ziel-an {
   85% { transform: translateY(0); }
 }
 
+/* ── Einrasten: Vorschau, wenn ein Fenster an den Rand gezogen wird ──────────────────────
+ * Hälfte oder Viertel des sichtbaren Bildschirms, getönt im Akzent; Loslassen rastet ein (Raster.tsx `randZone`). */
+.os-rast-vorschau {
+  position: fixed;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 6px solid transparent;
+  background-clip: padding-box;
+  border-radius: calc(var(--os-radius) + 6px);
+  background-color: color-mix(in oklab, var(--os-akzent) 16%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--os-akzent) 70%, transparent);
+  pointer-events: none;
+  animation: os-aufbluehen 180ms var(--os-feder) both;
+  transition: left 0.16s var(--os-feder), top 0.16s var(--os-feder), width 0.16s var(--os-feder), height 0.16s var(--os-feder);
+}
+.os-rast-vorschau span {
+  padding: 0.3rem 0.75rem;
+  border-radius: 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid var(--os-glas-rand);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .os-rast-vorschau { animation: none; transition: none; }
   .os-zug-hinweis,
   [data-shell][data-zieht] .os-punkt,
   [data-shell][data-zieht] .os-punkt-neu,

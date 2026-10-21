@@ -47,7 +47,8 @@
   background: var(--os-menue-bg);
   border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
   box-shadow: 0 20px 50px -16px rgb(0 0 0 / 0.6), 0 0 0 0.5px rgb(0 0 0 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.07);
-  backdrop-filter: blur(34px) saturate(180%);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
   cursor: pointer;
   outline: none;
   pointer-events: auto;

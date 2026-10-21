@@ -5,11 +5,14 @@
  * nach Gruppen. Flächen lassen sich auch direkt auf einen Bildschirm ziehen — auf den Schreibtisch, einen
  * Bildschirm-Punkt, „+" oder den Agent (lib/os/ziehen.ts).
  */
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { For, Show, createEffect, createSignal, on, onCleanup, onMount, type JSX } from 'solid-js';
 import { systemName } from '~/lib/config';
+import type { Griff } from '~/lib/griffe';
+import { GriffFrage, GriffListe, griffTaste } from './Griffe';
 import { pins as lesePins, pinsBeobachten } from '~/lib/mcp-apps/pins';
 import type { Fenster } from '~/lib/os/anordnung';
 import type { Flaeche } from '~/lib/os/flaechen';
+import { gruppiert as trefferGruppen, sucheMoeglich, trefferWeg, type SucheZustand, type Treffer } from '~/lib/os/suche';
 import { gutSetzen, zugBeginnt, zugBild } from '~/lib/os/ziehen';
 import Symbol, { Glyphe } from './Symbol';
 
@@ -23,6 +26,13 @@ export interface StartProps {
   suche: string;
   setSuche: (s: string) => void;
   gruppen: { gruppe: string; flaechen: Flaeche[] }[];
+  /** Stand der Suche über alles (Vorgänge, Mail, Dateien, Notizen …); ohne Angabe sucht der Start nur Flächen */
+  suchstand?: SucheZustand;
+  /** Ein Treffer wurde angeklickt */
+  onTreffer?: (t: Treffer) => void;
+  /** Griffe zur Suche (lib/griffe.ts): schalten ohne Fenster */
+  griffe?: readonly Griff[];
+  onGriff?: (g: Griff) => void;
   offen: (id: string) => boolean;
   onOeffnen: (id: string) => void;
   onZiehStart?: () => void;
@@ -50,6 +60,30 @@ export default function Start(p: StartProps): JSX.Element {
     setGeheftet(lesePins());
     onCleanup(pinsBeobachten(setGeheftet));
   });
+  const stand = (): SucheZustand => p.suchstand ?? { art: 'leer' };
+  const sucht = () => sucheMoeglich(p.suche);
+  const treffer = (): Treffer[] => {
+    const s = stand();
+    return s.art === 'fertig' ? s.treffer : [];
+  };
+  const griffe = () => p.griffe ?? [];
+  const [griffWahl, setGriffWahl] = createSignal(-1);
+  const [griffFrage, setGriffFrage] = createSignal<Griff | null>(null);
+  createEffect(on(() => p.suche, () => { setGriffWahl(-1); setGriffFrage(null); }, { defer: true }));
+  const griffWaehlen = (g: Griff) => (g.nachfragen ? setGriffFrage(g) : p.onGriff?.(g));
+  /**
+   * Enter: der mit ↑/↓ gewählte Griff; sonst die erste Fläche; gibt es keine, der erste Griff, dann der erste Treffer,
+   * der sich öffnen lässt
+   */
+  const eingabeTaste = () => {
+    const gewaehlt = griffe()[griffWahl()];
+    if (gewaehlt) return griffWaehlen(gewaehlt);
+    const erste = p.gruppen[0]?.flaechen[0];
+    if (erste) return p.onOeffnen(erste.id);
+    if (griffe()[0]) return griffWaehlen(griffe()[0]!);
+    const t = treffer().find((x) => trefferWeg(x));
+    if (t) p.onTreffer?.(t);
+  };
   return (
     <div
       class="os-start absolute inset-0 z-30"
@@ -61,12 +95,23 @@ export default function Start(p: StartProps): JSX.Element {
         type="search"
         value={p.suche}
         onInput={(e) => p.setSuche(e.currentTarget.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') { const erste = p.gruppen[0]?.flaechen[0]; if (erste) p.onOeffnen(erste.id); } }}
-        placeholder="Fläche suchen"
-        aria-label="Fläche suchen"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') eingabeTaste();
+          else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') griffTaste(e, griffe().length, griffWahl, setGriffWahl, () => setGriffWahl(-1));
+        }}
+        placeholder="Suchen: Flächen, Vorgänge, Mail, Dateien, Notizen"
+        aria-label="Alles durchsuchen"
         class="os-start-suche"
       />
       <div class="os-start-inhalt">
+        <Show when={p.suche && griffe().length}>
+          <section aria-label="Schalten">
+            <h3 class="os-titel mb-1.5">Schalten</h3>
+            <Show when={griffFrage()} fallback={<GriffListe griffe={griffe()} aktiv={griffWahl()} onWahl={griffWaehlen} class="!p-0" />}>
+              {(g) => <GriffFrage g={g()} onJa={() => p.onGriff?.(g())} onNein={() => setGriffFrage(null)} />}
+            </Show>
+          </section>
+        </Show>
         <Show when={!p.suche}>
           <section aria-label="Bildschirme">
             <h3 class="os-titel mb-2.5">Bildschirme</h3>
@@ -113,7 +158,7 @@ export default function Start(p: StartProps): JSX.Element {
             </section>
           </Show>
         </Show>
-        <Show when={p.gruppen.length} fallback={<p class="text-center text-sm text-(--color-fg-muted)">Nichts gefunden.</p>}>
+        <Show when={p.gruppen.length} fallback={<Show when={!sucht() || !p.suchstand}><p class="text-center text-sm text-(--color-fg-muted)">Nichts gefunden.</p></Show>}>
           <For each={p.gruppen}>
             {(g) => (
               <section>
@@ -153,6 +198,57 @@ export default function Start(p: StartProps): JSX.Element {
               </section>
             )}
           </For>
+        </Show>
+        {/* Suche über alles: Treffer aus Vorgängen, Mail, Dateien, Notizen … (Fremdinhalt, nur als Text gezeigt) */}
+        <Show when={sucht() && p.suchstand}>
+          <section aria-label="Treffer" aria-live="polite">
+            <Show when={stand().art === 'laeuft'}><p class="text-center text-sm text-(--color-fg-muted)">Sucht …</p></Show>
+            <Show when={stand().art === 'fehler'}>
+              <p role="alert" class="text-center text-xs text-(--color-error)">
+                Die Suche über alles ging nicht{(() => { const s = stand(); return s.art === 'fehler' ? `: ${s.text}` : ''; })()}
+              </p>
+            </Show>
+            <Show when={stand().art === 'fertig'}>
+              <For each={trefferGruppen(treffer())}>
+                {(g) => (
+                  <div class="mb-3">
+                    <h3 class="os-titel mb-1.5">{g.titel}</h3>
+                    <For each={g.treffer}>
+                      {(t) => (
+                        <button
+                          type="button"
+                          class="os-treffer"
+                          disabled={!trefferWeg(t)}
+                          draggable={trefferWeg(t) ? 'true' : undefined}
+                          title={t.auszug || t.titel}
+                          onClick={() => p.onTreffer?.(t)}
+                          onDragStart={(e) => {
+                            const w = trefferWeg(t);
+                            if (!w) return;
+                            gutSetzen(e.dataTransfer, { art: 'ding', typ: w.typ, id: w.id, label: w.label }, w.label);
+                            zugBild(e.dataTransfer, w.label);
+                            zugBeginnt({ art: w.typ });
+                            p.onZiehStart?.();
+                            setTimeout(() => p.onSchliessen(), 0);
+                          }}
+                          onDragEnd={() => p.onZiehEnde()}
+                        >
+                          <span class="os-treffer-titel">{t.titel}</span>
+                          <Show when={t.auszug}><span class="os-treffer-auszug">{t.auszug}</span></Show>
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                )}
+              </For>
+              <Show when={!treffer().length && !p.gruppen.length}><p class="text-center text-sm text-(--color-fg-muted)">Nichts gefunden.</p></Show>
+              <Show when={(() => { const s = stand(); return s.art === 'fertig' && s.fehlend.length > 0; })()}>
+                <p class="text-xs text-(--color-fg-muted)">
+                  Nicht durchsucht: {(() => { const s = stand(); return s.art === 'fertig' ? s.fehlend.join(', ') : ''; })()} (nicht eingerichtet oder nicht erreichbar).
+                </p>
+              </Show>
+            </Show>
+          </section>
         </Show>
       </div>
       </div>

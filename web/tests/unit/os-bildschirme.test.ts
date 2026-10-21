@@ -1,5 +1,5 @@
 /**
- * Bildschirme des OS: Start (Zentrale) plus Arbeitsbildschirme, Wechsel nach links/rechts,
+ * Bildschirme des OS: Startbildschirm plus Arbeitsbildschirme, Wechsel nach links/rechts,
  * Öffnen vom Start aus, Verschieben, Entfernen, Speichern und das Übernehmen der alten Anordnung.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,7 @@ import {
   BILDSCHIRME_MAX, START, anzeigeName, automatischBenannt, entfernen, flaecheOeffnen, fremdesSpeichern, idsUmbenennen, laden, leer, nachLinks, nachRechts, neuerBildschirm, pruefen, speichern,
   umbenennen, verschiebenNach, wechseln, wo,
 } from '~/lib/os/bildschirme';
+import { MAX_OFFEN } from '~/lib/os/anordnung';
 
 beforeEach(() => {
   const m = new Map<string, string>();
@@ -33,8 +34,8 @@ describe('Bildschirme', () => {
 
   it('voller Bildschirm: das Dock meldet „voll“, ein Link öffnet auf einem neuen Bildschirm', () => {
     let a = leer();
-    for (let i = 0; i < 8; i++) a = flaecheOeffnen(a, `app:p${i}__x`).ap;
-    expect(ids(a, 1)).toHaveLength(8);
+    for (let i = 0; i < MAX_OFFEN; i++) a = flaecheOeffnen(a, `app:p${i}__x`).ap;
+    expect(ids(a, 1)).toHaveLength(MAX_OFFEN);
     const dock = flaecheOeffnen(a, 'app:mcp__uebersicht');
     expect(dock.voll).toBe(true);
     expect(wo(dock.ap, 'app:mcp__uebersicht')).toBe(-1);
@@ -42,7 +43,7 @@ describe('Bildschirme', () => {
     expect(link.voll).toBe(false);
     expect(link.ap.aktiv).toBe(2);
     expect(ids(link.ap, 2)).toEqual(['app:mcp__uebersicht']);
-    expect(ids(link.ap, 1)).toHaveLength(8);
+    expect(ids(link.ap, 1)).toHaveLength(MAX_OFFEN);
   });
 
   it('eine schon offene Fläche wird nicht doppelt geöffnet — es wird zu ihrem Bildschirm gewechselt', () => {

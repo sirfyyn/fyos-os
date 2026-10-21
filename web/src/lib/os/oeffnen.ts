@@ -45,6 +45,8 @@ export interface OsZiel {
   ziel: string;
   /** Argumente, mit denen die App starten soll. */
   eingabe?: Record<string, unknown>;
+  /** Neues Fenster an die erste Stelle des Bildschirms statt ans Ende (Lesefenster: sofort im Blick, auch im Raster). */
+  vorn?: boolean;
 }
 
 const GEFAEHRLICH = new Set(['__proto__', 'constructor', 'prototype']);

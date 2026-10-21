@@ -18,6 +18,8 @@
   .gui-liste .gui-zeile-text { font-size: 12.5px; color: var(--mut); }
   .gui-live { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin: 0 2px; font-size: 12.5px; color: var(--mut); }
   .gui-live[hidden] { display: none; }
+  /* Eine Ansicht je Größe (Entscheidung 507): „N weitere im größeren Fenster“ unter einer gekürzten Liste */
+  .gui-weitere { font-size: 13px; color: var(--mut); text-align: center; margin: 4px 0 0; }
 </style>
 </head>
 <body>
@@ -26,7 +28,7 @@
 <!--/KOPF-->
 <main id="inhalt">
   <div id="laden" class="laedt gross">Die Ansicht wird gebaut …</div>
-  <p id="beschreibung" class="gui-text" hidden></p>
+  <p id="beschreibung" class="gui-text" data-ab="normal" hidden></p>
   <div id="live" class="gui-live" hidden><span id="stand" role="status"></span><button id="frisch" class="zweit klein" type="button">Aktualisieren</button></div>
   <iframe id="rahmen" sandbox="allow-scripts" title="Gebaute Ansicht" hidden></iframe>
   <div id="liste" class="gui-liste" hidden></div>
@@ -125,6 +127,12 @@ ${Object.entries(RAMPEN).map(([n, r]) => rampe("", n, r[3], r[4], r[5]) + rampe(
 #content>*:nth-child(2){animation-delay:.05s}#content>*:nth-child(3){animation-delay:.1s}#content>*:nth-child(n+4){animation-delay:.15s}
 @keyframes gui-rein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}}
+/* Eine Ansicht je Größe (Entscheidung 507): im Blick fallen Erklärtexte, Filter und Moduswahl weg, kompakt nur Filter und Moduswahl */
+[data-weg]{display:none!important}
+.gui-weitere{font-size:13px;color:var(--s);margin:8px 2px 0;text-align:center}
+html[data-stufe=blick] .gui-text,html[data-stufe=blick] .gui-herkunft,html[data-stufe=blick] .z-text,html[data-stufe=blick] .s-text,html[data-stufe=blick] .vg-karte p,html[data-stufe=blick] .vg-matrix,html[data-stufe=blick] .k-hinweis,html[data-stufe=blick] .k-verlauf,html[data-stufe=blick] .l-achse,html[data-stufe=blick] .l-marke,html[data-stufe=blick] .l-info,html[data-stufe=blick] .l-legende,html[data-stufe=blick] #v .gui-leiste:not([role]){display:none}
+html[data-stufe=kompakt] .l-legende,html[data-stufe=kompakt] #v .gui-leiste:not([role]){display:none}
+html[data-stufe=kompakt] .gui-text,html[data-stufe=kompakt] .z-text,html[data-stufe=kompakt] .s-text,html[data-stufe=kompakt] .vg-karte p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 `;
 
 // Brücke im Rahmen — läuft dort als erstes Skript. Namen wie bei Open Intelligent UI, damit dessen Muster passen.
@@ -138,6 +146,7 @@ function innenBruecke() {
   window.addEventListener("message", (e) => {
     if (e.source !== P) return; const m = e.data || {};
     if (m.typ === "gui-antwort" && offen.has(m.id)) { const p = offen.get(m.id); offen.delete(m.id); m.fehler ? p.fail(new Error(m.fehler)) : p.ok(m.ergebnis); }
+    if (m.typ === "gui-stufe") { document.documentElement.dataset.stufe = String(m.stufe || "normal"); passen(); }
     if (m.typ === "gui-stil") {
       const r = document.documentElement; r.dataset.theme = m.thema === "light" ? "light" : "dark";
       for (const [k, v] of Object.entries(m.werte || {})) r.style.setProperty(k, v);
@@ -235,12 +244,63 @@ function innenBruecke() {
     if (!zoomAn || !(e.ctrlKey || e.metaKey) || schritt === undefined) return;
     e.preventDefault(); P.postMessage({ typ: "gui", art: "zoom", schritt }, "*");
   });
+  // Eine Ansicht je Größe (Entscheidung 507): je Vorlage eine Obergrenze der Einträge in blick und kompakt. Was darüber
+  // liegt, bekommt data-weg (ausgeblendet) und einen Hinweis. Balken- und Ablaufdiagramme passen ihre Höhe an die
+  // sichtbaren Teile an. Neu berechnet bei jeder Stufe und bei jedem Aufbau der Vorlage (MutationObserver).
+  const GRENZEN = [
+    { eintrag: ".gui-raster > .k-kachel", ort: ".gui-raster", blick: 2, kompakt: 4 },
+    { eintrag: ".b-diagramm > .b-zeile", ort: ".b-diagramm", blick: 3, kompakt: 6 },
+    { eintrag: ".vg-karten > .vg-karte", ort: ".vg-karten", blick: 2, kompakt: 4 },
+    { eintrag: ".vg-matrix tbody > tr", ort: ".vg-matrix", blick: 0, kompakt: 4 },
+    { eintrag: ".a-diagramm > .a-schritt", ort: ".a-diagramm", blick: 3, kompakt: 6 },
+    { eintrag: ".t-huelle tbody > tr", ort: ".t-huelle", blick: 3, kompakt: 6 },
+    { eintrag: ".z-liste > .z-eintrag", ort: ".z-liste", blick: 3, kompakt: 6 },
+    { eintrag: ".s-liste > .s-eintrag", ort: ".s-liste", blick: 4, kompakt: 8 },
+  ];
+  function passen() {
+    const stufe = document.documentElement.dataset.stufe || "normal", begrenzt = stufe === "blick" || stufe === "kompakt";
+    GRENZEN.forEach((g, idx) => {
+      const n = begrenzt ? g[stufe] : Infinity, alle = [...document.querySelectorAll(g.eintrag)];
+      alle.forEach((e, i) => e.toggleAttribute("data-weg", i >= n));
+      for (const o of new Set(alle.map((e) => e.closest(g.ort)).filter(Boolean))) {
+        const leer = alle.filter((e) => e.closest(g.ort) === o).every((e) => e.hasAttribute("data-weg"));
+        o.toggleAttribute("data-weg", leer);
+        const ueber = o.previousElementSibling;   // die Überschrift einer Gruppe fällt mit ihr weg
+        if (ueber && ueber.tagName === "H3") ueber.toggleAttribute("data-weg", leer);
+      }
+      const rest = begrenzt && alle.length > n ? alle.length - n : 0, anker = alle.length ? alle[alle.length - 1].closest(g.ort) : null;
+      let h = document.querySelector(`p.gui-weitere[data-regel="${idx}"]`);
+      if (rest && anker) {
+        if (!h) { h = document.createElement("p"); h.className = "gui-weitere"; h.dataset.regel = String(idx); }
+        const text = `${rest === 1 ? "1 weiteres" : `${rest} weitere`} im größeren Fenster`;
+        if (h.textContent !== text) h.textContent = text;
+        if (anker.nextElementSibling !== h) anker.after(h);
+      } else if (h) h.remove();
+    });
+    // Der Pfeil vor einem ausgeblendeten Schritt geht mit
+    for (const k of document.querySelectorAll(".a-diagramm > path.arr")) {
+      const weiter = k.nextElementSibling;
+      k.toggleAttribute("data-weg", !!weiter && weiter.hasAttribute("data-weg"));
+    }
+    // Die Höhe des Diagramms folgt den sichtbaren Teilen (das Original steht in data-vb)
+    for (const s of document.querySelectorAll(".b-diagramm, .a-diagramm")) {
+      if (!s.dataset.vb && s.getAttribute("viewBox")) s.dataset.vb = s.getAttribute("viewBox");
+      if (!s.dataset.vb) continue;   // ohne viewBox bleibt das Diagramm unberührt
+      const [x, y, b, h] = s.dataset.vb.split(/\s+/).map(Number);
+      let unten = 0;
+      if (begrenzt && h) { try { const r = s.getBBox(); unten = r.y + r.height; } catch {} }   // ausgeblendete Teile zählen nicht
+      const neu = unten ? `${x} ${y} ${b} ${Math.min(h, Math.ceil(unten + 8 - y))}` : s.dataset.vb;
+      if (s.getAttribute("viewBox") !== neu) s.setAttribute("viewBox", neu);
+    }
+  }
+  const beobachter = new MutationObserver(() => passen());
+  addEventListener("DOMContentLoaded", () => { beobachter.observe(document.body, { childList: true, subtree: true }); passen(); });
 }
 
 const ohneEnde = (t, tag) => String(t || "").replace(new RegExp(`</${tag}`, "gi"), `<\\/${tag}`);
 function dokumentText(d) {
   const w = Object.entries(werte()).map(([k, v]) => `${k}:${v}`).join(";");
-  return `<!doctype html><html lang="de" data-theme="${thema()}"><head><meta charset="utf-8">`
+  return `<!doctype html><html lang="de" data-theme="${thema()}" data-stufe="${App.stufe || "normal"}"><head><meta charset="utf-8">`
     + `<meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<script type="importmap">${JSON.stringify(IMPORTE)}<\/script>`
     + `<style>html{${w}}</style><style>${GESTALTUNG}</style>`
@@ -304,6 +364,13 @@ function stilSenden() {
 // Thema und Gestaltungswerte setzt die Brücke auf <html> (data-theme, Inline-Stil) — wir reichen jede Änderung weiter.
 new MutationObserver(stilSenden).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
 
+// Eine Ansicht je Größe (Entscheidung 507): die Stufe der App reicht der Host in den Rahmen; dort kürzt die Brücke die Vorlage.
+function stufeRahmen() {
+  if (rahmen.contentWindow) rahmen.contentWindow.postMessage({ typ: "gui-stufe", stufe: App.stufe || "normal" }, "*");
+}
+rahmen.addEventListener("load", stufeRahmen);
+window.addEventListener("app-stufe", () => { stufeRahmen(); if (!$("liste").hidden) listeMalen(); });
+
 // Zoom bietet nur der Host der Datei-Ansicht an (gui.eigenstaendig, z. B. das Panel einer Entwicklungsumgebung): er
 // meldet sich mit {typ: "gui-host", zoom: true}. Dann reichen wir Strg+Rad und ⌘/Strg +/−/0 aus dem Rahmen und von hier
 // an ihn weiter. In der Shell und in einem MCP-Apps-Client kommt diese Meldung nie — dort bleibt alles beim Browser.
@@ -361,13 +428,19 @@ function listeZeigen(d) {
   App.satz(String((d && d.satz) || "Gebaute Ansichten"));
   if (!l.length) { hinweis(App.zustand({ symbol: "wand-sparkles", titel: "Noch keine Ansichten", text: "Der Agent baut sie mit gui.bauen, wenn ein Bild oder ein Regler mehr hilft als Text." })); return; }
   hinweis("");
-  const box = $("liste");
-  box.innerHTML = l.map((a) => `<button type="button" class="zeile" data-aktion="oeffnen" data-id="${App.esc(a.id)}">`
+  ansichtenListe = l; listeMalen();
+  $("liste").hidden = false;
+}
+// Eine Ansicht je Größe (Entscheidung 507): im Blick drei Ansichten, kompakt sechs; der Rest steht als Hinweis darunter
+let ansichtenListe = [];
+function listeMalen() {
+  const l = ansichtenListe, n = App.anzahl({ blick: 3, kompakt: 6 }), rest = l.length - Math.min(l.length, n);
+  $("liste").innerHTML = l.slice(0, n).map((a) => `<button type="button" class="zeile" data-aktion="oeffnen" data-id="${App.esc(a.id)}">`
     + `<span class="gui-titel">${App.esc(a.titel || a.id)}</span>`
     + (a.beschreibung ? `<span class="gui-zeile-text">${App.esc(a.beschreibung)}</span>` : "")
     + (a.angelegt ? `<span class="gui-zeile-text">${App.esc(App.zeit.tag(a.angelegt, true))}</span>` : "")
-    + `</button>`).join("");
-  box.hidden = false;
+    + `</button>`).join("")
+    + (rest > 0 ? `<p class="gui-weitere">${rest === 1 ? "1 weiteres" : `${rest} weitere`} im größeren Fenster</p>` : "");
 }
 async function oeffnen(id) {
   try {

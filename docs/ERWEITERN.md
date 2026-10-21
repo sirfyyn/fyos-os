@@ -863,10 +863,22 @@ ist **Fremdinhalt**; `lesen` und `suchen` sagen das im Ergebnis (`hinweis`), und
 auch. Binäres kommt nie als Text, sondern als Angaben mit einer Adresse zum Herunterladen (`url`); Hoch- und Herunterladen
 laufen über `GET`/`PUT /hub/dateien/datei` (`HUB-VERTRAG.md`), nicht über Werkzeug-Antworten.
 
+**Öffnen mit.** Zu einer Datei kann die App Programme auf einem Rechner anbieten, auf dem Fenster erscheinen (PDF in Papers,
+Dokumente in WordCraft, Tabellen in GridCraft). Dazu spricht das Plugin mit einem kleinen Dienst dort (die Gegenstelle,
+`mcp_hub/oeffnen.py`): `GET /programme` nennt Programme und Endungen, `POST /oeffnen {pfad, programm}` lädt die Datei aus der
+Ablage und startet das Programm. Der Hub schickt nur Pfad und Programmkennung; Adresse der Ablage und Befehle stehen allein im
+Dienst. Die Werkzeuge `dateien.oeffnen_programme` (lesend, Programme nach Endung, eine Minute im Zwischenspeicher) und
+`dateien.oeffnen_mit` (`exec`, Plan und `bestaetigt: true`) prüfen zuerst, dass die Datei in der Ablage liegt. Eingerichtet
+wird es mit `config: {oeffnen: {gegenstelle: "http://rechner:18445", token_env: FYOS_OEFFNEN_TOKEN}}` (oder
+`FYOS_OEFFNEN_GEGENSTELLE`); das Bearer-Token kommt aus der Umgebung und steht nie in der Konfiguration, in Antworten oder
+im Protokoll, Umleitungen werden nicht verfolgt. Ohne Gegenstelle antworten beide Werkzeuge „nicht eingerichtet“ und die App
+zeigt keine Knöpfe.
+
 **Umgebung** (bei jedem Aufruf gelesen):
 
 | Variable | Wirkung |
 |---|---|
+| `FYOS_OEFFNEN_GEGENSTELLE`, `FYOS_OEFFNEN_TOKEN` | Adresse der Gegenstelle für „Öffnen mit“ (auch als `config: {oeffnen: {gegenstelle: …}}`) und das Bearer-Token dazu (Name änderbar mit `oeffnen.token_env`) |
 | `FYOS_DATEIEN` | Ordner der Ablage; ohne ihn ist das Plugin „nicht eingerichtet“. Auch als `config: {verzeichnis: …}` im Eintrag des Plugins |
 | `FYOS_DATEIEN_MAX_MB` | größte Datei in MB (Vorgabe 25) |
 | `FYOS_DATEIEN_VERSIONEN` | so viele frühere Fassungen je Datei (Vorgabe 10; 0 = keine) |
@@ -881,6 +893,71 @@ vom Schreibtisch per Ziehen an und legt Neues, Umbenanntes, Gelöschtes und frü
 (`App.beantragen`). Weil eine App im Sandbox-iframe nichts schreibend an den Hub schicken darf, nimmt die Shell hochgeladene
 Dateien selbst entgegen (`App.hochladen(pfad, datei, {ueberschreiben})`, nur in dieser App und nur in der FYOS-Shell). Jede
 Datei in der App trägt `data-typ="datei"` und `data-id="<Pfad>"`; damit die Shell sie als Ding erkennen kann.
+
+### 2.18 Suche über alles (⌘K)
+
+Das Startfeld der Shell (⌘K) sucht Flächen und, mit dem Werkzeug `suche.alles`, in allem, was eine Quelle anmeldet. Der Kern
+bringt vier Quellen mit: Vorgänge, Mail (`postfach`, nur lesend), Dateien und die Notizen des Notizzettels. Ein Plugin, das
+mehr durchsuchbar macht (ein Wiki, Kontakte, ein Wissensspeicher), meldet eine weitere an (`mcp_hub/suche_alles.py`):
+
+```python
+from mcp_hub import suche_alles
+
+def finden(abfrage: str, anzahl: int) -> list[dict]:
+    return [{"id": "seite-7", "titel": "Rhabarberkuchen", "auszug": "…Teig, dann…"}]   # auszug darf fehlen
+
+def register(self):   # in HubPlugin.register()
+    suche_alles.registriere_quelle("wiki", "Wiki", finden, typ="seite")   # typ: ein Ding-Typ (§3.7) oder None
+
+def shutdown(self):
+    suche_alles.entferne_quelle("wiki", finden)
+```
+
+- Die Quelle bekommt die Abfrage (mindestens zwei Zeichen) und die Höchstzahl und liefert `{id, titel, auszug}`. Hat sie einen
+  `typ`, den die Shell als Ding kennt, öffnet ein Klick die App, die es zeigt, und der Treffer lässt sich auf Fenster und
+  Agent ziehen. Ohne `typ` wird der Treffer nur angezeigt.
+- Die Suche mischt reihum (höchstens 8 je Quelle) und meldet je Quelle `zustand`: `ok`, `nicht eingerichtet` oder `fehler`.
+  Wirft eine Quelle `NichtEingerichtet` oder `QuelleFehler`, geht die Suche mit den anderen weiter, und die Shell sagt, was
+  nicht durchsucht wurde. Bei jeder anderen Ausnahme bleibt die Quelle stumm; im Protokoll steht nur der Typ des Fehlers.
+- Treffer sind **Fremdinhalt**; das Ergebnis trägt dazu `hinweis`. Das Werkzeug ist lesend (Tags `suche`, `flaeche`, `read`).
+- Die Shell fragt erst, wenn die Eingabe kurz ruht, und wirft veraltete Antworten weg.
+
+### 2.19 Den Desktop eines Rechners steuern (`desktop`)
+
+Das Plugin `desktop` macht den Hyprland-Desktop auf einem Rechner zu Werkzeugen (der Dienst `fyos-oeffnen`, Port
+18445; dieselbe Gegenstelle wie „Öffnen mit“, §2.17). Wege des Dienstes, alle mit `Authorization: Bearer`:
+
+| Weg | Wirkung |
+|---|---|
+| `GET /lage`, `/fenster`, `/starter`, `/bild?skala=0.1…1` | lesen: Arbeitsfläche, Bildschirm, Modus (`mac`/`gross`), offene Fenster, freigegebene Starter, PNG in Basis 64 |
+| `POST /starten {starter}` | genau einen Eintrag aus `starter` der Dienstkonfiguration starten |
+| `POST /fokus {adresse}`, `POST /schliessen {adresse}` | Fenster nach vorn holen bzw. um Schließen bitten (nur Adressen offener Fenster, `0x…`) |
+
+Werkzeuge: `desktop.lage`, `fenster`, `starter`, `bild` (lesend); `starten` (`exec`), `fokus` (`write`), `schliessen`
+(`destructive`), alle mit Plan (`__dry_run__`) und `bestaetigt: true`. Der Hub schickt nie einen Befehl, nur die Kennung eines
+Starters oder eine Fensteradresse; Befehle stehen allein in der Konfiguration des Dienstes. Fenstertitel und Bilder sind
+Fremdinhalt und können Privates zeigen. Eingerichtet wird es mit `config: {gegenstelle: "http://rechner:18445", token_env:
+FYOS_OEFFNEN_TOKEN}` (oder den Umgebungsvariablen aus §2.17); ohne sie meldet jedes Werkzeug „nicht eingerichtet“.
+
+**App „Desktop“.** `desktop.zeigen` (Lage, Fenster, Starter in einem Aufruf) öffnet die Fläche `ui/desktop.html`; sie
+frischt sich alle zehn Sekunden auf, solange sie zu sehen ist, und zeigt das Bildschirmfoto nur auf Knopfdruck. Ein offenes
+Fenster ist ein Ding vom Typ `desktop-fenster` (Kennung = Fensteradresse, `lesen` = `desktop.fenster_lesen`, Felder `klasse`
+und `titel`). Der Typ heißt nicht `fenster`, denn so nennt die Shell schon das Ziehen eines App-Fensters. Es gibt noch keine
+Übergabe für den Typ: auf eine andere App gezogen, bietet die Shell an, den Agenten zu fragen. Nach vorn holen, Schließen
+und Starten stellt die Fläche über `App.beantragen` (Plan, dann „Ja“); sie löst nie direkt etwas aus.
+
+**Eingabe (Computer Use).** `desktop.klick`, `tippen`, `taste` und `scrollen` wirken auf das Fenster mit dem Fokus; Klickpunkte
+messen sich in einem Bildschirmfoto derselben `skala`. Der Dienst führt sie auf dem Desktop des Menschen nur aus, solange
+dort eine Freigabe gilt, die ausschließlich der Mensch am Rechner setzt (zehn Minuten, Anzeige in der Leiste); sonst
+antwortet das Werkzeug „gesperrt“ (HTTP 423 des Dienstes). Kein Werkzeug gibt frei. Taste: nur `ctrl` und `shift` als Zusatz.
+Der Dienst weist Tippen und Tasten mit 409 ab, solange ein Menü die Tastatur hält oder jemand die Maus bewegt hat.
+
+**Ziel.** Jedes Werkzeug nimmt `ziel`: `mensch` (Vorgabe) ist der Desktop des Menschen, `agent` der eigene, kopflose Desktop
+des Agenten (ein zweiter Compositor unter eigenem Nutzer, Eingabe nur über Wayland-Protokolle, nie über uinput). Dort gilt
+keine Freigabe; der Mensch sieht zu (App „Desktop“, Umschalter „Desktop des Agenten“, Bild alle paar Sekunden) und kann mit
+`desktop.uebernehmen {an: true}` übernehmen: der Agent ruht, jede seiner Eingaben bekommt „gesperrt“, bis er mit
+`{an: false}` zurückgibt (echter Lauf mit Plan und `bestaetigt`). Fensteradressen dort heißen `g5`; wer nur die Adresse
+nennt, trifft das richtige Ziel. Der Dienst führt Buch (`ziel`, Aktion, nie den getippten Text).
 
 ---
 
@@ -1265,8 +1342,20 @@ Agenten oder einem Bildschirm zeigt ein Ding seine eigene App (`fyos/oeffne` mit
 `App.auf("fyos/oeffne", (p) => …)`). Die Fähigkeit `App.kann("fyosUebergaben")` sagt, ob der Host das alles versteht
 (außerhalb der FYOS-Shell nicht: dann zieht die App nur ihren Zug, ohne Meldung).
 
-Vorgänge sind ein Ding wie jedes andere, sobald eine App sie zeigt; der Kern bringt keine solche App mit und meldet darum
-keinen Typ `vorgang` an. Wer eine hat (§2.13), meldet ihn selbst an.
+**Die Arbeits-Apps.** Drei Plugins bringen Dinge und Paare für die Arbeit mit (jedes zeigt „nicht eingerichtet“, solange
+seine Quelle fehlt, §2.13 bis §2.15):
+
+| Plugin | App | Ding | Paare, die es anmeldet |
+|---|---|---|---|
+| `vorgaenge` | Vorgänge | `vorgang` (`titel`, `status`, `auszug`) | Mail auf Vorgänge: neuer Vorgang mit Betreff, Auszug und Quelle `fyos://mail/<id>`; Vorgang auf Vorgänge: Kommentar am geöffneten Vorgang mit Info und Verweis; (Werkzeuge `anlegen`, `kommentieren`) |
+| `posteingang` | Mail | `mail` (`betreff`, `von`, `datum`, `auszug`) | keins, Mail wird nur gelesen und gezogen |
+| `termine` | Termine | (zeigt Termine) | Vorgang auf Termine: Formular mit Titel und Verweis; nach der Frage `Termine anlegen` mit Startzeit |
+
+Alle schreibenden Werkzeuge gehen über Plan und „Ja“ (§3.6). Auf dem Fenster der **eigenen** App gilt eine Übergabe, wenn
+das Paar angemeldet ist (Vorgang auf Vorgänge); ohne Paar zeigt die Shell das Ding wie zuvor. Eine App kann die Übergabe mit
+`App.ablage(…, {bei})` selbst deuten und etwa die Kennung des geöffneten Vorgangs ergänzen. Auf den **Agenten** gezogen,
+geht der Inhalt des Dings (gekürzt auf 1200 Zeichen, mit dem Hinweis, dass er aus der App stammt und keine Anweisungen
+enthält) als Kontext in den Entwurf der Frage; lässt sich das Ding nicht lesen, bleibt es bei der Frage.
 
 ---
 
@@ -2128,6 +2217,36 @@ Stattdessen: neutrale Beispiele (Alex, Fy, `example.com`), Vorlagen mit Platzhal
 in der Umgebung des Hubs, in `/run/secrets` oder im Secret des Clusters. `tools/sauber.py` läuft lokal vor jedem Commit und in
 der CI und fängt die gröbsten Fehler ab; er ersetzt kein Nachdenken. Ein einmal veröffentlichtes Geheimnis gilt als verbrannt:
 Schlüssel tauschen, nicht nur das Repo ändern.
+
+### 10.5 Plugins live nachladen (ohne neues Bild)
+
+Ein neuer Stand eines Plugins kommt sonst mit einem neuen Bild. Wer das für die eigene Installation abkürzen will, schaltet in
+der Hub-Konfiguration das Live-Laden an und nennt Verzeichnisse mit Quellcode, meist einen Checkout, den ein Begleitdienst
+regelmäßig nachzieht:
+
+```yaml
+plugins_live: true
+plugins_live_takt_s: 30                  # Abstand der Prüfung
+plugins_live_quellen: [/workspace/mein-plugin-repo]   # oder Umgebung FYOS_PLUGINS_LIVE_QUELLEN (mit : getrennt)
+liste_melden: true                       # offene Clients erfahren, dass sich die Werkzeugliste geändert hat
+mcp_sitzungen: false                     # nur mit einer Hub-Replika oder Sticky-Routing auf true
+```
+
+- **Zuordnung:** Das Plugin-Modul `a.b.c` kommt aus `<quelle>/a/b/c.py`, wenn diese Datei von der im Bild abweicht (bei einem
+  Paket also `<repo>/mein_paket/plugin.py`). Gilt für Module von Plugins mit Eintrag in der Konfiguration, von Entry-Point-Plugins
+  und, mit `plugins_von_selbst`, für neue Dateien unter `<quelle>/mcp_hub/plugins/`. Ein Eintrag mit `enabled: false` bleibt aus.
+- **Wann:** beim Start (weicht eine Datei ab, gewinnt die Quelle; baut sie nicht, bleibt der Bild-Stand), danach bei jedem neuen
+  Commit der Quelle (`.git` wird direkt gelesen) und sofort mit `POST /hub/plugins/neu-laden` (`{"plugin": "name"}` für eines,
+  `{"erzwingen": true}` für einen neuen Versuch mit einer Datei, die zuletzt fehlschlug).
+- **Atomar:** Das neue Modul wird geladen, das neue Plugin gebaut und angemeldet; erst wenn alles gelingt, ersetzt es das alte
+  (`shutdown()` des alten läuft danach). Ein Fehler lässt das alte Plugin stehen und steht in `/hub/health` unter `live` und im Log.
+- **Grenzen:** Der Kern, `_`-Hilfsmodule, neue pip-Abhängigkeiten und die Konfiguration brauchen weiter ein neues Bild. Oberflächen
+  (`<paket>/ui/<datei>`) kommen ebenfalls aus der Quelle. Module, die ein anderes Plugin-Modul mit `from .x import y` einbinden,
+  behalten dessen alten Stand bis zum Neustart.
+- **Rückweg:** `plugins_live: false` (oder keine Quelle).
+
+`liste_melden` meldet eine geänderte Werkzeugliste über `subscriptions/listen` (MCP-SDK ab 2); Clients mit dem alten Handshake
+erfahren sie nur mit `mcp_sitzungen: true`, dann hält der Hub zustandsbehaftete Sitzungen im Speicher eines Prozesses.
 
 ---
 

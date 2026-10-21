@@ -43,8 +43,10 @@ Plugin-Einstellungen, Geheimnisse oder `enabled: false`; siehe `config.example.y
 | `audit` | Protokoll aller Werkzeugaufrufe (Ringpuffer, mit Qdrant Vektorsuche) |
 | `event_bus_publisher` | Ereignisse je Werkzeugaufruf auf Redis-Streams (sonst im Speicher) |
 | `gui` | Ansichten bauen: Kennzahlen, Balken, Verlauf, Tabelle … aus Vorlagen oder frei, als App und als Seite (siehe unten) |
-| `dateien` | gemeinsame Dateiablage mit der App „Dateien“: Ordner, Vorschau, Hochladen per Ziehen, Papierkorb, frühere Fassungen; Ordner per `FYOS_DATEIEN` (docs/ERWEITERN.md §2.17) |
+| `dateien` | gemeinsame Dateiablage mit der App „Dateien“: Ordner, Vorschau, Hochladen per Ziehen, Papierkorb, frühere Fassungen; Ordner per `FYOS_DATEIEN`, „Öffnen mit“ für Programme auf einem Rechner per `oeffnen.gegenstelle` (docs/ERWEITERN.md §2.17) |
 | `beispiel_app` | Notizzettel mit Oberfläche, Vorlage für eigene Apps |
+| `vorgaenge`, `posteingang`, `termine` | Arbeits-Apps „Vorgänge“, „Mail“ (nur lesend) und „Termine“ auf den Quellen des Kerns (§2.13 bis §2.15); Mail und Vorgänge sind Dinge, die man auf andere Fenster zieht (§3.7) |
+| `suche` | Suche über alles (⌘K): Vorgänge, Mail, Dateien, Notizen und Quellen, die Plugins anmelden (§2.18) |
 | `echo`, `math` | Referenz-Plugins, standardmäßig aus |
 
 Alles Weitere (Finanzen, Haus, Betrieb …) sind eigene Pakete, die sich per Entry-Point melden.

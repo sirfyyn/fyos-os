@@ -20,6 +20,8 @@ export interface MenueleisteProps {
   /** Fett neben dem Systemmenü: das Fenster im Fokus oder der Bildschirm */
   vorne: string;
   rechts: JSX.Element;
+  /** Doppelklick auf freie Fläche der Leiste (nicht auf einen Knopf): die Shell rückt die Ansicht gerade */
+  onDoppelklick?: () => void;
 }
 
 export default function Menueleiste(p: MenueleisteProps): JSX.Element {
@@ -34,7 +36,13 @@ export default function Menueleiste(p: MenueleisteProps): JSX.Element {
   let perHover: string | null = null;
 
   return (
-    <header class="os-leiste" aria-label="Menüleiste">
+    <header
+      class="os-leiste"
+      aria-label="Menüleiste"
+      onDblClick={(e) => {
+        if (!(e.target as Element).closest('button, a, input')) p.onDoppelklick?.();
+      }}
+    >
       {/* Links gibt nach (der Name kürzt sich, Menüs werden abgeschnitten), rechts behält seine Breite:
           sonst liefen die Statussymbole bei schmalen Fenstern über die Menütitel (390 px). */}
       <nav class="flex min-w-0 flex-1 items-center overflow-hidden" aria-label="Menüs">

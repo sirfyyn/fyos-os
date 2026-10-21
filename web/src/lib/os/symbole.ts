@@ -11,6 +11,7 @@
  */
 import { createSignal } from 'solid-js';
 import { registrierteSymbole } from './register';
+import { APP_SYMBOLE } from './symbole-apps';
 import { SYMBOLE } from './symbole-daten';
 
 /**
@@ -18,6 +19,7 @@ import { SYMBOLE } from './symbole-daten';
  * -1 = grafit (wie Systemeinstellungen), -2 = Neonverlauf des OS (Agent).
  */
 export const SYMBOL_TABELLE: Record<string, [glyphe: string, ton: number]> = {
+  ...APP_SYMBOLE,
   agent: ['sparkles', -2],
   'nativ:einstellungen': ['settings', -1],
 };

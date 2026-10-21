@@ -118,8 +118,19 @@ def _datei_text(pfad: Path) -> str:
     return text
 
 
+def _live_pfad(ui_verzeichnis: "Path | str | None", datei: str) -> "Path | None":
+    """Mit ``plugins_live`` und einer Quelle, die die Datei hat: ihr Pfad (der mtime-Zwischenspeicher erkennt eine
+    neue Fassung beim naechsten Lesen). Sonst ``None``: dann gilt der Stand im Bild."""
+    from .. import plugins_live  # noqa: PLC0415 — spaet: plugins_live importiert die Registry
+
+    return plugins_live.ui_datei(ui_verzeichnis, datei)
+
+
 def _plugin_text(ui_verzeichnis: "Path | str | None", datei: str) -> str:
     """Text einer Datei im UI-Verzeichnis eines Plugins (Path, Paketname oder None = Kern)."""
+    live = _live_pfad(ui_verzeichnis, datei)
+    if live is not None:
+        return _datei_text(live)
     if ui_verzeichnis is None:
         return _datei_text(UI_DIR / datei)
     if isinstance(ui_verzeichnis, Path):
@@ -131,8 +142,8 @@ def _plugin_text(ui_verzeichnis: "Path | str | None", datei: str) -> str:
 def oberflaeche(datei: str, ui_verzeichnis: "Path | str | None" = None) -> str:
     """HTML der Oberflaeche ``<ui_verzeichnis>/<datei>`` mit eingesetztem Stil, Bruecke, Kopf und Symbolen."""
     text = _plugin_text(ui_verzeichnis, datei)
-    stil = _datei_text(UI_DIR / "_stil.css")
-    bruecke = _datei_text(UI_DIR / "_bruecke.js")
+    stil = _datei_text(_live_pfad(None, "_stil.css") or UI_DIR / "_stil.css")
+    bruecke = _datei_text(_live_pfad(None, "_bruecke.js") or UI_DIR / "_bruecke.js")
     ident = _identitaet.fuer_datei(datei)
 
     # 1. Kopf (vor dem Zerlegen: die Aktionen enthalten Symbole, die gleich mit gefuellt werden)

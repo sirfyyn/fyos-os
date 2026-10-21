@@ -111,7 +111,8 @@ html[data-theme="light"] { --os-stern: #f59e0b; }
   color: var(--color-fg);
   background: var(--os-menue-bg);
   box-shadow: 0 8px 22px -10px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.07);
-  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
   pointer-events: none;
   animation: os-melder-auf 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }

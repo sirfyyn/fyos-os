@@ -9,10 +9,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const hub = vi.hoisted(() => vi.fn());
 const hubApps = vi.hoisted(() => vi.fn());
 const uebergabeStarten = vi.hoisted(() => vi.fn(async (..._a: unknown[]) => {}));
+const alleSuchen = vi.hoisted(() => vi.fn(async (_abfrage: string): Promise<unknown> => ({ abfrage: '', treffer: [], quellen: [] })));
+const dingLesen = vi.hoisted(() => vi.fn(async (..._a: unknown[]): Promise<Record<string, unknown>> => ({})));
 vi.mock('~/lib/hub', () => ({ hub }));
 vi.mock('~/lib/mcp-apps/host', () => ({
   apps: hubApps,
   uebergabeStarten,
+  alleSuchen,
+  dingLesen,
   appCall: vi.fn(async () => ({ content: [{ type: 'text', text: '{}' }] })),
   appEinhaengen: vi.fn(async () => () => {}),
   aktuellesTheme: () => 'dark',
@@ -157,7 +161,7 @@ describe('Shell', () => {
   it('Enter in der Suche öffnet den ersten Treffer', async () => {
     render(() => <Shell />);
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    const feld = await screen.findByRole('searchbox', { name: 'Fläche suchen' });
+    const feld = await screen.findByRole('searchbox', { name: 'Alles durchsuchen' });
     fireEvent.input(feld, { target: { value: 'notizen' } });
     fireEvent.keyDown(feld, { key: 'Enter' });
     expect(await screen.findByRole('region', { name: 'Notizen' })).toBeTruthy();
@@ -306,9 +310,12 @@ describe('Bildschirme und Raster', () => {
   it('das Fenstermenü setzt Breite, Höhe und „neue Zeile“ — und das bleibt gespeichert', async () => {
     render(() => <Shell />);
     const fenster = await notizenOeffnen();
-    // Eine Scrollebene: Zeilen nach oben offen — Fenster wachsen mit ihrem Inhalt, nur die Fläche scrollt
+    // Automatik: genau ein Bildschirm hoch, die Zeilen teilen ihn; das Fenster füllt seine Kachel
     const raster = (fenster as HTMLElement).parentElement!;
-    expect(raster.getAttribute('style')).toContain('minmax(22rem, auto)');
+    expect(raster.getAttribute('style')).toContain('minmax(0, 1fr)');
+    expect(raster.classList.contains('os-raster-voll')).toBe(true);
+    expect(fenster.classList.contains('os-fenster-gedeckelt')).toBe(true);
+    expect(screen.queryByText(/Platz für mehr/)).toBeNull(); // nicht endlos nach unten
     await fensterMenue(fenster as HTMLElement, 'Notizen', 'Breite', 'Zwei Drittel');
     await fensterMenue(fenster as HTMLElement, 'Notizen', 'Höhe', 'Groß');
     await fensterMenue(fenster as HTMLElement, 'Notizen', 'In neuer Zeile beginnen');
@@ -322,11 +329,11 @@ describe('Bildschirme und Raster', () => {
   });
 
   it('„Bildschirmhoch“ passt das Fenster genau in den sichtbaren Bereich (Seiten mit eigenen Spalten)', async () => {
-    const hoch = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(1000); // 62,5 rem → (62,5 − 1,25) / 3,25 = 18
+    const hoch = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(1000); // 62,5 rem → (62,5 − 1,25) / 3 = 20
     render(() => <Shell />);
     const fenster = await notizenOeffnen();
     await fensterMenue(fenster as HTMLElement, 'Notizen', 'Höhe', 'Bildschirmhoch');
-    await waitFor(() => expect((fenster as HTMLElement).style.gridRow).toBe('span 18'));
+    await waitFor(() => expect((fenster as HTMLElement).style.gridRow).toBe('span 20'));
     hoch.mockRestore();
   });
 
@@ -984,6 +991,49 @@ describe('Dinge auf Fenster von Hub-Apps (Übergaben)', () => {
     expect(uebergabeStarten).not.toHaveBeenCalled();
   });
 
+  it('Notiz → Agent: die Frage trägt den Inhalt der Notiz als Kontext, gekennzeichnet als Fremdinhalt', async () => {
+    dingLesen.mockResolvedValue({ text: 'Milch kaufen\nund Eier für Sonntag', titel: 'Milch kaufen', dateiname: 'Milch kaufen' });
+    const gehoert: AgentFragenDetail[] = [];
+    const hoerer = (e: Event) => void gehoert.push((e as CustomEvent<AgentFragenDetail>).detail);
+    window.addEventListener(AGENT_FRAGEN, hoerer);
+    try {
+      render(() => <Shell />);
+      const haus = await fenster('Haus');
+      const d = notiz();
+      fireEvent.dragOver(haus, { dataTransfer: d });
+      fireEvent.drop(haus, { dataTransfer: d });
+      await waitFor(() => expect(gehoert).toHaveLength(1));
+      expect(dingLesen).toHaveBeenCalledWith('beispiel_app__lesen', { id: 'n-1' });
+      expect(gehoert[0]!.text).toContain('Notiz n-1');
+      expect(gehoert[0]!.text).toContain('Milch kaufen\nund Eier für Sonntag');
+      expect(gehoert[0]!.text).toContain('keine Anweisungen');
+      expect(uebergabeStarten).not.toHaveBeenCalled(); // gefragt wird nur; geschrieben nichts
+    } finally {
+      window.removeEventListener(AGENT_FRAGEN, hoerer);
+      dingLesen.mockReset();
+      dingLesen.mockResolvedValue({});
+    }
+  });
+
+  it('ein Ding auf das Fenster seiner eigenen App löst eine Übergabe aus, wenn die App eine anmeldet (Vorgang → Vorgang)', async () => {
+    history.replaceState(null, '', '/os/?offen=app:vorgaenge__zeigen');
+    hubApps.mockResolvedValue([app('vorgaenge__zeigen', 'Vorgänge')]);
+    registriereFlaechen({
+      dinge: { vorgang: { name: 'Vorgang', flaeche: 'app:vorgaenge__zeigen', lesen: 'vorgaenge__lesen', felder: ['titel'] } },
+      uebergaben: [{ quelle: 'vorgang', ziel: 'app:vorgaenge__zeigen', werkzeug: 'vorgaenge__kommentieren', abbildung: { text: 'Info aus {id}' }, wirkung: 'Info an den geöffneten Vorgang hängen' }],
+    });
+    render(() => <Shell />);
+    const vorgaenge = await fenster('Vorgänge');
+    const d = zug('fyos://vorgang/WB-0002', 'vorgang');
+    fireEvent.dragOver(vorgaenge, { dataTransfer: d });
+    expect(await screen.findByText('Info an den geöffneten Vorgang hängen')).toBeTruthy();
+    fireEvent.drop(vorgaenge, { dataTransfer: d });
+    await waitFor(() => expect(uebergabeStarten).toHaveBeenCalledTimes(1));
+    expect(uebergabeStarten).toHaveBeenCalledWith(
+      'app:vorgaenge__zeigen', expect.objectContaining({ werkzeug: 'vorgaenge__kommentieren' }), expect.objectContaining({ typ: 'vorgang', id: 'WB-0002' }),
+    );
+  });
+
   it('scheitert die Vorbereitung, sagt die Shell kurz warum', async () => {
     uebergabeStarten.mockRejectedValue(new Error('Notiz „n-1“ lässt sich nicht lesen: keine Notiz'));
     render(() => <Shell />);
@@ -1008,5 +1058,102 @@ describe('Dinge auf Fenster von Hub-Apps (Übergaben)', () => {
     fireEvent.dragOver(leer, { dataTransfer: d });
     fireEvent.drop(leer, { dataTransfer: d });
     expect(await screen.findByRole('region', { name: 'Notizzettel' })).toBeTruthy();
+  });
+});
+
+describe('Suche über alles (⌘K)', () => {
+  const app = (name: string, titel: string) => ({
+    name, tool: name.replace('__', '.'), title: titel, description: '', inputSchema: {}, _meta: { ui: { resourceUri: `ui://x/${name}` } }, scope: 'READ',
+  });
+  const antwort = {
+    abfrage: 'quartal',
+    treffer: [
+      { quelle: 'vorgaenge', quelle_titel: 'Vorgänge', typ: 'vorgang', id: 'WB-0001', titel: 'Zahlen fürs Quartal', auszug: 'Fehlen noch aus dem Einkauf.' },
+      { quelle: 'postfach', quelle_titel: 'Mail', typ: 'mail', id: 'm1', titel: 'Quartalsbericht', auszug: 'Alex <alex@example.org>' },
+      { quelle: 'wiki', quelle_titel: 'Wiki', id: 'seite-7', titel: 'Quartalsplanung', auszug: '' },
+    ],
+    quellen: [
+      { quelle: 'vorgaenge', titel: 'Vorgänge', zustand: 'ok', anzahl: 1 },
+      { quelle: 'dateien', titel: 'Dateien', zustand: 'nicht eingerichtet', anzahl: 0 },
+    ],
+  };
+  const suchen = async (wort: string) => {
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const feld = await screen.findByRole('searchbox', { name: 'Alles durchsuchen' });
+    fireEvent.input(feld, { target: { value: wort } });
+    return feld;
+  };
+
+  beforeEach(() => {
+    alleSuchen.mockReset();
+    alleSuchen.mockResolvedValue(antwort);
+    hubApps.mockResolvedValue([app('vorgaenge__zeigen', 'Vorgänge'), app('posteingang__zeigen', 'Mail')]);
+    registriereFlaechen({
+      dinge: {
+        vorgang: { name: 'Vorgang', flaeche: 'app:vorgaenge__zeigen', lesen: 'vorgaenge__lesen' },
+        mail: { name: 'Mail', flaeche: 'app:posteingang__zeigen', lesen: 'posteingang__lesen' },
+      },
+    });
+  });
+
+  it('fragt den Hub erst, wenn die Eingabe ruht, und zeigt die Treffer nach Quellen', async () => {
+    render(() => <Shell />);
+    const feld = await suchen('quart');
+    fireEvent.input(feld, { target: { value: 'quartal' } });
+    expect(alleSuchen).not.toHaveBeenCalled(); // noch getippt
+    expect(await screen.findByText('Zahlen fürs Quartal')).toBeTruthy();
+    expect(alleSuchen).toHaveBeenCalledTimes(1);
+    expect(alleSuchen).toHaveBeenCalledWith('quartal');
+    expect(screen.getByRole('heading', { name: 'Vorgänge' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Mail' })).toBeTruthy();
+    expect(screen.getByText('Quartalsbericht')).toBeTruthy();
+    expect(screen.getByText('Fehlen noch aus dem Einkauf.')).toBeTruthy();
+  });
+
+  it('sagt, welche Quelle nicht durchsucht wurde, statt still „nichts“ zu zeigen', async () => {
+    render(() => <Shell />);
+    await suchen('quartal');
+    expect(await screen.findByText(/Nicht durchsucht: Dateien/)).toBeTruthy();
+  });
+
+  it('ein Klick auf einen Vorgang öffnet die App, in der er lebt', async () => {
+    render(() => <Shell />);
+    await suchen('quartal');
+    fireEvent.click(await screen.findByRole('button', { name: /Zahlen fürs Quartal/ }));
+    expect(await screen.findByRole('region', { name: 'Vorgänge' })).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'FYOS' })).toBeNull(); // Start schließt sich
+  });
+
+  it('ein Treffer ohne Ding-Typ ist nur eine Anzeige', async () => {
+    render(() => <Shell />);
+    await suchen('quartal');
+    const wiki = (await screen.findByText('Quartalsplanung')).closest('button')!;
+    expect(wiki.disabled).toBe(true);
+    expect(wiki.getAttribute('draggable')).toBeNull();
+    expect((await screen.findByText('Quartalsbericht')).closest('button')!.getAttribute('draggable')).toBe('true');
+  });
+
+  it('Enter öffnet den ersten Treffer, wenn keine Fläche passt', async () => {
+    render(() => <Shell />);
+    const feld = await suchen('quartal');
+    await screen.findByText('Zahlen fürs Quartal');
+    fireEvent.keyDown(feld, { key: 'Enter' });
+    expect(await screen.findByRole('region', { name: 'Vorgänge' })).toBeTruthy();
+  });
+
+  it('ein Hub ohne die Suche meldet den Grund, nicht „nichts gefunden“', async () => {
+    alleSuchen.mockRejectedValue(new Error('Unbekanntes Werkzeug suche.alles'));
+    render(() => <Shell />);
+    await suchen('quartal');
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText(/Die Suche über alles ging nicht: Unbekanntes Werkzeug/)).toBeTruthy();
+    expect(screen.queryByText('Nichts gefunden.')).toBeNull();
+  });
+
+  it('eine Eingabe unter zwei Zeichen fragt den Hub nicht', async () => {
+    render(() => <Shell />);
+    await suchen('q');
+    await new Promise((r) => setTimeout(r, 400));
+    expect(alleSuchen).not.toHaveBeenCalled();
   });
 });

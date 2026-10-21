@@ -166,7 +166,7 @@ def test_der_spiegel_schickt_die_kopfzeile_mit(monkeypatch):
         def read(self, n: int = -1) -> bytes:
             return b'{"tickets": []}'
 
-    def urlopen(req: Any, timeout: float = 0) -> Antwort:
+    def urlopen(req: Any, timeout: float = 0, context: Any = None) -> Antwort:
         gesehen.append(dict(req.header_items()))
         return Antwort()
 

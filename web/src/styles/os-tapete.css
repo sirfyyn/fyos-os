@@ -1,0 +1,68 @@
+/* ── Tapete je Bildschirm ───────────────────────────────
+   Die Ebene liegt im Bildschirm-Platz unter dem Inhalt und verdeckt dort die Kulisse. Das Bild steht still: eine
+   Unschärfe rechnet der Browser einmal, das Abdunkeln ist eine Fläche mit Deckkraft. */
+.os-tapete {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.os-tapete-bild { position: absolute; inset: 0; }
+.os-tapete-dunkel { position: absolute; inset: 0; background: #000; }
+/* Eigene Stapelebene je Platz: die Tapete (z-index -1) liegt unter dem Inhalt, aber über der Kulisse */
+.os-platz,
+.os-bildschirm-schmal { isolation: isolate; }
+.os-uebersicht .os-tapete { border-radius: 1rem; }
+
+/* Dialog */
+.os-tapete-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 8px;
+}
+.os-tapete-muster {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 40px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.os-tapete-muster:hover { background: color-mix(in oklab, var(--color-fg) 8%, transparent); }
+.os-tapete-muster:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+.os-tapete-an { border-color: var(--os-akzent); }
+.os-tapete-flaeche {
+  display: block;
+  aspect-ratio: 16 / 10;
+  max-width: 100%;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-fg) 14%, transparent);
+}
+.os-tapete-name { font-size: 0.8125rem; padding-inline: 2px; }
+:root {
+  --os-tapete-kulisse:
+    radial-gradient(60% 70% at 25% 25%, var(--os-neon-2, #22d3ee) 0%, transparent 70%),
+    radial-gradient(60% 70% at 80% 75%, var(--os-neon-1, #a855f7) 0%, transparent 70%),
+    var(--color-bg);
+}
+.os-tapete-feld {
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 18%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-bg) 70%, transparent);
+  color: inherit;
+  font: inherit;
+}
+.os-tapete-feld:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 1px; }
+@media (pointer: coarse) {
+  .os-tapete-feld { min-height: 40px; }
+}

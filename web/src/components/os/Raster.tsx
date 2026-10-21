@@ -7,21 +7,54 @@
  * Umordnen, Größe und „neue Zeile“ gleiten weich an ihren Platz (FLIP, nur Verschiebung — Inhalte
  * werden nie verzerrt). Auf dem Handy steht immer genau ein Fenster da.
  */
-import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { systemName } from '~/lib/config';
 import FensterRahmen, { NEU_LADEN, type RasterMass } from './Fenster';
 import {
-  NEU_SPALTEN, NEU_ZEILEN, SPALTEN, ZEILE_REM, autoReihen, autoSpalten, automatisch, davorSetzen, festSetzen, groesseSetzen, maximieren, minimieren,
-  neueZeileUmschalten, schliessen, verschieben, vonHand, zeilenFuerHoehe, type Fenster,
+  NEU_SPALTEN, NEU_ZEILEN, SPALTEN, ZEILE_REM, autoReihen, autoSpalten, automatisch, davorSetzen, einrasten, festSetzen, groesseSetzen, maximieren, minimieren,
+  neueZeileUmschalten, schliessen, verschieben, vonHand, zeilenFuerHoehe, type Fenster, type RastZiel,
 } from '~/lib/os/anordnung';
 import { aktionsPunkte } from '~/lib/os/app-aktionen';
 import { automatischBenannt, type Bildschirm } from '~/lib/os/bildschirme';
 import { inNeuemTab } from '~/lib/os/allein';
 import { deeplink } from '~/lib/os/oeffnen';
 import type { Flaeche } from '~/lib/os/flaechen';
-import { altUmschalt, ctrlMod, type MenuePunkt } from '~/lib/os/menue';
+import { altUmschalt, ctrlMod, modAltUmschalt, type MenuePunkt } from '~/lib/os/menue';
 import { ausklingen, insDock } from '~/lib/os/uebergang';
-import { ablageAufApp, gutArt, gutLesen, hinweisWeg, hinweisZeigen, wasPassiert, zugEndet, type AppAblage, type Gut } from '~/lib/os/ziehen';
+import { ablageAufApp, aktuellerZug, gutArt, gutLesen, hinweisWeg, hinweisZeigen, wasPassiert, zugEndet, type AppAblage, type Gut } from '~/lib/os/ziehen';
+
+/** Breite der Randzone (px), in der ein gezogenes Fenster einrastet. */
+const RAND_PX = 56;
+const RAST_TEXT: Record<RastZiel, string> = {
+  links: 'Linke Hälfte', rechts: 'Rechte Hälfte', voll: 'Ganzer Bildschirm',
+  'oben-links': 'Viertel oben links', 'oben-rechts': 'Viertel oben rechts', 'unten-links': 'Viertel unten links', 'unten-rechts': 'Viertel unten rechts',
+};
+const RAST_KUERZEL: Record<RastZiel, string> = { links: '←', rechts: '→', voll: '↑', 'oben-links': 'U', 'oben-rechts': 'I', 'unten-links': 'J', 'unten-rechts': 'K' };
+
+/** Welche Randzone liegt unter dem Zeiger (Fläche `r` im Bild)? Links/rechts je Rand, oben/unten im äußeren Viertel. */
+export function randZone(x: number, y: number, r: { left: number; top: number; right: number; bottom: number }): RastZiel | null {
+  const seite = x <= r.left + RAND_PX ? 'links' : x >= r.right - RAND_PX ? 'rechts' : null;
+  if (!seite || y < r.top || y > r.bottom) return null;
+  const h = r.bottom - r.top;
+  if (y < r.top + h / 4) return `oben-${seite}`;
+  if (y > r.bottom - h / 4) return `unten-${seite}`;
+  return seite;
+}
+
+/** Vorschau der Zone als Rechteck im Bild. */
+export function zonenRechteck(z: RastZiel, r: { left: number; top: number; right: number; bottom: number }): { left: number; top: number; width: number; height: number } {
+  const b = r.right - r.left;
+  const h = r.bottom - r.top;
+  const rechts = z.endsWith('rechts');
+  const viertel = z.includes('-');
+  return {
+    left: r.left + (z === 'voll' || !rechts ? 0 : b / 2),
+    top: r.top + (z.startsWith('unten') ? h / 2 : 0),
+    width: z === 'voll' ? b : b / 2,
+    height: viertel ? h / 2 : h,
+  };
+}
 
 function mitUebergang(behaelter: HTMLElement | undefined, aendern: () => void): void {
   const ruhig = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -79,10 +112,13 @@ export interface RasterProps {
   onPunkte?: (bau: (id: string) => MenuePunkt[]) => void;
   /** Gibt der Shell „Neu verteilen“ (mit Übergang) */
   onVerteilen?: (fn: () => void) => void;
+  /** Gibt der Shell das Einrasten (Tastenkürzel), mit Übergang und der Höhe dieses Bildschirms */
+  onEinrasten?: (fn: (id: string, ziel: RastZiel) => void) => void;
   /** Pfeil oben: zurück zum Startbildschirm */
   onStart?: () => void;
   /** Eine Anwendung in den Vollbild-Bildschirm schicken oder von dort zurückholen (die Shell verwaltet die Bildschirme) */
   onVollbild?: (id: string) => void;
+  lageSatz?: string;
 }
 
 const BREITEN: [string, number][] = [
@@ -92,7 +128,7 @@ const HOEHEN: [string, number][] = [['Klein', 7], ['Mittel', 10], ['Groß', 14],
 
 export default function Raster(p: RasterProps): JSX.Element {
   let behaelter: HTMLDivElement | undefined;
-  /** Zeilen, die genau in den sichtbaren Bereich der Fläche passen (Zeile 2,5 rem + Abstand 0,75 rem, Rand 0,75/1,25 rem). */
+  /** Zeilen, die genau in den sichtbaren Bereich der Fläche passen (Zeile 2,5 rem + Abstand 0,5 rem, Rand 0,375/0,75 rem). */
   const bildschirmZeilen = (): number => {
     const sc = behaelter?.closest<HTMLElement>('.os-bildschirm');
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -148,6 +184,9 @@ export default function Raster(p: RasterProps): JSX.Element {
   };
 
   const aendern = (neu: Fenster[]) => mitUebergang(behaelter, () => p.setze(neu));
+  /** Hälfte, Viertel oder ganz (lib/os/anordnung.ts `einrasten`), mit Übergang. */
+  const rasten = (id: string, ziel: RastZiel) =>
+    aendern(einrasten(p.b.fenster, id, ziel, bildschirmZeilen(), hand() ? undefined : automatikJetzt()));
 
   /**
    * Das maximierte Fenster dieses Bildschirms (nicht auf dem Handy): es füllt den ganzen Arbeitsbereich (absolut im Platz des
@@ -268,7 +307,18 @@ export default function Raster(p: RasterProps): JSX.Element {
           })),
         ],
       },
-      { text: 'In neuer Zeile beginnen', symbol: 'corner-down-left', an: !!w.neueZeile, aus: fix, tun: () => aendern(neueZeileUmschalten(hand() ? p.b.fenster : groesseSetzen(p.b.fenster, id, {}, automatikJetzt()), id)) },
+      {
+        art: 'unter',
+        text: 'Einrasten',
+        symbol: 'layout-grid',
+        aus: p.schmal,
+        punkte: (['links', 'rechts', 'voll', 'oben-links', 'oben-rechts', 'unten-links', 'unten-rechts'] as RastZiel[]).map((z) => ({
+          text: RAST_TEXT[z],
+          kuerzel: modAltUmschalt(RAST_KUERZEL[z]),
+          tun: () => rasten(id, z),
+        })),
+      },
+      { text: 'In neuer Zeile beginnen', symbol: 'corner-down-left', an: !!w.neueZeile, aus: p.schmal, tun: () => aendern(neueZeileUmschalten(hand() ? p.b.fenster : groesseSetzen(p.b.fenster, id, {}, automatikJetzt()), id)) },
       { text: 'Nach links rücken', symbol: 'arrow-left', kuerzel: altUmschalt('←'), aus: pos === 0, tun: () => aendern(verschieben(p.b.fenster, id, -1)) },
       { text: 'Nach rechts rücken', symbol: 'arrow-right', kuerzel: altUmschalt('→'), aus: pos >= sichtbar().length - 1, tun: () => aendern(verschieben(p.b.fenster, id, 1)) },
       { art: 'trenner' },
@@ -296,6 +346,65 @@ export default function Raster(p: RasterProps): JSX.Element {
 
   p.onPunkte?.(punkte);
   p.onVerteilen?.(() => aendern(automatisch(p.b.fenster)));
+  p.onEinrasten?.(rasten);
+
+  // ── Einrasten durch Ziehen an den Rand: Vorschau zeigt Hälfte oder Viertel, Loslassen rastet ein ──
+  let wurzel: HTMLDivElement | undefined;
+  const [zone, setZone] = createSignal<{ ziel: RastZiel; rechteck: ReturnType<typeof zonenRechteck> } | null>(null);
+  /** Sichtbarer Bereich des Bildschirms (Bildschirmkoordinaten), ohne den Teil außerhalb des Fensters. */
+  const sichtfeld = () => {
+    const r = (wurzel?.closest<HTMLElement>('.os-bildschirm') ?? wurzel)?.getBoundingClientRect();
+    if (!r) return null;
+    return { left: Math.max(0, r.left), top: Math.max(0, r.top), right: Math.min(window.innerWidth, r.right), bottom: Math.min(window.innerHeight, r.bottom) };
+  };
+  /** Das gezogene Fenster gehört zu diesem Bildschirm und ist sichtbar? */
+  const eigenesFenster = (): string | null => {
+    const z = aktuellerZug();
+    if (p.schmal || z?.art !== 'fenster' || !z.id) return null;
+    return sichtbar().some((w) => w.id === z.id) ? z.id : null;
+  };
+  onMount(() => {
+    if (!wurzel) return;
+    const ueber = (e: DragEvent) => {
+      const id = eigenesFenster();
+      const r = id ? sichtfeld() : null;
+      const ziel = r ? randZone(e.clientX, e.clientY, r) : null;
+      if (!ziel || !r) {
+        if (zone()) setZone(null);
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      hinweisWeg();
+      if (zone()?.ziel !== ziel) setZone({ ziel, rechteck: zonenRechteck(ziel, r) });
+    };
+    const ab = (e: DragEvent) => {
+      const z = zone();
+      const id = eigenesFenster();
+      setZone(null);
+      if (!z || !id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      zugEndet();
+      rasten(id, z.ziel);
+    };
+    const weg = (e: DragEvent) => {
+      if (e.relatedTarget instanceof Node && wurzel?.contains(e.relatedTarget)) return;
+      setZone(null);
+    };
+    const ende = () => setZone(null);
+    wurzel.addEventListener('dragover', ueber, true);
+    wurzel.addEventListener('drop', ab, true);
+    wurzel.addEventListener('dragleave', weg);
+    window.addEventListener('dragend', ende);
+    onCleanup(() => {
+      wurzel?.removeEventListener('dragover', ueber, true);
+      wurzel?.removeEventListener('drop', ab, true);
+      wurzel?.removeEventListener('dragleave', weg);
+      window.removeEventListener('dragend', ende);
+    });
+  });
 
   /**
    * Eine Scrollebene: Zeilen sind nach oben offen (`auto`), Fenster wachsen mit ihrer App und nur die
@@ -306,7 +415,9 @@ export default function Raster(p: RasterProps): JSX.Element {
   const rasterStil = (): JSX.CSSProperties => {
     if (p.schmal) return { 'grid-template-rows': 'auto' };
     if (hand()) return { 'grid-auto-rows': `minmax(${ZEILE_REM}rem, auto)`, 'align-content': 'start' };
-    return { 'grid-template-rows': `repeat(${autoReihen(sichtbar().length)}, minmax(22rem, auto))` };
+    // Automatik: genau ein Bildschirm hoch, die Zeilen teilen ihn gleich auf (.os-raster-voll); jedes Fenster
+    // füllt seine Kachel, und die App kennt ihre Größe (Größenstufe blick … weit, _bruecke.js stufeAus)
+    return { 'grid-template-rows': `repeat(${autoReihen(sichtbar().length)}, minmax(0, 1fr))` };
   };
 
   // Pfeil zum Startbildschirm: blendet sich ein, wenn der Zeiger an den oberen Rand kommt
@@ -319,11 +430,25 @@ export default function Raster(p: RasterProps): JSX.Element {
 
   return (
     <div
+      ref={wurzel}
       class="os-schreibtisch flex min-h-full flex-col"
       data-kontext="schreibtisch"
       onPointerMove={zeigerNah}
       onPointerLeave={() => setNahOben(false)}
     >
+      <Show when={zone()} keyed>
+        {(z) => (
+          <Portal>
+            <div
+              class="os-rast-vorschau"
+              aria-hidden="true"
+              style={{ left: `${z.rechteck.left}px`, top: `${z.rechteck.top}px`, width: `${z.rechteck.width}px`, height: `${z.rechteck.height}px` }}
+            >
+              <span>{RAST_TEXT[z.ziel]}</span>
+            </div>
+          </Portal>
+        )}
+      </Show>
       <Show when={p.onStart && !p.schmal}>
         <button
           type="button"
@@ -337,8 +462,9 @@ export default function Raster(p: RasterProps): JSX.Element {
           <span>Start</span>
         </button>
       </Show>
-      {/* Kopf des Bildschirms: Name links, Lage rechts — eine ruhige Zeile */}
-      <div class="flex min-h-10 shrink-0 items-center gap-3 px-5 pt-3 text-sm max-md:px-3">
+      {/* Kopf des Bildschirms: Name links, Lage rechts — eine ruhige Zeile. Die Fenster bekommen seitlich mehr Platz
+          (max. 1840 px, mittig); Kopf und Fensterabstände sind knapp, damit mehr Inhalt zu sehen ist. */}
+      <div class="mx-auto flex min-h-8 w-full max-w-[1840px] shrink-0 items-center gap-3 px-3 pt-2 text-sm md:px-4 md:pt-2.5">
         <Show
           when={umbenennen()}
           fallback={
@@ -382,7 +508,7 @@ export default function Raster(p: RasterProps): JSX.Element {
         when={gezeigt().length}
         fallback={
           <div
-            class="m-3 flex flex-1 flex-col items-center justify-center gap-3 rounded-[var(--os-radius)] border border-dashed border-(--os-glas-rand) text-center text-(--color-fg-muted)"
+            class="mx-auto my-2 flex w-[calc(100%-1rem)] max-w-[calc(1840px-1.5rem)] flex-1 flex-col items-center justify-center gap-3 rounded-[var(--os-radius)] border border-dashed md:w-[calc(100%-1.5rem)] border-(--os-glas-rand) text-center text-(--color-fg-muted)"
             onDragOver={annehmen}
             onDragLeave={(e) => hinweisWeg(e.currentTarget)}
             onDrop={ablage}
@@ -394,7 +520,8 @@ export default function Raster(p: RasterProps): JSX.Element {
       >
         <div
           ref={behaelter}
-          class="os-raster-flaeche grid gap-3 p-3 max-md:grid-cols-1 md:grid-cols-12 md:px-5 md:pb-5"
+          class="os-raster-flaeche mx-auto grid w-full max-w-[1840px] gap-2 px-2 pt-1.5 pb-2 max-md:grid-cols-1 md:grid-cols-12 md:px-3 md:pb-3"
+          classList={{ 'os-raster-voll': !p.schmal && !hand() }}
           style={rasterStil()}
           onDragOver={annehmen}
           onDrop={ablage}
@@ -415,6 +542,7 @@ export default function Raster(p: RasterProps): JSX.Element {
                       fokus={p.aktiv === id}
                       ziehen={p.ziehen}
                       schmal={p.schmal}
+                      gedeckelt={!p.schmal && !hand()}
                       mass={mass}
                       punkte={() => punkte(id)}
                       onFokus={() => p.setAktiv(id)}
@@ -436,18 +564,8 @@ export default function Raster(p: RasterProps): JSX.Element {
             }}
           </For>
         </div>
-        {/* Endlos: unter dem letzten Fenster ist immer Platz — hierher ziehen legt ans Ende */}
-        <Show when={!p.schmal}>
-          <div
-            class="os-weiter"
-            aria-hidden="true"
-            onDragOver={annehmen}
-            onDragLeave={(e) => hinweisWeg(e.currentTarget)}
-            onDrop={ablage}
-          >
-            <span>Platz für mehr — Fläche, Fenster oder Objekt hierher ziehen</span>
-          </div>
-        </Show>
+        {/* Nicht endlos: unter dem letzten Fenster kommt keine Fläche „Platz für mehr“; abgelegt wird auf dem Raster selbst,
+            ein weiteres Fenster über der Grenze geht auf einen neuen Bildschirm. */}
       </Show>
     </div>
   );
