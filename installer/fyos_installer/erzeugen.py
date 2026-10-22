@@ -40,12 +40,12 @@ VORGABE_PERSONA = {
     "sprache": "Deutsch",
 }
 VORGABE_MODELL = {"basis_url": "http://host.docker.internal:11434/v1", "name": "qwen3:8b", "schluessel": ""}
-# Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.1.2
-# zieht Oberfläche und Hub mit dem Tag v0.1.2. Das Bild der Agent-Grundlage baut fyos-agent mit eigenen Tags; für 0.1.2
+# Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.1.3
+# zieht Oberfläche und Hub mit dem Tag v0.1.3. Das Bild der Agent-Grundlage baut fyos-agent mit eigenen Tags; für 0.1.3
 # trägt es denselben Tag wie die FYOS-Version (RELEASE.md: fyos-agent wird vor fyos-os getaggt).
 OFFIZIELLE_REGISTRY = "ghcr.io/sirfyyn"  # sauber: ok
 BILD_TAG = f"v{__version__}"
-AGENT_TAG = "v0.1.2"
+AGENT_TAG = "v0.1.3"
 # Das selbst gebaute Hub-Bild (Kubernetes, mit den gewählten Plugins) gehört in die eigene Registry. Ohne sie zeigt es
 # auf eine Beispieladresse, die sich nie auflösen lässt: Schieben und Ziehen schlagen sichtbar fehl, statt still ein
 # fremdes Bild gleichen Namens zu holen.

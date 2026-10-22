@@ -11,6 +11,12 @@ stehen in dessen `CHANGELOG.md`.
 
 ## [Unveröffentlicht]
 
+## [0.1.3] – 2026-10-22
+
+### Behoben
+- „Rückgängig“ nach dem Schließen: Die Karte oben rechts erschien in 0.1.2 nicht, weil die Shell der Mitteilungsliste ein eigenes
+  Signal statt der geteilten Karte gab. Sie liest jetzt dieselbe Karte wie die Brücke.
+
 ## [0.1.2] – 2026-10-22
 
 ### Neu

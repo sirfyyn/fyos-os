@@ -2,6 +2,8 @@
  * „Rückgängig“ nach dem Schließen (lib/os/rueckgaengig.ts): geschlossene Fenster und Bildschirme
  * kommen an dieselbe Stelle zurück.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leer, neuerBildschirm, entfernen, START, type Arbeitsplatz } from '~/lib/os/bildschirme';
 import { bildschirmZurueck, fensterZurueck, geschlossene, schliessText } from '~/lib/os/rueckgaengig';
@@ -48,5 +50,15 @@ describe('Rückgängig nach dem Schließen', () => {
     expect(schliessText(['Kalender'])).toBe('„Kalender“ geschlossen.');
     expect(schliessText(['A', 'B'])).toBe('2 Fenster geschlossen.');
     expect(schliessText([], 'Eins')).toBe('„Eins“ entfernt.');
+  });
+});
+
+describe('Die Karte oben rechts', () => {
+  // 0.1.2 zeigte nach dem Schließen keine Karte: die Shell gab Mitteilungen ein eigenes Signal statt der geteilten Karte
+  it('liest die Shell aus der geteilten Karte, in die rueckgaengigAnbieten schreibt', () => {
+    const shell = readFileSync(resolve(process.cwd(), 'src/components/os/Shell.tsx'), 'utf8');
+    expect(shell).toContain('hinweis={rueckHinweis}');
+    expect(shell).toContain('onHinweisWeg={() => rueckgaengigAnbieten(null)}');
+    expect(shell).not.toContain('setMittHinweis');
   });
 });

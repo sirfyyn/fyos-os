@@ -23,7 +23,7 @@
  */
 import { For, Show, createEffect, createMemo, createSignal, lazy, onCleanup, onMount, type JSX } from 'solid-js';
 import Startbildschirm from './Startbildschirm';
-import Mitteilungen, { type Hinweis } from './Mitteilungen';
+import Mitteilungen from './Mitteilungen';
 import Dock from './Dock';
 import { NEU_LADEN } from './Fenster';
 import Kulisse from './Kulisse';
@@ -41,7 +41,7 @@ import { registrierteDinge } from '~/lib/os/register';
 import { sucheStarten, trefferWeg, type SucheZustand, type Treffer } from '~/lib/os/suche';
 import { frageMitKontext } from '~/lib/os/uebergaben';
 import { MAX_OFFEN, RAST_TASTEN, alleEinblenden, automatisch, laden as altLaden, minimieren, schliessen, startPruefen, zeilenFuerHoehe, type Fenster, type RastZiel, type StartZustand } from '~/lib/os/anordnung';
-import { bildschirmZurueck, fensterZurueck, geschlossene, rueckgaengigAnbieten, schliessText } from '~/lib/os/rueckgaengig';
+import { bildschirmZurueck, fensterZurueck, geschlossene, rueckgaengigAnbieten, rueckHinweis, schliessText } from '~/lib/os/rueckgaengig';
 import { appFragen, heften, kannHeften } from '~/lib/os/app-aktionen';
 import {
   BILDSCHIRME_MAX, START, aktueller, alleFenster, anzeigeName, bereinigen, bildschirmBei, entfernen, fensterAendern, flaecheOeffnen, fremdesSpeichern, idsUmbenennen, laden as apLaden,
@@ -133,7 +133,6 @@ export default function Shell(): JSX.Element {
   const [agentZiel, setAgentZiel] = createSignal(false);
   const [mitt, setMitt] = createSignal<Mitteilung[]>([]);
   const [mittEinst, setMittEinst] = createSignal(einstellungLesen());
-  const [mittHinweis, setMittHinweis] = createSignal<Hinweis | null>(null);
   const mittEinstellen = (e: ReturnType<typeof einstellungLesen>) => {
     setMittEinst(e);
     einstellungSchreiben(e);
@@ -1743,15 +1742,15 @@ export default function Shell(): JSX.Element {
         onStumm={(minuten) => {
           const vorher = mittEinst();
           mittEinstellen({ ...vorher, stumm_bis: Date.now() + minuten * 60_000 });
-          setMittHinweis({ text: 'Mitteilungen eine Stunde stumm.', zurueck: () => mittEinstellen(vorher) });
+          rueckgaengigAnbieten({ text: 'Mitteilungen eine Stunde stumm.', zurueck: () => mittEinstellen(vorher) });
         }}
         onAus={() => {
           const vorher = mittEinst();
           mittEinstellen({ ...vorher, aus: true });
-          setMittHinweis({ text: 'Mitteilungen sind aus.', zurueck: () => mittEinstellen(vorher) });
+          rueckgaengigAnbieten({ text: 'Mitteilungen sind aus.', zurueck: () => mittEinstellen(vorher) });
         }}
-        hinweis={mittHinweis}
-        onHinweisWeg={() => setMittHinweis(null)}
+        hinweis={rueckHinweis}
+        onHinweisWeg={() => rueckgaengigAnbieten(null)}
       />
       <Menue />
     </div>
