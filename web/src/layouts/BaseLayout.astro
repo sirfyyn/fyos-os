@@ -9,6 +9,7 @@
  */
 import '~/styles/global.css';
 import { ToastRegion } from '~/components/ui/Toast';
+import DialogHost from '~/components/ui/DialogHost';
 import SitzungsBanner from '~/components/ui/SitzungsBanner';
 
 interface Props {
@@ -105,5 +106,7 @@ const { title = systemName, description = `${systemName} — das eigene System i
       <slot />
     </main>
     <ToastRegion client:only="solid-js" />
+    {/* Ein Host für bestaetigen/meldung/eingabe (lib/ui/dialoge.ts): manche WebViews zeigen native confirm/alert/prompt nicht an. */}
+    <DialogHost client:only="solid-js" />
   </body>
 </html>

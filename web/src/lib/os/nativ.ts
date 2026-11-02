@@ -12,6 +12,7 @@
 import type { Component } from 'solid-js';
 import type { Flaeche } from './flaechen';
 import { EINSTELLUNGEN } from './nativ/einstellungen';
+import { AGENT } from './nativ/agent';
 import { KACHELN } from './nativ/kacheln';
 import { registrierteFlaechen } from './register';
 
@@ -34,7 +35,7 @@ export interface NativEintrag {
 }
 
 /** Eingebaute native Flächen. */
-export const NATIVE: NativEintrag[] = [...KACHELN, ...EINSTELLUNGEN];
+export const NATIVE: NativEintrag[] = [...KACHELN, ...AGENT, ...EINSTELLUNGEN];
 
 export const nativZu = (id: string): Pick<NativEintrag, 'id' | 'laden'> | undefined => {
   const eingebaut = NATIVE.find((n) => n.id === id);

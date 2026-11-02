@@ -11,7 +11,8 @@
  * Ablageziele — beim Ziehen blühen die Punkte zu Schildern mit Namen auf, Verweilen auf einem Punkt wechselt
  * dorthin, auf dem Agent öffnet es das Gespräch.
  */
-import { For, Index, Show, createSignal, type JSX } from 'solid-js';
+import { For, Index, Show, createEffect, createSignal, onCleanup, type JSX } from 'solid-js';
+import { dockSicht, type DockSicht } from '~/lib/os/dock-sichtbar';
 import { agentName, systemName } from '~/lib/config';
 import { ablageZiel, gutSetzen, zugBeginnt, zugBild, zugEndet, type Gut } from '~/lib/os/ziehen';
 import Symbol from './Symbol';
@@ -23,7 +24,7 @@ export interface DockProps {
   onNeuerBildschirm: () => void;
   startOffen: boolean;
   onStart: () => void;
-  fenster: { id: string; titel: string; gruppe?: string; min: boolean }[];
+  fenster: { id: string; titel: string; gruppe?: string; min: boolean; privat?: string }[];
   fokus: string | null;
   onFenster: (id: string) => void;
   agent: boolean;
@@ -38,9 +39,135 @@ export interface DockProps {
   puls?: number | null;
   /** Fenster, dessen Symbol gerade hüpft (eben geöffnet) */
   huepf?: string | null;
+  /**
+   * `klassisch`: Punkte, FYOS, Fenster, Agent, immer sichtbar (schmale Fenster, Räume aus).
+   * `offene` (28.10.2026): nur die geöffneten Anwendungen, blendet sich aus wie das macOS-Dock; FYOS (Apps-Seite),
+   * Bildschirm-Punkte und Agent leben dann in der Räume-Leiste links bzw. in Übersicht und Menüs.
+   */
+  modus?: 'klassisch' | 'offene';
+  /** Sichtbarkeits-Steuerung (Zeiger, Fokus, Pfeil); ohne Angabe legt das Dock eine eigene an */
+  sicht?: DockSicht;
 }
 
 export default function Dock(p: DockProps): JSX.Element {
+  const sicht = p.sicht ?? dockSicht();
+  onCleanup(() => { if (!p.sicht) sicht.aufraeumen(); });
+  createEffect(() => sicht.leer(p.fenster.length === 0));
+  return (
+    <Show when={(p.modus ?? 'klassisch') === 'offene'} fallback={klassischeLeiste(p)}>
+      {offeneLeiste(p, sicht)}
+    </Show>
+  );
+}
+
+/** Ein Symbol je offener Anwendung (gemeinsam für beide Modi). */
+function fensterSymbole(p: DockProps): JSX.Element {
+  return (
+    <For each={p.fenster}>
+      {(f) => (
+        <button
+          type="button"
+          data-privat={f.privat}
+          data-kontext={`dock-fenster:${f.id}`}
+          aria-label={f.titel}
+          title={f.min ? `${f.titel} — minimiert` : f.titel}
+          class="os-dock-symbol"
+          classList={{ 'os-dock-min': f.min, 'os-dock-fokus': !f.min && p.fokus === f.id, 'os-dock-huepf': p.huepf === f.id }}
+          onClick={() => p.onFenster(f.id)}
+          // Das Symbol ist das Fenster: auf einen Punkt ziehen verschiebt es, auf den Agent fragt der Agent
+          draggable="true"
+          onDragStart={(e) => {
+            gutSetzen(e.dataTransfer, { art: 'fenster', id: f.id }, f.titel);
+            zugBild(e.dataTransfer, f.titel);
+            zugBeginnt({ art: 'fenster' });
+          }}
+          onDragEnd={() => zugEndet()}
+        >
+          <Symbol id={f.id} gruppe={f.gruppe} />
+          <span class="os-dock-name" aria-hidden="true">{f.titel}</span>
+          <span class="os-dock-licht" aria-hidden="true" />
+        </button>
+      )}
+    </For>
+  );
+}
+
+/** Fokus per Tastatur (nicht der Rest eines Mausklicks): nur dieser hält das Dock offen. */
+function tastaturFokus(el: EventTarget | null): boolean {
+  try {
+    return !(el instanceof Element) || el.matches(':focus-visible');
+  } catch {
+    return true; // Umgebung ohne :focus-visible (jsdom): wie Tastatur
+  }
+}
+
+/**
+ * Das Dock nur mit geöffneten Anwendungen. Ohne offene Anwendung steht nichts da, auch kein Pfeil. Sonst: unsichtbar unter
+ * dem unteren Rand, bis der Zeiger den Rand berührt (Zone, 8 px, mit kleiner Verzögerung), der Pfeil gedrückt wird (30 s)
+ * oder der Fokus per Tastatur hineinkommt. Das Dock überlagert den Inhalt; nichts rückt.
+ */
+function offeneLeiste(p: DockProps, sicht: DockSicht): JSX.Element {
+  let nav: HTMLElement | undefined;
+  const schliesst = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape' || !sicht.sichtbar()) return;
+    e.stopPropagation();
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    sicht.fokus(false);
+    sicht.verbergen();
+  };
+  return (
+    <Show when={p.fenster.length > 0}>
+      <div class="os-dock-huelle" data-dock="offene" data-sichtbar={sicht.sichtbar() ? 'ja' : 'nein'}>
+        <div
+          class="os-dock-zone"
+          aria-hidden="true"
+          data-dock-zone
+          onPointerEnter={() => sicht.zone(true)}
+          onPointerLeave={() => sicht.zone(false)}
+        />
+        <button
+          type="button"
+          class="os-dock-pfeil"
+          classList={{ 'os-dock-pfeil-weg': sicht.sichtbar() }}
+          tabIndex={sicht.sichtbar() ? -1 : 0}
+          aria-label="Dock einblenden"
+          aria-expanded={sicht.sichtbar()}
+          title="Offene Anwendungen zeigen (30 Sekunden)"
+          onPointerEnter={() => sicht.zone(true)}
+          onPointerLeave={() => sicht.zone(false)}
+          onClick={(e) => {
+            sicht.pfeil();
+            // Mit der Tastatur geklickt: der Fokus folgt ins Dock, sonst bliebe er auf dem verschwundenen Pfeil
+            if (e.detail === 0) queueMicrotask(() => nav?.querySelector<HTMLButtonElement>('.os-dock-symbol')?.focus());
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10.5 8 6l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <nav
+          ref={nav}
+          aria-label="Bodenleiste"
+          class="os-dock-bereich os-dock-offene"
+          data-kontext="dock"
+          onKeyDown={schliesst}
+          onFocusIn={(e) => { if (tastaturFokus(e.target)) sicht.fokus(true); }}
+          onFocusOut={(e) => { if (!nav?.contains(e.relatedTarget as Node | null)) sicht.fokus(false); }}
+        >
+          <div
+            class="os-glas os-dock"
+            onPointerEnter={() => sicht.dock(true)}
+            onPointerLeave={() => sicht.dock(false)}
+          >
+            <div class="os-dock-fenster" aria-label="Offene Anwendungen">
+              {fensterSymbole(p)}
+            </div>
+          </div>
+        </nav>
+      </div>
+    </Show>
+  );
+}
+
+function klassischeLeiste(p: DockProps): JSX.Element {
   const alle = () => [{ index: 0, name: 'Start' }, ...p.bildschirme];
   let punkte: HTMLDivElement | undefined;
   const [zielPunkt, setZielPunkt] = createSignal<number | null>(null);
@@ -140,31 +267,7 @@ export default function Dock(p: DockProps): JSX.Element {
           <span class="os-dock-trenner" aria-hidden="true" />
         </Show>
         <div class="os-dock-fenster" aria-label="Offene Flächen">
-          <For each={p.fenster}>
-            {(f) => (
-              <button
-                type="button"
-                data-kontext={`dock-fenster:${f.id}`}
-                aria-label={f.titel}
-                title={f.min ? `${f.titel} — minimiert` : f.titel}
-                class="os-dock-symbol"
-                classList={{ 'os-dock-min': f.min, 'os-dock-fokus': !f.min && p.fokus === f.id, 'os-dock-huepf': p.huepf === f.id }}
-                onClick={() => p.onFenster(f.id)}
-                // Das Symbol ist das Fenster: auf einen Punkt ziehen verschiebt es, auf den Agent fragt der Agent
-                draggable="true"
-                onDragStart={(e) => {
-                  gutSetzen(e.dataTransfer, { art: 'fenster', id: f.id }, f.titel);
-                  zugBild(e.dataTransfer, f.titel);
-                  zugBeginnt({ art: 'fenster' });
-                }}
-                onDragEnd={() => zugEndet()}
-              >
-                <Symbol id={f.id} gruppe={f.gruppe} />
-                <span class="os-dock-name" aria-hidden="true">{f.titel}</span>
-                <span class="os-dock-licht" aria-hidden="true" />
-              </button>
-            )}
-          </For>
+          {fensterSymbole(p)}
         </div>
 
         <span class="os-dock-trenner" aria-hidden="true" />

@@ -52,6 +52,7 @@ from starlette.routing import Mount, Route
 
 from . import __version__ as HUB_VERSION
 from . import ansicht as _ansicht
+from . import aufgaben as _aufgaben
 from . import hybrid as _hybrid
 from . import liste_geaendert as _liste_geaendert
 from . import metriken as _metriken
@@ -146,6 +147,57 @@ class _HubMitSitzungen(_HubServer):
             return await super().list_tools()
 
 
+def _aufgabe_loesen(name: str, arguments: dict[str, Any]) -> tuple[str, Any] | None:
+    """MCP Tasks: darf der `tools/call` `name` als Aufgabe laufen? Dann (Werkzeug `plugin.name`, lauf), sonst None.
+
+    Nur Werkzeuge, deren Plugin `aufgabe=True` meldet; ueber `hub__call_tool` (Ziel in `tool`) und als App-Werkzeug
+    (`plugin__name`). Dry-Run, Oberflaechen-Sperre und fehlende Pflichtargumente bleiben auf dem synchronen Weg, damit die
+    Fehlermeldung dieselbe ist wie sonst.
+    """
+    reg = _REGISTRY
+    if reg is None:
+        return None
+    if name == "hub__call_tool":
+        fqtn = str(arguments.get("tool") or "")
+        args = arguments.get("arguments")
+        args = args if isinstance(args, dict) else {}
+        ansicht = str(arguments.get("ansicht") or "kurz")
+    elif name in _APP_TOOLS:
+        fqtn, args, ansicht = name.replace("__", ".", 1), arguments, ""
+    else:
+        return None
+    rt = reg.get_tool(fqtn) if "." in fqtn else None
+    if rt is None or not getattr(rt.descriptor, "aufgabe", False) or args.get("__dry_run__"):
+        return None
+    pflicht = (rt.descriptor.input_schema or {}).get("required") or []
+    if name == "hub__call_tool" and (nur_oberflaeche(reg, fqtn) or (pflicht and not args)):
+        return None
+
+    def lauf() -> dict[str, Any]:
+        if name == "hub__call_tool":
+            return _aufgaben.ergebnis_als_aufruf(hub__call_tool(fqtn, args, ansicht))
+        res = dispatch(reg, fqtn, args)
+        link = oeffnen_link_fuer(reg, fqtn, args)
+        karte = _aufgaben.ergebnis_als_aufruf(res.get("result") if res.get("ok") else res)
+        if link:
+            karte["content"].append({"type": "text", "text": _identitaet.LINK_ZEILE + link})
+            karte["_meta"] = {"fyos/oeffnen": link}
+        return karte
+
+    return fqtn, lauf
+
+
+def _erweiterungen() -> dict[str, Any]:
+    """Erweiterungen am MCP-Server (nur mcp 2.x hat die Schnittstelle): MCP Tasks."""
+    if not _SDK_V2:
+        return {}
+    try:
+        from .aufgaben_mcp import AufgabenErweiterung  # noqa: PLC0415
+    except ImportError:  # SDK ohne mcp.server.extension
+        return {}
+    return {"extensions": [AufgabenErweiterung(_aufgabe_loesen)]}
+
+
 mcp = _HubMitSitzungen(
     name="FYOS MCP-Hub",
     instructions=(
@@ -186,6 +238,7 @@ mcp = _HubMitSitzungen(
     # v2 meldet sonst `version: ""` in serverInfo und in `server/discover` (v1 hat das Feld am
     # Konstruktor nicht und nimmt die Version des SDK).
     **({"version": HUB_VERSION} if _SDK_V2 else {}),
+    **_erweiterungen(),
 )
 
 
@@ -1021,13 +1074,70 @@ async def rest_call(request: Request) -> JSONResponse:
     argumente, fehler = _argumente_aus(body)
     if fehler is not None:
         return fehler
-    result = _mit_link(_REGISTRY, tool, argumente, await dispatch_im_thread(_REGISTRY, tool, argumente))
+    # MCP Tasks: wer `aufgabe: true` (oder die Huelle der Erweiterung) mitschickt UND ein Task-faehiges Werkzeug ruft,
+    # bekommt sofort eine Kennung (202), sonst laeuft alles wie bisher.
+    reg = _REGISTRY
+    rt = reg.get_tool(tool)
+    if _aufgaben.erklaert(body) and rt is not None and getattr(rt.descriptor, "aufgabe", False) and not argumente.get("__dry_run__"):
+        ansicht = body.get("ansicht")
+
+        def lauf() -> dict[str, Any]:
+            return _rest_ergebnis(reg, tool, argumente, ansicht, dispatch(reg, tool, argumente))
+
+        try:
+            aufgabe = await asyncio.to_thread(_aufgaben.AUFGABEN.start, tool, lauf, AUFRUFER.get())
+        except _aufgaben.AufgabenFehler as exc:
+            return _aufgaben_fehler(exc)
+        return JSONResponse(status_code=202, content={"ok": True, **aufgabe})
+    result = _rest_ergebnis(_REGISTRY, tool, argumente, body.get("ansicht"), await dispatch_im_thread(_REGISTRY, tool, argumente))
+    return JSONResponse(status_code=status_fuer(result), content=result)
+
+
+def _rest_ergebnis(reg: PluginRegistry, tool: str, argumente: dict[str, Any], ansicht: Any, roh: dict[str, Any]) -> dict[str, Any]:
+    """Ergebnis von `/hub/call`: Link ergaenzen, auf Wunsch (`ansicht: "kurz"`) fuers Modell kuerzen."""
+    result = _mit_link(reg, tool, argumente, roh)
     # Modelle über REST bitten um `ansicht: "kurz"`; Oberflächen bekommen weiter alles.
-    if body.get("ansicht") == "kurz" and result.get("ok") and "result" in result:
-        gekuerzt, info = kurz_fuer_modell(_REGISTRY, tool, argumente, result["result"])
+    if ansicht == "kurz" and result.get("ok") and "result" in result:
+        gekuerzt, info = kurz_fuer_modell(reg, tool, argumente, result["result"])
         if info:
             result = {**result, "result": gekuerzt, "ansicht": info}
-    return JSONResponse(status_code=status_fuer(result), content=result)
+    return result
+
+
+def _aufgaben_fehler(exc: Any) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status, content={"ok": False, "kind": "aufgabe", "error": exc.message, "code": exc.code}
+    )
+
+
+async def rest_aufgabe(request: Request) -> JSONResponse:
+    """POST /hub/aufgaben/{get|update|cancel} {taskId, inputResponses?}, GET /hub/aufgaben/liste — MCP Tasks ueber REST.
+
+    Dieselben Antworten wie `tasks/get|update|cancel` (docs/HUB-VERTRAG.md), mit `ok: true` davor. Nur der Akteur,
+    der die Aufgabe angelegt hat (AUFRUFER), kommt heran; fremde und unbekannte Kennungen antworten gleich (404).
+    """
+    aktion = str(request.path_params.get("aktion", ""))
+    akteur = AUFRUFER.get()
+    try:
+        if aktion == "liste":
+            return JSONResponse({"ok": True, "aufgaben": await asyncio.to_thread(_aufgaben.AUFGABEN.liste, akteur)})
+        body, fehler = await _body_objekt(request)
+        if fehler is not None:
+            return fehler
+        kennung = body.get("taskId")
+        if not isinstance(kennung, str) or not kennung:
+            return _anfrage_fehler("`taskId` fehlt")
+        if aktion == "get":
+            erg = await asyncio.to_thread(_aufgaben.AUFGABEN.lesen, kennung, akteur)
+        elif aktion == "update":
+            erg = await asyncio.to_thread(_aufgaben.AUFGABEN.aktualisieren, kennung, akteur, body.get("inputResponses") or {})
+        elif aktion == "cancel":
+            erg = await asyncio.to_thread(_aufgaben.AUFGABEN.abbrechen, kennung, akteur)
+        else:
+            return JSONResponse(status_code=404, content={"ok": False, "kind": "not_found", "error": f"unbekannt: {aktion}"})
+    except _aufgaben.AufgabenFehler as exc:
+        return _aufgaben_fehler(exc)
+    return JSONResponse({"ok": True, **erg})
 
 
 async def rest_mehr(request: Request) -> JSONResponse:
@@ -1397,6 +1507,7 @@ def build_app(config_path: str | None = None) -> Starlette:
         Route("/hub/servers", rest_servers, methods=["GET"]),
         Route("/hub/call", rest_call, methods=["POST"]),
         Route("/hub/mehr", rest_mehr, methods=["POST"]),
+        Route("/hub/aufgaben/{aktion}", rest_aufgabe, methods=["GET", "POST"]),
         Route("/hub/apps", rest_apps, methods=["GET"]),
         Route("/hub/resource", rest_resource, methods=["GET"]),
         Route("/hub/app-call", rest_app_call, methods=["POST"]),

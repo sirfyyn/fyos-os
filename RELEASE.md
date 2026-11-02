@@ -1,6 +1,6 @@
 # Eine Version veröffentlichen
 
-Anleitung für Maintainer. Eine FYOS-Version besteht aus zwei Repos mit demselben Tag: `fyos-agent` (Bild `openclaw`) und
+Anleitung für Maintainer. Eine FYOS-Version besteht aus zwei Repos mit demselben Tag: `fyos-agent` (Bilder `runner` und `openclaw`) und
 `fyos-os` (Bilder `web` und `hub`, PyPI-Pakete `fyos-hub` und `fyos-installer`). Der Installer zieht das Agent-Bild mit
 dem Tag seiner eigenen Version (`AGENT_TAG` in `installer/fyos_installer/erzeugen.py`). Deshalb bekommt `fyos-agent`
 den Tag zuerst. Die Beispiele nennen Version 0.1.1; setze deine Version ein.
@@ -34,13 +34,13 @@ Ein Pull Request im Git-Server bereitet die Version vor und ist gemergt, bevor e
    die Historie des Git-Servers, der Commit trägt den Stempel „FYOS 0.1.1“. Prüfe nach dem Schieben, dass der
    Hauptzweig auf GitHub den erwarteten Stand hat und die Dateien aus diesem Repo übereinstimmen.
 4. **Tag `v0.1.1` setzen**, zuerst in `fyos-agent`, dann in `fyos-os`, jeweils auf den Abzug auf GitHub. Der Tag löst die
-   Läufe aus: in `fyos-agent` das Bild `openclaw`, in `fyos-os` die Läufe `tests`, `pypi` und `bilder`. Warte nach dem
-   ersten Tag, bis das Agent-Bild liegt, bevor du den zweiten setzt.
+   Läufe aus: in `fyos-agent` die Bilder `runner` und `openclaw`, in `fyos-os` die Läufe `tests`, `pypi` und `bilder`. Warte nach dem
+   ersten Tag, bis die Agent-Bilder liegen, bevor du den zweiten setzt.
 5. **Prüfen**, dass alles angekommen ist:
    - Die Läufe `tests`, `pypi` und `bilder` (und in `fyos-agent` `tests` und `bilder`) sind grün.
    - Auf PyPI liegen `fyos-hub` und `fyos-installer` in Version 0.1.1.
-   - In der Registry `ghcr.io/sirfyyn` liegen die Tags `v0.1.1` und `latest` für `fyos-os/web`, `fyos-os/hub` und <!-- sauber: ok -->
-     `fyos-agent/openclaw`.
+   - In der Registry `ghcr.io/sirfyyn` liegen die Tags `v0.1.1` und `latest` für `fyos-os/web`, `fyos-os/hub`, <!-- sauber: ok -->
+     `fyos-agent/runner` und `fyos-agent/openclaw`.
    - Der Installer läuft im Trockenlauf mit der veröffentlichten Version durch und nennt die Bilder mit dem Tag
      `v0.1.1`:
 
@@ -48,7 +48,7 @@ Ein Pull Request im Git-Server bereitet die Version vor und ist gemergt, bevor e
      pipx run --spec fyos-installer==0.1.1 fyos-install --auswahl kern,agent --ziel compose --trocken
      ```
 
-     Der Plan muss die Bilder `web`, `hub` und `openclaw` mit dem Tag `v0.1.1` nennen. Statt `pipx` taugt auch eine
+     Der Plan muss die Bilder `web`, `hub` und `runner` (mit Kanälen `openclaw`) mit dem Tag `v0.1.1` nennen. Statt `pipx` taugt auch eine
      frische virtuelle Umgebung mit `pip install fyos-installer==0.1.1`.
 6. **Erst dann der Release-Text auf GitHub**, je Repo aus dem Abschnitt der Version in `CHANGELOG.md`. Den Text nimmst
    du wörtlich aus dem Abschnitt und ergänzt höchstens die Links auf die Pakete und Bilder.

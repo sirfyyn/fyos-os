@@ -36,6 +36,8 @@ export interface Flaeche {
   pfad?: string;
   /** Hub-App: MCP-Werkzeugname */
   appName?: string;
+  /** Datenkategorien, die ein Vorführ-Modus verdecken kann (`data-privat`); ohne Angabe nichts */
+  privat?: string;
   /** Beim Öffnen gleich über die ganze Breite */
   breit?: boolean;
   /**

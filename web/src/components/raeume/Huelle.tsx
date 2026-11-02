@@ -14,6 +14,9 @@ import { apps } from '~/lib/mcp-apps/host';
 import { registrierteFlaechen } from '~/lib/os/register';
 
 export const NICHT_EINGERICHTET = 'Noch nicht eingerichtet.';
+/** Wo man ein Plugin baut: die Vorlage auf PyPI; die Anleitung liegt im Repo (ohne Link: der Quelltext nennt keine Konten) */
+export const VORLAGE_ADRESSE = 'https://pypi.org/project/fyos-plugin-vorlage/';
+export const ERWEITERN_DATEI = 'docs/ERWEITERN.md';
 
 /** Der Satz für alles, was kein eingerichtetes Plugin liefert; `detail` sagt, was fehlt. */
 export function NichtEingerichtet(p: { detail?: string } & JSX.HTMLAttributes<HTMLDivElement>): JSX.Element {
@@ -24,6 +27,13 @@ export function NichtEingerichtet(p: { detail?: string } & JSX.HTMLAttributes<HT
       <Show when={eigen.detail}>
         <p class="m-0 text-xs leading-relaxed text-(--color-fg-muted)">{eigen.detail}</p>
       </Show>
+      <p class="m-0 text-xs leading-relaxed text-(--color-fg-muted)" data-nicht-eingerichtet-weg>
+        Diesen Platz füllt ein Plugin: Es meldet seine Werkzeuge am Hub an, die Shell zeigt sie dann hier. Ein eigenes baust du mit der{' '}
+        <a href={VORLAGE_ADRESSE} target="_blank" rel="noopener noreferrer" class="underline">
+          Plugin-Vorlage
+        </a>{' '}
+        nach der Anleitung <code>{ERWEITERN_DATEI}</code> im FYOS-Repository. Räume ohne Plugin lassen sich in den Einstellungen unter „Räume und Dock“ ausblenden.
+      </p>
     </div>
   );
 }

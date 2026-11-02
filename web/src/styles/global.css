@@ -3,6 +3,7 @@
 @import "./os-eingebettet.css";
 @import "./os-apps.css";
 @import "./os-tapete.css";
+@import "./fyos2.css";
 
 /*
  * global.css — Tokens und Grundstil der Shell.
@@ -274,4 +275,10 @@ html[data-theme="light"][data-accent="emerald"],    [data-theme="light"][data-ac
    16 px, ohne Ebene, damit es text-sm schlägt; mit Maus bleibt alles, wie es ist. */
 @media (pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select { font-size: max(16px, 1em); }
+}
+
+/* Dialogdienst (lib/ui/dialoge.ts, components/ui/DialogHost.tsx): Einblenden nur, wenn Bewegung erlaubt ist. */
+@keyframes fyos-dialog-ein { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  [data-fyos-dialog] [data-dialog-karte] { animation: fyos-dialog-ein 120ms ease-out; }
 }

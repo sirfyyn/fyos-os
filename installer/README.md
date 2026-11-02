@@ -104,10 +104,18 @@ uv liest ihn nicht. Ein alter Bau-Befehl mit diesem Namen lässt den eigenen Ind
 verbrauchten Bau-Argument); Pakete, die nur im eigenen Index liegen, findet der Bau dann nicht und bricht ab. Ist der
 eigene Index selbst nicht erreichbar, bricht uv ebenfalls ab, statt auf PyPI auszuweichen.
 
+## Der Agent
+
+Ab 0.2.0 richtet der Installer als Agenten den **Runner** ein (`fyos-agent/runner`, dauerhaft auf pi-durable, Port
+18438). Die Oberfläche spricht ihn über `/api/agent` an und meldet sich mit `FYOS_AGENT_TOKEN` an; das Modell kommt aus
+`FYOS_MODELL_*` in `.env`. Der bisherige OpenClaw-Agent ist veraltet und bleibt nur dort, wo der Runner noch nicht
+reicht: bei gewählten [Chat-Kanälen](#chat-kanäle) und bei Kubernetes (dann mit Hinweis). Ausdrücklich wählen lässt er
+sich mit `optionen.agent: openclaw`.
+
 ## Was entsteht
 
 Compose (`compose`, `dateien`): `docker-compose.yml` (Hub mit `build: ./hub`), `.env` (Geheimnisse, Rechte 0600),
-`fyos.yaml` (Persona), `hub-config.yaml` (Format des Hubs, Plugins per Entry-Point-Name), `hub/Dockerfile`
+`agent-runner.json` (Runner) oder `fyos.yaml` (Persona, nur OpenClaw), `hub-config.yaml` (Format des Hubs, Plugins per Entry-Point-Name), `hub/Dockerfile`
 (`FROM <Hub-Bild>` plus `uv pip install` der Plugin-Quellen), bei gewählten Kanälen mit Paket `agent/Dockerfile`
 ([Chat-Kanäle](#chat-kanäle)), `.gitignore`, `ANLEITUNG.md`. Bei `compose` folgen
 `docker compose build`, `up -d` und eine Gesundheitsprüfung (web `/`, hub `/health`).

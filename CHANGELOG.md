@@ -5,11 +5,61 @@ Alle nennenswerten Änderungen an FYOS stehen hier. Das Format folgt
 [Semantic Versioning](https://semver.org/lang/de/). Die Zahlen in Klammern sind die Nummern der Pull Requests.
 
 Eine Version gilt für das ganze Paket: Oberfläche (`web`), Hub (`fyos-hub`) und Installer (`fyos-install`) tragen
-dieselbe Nummer. Der Agent (OpenClaw mit den FYOS-Plugins) kommt aus dem Schwester-Repo
+dieselbe Nummer. Der Agent (ab 0.2.0 der Runner, davor OpenClaw mit den FYOS-Plugins) kommt aus dem Schwester-Repo
 `fyos-agent` und wird mit demselben Tag veröffentlicht; dessen Änderungen
 stehen in dessen `CHANGELOG.md`.
 
 ## [Unveröffentlicht]
+
+## [0.2.0] – 2026-11-02
+
+### Neu
+- **Oberfläche aus dem OS-Neubau.** Apps-Seite statt Start-Dialog, Räume-Leiste mit Apps und Agent als Ablageziel,
+  Wartet-Schublade, Meldungen, Lage-Ampel, Dock mit den offenen Anwendungen. Die native Agent-App spricht den Runner über
+  `/api/agent` (nginx meldet sich mit `FYOS_AGENT_TOKEN` an; vor eine von außen erreichbare Shell gehört eine Anmeldung).
+  Leere Räume blendet sie weiter aus.
+
+### Geändert
+- **Der Agent ist jetzt der Runner.** Der Installer richtet für Docker Compose den Runner aus `fyos-agent` 0.2.0 ein
+  (Bild `fyos-agent/runner`, Port 18438) statt OpenClaw: `agent-runner.json` ohne Geheimnisse, Token und Modell aus
+  `.env` (`FYOS_AGENT_TOKEN`, `FYOS_MODELL_*`). Die Oberfläche erreicht ihn über `/api/agent`.
+- **OpenClaw ist veraltet.** Er bleibt bei gewählten Chat-Kanälen (Telegram, WhatsApp, Matrix) und bei Kubernetes, mit
+  Hinweis, und lässt sich mit `optionen.agent: openclaw` wählen. Umstieg: CHANGELOG von `fyos-agent`, Abschnitt 0.2.0.
+- **Oberfläche: neue Variable `FYOS_OPENCLAW_UPSTREAM`.** `FYOS_AGENT_UPSTREAM` zeigt jetzt auf den Runner (Vorgabe
+  `http://agent:18438`); der veraltete OpenClaw-Weg `/agent` liest `FYOS_OPENCLAW_UPSTREAM`. Eigene Compose- und
+  Kubernetes-Dateien mit OpenClaw müssen die Variable umbenennen (die mitgelieferten sind angepasst).
+
+## [0.1.5] – 2026-10-26
+
+### Neu
+- **MCP Tasks im Hub.** Lange Werkzeuge liefern auf Wunsch sofort eine Kennung (Erweiterung `io.modelcontextprotocol/tasks`,
+  Schema 2026-07-28): `tasks/get|update|cancel` über MCP (mit `mcp` 2.x), über REST `POST /hub/call` mit `"aufgabe": true`
+  (202) und `/hub/aufgaben/*`. Nur für Clients, die die Erweiterung erklären, und nur für Werkzeuge mit
+  `ToolDescriptor(aufgabe=True)`; kein mitgeliefertes Plugin setzt den Hinweis, alles bleibt wie bisher synchron. Je Akteur
+  5, im Hub 20 offene Aufgaben; Abbruch ist kooperativ. Einzelheiten: `docs/HUB-VERTRAG.md`, Abschnitt 6.
+- **Agentenstrom: Ereignisart `ruhe`.** Der Ausgang `fyos:agent` nimmt über `POST /hub/agent/melden` den Ruhe-Schalter eines
+  Runners an (`an`, `pausiert`, `stufe`, `quelle`, `grund`, `bis`, `von`). Falsche Stufen und Wahrheitswerte werden mit 400
+  abgelehnt. Ältere Hubs kennen die Art nicht und lehnen den ganzen Stapel ab; Runner melden sie erst, wenn der Hub sie kann.
+
+## [0.1.4] – 2026-10-22
+
+### Neu
+- **Räume ausblenden.** Wer nur einen Teil der Räume braucht, blendet die übrigen in den Einstellungen unter „Räume und Dock“
+  einzeln aus („Ausblenden“, „Alle einblenden“). Zentrale und Einstellungen bleiben immer da; blendet man den offenen Raum
+  aus, geht es zurück in die Zentrale.
+- **Leere Räume verschwinden von selbst.** Ein Raum, für den im Hub kein Plugin etwas liefert (Zuhause ohne Haus-Plugin,
+  Büro ohne Posteingang), steht nicht in der Leiste und nicht im Wechsel per ⌥⌘←/→. Kommt das Plugin dazu, ist er wieder
+  da. Der Schalter „Leere Räume ausblenden“ steht in denselben Einstellungen; ist der Hub nicht erreichbar, bleiben alle
+  Räume sichtbar.
+- **Hinweis mit Weg zum Einrichten.** Statt nur „Noch nicht eingerichtet.“ sagt die Shell jetzt, dass ein Plugin diesen
+  Platz füllt, und verweist auf die Plugin-Vorlage (`fyos-plugin-vorlage` auf PyPI) und die Anleitung `docs/ERWEITERN.md`.
+
+### Behoben
+- **Die Brücke zum Agenten hing in 0.1.2 und 0.1.3 nicht in der Shell.** Beide Veröffentlichungen nannten sie, die Shell
+  startete aber nur die schlanke Brücke (Mitteilungen abholen). Jetzt ist die volle Brücke eingehängt (`Bruecke`): Die Shell
+  meldet dem Hub ihre Lage (Fenster, Flächen, Werkzeuge), der Agent öffnet und schließt Flächen (`os.zeigen`) und ruft
+  die Seitenwerkzeuge (`os.ausfuehren`); Mitteilungen samt Ton, Vorlesen und „Rückgängig“-Karte laufen über dieselbe Brücke.
+  Wer sie nicht will: `localStorage` `fyos:os:bruecke` = `aus`.
 
 ## [0.1.3] – 2026-10-22
 

@@ -30,7 +30,7 @@ def test_ja_dateien_mit_antworten(tmp_path):
     a.write_text(yaml.safe_dump({"persona": {"agent_name": "Nova", "besitzer_name": "Sam"}}))
     ziel = tmp_path / "x"
     assert cli.main(["--auswahl", "kern,agent", "--ziel", "dateien", "--antworten", str(a), "--verzeichnis", str(ziel), "--ja"]) == 0
-    assert "Nova" in (ziel / "fyos.yaml").read_text()
+    assert "Nova" in (ziel / "agent-runner.json").read_text()
 
 
 def test_compose_startet_gemockt(tmp_path, monkeypatch):

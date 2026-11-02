@@ -40,12 +40,12 @@ VORGABE_PERSONA = {
     "sprache": "Deutsch",
 }
 VORGABE_MODELL = {"basis_url": "http://host.docker.internal:11434/v1", "name": "qwen3:8b", "schluessel": ""}
-# Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.1.3
-# zieht Oberfläche und Hub mit dem Tag v0.1.3. Das Bild der Agent-Grundlage baut fyos-agent mit eigenen Tags; für 0.1.3
+# Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.2.0
+# zieht Oberfläche und Hub mit dem Tag v0.2.0. Das Bild des Agenten baut fyos-agent mit eigenen Tags; für 0.2.0
 # trägt es denselben Tag wie die FYOS-Version (RELEASE.md: fyos-agent wird vor fyos-os getaggt).
 OFFIZIELLE_REGISTRY = "ghcr.io/sirfyyn"  # sauber: ok
 BILD_TAG = f"v{__version__}"
-AGENT_TAG = "v0.1.3"
+AGENT_TAG = "v0.2.0"
 # Das selbst gebaute Hub-Bild (Kubernetes, mit den gewählten Plugins) gehört in die eigene Registry. Ohne sie zeigt es
 # auf eine Beispieladresse, die sich nie auflösen lässt: Schieben und Ziehen schlagen sichtbar fehl, statt still ein
 # fremdes Bild gleichen Namens zu holen.
@@ -62,12 +62,72 @@ BASIS_BILDNAMEN = {
 # vor PyPI. Mit `pip --extra-index-url` nähme pip die höchste Version aus allen Indizes, und ein fremdes Paket gleichen
 # Namens auf PyPI gewänne (Dependency Confusion). Version von uv wie in hub/Dockerfile (test_erzeugen.py hält sie gleich).
 UV_BILD = "ghcr.io/astral-sh/uv:0.12.8"
+AGENT_ARTEN = ("runner", "openclaw")
+
+
+def agent_art(gewuenscht: str, ziel: str, kanaele, hinweise: list[str]) -> str:
+    """Welcher Agent läuft. Der Runner (Vorgabe ab 0.2.0) kann noch keine Kanäle und hat in 0.2.0 kein Kubernetes-Manifest;
+    dort bleibt der veraltete OpenClaw-Agent, mit Hinweis."""
+    if gewuenscht != "runner":
+        hinweise.append("Agent: OpenClaw ist veraltet und wird nicht weiterentwickelt; Umstieg auf den Runner im CHANGELOG von fyos-agent.")
+        return "openclaw"
+    if ziel == "k8s":
+        hinweise.append("Agent: Für Kubernetes gibt es den Runner in 0.2.0 noch nicht; es läuft der veraltete OpenClaw-Agent.")
+        return "openclaw"
+    if kanaele:
+        hinweise.append("Agent: Die gewählten Kanäle laufen nur mit dem veralteten OpenClaw-Agenten; er wird statt des Runners eingerichtet.")
+        return "openclaw"
+    return "runner"
+
+
+def _runner_dienst() -> str:
+    return """  agent:
+    # Der Agent: dauerhafter Runner auf pi-durable (fyos-agent/runner). Zustand im Volume, Modell aus .env.
+    image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}
+    environment:
+      FYOS_RUNNER_TOKEN: ${FYOS_AGENT_TOKEN}
+      FYOS_HUB_URL: http://hub:8080
+      FYOS_MODELL_BASIS_URL: ${FYOS_MODELL_BASIS_URL}
+      FYOS_MODELL_NAME: ${FYOS_MODELL_NAME}
+      FYOS_MODELL_SCHLUESSEL: ${FYOS_MODELL_SCHLUESSEL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./agent-runner.json:/etc/fyos/agent-runner.json:ro
+      - agent-zustand:/home/node/.fyos
+    depends_on: [hub]
+    restart: unless-stopped"""
+
+
+def _openclaw_dienst(agent_bild: str, agent_umgebung: str) -> str:
+    return f"""  agent:
+    # Veraltet: OpenClaw mit den FYOS-Plugins (für Kanäle). Nachfolger ist der Runner (fyos-agent/runner).
+    {agent_bild}
+    environment:
+      HOME: /home/node
+      FYOS_CONFIG: /etc/fyos/fyos.yaml
+      FYOS_HUB_URL: http://hub:8080/mcp
+      FYOS_MODELL_BASIS_URL: ${{FYOS_MODELL_BASIS_URL}}
+      FYOS_MODELL_NAME: ${{FYOS_MODELL_NAME}}
+      FYOS_MODELL_SCHLUESSEL: ${{FYOS_MODELL_SCHLUESSEL}}
+      OPENCLAW_GATEWAY_TOKEN: ${{FYOS_AGENT_TOKEN}}
+      # Erlaubter Ursprung der Control UI im Fenster der Shell (fyos-agent: gateway.oeffentliche_url)
+      FYOS_OEFFENTLICH_URL: ${{FYOS_OEFFENTLICH_URL:-http://localhost:8080}}
+{agent_umgebung}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./fyos.yaml:/etc/fyos/fyos.yaml:ro
+      - agent-zustand:/home/node/.openclaw
+    restart: unless-stopped""".replace("\n\n    extra_hosts", "\n    extra_hosts")
 
 
 def _bilder(reg: str, tag: str, agent_tag: str = "", eigen_reg: str = "") -> dict[str, str]:
     return {
         "hub_bild": f"{reg}/fyos-os/hub:{tag}", "bild_web": f"{reg}/fyos-os/web:{tag}",
         "bild_agent": f"{reg}/fyos-agent/openclaw:{agent_tag or tag}",
+        # Ab 0.2.0 ist der Agent der Runner (fyos-agent/runner); OpenClaw bleibt für Kanäle und Kubernetes, veraltet.
+        "bild_runner": f"{reg}/fyos-agent/runner:{agent_tag or tag}",
         "hub_bild_k8s": f"{eigen_reg or reg}/fyos-os/hub-eigen:{tag}",
         # Agent mit Kanal-Paketen (Matrix, WhatsApp), nur bei Kubernetes und nur wenn so ein Kanal gewählt ist
         "agent_bild_k8s": f"{eigen_reg or reg}/fyos-os/agent-eigen:{tag}",
@@ -78,6 +138,7 @@ VORGABE_OPTIONEN = {  # ohne Umgebung; mit Umgebung siehe vorgaben_optionen()
     **_bilder(OFFIZIELLE_REGISTRY, BILD_TAG, AGENT_TAG, BEISPIEL_REGISTRY),
     "k8s_basis": "",
     "namespace": "fyos",
+    "agent": "runner",  # runner | openclaw (veraltet)
     "bezug": "",  # index | git; leer = automatisch
     "paketindex": "",
     "plugin_quelle": "",
@@ -153,6 +214,7 @@ class Plan:
     port: int = 8080
     hub_quellen: list[str] = field(default_factory=list)
     reife: list[Reife] = field(default_factory=list)  # je Schicht die Stufe, aus der Auswahl abgeleitet (reife.py)
+    agent: str = "runner"  # runner | openclaw (agent_art)
     kanaele: dict[str, bool] = field(default_factory=dict)  # gewählte Chat-Kanäle -> eingeschaltet? (kanaele.py)
     stufen: list[st.Wahl] = field(default_factory=list)  # Stufe je Fähigkeit der gewählten Bausteine (stufen.py)
 
@@ -330,7 +392,9 @@ def erstelle_plan(
         fehler.append("Modell: basis_url muss mit http:// oder https:// beginnen")
     if not modell["name"]:
         fehler.append("Modell: name darf nicht leer sein")
-    for k in ("hub_bild", "bild_web", "bild_agent"):
+    if optionen["agent"] not in AGENT_ARTEN:
+        fehler.append(f"Optionen: agent muss {' oder '.join(AGENT_ARTEN)} sein")
+    for k in ("hub_bild", "bild_web", "bild_agent", "bild_runner"):
         if not _BILD.match(optionen[k]):
             fehler.append(f"Optionen: {k} ist kein gültiger Bildname")
     if optionen["paketindex"] and not _INDEX.match(optionen["paketindex"]):
@@ -402,6 +466,7 @@ def erstelle_plan(
     if fehler:
         return plan
 
+    plan.agent = agent_art(optionen["agent"], ziel, kanaele, plan.hinweise)
     token = geheimnisse["agent_token"] or zufall(24)
     try:
         _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, verz)
@@ -492,7 +557,7 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             ("Allgemein", [("FYOS_PORT", port, False), ("FYOS_OEFFENTLICH_URL", oeff, False)]),
             ("Bilder und Paketbezug", [
                 ("FYOS_BILD_WEB", optionen["bild_web"], False),
-                ("FYOS_BILD_AGENT", optionen["bild_agent"], False),
+                ("FYOS_BILD_AGENT", optionen["bild_runner" if plan.agent == "runner" else "bild_agent"], False),
                 ("FYOS_PAKETINDEX", optionen["paketindex"] if optionen["bezug"] == "index" else "", False),
             ]),
             ("Modell (jeder OpenAI-kompatible Anbieter)", [
@@ -500,7 +565,7 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
                 ("FYOS_MODELL_NAME", modell["name"], False),
                 ("FYOS_MODELL_SCHLUESSEL", modell["schluessel"], True),
             ]),
-            ("Agent-Gateway", [("FYOS_AGENT_TOKEN", token, True)]),
+            ("Agent", [("FYOS_AGENT_TOKEN", token, True)]),
         ]
         for b in bausteine:
             # Kanäle zeigen auch leere Werte: die Zeile in .env ist der Platzhalter zum Ausfüllen
@@ -531,14 +596,38 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             )
         else:
             agent_bild = "image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}"
+        runner = plan.agent == "runner"
         compose = render(
             _vorlage("docker-compose.yml"),
-            {"oeffentliche_url": oeff, "hub_umgebung": hub_umgebung, "agent_bild": agent_bild, "agent_umgebung": agent_umgebung},
+            {
+                "oeffentliche_url": oeff, "hub_umgebung": hub_umgebung,
+                "agent_dienst": _runner_dienst() if runner else _openclaw_dienst(agent_bild, agent_umgebung),
+                # Runner: /api/agent → FYOS_AGENT_UPSTREAM; OpenClaw (veraltet): /agent → FYOS_OPENCLAW_UPSTREAM (web/README.md)
+                "agent_upstream": "      FYOS_AGENT_UPSTREAM: http://agent:18438" if runner
+                else "      FYOS_OPENCLAW_UPSTREAM: http://agent:18789",
+            },
         )
+        # Konfiguration des Runners (Schema: fyos-agent/runner/beispiele/agent-runner.beispiel.json); Modell und Token
+        # kommen aus .env, damit hier kein Geheimnis steht.
+        runner_text = json.dumps({
+            "hub": "http://hub:8080",
+            "agent": "main",
+            # Der eingebaute Tagesrhythmus des Runners ist für einen bestimmten Alltag gebaut: aus, bis man eigene Takte einträgt
+            "takt": {"an": False},
+            "pi_durable": {
+                "port": 18438,
+                "device": {"id": "server", "name": persona["agent_name"], "kind": "linux"},
+                "storage": "~/.fyos/fyos.sqlite",
+                "security": {"allowedOrigins": [oeff]},
+                "browser": {"enabled": False},
+                "desktop": {"enabled": False},
+            },
+        }, indent=2, ensure_ascii=False) + "\n"
         plan.dateien += [
             Datei("docker-compose.yml", compose, beschreibung="Dienste web, hub (eigenes Bild), agent, redis"),
             Datei(".env", env_text(False), 0o600, "Port, Modell, Gateway-Token und Plugin-Felder (Geheimnisse nur hier)", env_text(True)),
-            Datei("fyos.yaml", fyos_text, beschreibung="Persona des Agenten"),
+            *([Datei("agent-runner.json", runner_text, beschreibung="Konfiguration des Runners (ohne Geheimnisse)")] if runner
+              else [Datei("fyos.yaml", fyos_text, beschreibung="Persona des Agenten (OpenClaw)")]),
             Datei("hub-config.yaml", hub_text, beschreibung="Kern-Plugins des Hubs"),
             Datei("hub/Dockerfile", dockerfile, beschreibung="Hub-Bild plus gewählte Plugin-Pakete"),
             Datei(".gitignore", gitignore, beschreibung="hält .env aus dem Git"),

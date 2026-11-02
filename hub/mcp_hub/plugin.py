@@ -378,6 +378,11 @@ class ToolDescriptor:
     Werkzeuge, die legitim laenger laufen (werkstatt.ausfuehren bis 30 min, lage.fenster_setzen ~4 min),
     setzen ihr eigenes."""
 
+    aufgabe: bool = False
+    """MCP Tasks (docs/HUB-VERTRAG.md): ``True`` = das Werkzeug darf einem Client, der die Erweiterung
+    ``io.modelcontextprotocol/tasks`` erklaert hat, als Aufgabe (Kennung statt Ergebnis) angeboten werden. Nur fuer
+    Werkzeuge, die legitim lange laufen. Das Werkzeug darf ``mcp_hub.aufgaben.aktuelle()`` nutzen (Abbruch, Eingabe)."""
+
 
 @dataclass
 class ResourceDescriptor:

@@ -335,6 +335,8 @@ def tool_schema(reg: "PluginRegistry", fqtn: str) -> dict[str, Any]:
         "scope": scope_from_tags(getattr(rt.descriptor, "tags", None)),
         "description": rt.descriptor.description,
         "inputSchema": rt.descriptor.input_schema,
+        # MCP Tasks: nur wenn wahr — Clients mit der Erweiterung koennen dieses Werkzeug als Aufgabe rufen
+        **({"aufgabe": True} if getattr(rt.descriptor, "aufgabe", False) else {}),
     }
 
 
@@ -743,6 +745,7 @@ def search_tools(reg: PluginRegistry, query: str) -> list[dict[str, Any]]:
                 "inputSchema": tool.descriptor.input_schema or {"type": "object", "properties": {}},
                 "plugin": tool.plugin_name,
                 "tags": tool.descriptor.tags,
+                **({"aufgabe": True} if getattr(tool.descriptor, "aufgabe", False) else {}),
             }
         )
     return results

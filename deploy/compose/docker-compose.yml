@@ -1,3 +1,5 @@
+# Handvorlage mit dem veralteten OpenClaw-Agenten. Der Installer (fyos-install) richtet ab 0.2.0 den Runner ein
+# (fyos-agent/runner); diese Datei bleibt für bestehende Einrichtungen.
 # FYOS als Einzelplatz: docker compose --env-file .env up -d
 # Danach http://localhost:8080 öffnen. Werte in .env (Vorlage: env.example).
 services:
@@ -7,7 +9,7 @@ services:
       - "${FYOS_PORT:-8080}:8080"
     environment:
       FYOS_HUB_UPSTREAM: http://hub:8080
-      FYOS_AGENT_UPSTREAM: http://agent:18789
+      FYOS_OPENCLAW_UPSTREAM: http://agent:18789
     depends_on: [hub, agent]
     restart: unless-stopped
 

@@ -1,0 +1,265 @@
+/*
+ * FYOS 2 — Gestaltungssystem des OS-Neubaus (Paket P1).
+ *
+ * „ansprechendes modernes design es soll so gut aussehen das es süchtig macht“. Grundton tiefe Tinte mit einem
+ * Hauch Violett, ein warmer Akzent (Koralle) für alles, was du tun soll, Violett für Agent. Flächen deckend (Entscheidung
+ * 500: keine Hintergrund-Unschärfe), Tiefe über Licht von oben und weiche Schatten. Bewegung kurz, mit Feder, und nur dort,
+ * wo etwas passiert.
+ *
+ * Diese Datei überschreibt die Grundfarben aus global.css (@theme), damit alle Seiten mitziehen, und bringt die
+ * Bausteine `.f2-*` mit. Andere Pakete nutzen die Variablen und definieren keine eigenen Farben.
+ */
+
+/* Spezifität bewusst erhöht (:root:root): die Datei wird oben in global.css importiert, ihre Werte sollen aber über den
+   späteren :root- und html[data-theme]-Blöcken dort stehen. */
+:root:root {
+  /* Grund */
+  --f2-ink: oklch(14.5% 0.022 285);
+  --f2-ink-2: oklch(17.5% 0.026 285);
+  --f2-surface: oklch(20.5% 0.028 285);
+  --f2-surface-2: oklch(24% 0.032 285);
+  --f2-surface-3: oklch(28% 0.036 285);
+  --f2-line: oklch(100% 0 0 / 0.07);
+  --f2-line-strong: oklch(100% 0 0 / 0.13);
+  --f2-fg: oklch(96% 0.008 285);
+  --f2-fg-2: oklch(78% 0.018 285);
+  --f2-fg-3: oklch(62% 0.02 285);
+
+  /* Bedeutung */
+  --f2-coral: oklch(72% 0.16 40);
+  --f2-coral-ink: oklch(22% 0.06 40);
+  --f2-coral-soft: oklch(72% 0.16 40 / 0.14);
+  --f2-agent: oklch(74% 0.14 290);
+  --f2-agent-soft: oklch(74% 0.14 290 / 0.14);
+  --f2-mint: oklch(78% 0.13 160);
+  --f2-mint-soft: oklch(78% 0.13 160 / 0.13);
+  --f2-amber: oklch(82% 0.14 80);
+  --f2-amber-soft: oklch(82% 0.14 80 / 0.13);
+  --f2-rose: oklch(70% 0.17 18);
+  --f2-rose-soft: oklch(70% 0.17 18 / 0.14);
+
+  /* Licht und Schatten */
+  --f2-hilite: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+  --f2-shadow-1: 0 1px 2px oklch(0% 0 0 / 0.35), 0 4px 14px oklch(0% 0 0 / 0.22);
+  --f2-shadow-2: 0 2px 6px oklch(0% 0 0 / 0.35), 0 18px 48px oklch(0% 0 0 / 0.38);
+  --f2-glow-coral: 0 0 0 1px oklch(72% 0.16 40 / 0.5), 0 8px 30px oklch(72% 0.16 40 / 0.28);
+  --f2-glow-agent: 0 0 40px oklch(74% 0.14 290 / 0.35);
+
+  color-scheme: dark;
+}
+
+:root:root[data-theme='light'] {
+  --f2-ink: oklch(98.5% 0.004 285);
+  --f2-ink-2: oklch(96.5% 0.006 285);
+  --f2-surface: oklch(100% 0 0);
+  --f2-surface-2: oklch(97% 0.006 285);
+  --f2-surface-3: oklch(94% 0.01 285);
+  --f2-line: oklch(20% 0.02 285 / 0.09);
+  --f2-line-strong: oklch(20% 0.02 285 / 0.16);
+  --f2-fg: oklch(19% 0.02 285);
+  --f2-fg-2: oklch(38% 0.02 285);
+  --f2-fg-3: oklch(52% 0.02 285);
+  --f2-coral: oklch(60% 0.17 38);
+  --f2-coral-ink: oklch(99% 0.01 40);
+  --f2-coral-soft: oklch(60% 0.17 38 / 0.1);
+  --f2-agent: oklch(55% 0.17 290);
+  --f2-agent-soft: oklch(55% 0.17 290 / 0.1);
+  --f2-mint: oklch(55% 0.13 160);
+  --f2-mint-soft: oklch(55% 0.13 160 / 0.1);
+  --f2-amber: oklch(62% 0.14 70);
+  --f2-amber-soft: oklch(62% 0.14 70 / 0.12);
+  --f2-rose: oklch(55% 0.19 20);
+  --f2-rose-soft: oklch(55% 0.19 20 / 0.1);
+  --f2-hilite: inset 0 1px 0 oklch(100% 0 0 / 0.7);
+  --f2-shadow-1: 0 1px 2px oklch(20% 0.02 285 / 0.06), 0 4px 14px oklch(20% 0.02 285 / 0.06);
+  --f2-shadow-2: 0 2px 6px oklch(20% 0.02 285 / 0.08), 0 18px 48px oklch(20% 0.02 285 / 0.12);
+  color-scheme: light;
+}
+
+/* Grundfarben des ganzen OS auf FYOS 2 ziehen (überschreibt @theme aus global.css). */
+:root:root {
+  --color-bg: var(--f2-ink);
+  --color-bg-deep: var(--f2-ink-2);
+  --color-bg-elevated: var(--f2-surface);
+  --color-bg-opaque: var(--f2-surface);
+  --color-card: var(--f2-surface);
+  --color-card-hover: var(--f2-surface-2);
+  --color-fg: var(--f2-fg);
+  --color-fg-muted: var(--f2-fg-2);
+  --color-fg-subtle: var(--f2-fg-3);
+  --color-border: var(--f2-line);
+  --color-border-strong: var(--f2-line-strong);
+  --color-accent: var(--f2-coral);
+  --color-accent-soft: var(--f2-coral-soft);
+  --color-accent-text: var(--f2-coral-ink);
+  --color-success: var(--f2-mint);
+  --color-success-soft: var(--f2-mint-soft);
+  --color-warn: var(--f2-amber);
+  --color-warn-soft: var(--f2-amber-soft);
+  --color-error: var(--f2-rose);
+  --color-error-soft: var(--f2-rose-soft);
+  --os-akzent: var(--f2-coral);
+
+  /* Form */
+  --f2-r-xs: 6px;
+  --f2-r-sm: 10px;
+  --f2-r: 16px;
+  --f2-r-lg: 22px;
+  --f2-pad: 18px;
+
+  /* Schrift: System, mit Gewicht und Laufweite statt fremder Schriften (keine Ladezeit) */
+  --f2-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', system-ui, sans-serif;
+  --f2-font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  --f2-font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --f2-t-hero: clamp(2rem, 3.4vw, 2.9rem);
+  --f2-t-h1: 1.75rem;
+  --f2-t-h2: 1.125rem;
+  --f2-t-body: 0.9375rem;
+  --f2-t-small: 0.8125rem;
+  --f2-t-label: 0.6875rem;
+
+  /* Bewegung */
+  --f2-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --f2-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --f2-fast: 140ms;
+  --f2-base: 240ms;
+  --f2-slow: 420ms;
+}
+
+/* ── Bausteine ────────────────────────────────────────────────────────────────────────────── */
+
+.f2-panel {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--f2-surface) 100%, white 2%), var(--f2-surface));
+  border: 1px solid var(--f2-line);
+  border-radius: var(--f2-r);
+  box-shadow: var(--f2-hilite), var(--f2-shadow-1);
+}
+
+.f2-label {
+  font: 600 var(--f2-t-label) / 1 var(--f2-font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--f2-fg-3);
+}
+
+.f2-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--f2-r-sm);
+  border: 1px solid var(--f2-line-strong);
+  background: var(--f2-surface-2);
+  color: var(--f2-fg);
+  font: 600 var(--f2-t-small) / 1 var(--f2-font);
+  cursor: pointer;
+  transition:
+    transform var(--f2-fast) var(--f2-ease),
+    background var(--f2-fast) var(--f2-ease),
+    box-shadow var(--f2-base) var(--f2-ease);
+}
+.f2-btn:hover { background: var(--f2-surface-3); }
+.f2-btn:active { transform: scale(0.97); }
+.f2-btn:focus-visible { outline: 2px solid var(--f2-coral); outline-offset: 2px; }
+.f2-btn[data-art='haupt'] { background: var(--f2-coral); border-color: transparent; color: var(--f2-coral-ink); }
+.f2-btn[data-art='haupt']:hover { box-shadow: var(--f2-glow-coral); }
+.f2-btn[data-art='leise'] { background: transparent; border-color: transparent; color: var(--f2-fg-2); }
+.f2-btn[data-art='leise']:hover { color: var(--f2-fg); background: var(--f2-surface-2); }
+
+.f2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--f2-line-strong);
+  font: 500 0.75rem / 1 var(--f2-font);
+  color: var(--f2-fg-2);
+  white-space: nowrap;
+}
+.f2-chip[data-ton='rot'] { color: var(--f2-rose); border-color: color-mix(in oklab, var(--f2-rose) 40%, transparent); background: var(--f2-rose-soft); }
+.f2-chip[data-ton='gelb'] { color: var(--f2-amber); border-color: color-mix(in oklab, var(--f2-amber) 40%, transparent); background: var(--f2-amber-soft); }
+.f2-chip[data-ton='gruen'] { color: var(--f2-mint); border-color: color-mix(in oklab, var(--f2-mint) 35%, transparent); background: var(--f2-mint-soft); }
+
+.f2-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--f2-fg-3); }
+.f2-dot[data-ton='coral'] { background: var(--f2-coral); box-shadow: 0 0 10px var(--f2-coral); }
+.f2-dot[data-ton='agent'] { background: var(--f2-agent); box-shadow: 0 0 10px var(--f2-agent); }
+.f2-dot[data-ton='gelb'] { background: var(--f2-amber); }
+.f2-dot[data-ton='rot'] { background: var(--f2-rose); }
+.f2-dot[data-ton='gruen'] { background: var(--f2-mint); }
+
+/* Segmentschalter (Modus) mit gleitender Marke */
+.f2-seg {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--f2-ink-2);
+  border: 1px solid var(--f2-line);
+}
+.f2-seg button {
+  position: relative;
+  z-index: 1;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--f2-fg-2);
+  font: 600 var(--f2-t-small) / 1 var(--f2-font);
+  cursor: pointer;
+  transition: color var(--f2-base) var(--f2-ease);
+}
+.f2-seg button[aria-pressed='true'] { color: var(--f2-ink); }
+.f2-seg-marke {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--f2-seg-n, 3));
+  border-radius: 9px;
+  background: var(--f2-fg);
+  transform: translateX(calc(100% * var(--f2-seg-i, 0)));
+  transition: transform var(--f2-slow) var(--f2-spring), background var(--f2-base) var(--f2-ease);
+}
+.f2-seg[data-modus='ruhe'] .f2-seg-marke { background: var(--f2-agent); }
+.f2-seg[data-modus='bereit'] .f2-seg-marke { background: var(--f2-mint); }
+
+/* ── Bewegung ─────────────────────────────────────────────────────────────────────────────── */
+
+@keyframes f2-auf {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes f2-puls {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.82); }
+}
+@keyframes f2-schimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes f2-raus {
+  to { opacity: 0; transform: translateX(24px) scale(0.98); height: 0; margin: 0; padding-block: 0; }
+}
+
+/* Gestaffeltes Erscheinen: Kinder mit style="--i: n" */
+.f2-auf { animation: f2-auf var(--f2-slow) var(--f2-ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.f2-puls { animation: f2-puls 1.8s ease-in-out infinite; }
+.f2-schimmer {
+  background: linear-gradient(90deg, var(--f2-surface-2) 25%, var(--f2-surface-3) 50%, var(--f2-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: f2-schimmer 1.4s linear infinite;
+  border-radius: var(--f2-r-sm);
+}
+.f2-weg { animation: f2-raus var(--f2-base) var(--f2-ease) forwards; overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .f2-auf, .f2-puls, .f2-schimmer, .f2-weg { animation: none; }
+  .f2-seg-marke, .f2-btn { transition: none; }
+}

@@ -2,6 +2,8 @@ import shutil
 import subprocess
 
 import pytest
+import json
+
 import yaml
 
 from fyos_installer import erzeugen as e
@@ -24,8 +26,9 @@ def test_compose(katalog, tmp_path):
     assert plan.ok, plan.fehler
     e.schreiben(plan)
     out = tmp_path / "out"
-    for n in ["docker-compose.yml", ".env", "fyos.yaml", "hub-config.yaml", "hub/Dockerfile", "ANLEITUNG.md", ".gitignore"]:
+    for n in ["docker-compose.yml", ".env", "agent-runner.json", "hub-config.yaml", "hub/Dockerfile", "ANLEITUNG.md", ".gitignore"]:
         assert (out / n).is_file(), n
+    assert not (out / "fyos.yaml").exists()  # die Persona-Datei braucht nur der veraltete OpenClaw-Agent
     _keine_reste(plan)
     assert (out / ".env").stat().st_mode & 0o777 == 0o600
     env = (out / ".env").read_text()
@@ -37,13 +40,34 @@ def test_compose(katalog, tmp_path):
     df = (out / "hub/Dockerfile").read_text()
     assert f"FROM {e.OFFIZIELLE_REGISTRY}/fyos-os/hub:{e.BILD_TAG}" in df
     assert "fyos-plugin-haus @ git+https://git.example.com/fyos/fyos-plugin-haus.git" in df
-    fyos = yaml.safe_load((out / "fyos.yaml").read_text())
-    assert fyos["agent"]["name"] == "Fy" and fyos["besitzer"]["name"] == "Alex" and fyos["sprache_code"] == "de"
+    runner = json.loads((out / "agent-runner.json").read_text())
+    assert runner["hub"] == "http://hub:8080" and runner["pi_durable"]["device"]["name"] == "Fy"
+    assert runner["takt"] == {"an": False}
+    assert runner["pi_durable"]["security"]["allowedOrigins"] == ["http://localhost:8080"]
+    agent = compose["services"]["agent"]
+    assert agent["image"] == "${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}"
+    assert agent["environment"]["FYOS_RUNNER_TOKEN"] == "${FYOS_AGENT_TOKEN}"
+    assert agent["environment"]["FYOS_MODELL_NAME"] == "${FYOS_MODELL_NAME}"
+    assert compose["services"]["web"]["environment"]["FYOS_AGENT_UPSTREAM"] == "http://agent:18438"
+    assert "FYOS_BILD_AGENT=" + f"{e.OFFIZIELLE_REGISTRY}/fyos-agent/runner:{e.AGENT_TAG}" in env
     namen = {p["name"]: p for p in yaml.safe_load((out / "hub-config.yaml").read_text())["plugins"]}
     assert namen["audit"] and namen["echo"]["enabled"] is False
     assert "module" not in namen["audit"]
     assert namen["beispiel_app"]["enabled"] is False  # nicht gewählt: ausdrücklich aus
     assert plan.ausfuehrbar and plan.url == "http://localhost:8080"
+
+
+def test_openclaw_veraltet_auf_wunsch_und_bei_kubernetes(katalog, tmp_path):
+    plan = _plan(katalog, [], "compose", tmp_path, optionen={"agent": "openclaw"})
+    assert plan.ok and plan.agent == "openclaw" and any("veraltet" in h for h in plan.hinweise)
+    fyos = yaml.safe_load(next(d.inhalt for d in plan.dateien if d.pfad == "fyos.yaml"))
+    assert fyos["agent"]["name"] == "Fy" and fyos["besitzer"]["name"] == "Alex" and fyos["sprache_code"] == "de"
+    compose = yaml.safe_load(next(d.inhalt for d in plan.dateien if d.pfad == "docker-compose.yml"))
+    assert compose["services"]["web"]["environment"]["FYOS_OPENCLAW_UPSTREAM"] == "http://agent:18789"
+    assert compose["services"]["agent"]["environment"]["OPENCLAW_GATEWAY_TOKEN"] == "${FYOS_AGENT_TOKEN}"
+    k8s = _plan(katalog, [], "k8s", tmp_path / "k")
+    assert k8s.agent == "openclaw" and any("Kubernetes" in h and "Runner" in h for h in k8s.hinweise)
+    assert not _plan(katalog, [], "compose", tmp_path / "f", optionen={"agent": "anderer"}).ok
 
 
 def test_vorschau_ohne_geheimnisse(katalog, tmp_path):
@@ -140,7 +164,7 @@ def test_registry_vorgaben(katalog, tmp_path):
     # Ohne Registry die veröffentlichten Bilder im Stand der Installer-Version; nur hub-eigen braucht eine eigene.
     v = e.vorgaben_optionen({})
     assert e.BILD_TAG == f"v{e.__version__}"
-    assert e.AGENT_TAG == "v0.1.3"  # fyos-agent trägt für 0.1.3 denselben Tag (RELEASE.md)
+    assert e.AGENT_TAG == "v0.2.0"  # fyos-agent trägt für 0.2.0 denselben Tag (RELEASE.md)
     assert v["bild_web"] == f"ghcr.io/sirfyyn/fyos-os/web:{e.BILD_TAG}"  # sauber: ok
     assert v["hub_bild"] == f"ghcr.io/sirfyyn/fyos-os/hub:{e.BILD_TAG}"  # sauber: ok
     assert v["bild_agent"] == f"ghcr.io/sirfyyn/fyos-agent/openclaw:{e.AGENT_TAG}"  # sauber: ok
@@ -158,7 +182,7 @@ def test_registry_vorgaben(katalog, tmp_path):
     plan = e.erstelle_plan(katalog, [], "compose", {"optionen": {"bild_web": "eigen.example.com/w:1"}}, tmp_path / "c",
                            umgebung={"FYOS_REGISTRY": "registry.example.com/org"})
     env = next(d for d in plan.dateien if d.pfad == ".env").inhalt
-    assert "FYOS_BILD_WEB=eigen.example.com/w:1" in env and "FYOS_BILD_AGENT=registry.example.com/org/fyos-agent/openclaw:main" in env
+    assert "FYOS_BILD_WEB=eigen.example.com/w:1" in env and "FYOS_BILD_AGENT=registry.example.com/org/fyos-agent/runner:main" in env
 
 
 def test_bild_tag(katalog, tmp_path):

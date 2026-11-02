@@ -21,6 +21,7 @@ import { SYMBOLE } from './symbole-daten';
 export const SYMBOL_TABELLE: Record<string, [glyphe: string, ton: number]> = {
   ...APP_SYMBOLE,
   agent: ['sparkles', -2],
+  'nativ:agent': ['activity', 280],
   'nativ:einstellungen': ['settings', -1],
 };
 

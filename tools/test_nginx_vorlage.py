@@ -33,7 +33,8 @@ def _gesetzt(kopf: str) -> str | None:
 
 def test_praefix_bleibt_erhalten():
     # proxy_pass ohne Pfad: /agent/… geht unveraendert ans Gateway (basePath /agent)
-    assert re.search(r"^\s*proxy_pass \$\{FYOS_AGENT_UPSTREAM\};", AGENT, re.M)
+    assert re.search(r"^\s*set \$fyos_openclaw \$\{FYOS_OPENCLAW_UPSTREAM\};", AGENT, re.M)
+    assert re.search(r"^\s*proxy_pass \$fyos_openclaw;", AGENT, re.M)
 
 
 def test_herkunftskoepfe_werden_gestrichen():
@@ -120,4 +121,25 @@ def test_nur_fyos_variablen_fuer_envsubst():
     # Das Bild ersetzt nur FYOS_-Variablen (NGINX_ENVSUBST_FILTER); eigene nginx-Variablen duerfen so nicht heissen
     for name in re.findall(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)", TEXT):
         if name.startswith("FYOS_"):
-            assert name in ("FYOS_HUB_UPSTREAM", "FYOS_AGENT_UPSTREAM"), name
+            assert name in ("FYOS_HUB_UPSTREAM", "FYOS_AGENT_UPSTREAM", "FYOS_AGENT_TOKEN", "FYOS_OPENCLAW_UPSTREAM"), name
+
+
+def test_fehlender_agent_haelt_die_shell_nicht_auf():
+    # Trockenlauf 0.2.0: ohne OpenClaw-Dienst brach nginx mit „host not found in upstream“ ab. Agent und OpenClaw
+    # werden deshalb je Anfrage aufgelöst, mit dem Resolver des Bilds.
+    assert re.search(r"^\s*resolver \$\{NGINX_LOCAL_RESOLVERS\} valid=10s ipv6=off;$", TEXT, re.M)
+    assert "NGINX_ENVSUBST_FILTER=FYOS_|NGINX_LOCAL_RESOLVERS" in (VORLAGE.parent.parent / "Dockerfile").read_text()
+    for v in ("FYOS_AGENT_UPSTREAM", "FYOS_OPENCLAW_UPSTREAM"):
+        assert not re.search(r"^\s*proxy_pass \$\{" + v, TEXT, re.M), v
+
+
+def test_runner_unter_api_agent():
+    # 0.2.0: die native Agent-App spricht den Runner über /api/agent/…; das Präfix fällt weg, nginx meldet sich an,
+    # die Anmeldung des Browsers kommt nicht durch, SSE ohne Puffer.
+    r = _location("^~ /api/agent/")
+    assert re.search(r"^\s*set \$fyos_agent \$\{FYOS_AGENT_UPSTREAM\};$", r, re.M)
+    assert re.search(r"^\s*rewrite \^/api/agent/\(\.\*\)\$ /\$1 break;$", r, re.M)
+    assert re.search(r"^\s*proxy_pass \$fyos_agent;$", r, re.M)
+    assert re.search(r'^\s*proxy_set_header Authorization "Bearer \$\{FYOS_AGENT_TOKEN\}";$', r, re.M)
+    assert re.search(r"^\s*proxy_set_header Cookie \"\";$", r, re.M)
+    assert re.search(r"^\s*proxy_buffering off;$", r, re.M)

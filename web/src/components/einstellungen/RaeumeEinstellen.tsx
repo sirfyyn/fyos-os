@@ -4,7 +4,20 @@
  */
 import { For, Show, type JSX } from 'solid-js';
 import { agentName } from '~/lib/config';
-import { RAEUME, einschalten, ordnungZuruecksetzen, raeume, raeumeSetzen, raumZu, verschieben, type RaumId } from '~/lib/os/raeume';
+import {
+  RAEUME,
+  ausblendGrund,
+  ausblenden,
+  einschalten,
+  leereAusblenden,
+  ordnungZuruecksetzen,
+  raeume,
+  raeumeSetzen,
+  raumZu,
+  verschieben,
+  type RaumId,
+} from '~/lib/os/raeume';
+import { verfuegbar } from '~/lib/os/raeume-inhalt';
 import { KNOPF_LEISE, SchalterZeile, Zeile } from './bausteine';
 
 const GEDAEMPFT = 'text-sm leading-snug text-(--color-fg-muted)';
@@ -38,21 +51,52 @@ export default function RaeumeEinstellen(): JSX.Element {
         onKlick={() => raeumeSetzen(einschalten(z(), !z().an))}
       />
       <Show when={z().an}>
-        <Zeile titel="Reihenfolge" unter="Zentrale bleibt oben, Einstellungen unten. Im Raum wechselt ⌥⌘← und ⌥⌘→, ⌘0 führt heim." darunter>
+        <SchalterZeile
+          name="Leere Räume ausblenden"
+          unter="Ein Raum, für den kein Plugin im Hub etwas liefert (etwa Zuhause ohne Haus-Plugin), steht dann nicht in der Leiste. Kommt das Plugin dazu, erscheint er wieder."
+          an={z().leereAus}
+          onKlick={() => raeumeSetzen(leereAusblenden(z(), !z().leereAus))}
+        />
+        <Zeile titel="Reihenfolge" unter="Zentrale bleibt oben, Einstellungen unten. Im Raum wechselt ⌥⌘← und ⌥⌘→, ⌘0 führt heim. Einzelne Räume lassen sich ausblenden." darunter>
           <ol class="m-0 flex list-none flex-col gap-1 p-0">
             <For each={gebaute()}>
-              {(id) => (
-                <li class="flex items-center gap-2 rounded-lg px-2 py-1 text-sm">
-                  <span class="flex-1">{raumZu(id)?.name}</span>
-                  {pfeil(id, -1, 'nach oben')}
-                  {pfeil(id, 1, 'nach unten')}
-                </li>
-              )}
+              {(id) => {
+                const grund = () => ausblendGrund(z(), id, verfuegbar());
+                return (
+                  <li class="flex items-center gap-2 rounded-lg px-2 py-1 text-sm" data-raum-zeile={id} classList={{ 'opacity-60': grund() !== null }}>
+                    <span class="flex-1">
+                      {raumZu(id)?.name}
+                      <Show when={grund()}>
+                        {(g) => (
+                          <span class={`ml-2 ${GEDAEMPFT}`} data-raum-grund={g()}>
+                            {g() === 'hand' ? 'ausgeblendet' : 'kein Plugin dafür'}
+                          </span>
+                        )}
+                      </Show>
+                    </span>
+                    <button
+                      type="button"
+                      class={KNOPF_LEISE}
+                      aria-label={`${raumZu(id)?.name} ${z().ausgeblendet.includes(id) ? 'einblenden' : 'ausblenden'}`}
+                      onClick={() => raeumeSetzen(ausblenden(z(), id, !z().ausgeblendet.includes(id)))}
+                    >
+                      {z().ausgeblendet.includes(id) ? 'Einblenden' : 'Ausblenden'}
+                    </button>
+                    {pfeil(id, -1, 'nach oben')}
+                    {pfeil(id, 1, 'nach unten')}
+                  </li>
+                );
+              }}
             </For>
           </ol>
           <button type="button" class={`${KNOPF_LEISE} mt-1`} onClick={() => raeumeSetzen(ordnungZuruecksetzen(z()))}>
             Grundordnung
           </button>
+          <Show when={z().ausgeblendet.length > 0}>
+            <button type="button" class={`${KNOPF_LEISE} mt-1 ml-2`} onClick={() => raeumeSetzen({ ...z(), ausgeblendet: [] })}>
+              Alle einblenden
+            </button>
+          </Show>
         </Zeile>
       </Show>
       {/* Sind alle Räume gebaut, fehlt die Zeile; sie kommt wieder, sobald ein neuer Raum im Bau ist */}

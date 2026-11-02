@@ -89,8 +89,7 @@ def test_telegram_compose(katalog, tmp_path):
 def test_ohne_kanal_bleibt_alles_wie_vorher(katalog, tmp_path):
     plan = _plan(katalog, [], "compose", tmp_path)
     assert plan.ok and plan.kanaele == {}
-    fyos = yaml.safe_load(_datei(plan, "fyos.yaml").inhalt)
-    assert "kanaele" not in fyos and "whatsapp" not in fyos and set(fyos["besitzer"]) == {"name"}
+    assert plan.agent == "runner" and not any(d.pfad == "fyos.yaml" for d in plan.dateien)  # ohne Kanal: der Runner
     agent = yaml.safe_load(_datei(plan, "docker-compose.yml").inhalt)["services"]["agent"]
     assert agent["image"].startswith("${FYOS_BILD_AGENT:?") and "build" not in agent
     assert not any(d.pfad == "agent/Dockerfile" for d in plan.dateien)
@@ -100,6 +99,7 @@ def test_matrix_und_whatsapp_bekommen_ein_abgeleitetes_agent_bild(katalog, tmp_p
     plan = _plan(katalog, ["kanal_matrix", "kanal_whatsapp"], "compose", tmp_path, _felder(MATRIX, WHATSAPP))
     assert plan.ok, plan.fehler
     assert plan.kanaele == {"matrix": True, "whatsapp": True}
+    assert plan.agent == "openclaw" and any("Kanäle" in h for h in plan.hinweise)  # Kanäle kann nur OpenClaw
     fyos = yaml.safe_load(_datei(plan, "fyos.yaml").inhalt)
     assert fyos["kanaele"] == {"matrix": True, "whatsapp": True}
     assert fyos["besitzer"]["matrix_id"] == "@besitzer:example.org"  # der Renderer des Agenten liest sie von hier

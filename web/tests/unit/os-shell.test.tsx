@@ -11,7 +11,21 @@ const hubApps = vi.hoisted(() => vi.fn());
 const uebergabeStarten = vi.hoisted(() => vi.fn(async (..._a: unknown[]) => {}));
 const alleSuchen = vi.hoisted(() => vi.fn(async (_abfrage: string): Promise<unknown> => ({ abfrage: '', treffer: [], quellen: [] })));
 const dingLesen = vi.hoisted(() => vi.fn(async (..._a: unknown[]): Promise<Record<string, unknown>> => ({})));
+const brueckeSpion = vi.hoisted(() => ({
+  opt: null as null | { lage: () => unknown; zeigen: unknown; zeigt: (z: unknown) => void },
+  start: vi.fn(() => true),
+  stop: vi.fn(),
+}));
+vi.mock('~/lib/os/bruecke-neu', async (orig) => ({
+  ...(await orig<typeof import('~/lib/os/bruecke-neu')>()),
+  erzeugeBruecke: (opt: NonNullable<typeof brueckeSpion.opt>) => {
+    brueckeSpion.opt = opt;
+    return { start: brueckeSpion.start, stop: brueckeSpion.stop, aendern: vi.fn(), melden: vi.fn(async () => {}), status: () => 'aus', gesperrt: () => null, sitzungen: () => null };
+  },
+}));
 vi.mock('~/lib/hub', () => ({ hub }));
+// Die native Agent-App (Runner) als Attrappe: sie spräche sonst /api/agent an
+vi.mock('~/components/os/nativ/Agent', () => ({ default: (p: { entwurf?: { text: string } | null }) => <div class="agent-runner" data-entwurf={p.entwurf?.text ?? ''} /> }));
 vi.mock('~/lib/mcp-apps/host', () => ({
   apps: hubApps,
   uebergabeStarten,
@@ -28,11 +42,16 @@ import { AGENT_FRAGEN, type AgentFragenDetail } from '~/lib/os/app-aktionen';
 import { konfigurationSetzen, konfigurationZuruecksetzen } from '~/lib/config';
 import { OEFFNEN, eingabeKodieren, eingabeLesen } from '~/lib/os/oeffnen';
 import { registerZuruecksetzen, registriereFlaechen } from '~/lib/os/register';
-import { ZEIGT_EREIGNIS } from '~/lib/os/mitteilungen';
+import { zeigtPruefen } from '~/lib/os/agent-zeigt';
+
+import { raeume, raeumeSetzen, raeumeZuruecksetzen } from '~/lib/os/raeume';
+import { wartetZuruecksetzen } from '~/lib/os/wartet';
 
 const seite = (id: string, titel: string, pfad: string) => ({ id, titel, gruppe: 'Arbeit', art: 'seite' as const, kuerzel: titel.slice(0, 2), pfad });
 
 beforeEach(() => {
+  // Der Speicher von „Wartet auf dich“ liegt im Modul; seit P4 hängt auch der Meldungsdienst der Shell daran.
+  wartetZuruecksetzen();
   const m = new Map<string, string>();
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => m.get(k) ?? null,
@@ -46,9 +65,16 @@ beforeEach(() => {
     dinge: { notiz: { name: 'Notiz', pfad: '/notizen/' } },
   });
   konfigurationSetzen({ extern: [{ slug: 'git', titel: 'Git', url: 'https://git.example.org' }] });
+  // Die meisten Tests hier prüfen das klassische Dock (Punkte, FYOS, „+“); mit Räumen gilt das neue (siehe unten und os-dock-neu.test.tsx)
+  raeumeZuruecksetzen();
+  raeumeSetzen({ ...raeume(), an: false });
+  history.replaceState(null, '', '/os/');
   hub.mockReset();
   hub.mockResolvedValue({});
   hubApps.mockReset();
+  brueckeSpion.opt = null;
+  brueckeSpion.start.mockClear();
+  brueckeSpion.stop.mockClear();
   hubApps.mockResolvedValue([
     { name: 'leitstand__lagebild', tool: 'leitstand.lagebild', title: 'Lagebild', description: '', inputSchema: {}, _meta: { ui: { resourceUri: 'ui://x' } }, scope: 'READ' },
   ]);
@@ -87,7 +113,7 @@ describe('Shell', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Notizen/ }));
     expect(await screen.findByRole('region', { name: 'Notizen' })).toBeTruthy();
     expect(within(bodenleiste()).getByRole('button', { name: /Notizen/ })).toBeTruthy();
-    expect(screen.queryByRole('dialog', { name: 'FYOS' })).toBeNull(); // Start schließt sich
+    expect(screen.queryByRole('region', { name: 'Apps' })).toBeNull(); // Start schließt sich
   });
 
   it('ein externer Dienst (Gruppe „Extern“) öffnet in neuem Tab, nicht als Fenster', async () => {
@@ -98,7 +124,7 @@ describe('Shell', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Git/ }));
     expect(open).toHaveBeenCalledWith('https://git.example.org', '_blank', 'noopener');
     expect(screen.queryByRole('region', { name: 'Git' })).toBeNull();
-    expect(screen.queryByRole('dialog', { name: 'FYOS' })).toBeNull(); // Start schließt sich
+    expect(screen.queryByRole('region', { name: 'Apps' })).toBeNull(); // Start schließt sich
   });
 
   it('findet Hub-Apps von selbst im Start', async () => {
@@ -143,19 +169,19 @@ describe('Shell', () => {
 
   it('der Agent öffnet als Dock und bleibt danach geladen', async () => {
     render(() => <Shell />);
-    expect(document.querySelector('iframe[title="Agent-Chat"]')).toBeNull(); // nichts vorab geladen
+    expect(document.querySelector('.agent-runner')).toBeNull(); // nichts vorab geladen
     fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'Agent' }));
-    await waitFor(() => expect(document.querySelector('iframe[title="Agent-Chat"]')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.agent-runner')).not.toBeNull());
     fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'Agent' }));
-    expect(document.querySelector('iframe[title="Agent-Chat"]')).not.toBeNull(); // bleibt im Hintergrund
+    expect(document.querySelector('.agent-runner')).not.toBeNull(); // bleibt im Hintergrund
   });
 
   it('Strg+K öffnet den Start, Esc schließt ihn', async () => {
     render(() => <Shell />);
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    expect(await screen.findByRole('dialog', { name: 'FYOS' })).toBeTruthy();
+    expect(await screen.findByRole('region', { name: 'Apps' })).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'FYOS' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Apps' })).toBeNull());
   });
 
   it('Enter in der Suche öffnet den ersten Treffer', async () => {
@@ -218,7 +244,7 @@ describe('Arbeitsplätze und Handy', () => {
     expect(await screen.findByRole('region', { name: 'Notizen' })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Kalender' })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Wiki' })).toBeTruthy();
-    expect(screen.queryByRole('dialog', { name: 'FYOS' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Apps' })).toBeNull();
   });
 
   it('speichert die aktuelle Anordnung unter einem Namen im Hub und zeigt Fehler', async () => {
@@ -478,9 +504,22 @@ describe('Menüs, Übersicht und Gesten', () => {
     await waitFor(() => expect(document.querySelector('.os-uebersicht')).toBeTruthy());
   });
 
-  it('eine Mitteilung (fyos:zeigt) erscheint oben rechts; „Öffnen“ öffnet die Fläche', async () => {
+  // Die volle Brücke (components/os/Bruecke.tsx) hängt in der Shell; die echte meldet sich in jsdom nicht (Testumgebung),
+  // darum steckt ein Spion an ihrer Stelle: er sieht, was die Shell ihr gibt, und liefert, was der Hub schicken würde.
+  it('hängt die volle Brücke ein: Lage mit den offenen Fenstern, Start einmal, Stopp beim Abbau', async () => {
+    const { unmount } = render(() => <Shell />);
+    await waitFor(() => expect(brueckeSpion.opt).toBeTruthy());
+    expect(brueckeSpion.start).toHaveBeenCalledTimes(1);
+    expect(typeof brueckeSpion.opt!.lage).toBe('function');
+    expect(typeof brueckeSpion.opt!.zeigen).toBe('function');
+    unmount();
+    expect(brueckeSpion.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('eine Mitteilung vom Agenten erscheint oben rechts; „Öffnen“ öffnet die Fläche', async () => {
     render(() => <Shell />);
-    window.dispatchEvent(new CustomEvent(ZEIGT_EREIGNIS, { detail: { ziel: 'seite:notizen', titel: 'Notizen', vorschau: 'Drei neue Einträge.' } }));
+    await waitFor(() => expect(brueckeSpion.opt).toBeTruthy());
+    brueckeSpion.opt!.zeigt(zeigtPruefen({ ziel: 'seite:notizen', titel: 'Notizen', vorschau: 'Drei neue Einträge.' })!);
     expect(await screen.findByText('Drei neue Einträge.')).toBeTruthy();
     expect(screen.getByText('Agent zeigt dir')).toBeTruthy();
     // Keine Fläche wurde dabei geöffnet: es bleibt beim Start
@@ -489,33 +528,28 @@ describe('Menüs, Übersicht und Gesten', () => {
     expect(await screen.findByRole('region', { name: 'Notizen' })).toBeTruthy();
   });
 
-  it('meldet sich als Sitzung der OS-Brücke und zeigt, was der Agent nachts vorgemerkt hat, mit der Uhrzeit der Entstehung', async () => {
+  it('zeigt, was der Agent nachts vorgemerkt hat, mit der Uhrzeit der Entstehung', async () => {
     const heute0312 = new Date();
     heute0312.setHours(3, 12, 0, 0);
     const entstanden = heute0312.getTime() / 1000;
-    const holen = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        ok: true,
-        nach: '1-0',
-        befehle: [{ id: 'b-nacht', art: 'zeigt', von: 'agent', zeigt: { ziel: 'agent', titel: 'Notizen geordnet', vorschau: '12 Notizen, 3 Themen.', art: 'mitteilung', nachgeholt: true, entstanden } }],
-      }),
-    }));
-    vi.stubGlobal('fetch', holen);
     render(() => <Shell />);
+    await waitFor(() => expect(brueckeSpion.opt).toBeTruthy());
+    brueckeSpion.opt!.zeigt(
+      zeigtPruefen({ ziel: 'agent', titel: 'Notizen geordnet', vorschau: '12 Notizen, 3 Themen.', art: 'mitteilung', nachgeholt: true, entstanden })!,
+    );
     expect(await screen.findByText('12 Notizen, 3 Themen.')).toBeTruthy();
     expect(screen.getByText('Agent meldet sich')).toBeTruthy();
     expect(document.querySelector('[data-mitteilung] time')!.textContent).toBe('heute Nacht, 03:12');
-    const [url, init] = holen.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe('/hub-api/os/melden');
-    expect(JSON.parse(String(init.body))).toMatchObject({ abholen: true, sichtbar: true, version: 1 });
   });
 
-  it('eine Mitteilung für eine unbekannte Fläche wird nicht gezeigt', async () => {
+  it('stumm schalten zeigt die Rückgängig-Karte (eine Karte für Brücke und Shell)', async () => {
     render(() => <Shell />);
-    window.dispatchEvent(new CustomEvent(ZEIGT_EREIGNIS, { detail: { ziel: 'seite:gibt-es-nicht', titel: 'Nichts' } }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(document.querySelector('[data-mitteilung]')).toBeNull();
+    await waitFor(() => expect(brueckeSpion.opt).toBeTruthy());
+    brueckeSpion.opt!.zeigt(zeigtPruefen({ ziel: 'seite:notizen', titel: 'Notizen', vorschau: 'Noch eine.' })!);
+    await screen.findByText('Noch eine.');
+    fireEvent.click(screen.getByRole('button', { name: 'Weitere Aktionen' }));
+    await menuePunkt('Eine Stunde stumm');
+    expect(await screen.findByRole('button', { name: /Rückgängig/ })).toBeTruthy();
   });
 });
 
@@ -718,13 +752,15 @@ describe('Übergänge: Deeplink mit Eingabe, fyos:oeffnen und der App-Rahmen', (
   it('Rechtsklick auf eine App im Start bietet Heften an', async () => {
     render(() => <Shell />);
     fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'FYOS' }));
-    const panel = await screen.findByRole('dialog', { name: 'FYOS' });
+    const panel = await screen.findByRole('region', { name: 'Apps' });
     const kachel = await within(panel).findByRole('button', { name: /Lagebild/ });
     fireEvent.contextMenu(kachel, { clientX: 200, clientY: 200 });
     await menuePunkt('An den Start heften');
     await waitFor(() => expect(JSON.parse(localStorage.getItem('fyos:app-pins')!)).toEqual(['leitstand__lagebild']));
-    // die Kachel zeigt die Anheftung
-    expect(await within(panel).findByRole('button', { name: /Lagebild/ }).then((k) => k.querySelector('.os-kachel-pin'))).toBeTruthy();
+    // die Kachel zeigt die Anheftung, und die Apps-Seite führt sie zusätzlich unter „Favoriten“
+    const favoriten = await within(panel).findByRole('region', { name: 'Favoriten' });
+    expect(within(favoriten).getByRole('button', { name: /Lagebild/ }).querySelector('.os-kachel-pin')).toBeTruthy();
+    expect((await within(panel).findAllByRole('button', { name: /Lagebild/ })).every((k) => k.querySelector('.os-kachel-pin'))).toBe(true);
   });
 });
 
@@ -738,7 +774,7 @@ describe('Anwendungen statt Widgets', () => {
   /** Eine Fläche über den Start öffnen (wie ein Klick auf ihre Kachel). */
   const oeffnen = async (name: RegExp, region: string) => {
     fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'FYOS' }));
-    const panel = await screen.findByRole('dialog', { name: 'FYOS' });
+    const panel = await screen.findByRole('region', { name: 'Apps' });
     fireEvent.click(await within(panel).findByRole('button', { name }));
     return (await screen.findByRole('region', { name: region })) as HTMLElement;
   };
@@ -1051,7 +1087,7 @@ describe('Dinge auf Fenster von Hub-Apps (Übergaben)', () => {
     const leer = (await screen.findByText('Dieser Bildschirm ist leer.')).parentElement!;
     // die Hub-Apps kommen asynchron; erst wenn „Notizzettel“ im Start steht, kennt die Shell seine Fläche
     fireEvent.click(within(bodenleiste()).getByRole('button', { name: 'FYOS' }));
-    const panel = await screen.findByRole('dialog', { name: 'FYOS' });
+    const panel = await screen.findByRole('region', { name: 'Apps' });
     await within(panel).findByRole('button', { name: /Notizzettel/ });
     fireEvent.keyDown(document, { key: 'Escape' });
     const d = notiz();
@@ -1121,7 +1157,7 @@ describe('Suche über alles (⌘K)', () => {
     await suchen('quartal');
     fireEvent.click(await screen.findByRole('button', { name: /Zahlen fürs Quartal/ }));
     expect(await screen.findByRole('region', { name: 'Vorgänge' })).toBeTruthy();
-    expect(screen.queryByRole('dialog', { name: 'FYOS' })).toBeNull(); // Start schließt sich
+    expect(screen.queryByRole('region', { name: 'Apps' })).toBeNull(); // Start schließt sich
   });
 
   it('ein Treffer ohne Ding-Typ ist nur eine Anzeige', async () => {
@@ -1145,8 +1181,9 @@ describe('Suche über alles (⌘K)', () => {
     alleSuchen.mockRejectedValue(new Error('Unbekanntes Werkzeug suche.alles'));
     render(() => <Shell />);
     await suchen('quartal');
-    expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(screen.getByText(/Die Suche über alles ging nicht: Unbekanntes Werkzeug/)).toBeTruthy();
+    // Andere Flächen dürfen eigene Hinweise zeigen (z. B. „Wartet auf dich“ ohne Hub); gesucht ist der der Suche.
+    const hinweis = await screen.findByText(/Die Suche über alles ging nicht: Unbekanntes Werkzeug/);
+    expect(hinweis.closest('[role="alert"]')).toBeTruthy();
     expect(screen.queryByText('Nichts gefunden.')).toBeNull();
   });
 

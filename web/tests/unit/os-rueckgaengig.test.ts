@@ -55,10 +55,15 @@ describe('Rückgängig nach dem Schließen', () => {
 
 describe('Die Karte oben rechts', () => {
   // 0.1.2 zeigte nach dem Schließen keine Karte: die Shell gab Mitteilungen ein eigenes Signal statt der geteilten Karte
-  it('liest die Shell aus der geteilten Karte, in die rueckgaengigAnbieten schreibt', () => {
+  // Seit 0.1.4 zeigt die Brücke die Karte (components/os/Bruecke.tsx), die Shell hängt nur die Brücke ein
+  it('liest die Brücke aus der geteilten Karte, in die rueckgaengigAnbieten schreibt', () => {
+    const bruecke = readFileSync(resolve(process.cwd(), 'src/components/os/Bruecke.tsx'), 'utf8');
+    expect(bruecke).toContain('const hinweis = rueckHinweis;');
+    expect(bruecke).toContain('hinweis={hinweis}');
+    expect(bruecke).toContain('rueckgaengigAnbieten(h)');
     const shell = readFileSync(resolve(process.cwd(), 'src/components/os/Shell.tsx'), 'utf8');
-    expect(shell).toContain('hinweis={rueckHinweis}');
-    expect(shell).toContain('onHinweisWeg={() => rueckgaengigAnbieten(null)}');
+    expect(shell).toContain('<Bruecke');
+    expect(shell).not.toContain('<Mitteilungen');
     expect(shell).not.toContain('setMittHinweis');
   });
 });

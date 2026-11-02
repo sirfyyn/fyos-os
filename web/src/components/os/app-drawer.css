@@ -1,0 +1,37 @@
+/* App-Drawer (Start.tsx, OS-Neubau P7): dichte Zeilen statt großer Kacheln, Gestaltung aus styles/fyos2.css. */
+.ad-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  gap: 2px 14px;
+}
+.os-kachel.ad-zeile {
+  min-height: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--f2-r-sm, 10px);
+  text-align: left;
+  transition: background var(--f2-fast, 140ms) var(--f2-ease, ease), transform var(--f2-fast, 140ms) var(--f2-ease, ease);
+}
+.os-kachel.ad-zeile:hover { background: var(--f2-surface-2); }
+.os-kachel.ad-zeile:active { transform: scale(0.985); }
+.os-kachel.ad-zeile:focus-visible { outline: 2px solid var(--f2-coral); outline-offset: 1px; }
+.ad-zeile .os-kachel-bild { flex: none; width: 34px; height: 34px; }
+.ad-zeile .os-kachel-bild .os-symbol { width: 34px; height: 34px; }
+.ad-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ad-name { font-size: 0.875rem; font-weight: 600; color: var(--f2-fg); line-height: 1.2; display: flex; gap: 6px; align-items: baseline; }
+.ad-offen { font: 500 0.6875rem / 1 var(--f2-font-mono); color: var(--f2-mint); }
+.ad-stand {
+  font-size: 0.75rem;
+  color: var(--f2-fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 1em;
+}
+.ad-stand[data-ton='gelb'] { color: var(--f2-amber); }
+.ad-stand[data-ton='rot'] { color: var(--f2-rose); }
+.ad-ansicht { align-self: flex-start; }
+.ad-leer { margin: 4px 0; font-size: 0.8125rem; color: var(--f2-fg-3); }

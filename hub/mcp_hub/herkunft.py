@@ -36,7 +36,18 @@ ERLAUBTE_VORGABE = ("localhost", "127.0.0.1")
 SCHREIBEND = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 # Wege, die einen JSON-Körper lesen.
-JSON_WEGE = frozenset({"/hub/call", "/hub/mehr", "/hub/app-call", "/hub/os/melden", "/hub/os/antwort"})
+JSON_WEGE = frozenset(
+    {
+        "/hub/call",
+        "/hub/mehr",
+        "/hub/app-call",
+        "/hub/os/melden",
+        "/hub/os/antwort",
+        "/hub/aufgaben/get",
+        "/hub/aufgaben/update",
+        "/hub/aufgaben/cancel",
+    }
+)
 
 
 def erlaubte_hosts(roh: str | None = None) -> frozenset[str]:

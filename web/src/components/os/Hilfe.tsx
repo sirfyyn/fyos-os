@@ -5,8 +5,9 @@ import { For, onCleanup, onMount, type JSX } from 'solid-js';
 import { IST_MAC, altUmschalt, mod, modAlt, modAltUmschalt } from '~/lib/os/menue';
 
 const KUERZEL: [string, string][] = [
-  [mod('K'), 'Alle Flächen (Start) öffnen und suchen'],
+  [mod('K'), 'Apps-Seite öffnen und suchen (Esc oder Zurück schließt sie)'],
   [mod('J'), 'Agent ein- und ausblenden'],
+  [modAlt('D'), 'Dock holen (blendet sich sonst aus; Esc blendet aus)'],
   [modAlt('↑'), 'Übersicht aller Bildschirme'],
   [`${modAlt('←')}  ${modAlt('→')}`, 'Vorheriger / nächster Bildschirm, im Raum: Raum'],
   [mod('0'), 'Heim in die Zentrale (mit Räumen)'],
@@ -27,6 +28,7 @@ const GESTEN: [string, string][] = [
   ['Doppelklick auf den Fensterkopf', 'Volle ↔ halbe Breite'],
   ['Ecke unten rechts ziehen', 'Größe, rastet am Raster ein'],
   ['Touch: wischen / lange drücken', 'Bildschirm wechseln / Menü'],
+  ['Zeiger an den unteren Rand / Pfeil unten / von unten wischen', 'Dock mit den offenen Anwendungen einblenden (Pfeil: 30 Sekunden)'],
 ];
 
 /** Ziehen und Ablegen (lib/os/ziehen.ts): was sich ziehen lässt und was jedes Ziel daraus macht. */

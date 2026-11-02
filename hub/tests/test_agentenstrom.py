@@ -204,6 +204,70 @@ def test_error_kuerzt_nachricht_und_art():
         _e(typ="error")
 
 
+def test_ruhe_traegt_schalter_stufe_und_herkunft():
+    """Der Ruhe-Schalter eines Runners: Form des Eintrags mit allen Feldern."""
+    e = _e(
+        typ="ruhe",
+        an="1",
+        pausiert="1",
+        stufe="tief",
+        quelle="schalter",
+        grund="Feier\nabend",
+        bis="2026-10-26T05:00:00.000Z",
+        von="app",
+    )
+    assert e["typ"] == "ruhe"
+    assert (e["an"], e["pausiert"], e["stufe"], e["quelle"], e["von"]) == ("1", "1", "tief", "schalter", "app")
+    assert e["grund"] == "Feier abend"
+    assert e["bis"] == "2026-10-26T05:00:00.000Z"
+    assert all(isinstance(w, str) for w in e.values())
+
+
+def test_ruhe_mit_wenig_angaben_nimmt_vorgaben():
+    aus = _e(typ="ruhe", an=False, pausiert=False)
+    assert (aus["an"], aus["pausiert"], aus["stufe"]) == ("0", "0", "normal")
+    for fehlt in ("quelle", "grund", "bis", "von"):
+        assert fehlt not in aus
+    # Wahrheitswerte in jeder Schreibweise des Vertrags
+    for wahr in (True, "1", 1):
+        assert _e(typ="ruhe", an=wahr, pausiert=wahr)["an"] == "1"
+    for falsch in (False, "0", 0):
+        assert _e(typ="ruhe", an=falsch, pausiert=falsch)["pausiert"] == "0"
+
+
+def test_ruhe_kuerzt_textfelder():
+    e = _e(typ="ruhe", an="1", pausiert="1", grund="g" * 900, quelle="q" * 90, bis="b" * 90, von="v" * 90)
+    assert len(e["grund"]) == a.GRUND_MAX and e["grund"].endswith(a.KUERZUNG)
+    assert len(e["quelle"]) == 20 and len(e["bis"]) == 40 and len(e["von"]) == 40
+
+
+def test_ruhe_lehnt_falsche_felder_ab():
+    with pytest.raises(ValueError):
+        _e(typ="ruhe", an="1", pausiert="1", stufe="laut")
+    with pytest.raises(ValueError):
+        _e(typ="ruhe", an="vielleicht", pausiert="0")
+    with pytest.raises(ValueError):
+        _e(typ="ruhe", an="1", pausiert=None)
+    with pytest.raises(ValueError):
+        _e(typ="ruhe", an="1", pausiert=2)
+    with pytest.raises(ValueError):
+        _e(typ="ruhe")
+    # die allgemeinen Pflichtfelder gelten auch hier
+    with pytest.raises(ValueError):
+        _e(typ="ruhe", an="1", pausiert="1", agent="!!!")
+    with pytest.raises(ValueError):
+        _e(typ="ruhe", an="1", pausiert="1", q=0)
+
+
+def test_ruhe_ist_eine_bekannte_art_und_nur_diese():
+    assert "ruhe" in a.ARTEN
+    assert a.RUHE_STUFEN == ("normal", "tief")
+    with pytest.raises(ValueError):
+        _e(typ="Ruhe", an="1", pausiert="1")
+    with pytest.raises(ValueError):
+        _e(typ="ruhe.gesetzt", an="1", pausiert="1")
+
+
 def test_alle_werte_sind_zeichenketten():
     beispiele = [
         _e(),

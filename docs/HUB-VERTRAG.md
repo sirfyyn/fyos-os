@@ -242,6 +242,32 @@ ladbar 503. Variablen: `FYOS_OIDC_ISSUER`, `FYOS_OIDC_CLIENTS`, `FYOS_OIDC_MODUS
 `FYOS_OIDC_HOSTS`, `FYOS_OIDC_REST` (Vorgabe `/hub/app-call`, nie `/hub/call`), `FYOS_OIDC_BENUTZER` (Vorgabe `*`),
 `FYOS_OIDC_SCOPES`, `FYOS_OIDC_JWKS_URL`, `FYOS_OIDC_LEEWAY_S`. Der `Authorization`-Kopf wird nicht weitergereicht.
 
+## 6. Aufgaben (MCP Tasks)
+
+Lange Werkzeuge liefern sofort eine Kennung statt des Ergebnisses (Erweiterung `io.modelcontextprotocol/tasks`,
+SEP-2663, Schema 2026-07-28). Code: `hub/mcp_hub/aufgaben.py` (Speicher, Rechte, Grenzen), `aufgaben_mcp.py`
+(Erweiterung am SDK), `server.py` (REST).
+
+- **Wege.** MCP 2026-07-28 (`/mcp`, nur mit `mcp` 2.x): `tasks/get|update|cancel`, `server/discover` meldet die Erweiterung.
+  REST: `POST /hub/call` mit `"aufgabe": true` (oder der `_meta`-Hülle der Erweiterung) antwortet `202` mit
+  `{ok, resultType: "task", taskId, status, ttlMs, pollIntervalMs, …}`; `POST /hub/aufgaben/get|update|cancel`
+  `{taskId, inputResponses?}` und `GET /hub/aufgaben/liste`. Das Handshake-Zeitalter (2024-11-05 bis 2025-11-25) bleibt synchron.
+- **Nie ungefragt.** Eine Aufgabe gibt es nur, wenn der Client die Erweiterung erklärt hat **und** das Werkzeug sie erlaubt:
+  `ToolDescriptor(aufgabe=True)`. Kein mitgeliefertes Plugin setzt den Hinweis; Plugins mit `aufgabe=True` brauchen einen Hub,
+  der diese Version trägt. `__dry_run__`-Aufrufe, Oberflächen-Sperre und fehlende Pflichtargumente bleiben synchron.
+  `hub__schema` und die Suche nennen `aufgabe: true`.
+- **Zustände.** `working`, `input_required`, `completed`, `failed`, `cancelled`; die letzten drei sind endgültig. Ein
+  Werkzeug-Ergebnis `{"ok": false}` ist wie synchron ein normales Ergebnis (`completed`); `failed` ist für Fehler des Hubs
+  (Ausnahme im Faden, Neustart des Pods, Eingabe-Frist von 15 Minuten).
+- **Rechte.** Nur der Akteur (`AUFRUFER`), der die Aufgabe angelegt hat, darf lesen, ändern, abbrechen; fremde und
+  unbekannte Kennungen antworten gleich (-32602, REST 404). Kennung: 24 Zeichen aus dem Zufallsgenerator.
+- **Grenzen.** Offene Aufgaben: 5 je Akteur, 20 im Hub (sonst -32000, REST 429); `ttlMs` höchstens 24 h (Vorgabe 1 h).
+- **Zustand.** Über dieselbe Ablage wie `ergebnis_id` (`ansicht.Ablage`: Redis, sonst Speicher des Pods). Verliert der Pod den
+  Faden, meldet `get` `failed` („Hub neu gestartet, Aufgabe verloren“).
+- **Abbruch ist kooperativ.** `cancel` setzt sofort `cancelled`; das Werkzeug läuft zu Ende, sein Ergebnis wird verworfen.
+  Plugins fragen `mcp_hub.aufgaben.aktuelle().abgebrochen()` und erfragen Eingaben mit `.eingabe(schluessel, anfrage)`.
+- **Nicht gebaut.** `notifications/tasks` und `subscriptions/listen`; Abfragen im Takt von `pollIntervalMs` ist der Normalweg.
+
 ## Agenten-Runner (Plugin `agent`)
 
 Ein Agenten-Runner (ein Modell-Agent im RPC-Modus, etwa als Systemdienst) braucht keinen Zugang zu Redis: Er liest
@@ -250,6 +276,11 @@ seinen Eingang `fyos:agent:eingang` per Long-Poll über `GET /hub/agent/eingang`
 Vorgangssystem, Zeitplan, Beobachtungen) werfen über `POST /hub/agent/eingang` ein, Alertmanager über
 `POST /hub/agent/alarm` (severity → `schwere`, Wiederholungen entprellt, „Behoben“ nur für Eingeworfenes). Die
 Verträge stehen in `hub/mcp_hub/plugins/_agenteneingang.py`, `_agentenstrom.py` und `_agentenalarm.py`.
+
+Ereignisarten des Ausgangs: `part.updated`, `part.done`, `plan.update`, `proposal`, `ui_request`, `usage`,
+`session.idle`, `error` und `ruhe`. `ruhe` meldet den Ruhe-Schalter eines Runners (Pflicht: `an`, `pausiert` als
+`"1"`/`"0"`; optional `stufe` `normal|tief`, `quelle`, `grund`, `bis`, `von`). Ein Hub vor dieser Art lehnt den ganzen
+Stapel mit 400 ab, wenn er ein `ruhe` enthält; ein Runner meldet die Art deshalb erst, wenn sein Hub sie kennt.
 
 Alle Wege verlangen `application/json` (415 sonst). Ohne Quellen-Tokens sind sie innen offen wie der übrige Hub. Mit
 `FYOS_AGENT_TOKENS` (`rolle=token`, getrennt durch Komma oder Zeilenumbruch; Rollen sind die Quellen des Eingangs

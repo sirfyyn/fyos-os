@@ -9,9 +9,12 @@
  * Hub-Werkzeug `griffe.liste` (`{ griffe: [{ id, titel, werkzeug, argumente, … }] }`). Fehlt das Werkzeug oder
  * antwortet es nicht, gibt es keine Griffe — die Suche bleibt benutzbar.
  *
+ * Dazu kommen die Modus-Griffe „Ruhe“, „Normal“, „Ich bin da“, sobald der Hub einen Modus kennt (lib/os/modi.ts).
+ *
  * `griffQuellenLaden` holt die Angebote, `griffeBauen` und `griffeFinden` sind rein und ohne Browser prüfbar.
  */
 import { hub } from './hub';
+import { MODI, MODUS_GRIFF, modusZustand, setzeModus, type Modus } from './os/modi';
 
 export interface Griff {
   id: string;
@@ -52,6 +55,8 @@ export interface GriffAngebot {
 export interface GriffQuellen {
   /** Angebote der Plugins (Werkzeug `griffe.liste`) */
   griffe?: readonly GriffAngebot[];
+  /** Der Modus jetzt (modus.zustand); fehlt er, gibt es keine Modus-Griffe */
+  modus?: Modus;
 }
 
 /** Höchstens so viele Griffe nehmen wir von den Plugins an. */
@@ -99,7 +104,17 @@ function einzeln(a: GriffAngebot | Omit<GriffAngebot, 'gegen'>): Omit<Griff, 'ge
 /** Alle Griffe aus den Quellen, in der Reihenfolge der Angebote; Ungültiges und Doppeltes fällt weg. */
 export function griffeBauen(q: GriffQuellen): Griff[] {
   const g: Griff[] = [];
-  const gesehen = new Set<string>();
+  const jetzt = q.modus;
+  if (jetzt) {
+    // Ausgeführt über setzeModus, damit das Gerät sofort mitschaltet (griffAusfuehren)
+    const ein = (m: Modus): Omit<Griff, 'gegen'> => ({
+      id: `modus:${m}`, titel: MODUS_GRIFF[m].titel, gruppe: 'Modus', symbol: m === 'ruhe' ? 'moon' : m === 'bereit' ? 'sparkles' : 'bell',
+      werkzeug: 'modus.setzen', argumente: { modus: m, von: 'griff' }, erfolg: `Modus ${m === 'bereit' ? 'Bereit' : MODUS_GRIFF[m].titel}`,
+      istSchon: jetzt === m, woerter: MODUS_GRIFF[m].woerter,
+    });
+    for (const m of MODI) g.push({ ...ein(m), ...(jetzt !== m ? { gegen: ein(jetzt) } : {}) });
+  }
+  const gesehen = new Set<string>(g.map((x) => x.id));
   for (const a of (q.griffe ?? []).slice(0, GRIFFE_MAX)) {
     const eins = einzeln(a);
     if (!eins || gesehen.has(eins.id)) continue;
@@ -166,10 +181,11 @@ const lesen: Lesen = async <T,>(werkzeug: string) => {
   }
 };
 
-/** Holt die Angebote aus dem Hub; was nicht antwortet, fehlt. */
-export async function griffQuellenLaden(l: Lesen = lesen): Promise<GriffQuellen> {
+/** Holt die Angebote aus dem Hub; was nicht antwortet, fehlt. Den Modus kennt modi.ts schon (eigene Abfrage). */
+export async function griffQuellenLaden(l: Lesen = lesen, m: () => Modus | undefined = () => modusZustand()?.modus): Promise<GriffQuellen> {
   const r = await l<{ griffe?: GriffAngebot[] }>('griffe.liste');
-  return { griffe: Array.isArray(r?.griffe) ? r.griffe : undefined };
+  const modus = m();
+  return { griffe: Array.isArray(r?.griffe) ? r.griffe : undefined, ...(modus ? { modus } : {}) };
 }
 
 /** Einmal geholt, 60 s lang wiederverwendet (Befehlszeile und Start teilen sich das). */
@@ -185,6 +201,8 @@ export const griffeVergessen = (): void => {
 
 /** Schaltet; wirft mit dem Grund des Hubs, wenn es nicht ging. */
 export async function griffAusfuehren(g: Pick<Griff, 'werkzeug' | 'argumente'>): Promise<void> {
-  await hub(g.werkzeug, g.argumente, { art: 'bewusst', zeitMs: 20_000 });
+  const m = g.argumente.modus;
+  if (g.werkzeug === 'modus.setzen' && (MODI as readonly unknown[]).includes(m)) await setzeModus(m as Modus, { von: 'griff' });
+  else await hub(g.werkzeug, g.argumente, { art: 'bewusst', zeitMs: 20_000 });
   griffeVergessen();
 }

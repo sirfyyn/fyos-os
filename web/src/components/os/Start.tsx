@@ -14,7 +14,20 @@ import type { Fenster } from '~/lib/os/anordnung';
 import type { Flaeche } from '~/lib/os/flaechen';
 import { gruppiert as trefferGruppen, sucheMoeglich, trefferWeg, type SucheZustand, type Treffer } from '~/lib/os/suche';
 import { gutSetzen, zugBeginnt, zugBild } from '~/lib/os/ziehen';
+import { hub } from '~/lib/hub';
+import { wartetBeobachten } from '~/lib/os/wartet';
+import {
+  alphabetisch,
+  standFuer,
+  standTon,
+  zuletztFlaechen,
+  zuletztLesen,
+  zuletztMerken,
+  type DrawerAnsicht,
+} from '~/lib/os/drawer';
+import { ZUSTAND_ARGUMENTE, ZUSTAND_WERKZEUG, type ZentraleZustand } from '~/lib/zentrale';
 import Symbol, { Glyphe } from './Symbol';
+import './app-drawer.css';
 
 export interface Vorlage {
   name: string;
@@ -51,6 +64,8 @@ export interface StartProps {
   kannSpeichern: boolean;
   onSchliessen: () => void;
   feld: (el: HTMLInputElement) => void;
+  /** Als eigene Seite (Apps-Seite, 28.10.2026) statt als Panel über dem Dock; Favoriten und ein Weg zurück kommen dazu */
+  seite?: boolean;
 }
 
 export default function Start(p: StartProps): JSX.Element {
@@ -79,17 +94,93 @@ export default function Start(p: StartProps): JSX.Element {
     const gewaehlt = griffe()[griffWahl()];
     if (gewaehlt) return griffWaehlen(gewaehlt);
     const erste = p.gruppen[0]?.flaechen[0];
-    if (erste) return p.onOeffnen(erste.id);
+    if (erste) return oeffnen(erste.id);
     if (griffe()[0]) return griffWaehlen(griffe()[0]!);
     const t = treffer().find((x) => trefferWeg(x));
     if (t) p.onTreffer?.(t);
   };
+  /** Favoriten der Apps-Seite: die an die Zentrale angehefteten Apps (Pins), ohne Suche */
+  const favoriten = (): Flaeche[] => {
+    const ids = geheftet();
+    if (!p.seite || p.suche || !ids.length) return [];
+    return p.gruppen.flatMap((g) => g.flaechen).filter((f) => f.appName && ids.includes(f.appName));
+  };
+  // ── App-Drawer (OS-Neubau P7): Stand je App aus EINEM gebündelten Abruf, Ansichten Raum / A–Z / Zuletzt ──
+  const [ansicht, setAnsicht] = createSignal<DrawerAnsicht>('raum');
+  const [zustand, setZustand] = createSignal<ZentraleZustand | null>(null);
+  const [zuletzt, setZuletzt] = createSignal<string[]>(zuletztLesen());
+  const wartet = wartetBeobachten();
+  onMount(() => {
+    hub<ZentraleZustand>(ZUSTAND_WERKZEUG, ZUSTAND_ARGUMENTE)
+      .then((z) => z && Array.isArray(z.kacheln) && setZustand(z))
+      .catch(() => undefined);
+  });
+  const quellen = () => ({ zustand: zustand(), wartet: wartet() });
+  const oeffnen = (id: string) => {
+    setZuletzt(zuletztMerken(id));
+    p.onOeffnen(id);
+  };
+  const ANSICHTEN: { id: DrawerAnsicht; text: string }[] = [
+    { id: 'raum', text: 'Nach Raum' },
+    { id: 'az', text: 'A–Z' },
+    { id: 'zuletzt', text: 'Zuletzt' },
+  ];
+
+  const kachel = (f: Flaeche): JSX.Element => (
+    <button
+      type="button"
+      draggable="true"
+      data-privat={f.privat}
+      data-kontext={`flaeche:${f.id}`}
+      class="os-kachel ad-zeile"
+      aria-label={f.titel}
+      title={f.untertitel || undefined}
+      onClick={() => oeffnen(f.id)}
+      onDragStart={(e) => {
+        gutSetzen(e.dataTransfer, { art: 'flaeche', id: f.id }, f.titel);
+        zugBild(e.dataTransfer, f.titel);
+        zugBeginnt({ art: 'flaeche', id: f.id });
+        p.onZiehStart?.();
+        // Der Start geht aus dem Weg: Schreibtisch, Bildschirm-Punkte und Agent liegen darunter
+        setTimeout(() => p.onSchliessen(), 0);
+      }}
+      onDragEnd={() => p.onZiehEnde()}
+    >
+      <span class="os-kachel-bild">
+        <Symbol id={f.id} gruppe={f.gruppe} />
+        <Show when={f.appName && geheftet().includes(f.appName)}>
+          <span class="os-kachel-pin" aria-hidden="true"><Glyphe name="pin" gefuellt /></span>
+        </Show>
+      </span>
+      <span class="ad-text">
+        <span class="ad-name">
+          {f.titel}
+          <Show when={p.offen(f.id)}><span class="ad-offen">offen</span></Show>
+        </span>
+        <span class="ad-stand" data-ton={standTon(f, quellen()) ?? undefined}>
+          {standFuer(f, quellen()) ?? f.untertitel ?? ''}
+        </span>
+      </span>
+    </button>
+  );
+  const raster = (liste: Flaeche[]) => <div class="ad-raster"><For each={liste}>{kachel}</For></div>;
   return (
     <div
-      class="os-start absolute inset-0 z-30"
-      onClick={(e) => { if (e.target === e.currentTarget) p.onSchliessen(); }}
+      class={p.seite ? 'os-apps-seite' : 'os-start absolute inset-0 z-30'}
+      data-apps-seite={p.seite ? '' : undefined}
+      onClick={(e) => { if (!p.seite && e.target === e.currentTarget) p.onSchliessen(); }}
     >
-      <div class="os-start-panel" role="dialog" aria-label={systemName()}>
+      <div
+        class={p.seite ? 'os-apps-panel' : 'os-start-panel'}
+        role={p.seite ? 'region' : 'dialog'}
+        aria-label={p.seite ? 'Apps' : systemName()}
+      >
+      <Show when={p.seite}>
+        <header class="os-apps-kopf">
+          <button type="button" class="os-knopf" aria-label="Zurück" title="Zurück (Esc)" onClick={() => p.onSchliessen()}>‹ Zurück</button>
+          <h1 class="os-titel m-0">Apps</h1>
+        </header>
+      </Show>
       <input
         ref={p.feld}
         type="search"
@@ -111,6 +202,44 @@ export default function Start(p: StartProps): JSX.Element {
               {(g) => <GriffFrage g={g()} onJa={() => p.onGriff?.(g())} onNein={() => setGriffFrage(null)} />}
             </Show>
           </section>
+        </Show>
+        <Show when={!p.suche}>
+          <div class="ad-ansicht f2-seg" role="group" aria-label="Ansicht"
+            data-modus="normal"
+            style={{ '--f2-seg-i': String(ANSICHTEN.findIndex((a) => a.id === ansicht())), '--f2-seg-n': '3' }}>
+            <span class="f2-seg-marke" aria-hidden="true" />
+            <For each={ANSICHTEN}>
+              {(a) => <button type="button" aria-pressed={ansicht() === a.id} onClick={() => setAnsicht(a.id)}>{a.text}</button>}
+            </For>
+          </div>
+        </Show>
+        <Show when={favoriten().length && ansicht() === 'raum'}>
+          <section aria-label="Favoriten">
+            <h3 class="os-titel mb-2.5">Favoriten</h3>
+            {raster(favoriten())}
+          </section>
+        </Show>
+        <Show when={!p.suche && ansicht() === 'zuletzt'}>
+          <section aria-label="Zuletzt">
+            <Show when={zuletztFlaechen(zuletzt(), p.gruppen).length} fallback={<p class="ad-leer">Noch nichts geöffnet. Was du öffnest, steht hier zuerst.</p>}>
+              {raster(zuletztFlaechen(zuletzt(), p.gruppen))}
+            </Show>
+          </section>
+        </Show>
+        <Show when={!p.suche && ansicht() === 'az'}>
+          <section aria-label="A bis Z">{raster(alphabetisch(p.gruppen))}</section>
+        </Show>
+        <Show when={p.suche || ansicht() === 'raum'}>
+          <Show when={p.gruppen.length} fallback={<Show when={!sucht() || !p.suchstand}><p class="text-center text-sm text-(--color-fg-muted)">Nichts gefunden.</p></Show>}>
+            <For each={p.gruppen}>
+              {(g) => (
+                <section>
+                  <h3 class="os-titel mb-2.5">{g.gruppe}</h3>
+                  {raster(g.flaechen)}
+                </section>
+              )}
+            </For>
+          </Show>
         </Show>
         <Show when={!p.suche}>
           <section aria-label="Bildschirme">
@@ -157,47 +286,6 @@ export default function Start(p: StartProps): JSX.Element {
               <Show when={p.vorlageFehler}><p role="alert" class="mt-2 text-xs text-(--color-error)">{p.vorlageFehler}</p></Show>
             </section>
           </Show>
-        </Show>
-        <Show when={p.gruppen.length} fallback={<Show when={!sucht() || !p.suchstand}><p class="text-center text-sm text-(--color-fg-muted)">Nichts gefunden.</p></Show>}>
-          <For each={p.gruppen}>
-            {(g) => (
-              <section>
-                <h3 class="os-titel mb-2.5">{g.gruppe}</h3>
-                <div class="grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-x-1 gap-y-3">
-                  <For each={g.flaechen}>
-                    {(f) => (
-                      <button
-                        type="button"
-                        draggable="true"
-                        data-kontext={`flaeche:${f.id}`}
-                        class="os-kachel"
-                        title={f.untertitel || undefined}
-                        onClick={() => p.onOeffnen(f.id)}
-                        onDragStart={(e) => {
-                          gutSetzen(e.dataTransfer, { art: 'flaeche', id: f.id }, f.titel);
-                          zugBild(e.dataTransfer, f.titel);
-                          zugBeginnt({ art: 'flaeche', id: f.id });
-                          p.onZiehStart?.();
-                          // Der Start geht aus dem Weg: Schreibtisch, Bildschirm-Punkte und Agent liegen darunter
-                          setTimeout(() => p.onSchliessen(), 0);
-                        }}
-                        onDragEnd={() => p.onZiehEnde()}
-                      >
-                        <span class="os-kachel-bild">
-                          <Symbol id={f.id} gruppe={f.gruppe} />
-                          <Show when={f.appName && geheftet().includes(f.appName)}>
-                            <span class="os-kachel-pin" aria-hidden="true"><Glyphe name="pin" gefuellt /></span>
-                          </Show>
-                        </span>
-                        <span class="leading-tight">{f.titel}</span>
-                        <Show when={p.offen(f.id)}><span class="text-[11px] text-(--color-fg-muted)">offen</span></Show>
-                      </button>
-                    )}
-                  </For>
-                </div>
-              </section>
-            )}
-          </For>
         </Show>
         {/* Suche über alles: Treffer aus Vorgängen, Mail, Dateien, Notizen … (Fremdinhalt, nur als Text gezeigt) */}
         <Show when={sucht() && p.suchstand}>

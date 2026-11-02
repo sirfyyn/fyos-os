@@ -8,9 +8,8 @@
  *     detail: { text, kontext: { app, titel, eingabe, modellKontext }, quelle },
  *   }));
  *
- * Die Shell hängt EINEN Empfänger an (`agentFragenAnbinden`). Er öffnet das Agent-Dock und lenkt den Chat
- * (Gateway unter `/agent/`) mit der Frage als Entwurf (`?draft=`) in dessen Eingabefeld: der Mensch ändert sie
- * und sendet mit Enter.
+ * Die Shell hängt EINEN Empfänger an (`agentFragenAnbinden`). Er öffnet das Agent-Dock und legt die Frage samt
+ * Kontext als Entwurf in das Eingabefeld der Agent-App (Runner): der Mensch ändert sie und sendet mit Enter.
  *
  * Seiten in OS-Fenstern laufen in iframes: dort geht die Frage per postMessage an die Shell. Eine Seite allein im
  * Browser ohne Shell öffnet den Chat mit dem Entwurf in einem neuen Tab.
@@ -121,8 +120,11 @@ export function agentFragen(frage: AgentFrage, d: { fenster?: Window } = {}): vo
 }
 
 export interface Anbindung {
-  /** Agent-Dock öffnen bzw. nach vorn holen; mit `adresse` den Chat dorthin lenken (Entwurf) */
-  zeigen: (adresse?: string) => void;
+  /**
+   * Agent-Dock öffnen bzw. nach vorn holen. `adresse` lenkt einen eingebetteten Chat (Entwurf als `?draft=`);
+   * `frage` ist dieselbe Frage als Daten, für die native Agent-App (Entwurf ins Eingabefeld, siehe mitKontext).
+   */
+  zeigen: (adresse?: string, frage?: AgentFrage) => void;
 }
 
 /** Empfänger anhängen (einmal, in der Shell). Gibt die Abmeldung zurück. */
@@ -130,7 +132,7 @@ export function agentFragenAnbinden(a: Anbindung, d: { fenster?: Window } = {}):
   const w = d.fenster ?? window;
   const annehmen = (roh: unknown): boolean => {
     const f = pruefen(roh);
-    if (f) a.zeigen(entwurfAdresse(f));
+    if (f) a.zeigen(entwurfAdresse(f), f);
     return !!f;
   };
   const imEreignis = (e: Event): void => {

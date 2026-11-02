@@ -4,6 +4,8 @@
  * Oben der Name des Systems, darunter die angehefteten Apps („An den Start heften“ im Kachelmenü),
  * dann alle Flächen nach Gruppen. Ein Klick öffnet die Fläche; Rechtsklick und Ziehen laufen über
  * dieselben Mechanismen wie im Start-Panel (`data-kontext="flaeche:<id>"`, lib/os/ziehen.ts).
+ *
+ * Die Gruppen sind `role="group"`, keine Regionen: „Apps“ heißt als Region allein die Apps-Seite (/os/apps/).
  */
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { systemName } from '~/lib/config';
@@ -63,21 +65,21 @@ export default function Startbildschirm(p: StartbildschirmProps): JSX.Element {
         <p class="mt-1 text-sm text-(--color-fg-muted)">Alle Flächen und Apps. Mit ⌘K suchst du, mit ⌘J fragst du den Agenten.</p>
       </header>
       <Show when={angeheftet().length}>
-        <section aria-label="Angeheftet">
+        <div role="group" aria-label="Angeheftet">
           <h2 class="os-titel mb-2.5">Angeheftet</h2>
           <div class="grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-x-1 gap-y-3">
             <For each={angeheftet()}>{(f) => <Kachel f={f} />}</For>
           </div>
-        </section>
+        </div>
       </Show>
       <For each={p.gruppen}>
         {(g) => (
-          <section aria-label={g.gruppe}>
+          <div role="group" aria-label={g.gruppe}>
             <h2 class="os-titel mb-2.5">{g.gruppe}</h2>
             <div class="grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-x-1 gap-y-3">
               <For each={g.flaechen}>{(f) => <Kachel f={f} />}</For>
             </div>
-          </section>
+          </div>
         )}
       </For>
     </div>

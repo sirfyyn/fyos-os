@@ -1,0 +1,14 @@
+---
+/**
+ * /os/apps — die Apps-Seite des OS: der Launcher auf eigener Adresse. Es ist dieselbe Shell wie unter /os;
+ * sie erkennt den Pfad (lib/os/apps-seite.ts) und öffnet die Seite über dem Raum, der darunter erhalten bleibt.
+ */
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Shell from '~/components/os/Shell';
+
+const systemName = (import.meta.env.PUBLIC_FYOS_NAME as string | undefined)?.trim() || 'FYOS';
+---
+
+<BaseLayout title={`${systemName} — Apps`} bare>
+  <div class="h-full"><Shell client:only="solid-js" /></div>
+</BaseLayout>

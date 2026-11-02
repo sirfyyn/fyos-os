@@ -112,6 +112,10 @@
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--os-akzent) 35%, transparent);
   transition: transform 0.25s var(--os-feder), box-shadow 0.2s;
 }
+/* Agent-Knopf in der Räume-Leiste (28.10.2026): nimmt Dinge an wie früher der im Dock */
+[data-shell][data-zieht] [data-raum-agent] { box-shadow: 0 0 0 3px color-mix(in oklab, var(--os-akzent) 40%, transparent); }
+[data-raum-agent].os-ziel-an { transform: scale(1.18); box-shadow: 0 0 0 3px var(--os-akzent), 0 0 24px color-mix(in oklab, var(--os-akzent) 55%, transparent) !important; }
+@media (prefers-reduced-motion: reduce) { [data-raum-agent].os-ziel-an { transform: none; } }
 .os-dock-symbol.os-ziel-an {
   transform: translateY(-0.45rem) scale(1.2);
   box-shadow: 0 0 0 3px var(--os-akzent), 0 0 24px color-mix(in oklab, var(--os-akzent) 55%, transparent) !important;

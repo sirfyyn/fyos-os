@@ -21,17 +21,26 @@
  *
  * Deep-Link: /os?offen=app:notizen__liste,seite:wiki öffnet diese Flächen.
  */
-import { For, Show, createEffect, createMemo, createSignal, lazy, onCleanup, onMount, type JSX } from 'solid-js';
+import { For, Show, Suspense, createEffect, createMemo, createSignal, lazy, on, onCleanup, onMount, type JSX } from 'solid-js';
 import Startbildschirm from './Startbildschirm';
-import Mitteilungen from './Mitteilungen';
+import Bruecke from './Bruecke';
+import MeldungenGlocke from './MeldungenGlocke';
+import MeldungenHost from './MeldungenHost';
+import SpielFeier from '~/components/spiel/SpielFeier';
 import Dock from './Dock';
 import { NEU_LADEN } from './Fenster';
+import AmpelPunkt from './AmpelPunkt';
 import Kulisse from './Kulisse';
 import Menue from './Menue';
 import Menueleiste, { type LeistenMenue } from './Menueleiste';
 import Raster from './Raster';
 import RaeumeLeiste from './RaeumeLeiste';
+import { WartetSchublade } from './WartetSchublade';
+import { wartetBeobachten } from '~/lib/os/wartet';
+import { dockSicht } from '~/lib/os/dock-sichtbar';
+import { appsAdresse, istAppsPfad, osAdresse } from '~/lib/os/apps-seite';
 import { ZENTRALE, raeume, raeumeSetzen, raumZu, schritt as raumSchritt, wechseln as raumWechseln, type RaumId } from '~/lib/os/raeume';
+import { inhaltPruefen, verfuegbar } from '~/lib/os/raeume-inhalt';
 import type { Vorlage } from './Start';
 import { useGriffe } from './Griffe';
 import { griffAusfuehren, type Griff } from '~/lib/griffe';
@@ -41,7 +50,7 @@ import { registrierteDinge } from '~/lib/os/register';
 import { sucheStarten, trefferWeg, type SucheZustand, type Treffer } from '~/lib/os/suche';
 import { frageMitKontext } from '~/lib/os/uebergaben';
 import { MAX_OFFEN, RAST_TASTEN, alleEinblenden, automatisch, laden as altLaden, minimieren, schliessen, startPruefen, zeilenFuerHoehe, type Fenster, type RastZiel, type StartZustand } from '~/lib/os/anordnung';
-import { bildschirmZurueck, fensterZurueck, geschlossene, rueckgaengigAnbieten, rueckHinweis, schliessText } from '~/lib/os/rueckgaengig';
+import { bildschirmZurueck, fensterZurueck, geschlossene, rueckgaengigAnbieten, schliessText } from '~/lib/os/rueckgaengig';
 import { appFragen, heften, kannHeften } from '~/lib/os/app-aktionen';
 import {
   BILDSCHIRME_MAX, START, aktueller, alleFenster, anzeigeName, bereinigen, bildschirmBei, entfernen, fensterAendern, flaecheOeffnen, fremdesSpeichern, idsUmbenennen, laden as apLaden,
@@ -58,11 +67,9 @@ import { kulisseLaden, kulisseSpeichern, type KulisseFarben, type KulisseStil } 
 import { aufraeumen, menue, menueOeffnen, menueZu, mod, modAlt, type MenuePunkt } from '~/lib/os/menue';
 import { nativZu } from '~/lib/os/nativ';
 import { OEFFNEN, deeplink, eingabeLesen, pfadSchluessel, type OsZiel } from '~/lib/os/oeffnen';
-import { fremdesThemaAnwenden, themaSetzen, themaWahl } from '~/lib/os/thema';
-import { agentFragen, agentFragenAnbinden } from '~/lib/os/agent-fragen';
-import { agentName, agentPfad, konfigurationLaden, systemName } from '~/lib/config';
-import { brueckeStarten } from '~/lib/os/bruecke';
-import { ZEIGT_EREIGNIS, einstellungLesen, einstellungSchreiben, hinzufuegen, istStumm, zeigtPruefen, type Mitteilung, type ZeigtDaten } from '~/lib/os/mitteilungen';
+import { themaSetzen, themaWahl } from '~/lib/os/thema';
+import { agentFragen, agentFragenAnbinden, mitKontext } from '~/lib/os/agent-fragen';
+import { agentName, konfigurationLaden, systemName } from '~/lib/config';
 import { ausklingen, herkunftMerken, imBlickHalten, insDock } from '~/lib/os/uebergang';
 import '~/styles/os-handhabung.css';
 import '~/plugins';
@@ -82,6 +89,8 @@ const Start = lazy(() => import('./Start'));
 const Hilfe = lazy(() => import('./Hilfe'));
 const TapeteDialog = lazy(() => import('./Tapete'));
 const Kontrollzentrum = lazy(() => import('./Kontrollzentrum'));
+// Die native Agent-App (Runner) im Dock: erst geladen, wenn das Dock zum ersten Mal aufgeht.
+const AgentRunner = lazy(() => import('./nativ/Agent'));
 const Raum = lazy(() => import('./Raum'));
 
 const UNTAETIG_MS = 60_000;
@@ -108,12 +117,16 @@ function browserMenue(t: Element): boolean {
 export default function Shell(): JSX.Element {
   const [ap, setAp] = createSignal<Arbeitsplatz>(leer());
   const [appListe, setAppListe] = createSignal<McpApp[]>([]);
+  /** Die Apps-Seite (der Launcher, früher „Start“-Panel) ist offen; Adresse /os/apps/ (lib/os/apps-seite.ts) */
   const [start, setStart] = createSignal(false);
+  /** Sichtbarkeit des Docks (Zeiger am unteren Rand, Pfeil, Fokus; lib/os/dock-sichtbar.ts) */
+  const dockSichtbar = dockSicht();
+  onCleanup(() => dockSichtbar.aufraeumen());
   const [suche, setSuche] = createSignal('');
   const [agent, setAgent] = createSignal(false);
   const [agentGeladen, setAgentGeladen] = createSignal(false);
-  // Adresse des Agent-Docks: der Chat; mit Entwurf (?draft=), wenn eine Frage ohne Gesprächsweg ankommt
-  const [agentAdresse, setAgentAdresse] = createSignal(agentPfad());
+  // „Den Agenten fragen“: Frage samt Kontext als Entwurf für das Eingabefeld der Agent-App (jedes neue Objekt einmal)
+  const [agentEntwurf, setAgentEntwurf] = createSignal<{ text: string } | null>(null);
   // Zeiger der eingebetteten Seiten aus: beim Größe-Ziehen (eigenes Signal) und solange etwas gezogen wird
   // (lib/os/ziehen.ts — Fenster, Flächen, Objekte; auch aus einer Seite im Fenster heraus).
   const [groesseZieht, setZiehen] = createSignal(false);
@@ -131,12 +144,6 @@ export default function Shell(): JSX.Element {
     setTimeout(() => setPuls((x) => (x === i ? null : x)), 900);
   };
   const [agentZiel, setAgentZiel] = createSignal(false);
-  const [mitt, setMitt] = createSignal<Mitteilung[]>([]);
-  const [mittEinst, setMittEinst] = createSignal(einstellungLesen());
-  const mittEinstellen = (e: ReturnType<typeof einstellungLesen>) => {
-    setMittEinst(e);
-    einstellungSchreiben(e);
-  };
   const [uhr, setUhr] = createSignal('');
   const [datum, setDatum] = createSignal('');
   const [bereit, setBereit] = createSignal(false);
@@ -360,7 +367,10 @@ export default function Shell(): JSX.Element {
   const raumVerlassen = () => {
     if (raeume().aktiv !== ZENTRALE) raeumeSetzen(raumWechseln(raeume(), ZENTRALE));
   };
+  /** Neues Dock (nur geöffnete Anwendungen, blendet sich aus) gilt mit Räume-Leiste; sonst bleibt das klassische Dock */
+  const dockOffene = () => raeume().an && !schmal();
   const raumGehe = (id: RaumId) => {
+    setStart(false); // die Apps-Seite liegt über dem Raum: ein Raum-Knopf bringt den Raum nach vorn
     if (id === ZENTRALE) {
       gehe(START);
       return;
@@ -370,7 +380,7 @@ export default function Shell(): JSX.Element {
     setUebersicht(false);
   };
   /** Nächster oder vorheriger Raum (⌥⌘←→ und Wischen im Raum); über das Ende hinaus geht es heim. */
-  const raumSchrittAn = (r: 1 | -1) => raumGehe(raumSchritt(raeume(), r).aktiv);
+  const raumSchrittAn = (r: 1 | -1) => raumGehe(raumSchritt(raeume(), r, verfuegbar()).aktiv);
 
   // ── Ablegen (lib/os/ziehen.ts): jedes Ziel versteht Fenster, Flächen und Dinge ──────────────────
   /** Die Fläche, auf der ein Ding lebt (registriert über `dinge` in registriereFlaechen). */
@@ -518,8 +528,35 @@ export default function Shell(): JSX.Element {
       /* bleibt stehen */
     }
   };
+  /** Adresse der Apps-Seite in den Verlauf legen, damit „Zurück“ des Browsers sie schließt (und ein Link sie öffnet) */
+  let appsGeschoben = false;
+  const appsAdresseSetzen = () => {
+    try {
+      if (istAppsPfad(location.pathname)) return;
+      history.pushState(null, '', appsAdresse(location.search));
+      appsGeschoben = true;
+    } catch {
+      /* ohne Verlauf (Tests, eingebettet): die Seite geht auch ohne eigene Adresse */
+    }
+  };
+  createEffect(on(start, (offen) => {
+    if (offen) return;
+    try {
+      if (!istAppsPfad(location.pathname)) {
+        appsGeschoben = false;
+        return;
+      }
+      if (appsGeschoben) {
+        appsGeschoben = false;
+        history.back();
+      } else history.replaceState(null, '', osAdresse(location.search));
+    } catch {
+      /* wie oben */
+    }
+  }, { defer: true }));
   const oeffneStart = () => {
     setStart(true);
+    appsAdresseSetzen();
     setUebersicht(false);
     setSuche('');
     void plaetzeLaden();
@@ -942,6 +979,7 @@ export default function Shell(): JSX.Element {
   // Finger: ein Finger wischt (sobald klar waagrecht), zwei kneifen, lange drücken öffnet das Menü.
   const finger = new Map<number, { x: number; y: number; x0: number; y0: number; t0: number }>();
   let fingerAchse: 'quer' | 'hoch' | null = null;
+  let vonUnten = false;
   let fingerStart = 0;
   let langdruck: ReturnType<typeof setTimeout> | undefined;
   let klickSchlucken = false;
@@ -950,6 +988,8 @@ export default function Shell(): JSX.Element {
     finger.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: Date.now() });
     clearTimeout(langdruck);
     if (finger.size === 1) {
+      // Wischen von der unteren Kante nach oben holt das Dock (nur mit Räume-Leiste, wo es sich ausblendet)
+      vonUnten = dockOffene() && e.clientY >= window.innerHeight - 28;
       fingerAchse = querScrollbar(e.target as Element, wurzel) ? 'hoch' : null;
       const ziel = e.target as Element;
       const { clientX: x, clientY: y } = e;
@@ -975,6 +1015,10 @@ export default function Shell(): JSX.Element {
     f.x = e.clientX;
     f.y = e.clientY;
     if (Math.hypot(f.x - f.x0, f.y - f.y0) > 8) clearTimeout(langdruck);
+    if (vonUnten && f.y0 - f.y > 36) {
+      vonUnten = false;
+      dockSichtbar.pfeil();
+    }
     if (finger.size === 2) {
       const [a, b] = [...finger.values()];
       if (fingerStart > 0) {
@@ -1048,7 +1092,8 @@ export default function Shell(): JSX.Element {
 
   onMount(() => {
     void konfigurationLaden();
-    const vorladen = setTimeout(() => { void Start.preload(); void Hilfe.preload(); void Kontrollzentrum.preload(); }, 2500);
+    // Räume dazu: der erste Klick auf einen Raum lud sonst erst dann den Rahmen
+    const vorladen = setTimeout(() => { void Start.preload(); void Hilfe.preload(); void Kontrollzentrum.preload(); void Raum.preload(); }, 2500);
     onCleanup(() => clearTimeout(vorladen));
     const tick = () => {
       const d = new Date();
@@ -1135,26 +1180,18 @@ export default function Shell(): JSX.Element {
       window.removeEventListener('pointermove', zeigerFrei, true);
     });
     // Fragen aus Apps, Seiten und Objekten gehen ins gemeinsame Gespräch; das Dock zeigt es.
-    onCleanup(agentFragenAnbinden({ zeigen: (adresse) => { setAgent(true); setAgentGeladen(true); if (adresse) setAgentAdresse(adresse); } }));
-    // Mitteilungen: eine Quelle meldet sich mit dem Fensterereignis `fyos:zeigt` (lib/os/mitteilungen.ts).
-    const zeigtAnnehmen = (z: ZeigtDaten, nochmal: boolean) => {
-      if (istStumm(mittEinst(), Date.now())) return;
-      if (!flaeche(z.ziel)) {
-        // Gleich nach dem Öffnen ist die Liste der Hub-Apps vielleicht noch unterwegs (Nachgeholtes kommt als Erstes).
-        if (nochmal) setTimeout(() => zeigtAnnehmen(z, false), 3_000);
-        return;
-      }
-      setMitt((l) => hinzufuegen(l, z, Date.now()));
-    };
-    const zeigtHoerer = (e: Event) => {
-      const z = zeigtPruefen((e as CustomEvent).detail);
-      if (z) zeigtAnnehmen(z, true);
-    };
-    window.addEventListener(ZEIGT_EREIGNIS, zeigtHoerer);
-    onCleanup(() => window.removeEventListener(ZEIGT_EREIGNIS, zeigtHoerer));
-    // Die Shell meldet sich als Sitzung der OS-Brücke (lib/os/bruecke.ts): der Hub weiß, dass jemand davor sitzt,
-    // und der Agent erreicht ihn mit os.mitteilen; was nachts vorgemerkt wurde, kommt beim Öffnen.
-    onCleanup(brueckeStarten({ art: schmal() ? 'telefon' : 'computer' }));
+    onCleanup(
+      agentFragenAnbinden({
+        zeigen: (_adresse, frage) => {
+          setAgent(true);
+          setAgentGeladen(true);
+          if (frage) setAgentEntwurf({ text: mitKontext(frage.text, frage.kontext) });
+        },
+      }),
+    );
+    // Die Brücke zum Hub (Mitteilungen, Lage, Werkzeuge) hängt als <Bruecke> am Ende dieser Datei.
+    // Welche Räume etwas zu zeigen haben (lib/os/raeume-inhalt.ts): die Leiste blendet leere Räume aus.
+    void inhaltPruefen();
     // Safari kneift über eigene Ereignisse.
     let safariStart = 1;
     const gStart = (e: Event) => {
@@ -1208,6 +1245,16 @@ export default function Shell(): JSX.Element {
     setAp(a);
     merkeBesucht(a);
     setBereit(true);
+    // Apps-Seite: Link /os/apps/ öffnet sie; „Zurück“ und „Vor“ des Browsers schließen und öffnen sie wieder
+    if (istAppsPfad(location.pathname) && !gewuenscht) oeffneStart();
+    const verlauf = () => {
+      const soll = istAppsPfad(location.pathname);
+      if (soll === start()) return;
+      if (soll) oeffneStart();
+      else setStart(false);
+    };
+    window.addEventListener('popstate', verlauf);
+    onCleanup(() => window.removeEventListener('popstate', verlauf));
     // Zweiter Tab mit dem OS: dessen Fenster übernehmen, den eigenen Bildschirm behalten; nicht zurückschreiben (kein Hin und Her)
     onCleanup(fremdesSpeichern((fremd) => {
       const mein = bildschirmBei(ap(), aktiv())?.id;
@@ -1325,6 +1372,14 @@ export default function Shell(): JSX.Element {
       } else if (uebersicht() && e.key === 'Enter' && !menue()) {
         e.preventDefault();
         setUebersicht(false);
+      } else if (wechsel && e.code === 'KeyD' && dockOffene()) {
+        // ⌥⌘D: das Dock holen (wie am Mac „Dock ein-/ausblenden“); der Fokus geht auf das erste Symbol
+        e.preventDefault();
+        if (dockSichtbar.sichtbar()) dockSichtbar.verbergen();
+        else {
+          dockSichtbar.pfeil();
+          queueMicrotask(() => wurzel?.querySelector<HTMLElement>('nav[aria-label="Bodenleiste"] .os-dock-symbol')?.focus());
+        }
       } else if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         if (start()) setStart(false);
@@ -1414,23 +1469,44 @@ export default function Shell(): JSX.Element {
   });
   onCleanup(() => clearTimeout(meldeZeit));
 
+  /**
+   * „Wartet auf dich“ (OS-Neubau P2, 31.10.): die Zahl kommt allein aus `wartet.eingang` (lib/os/wartet.ts), dieselbe
+   * wie in Zentrale, Seit-Streifen und Meldungen. Ein Klick öffnet die Schublade von rechts, in der sich alles
+   * beantworten lässt (vorher: ein Menü mit Kennungen, das nach „Braucht dich“ weiterschickte).
+   */
+  const wartet = wartetBeobachten();
+  const [schublade, setSchublade] = createSignal(false);
+  /**
+   * Was das Dock zeigt. Mit Räume-Leiste (neues Dock, 28.10.): alle geöffneten Anwendungen aller Bildschirme, denn die
+   * Bildschirm-Punkte sind aus dem Dock gegangen und ein Klick führt zu dem Bildschirm, auf dem die Anwendung liegt.
+   * Klassisch: nur die Fenster des aktuellen Bildschirms wie bisher.
+   */
   const dockFenster = () => {
-    const b = aktueller(ap());
-    if (!b) return [];
-    return b.fenster
-      .filter((w) => flaeche(w.id))
-      .map((w) => {
-        const f = flaeche(w.id)!;
-        return { id: w.id, titel: f.titel, gruppe: f.gruppe, min: w.min };
-      });
+    const bs = dockOffene() ? ap().bildschirme : [aktueller(ap())].filter((b): b is Bildschirm => !!b);
+    return bs.flatMap((b) =>
+      b.fenster
+        .filter((w) => flaeche(w.id))
+        .map((w) => {
+          const f = flaeche(w.id)!;
+          return { id: w.id, titel: f.titel, gruppe: f.gruppe, min: w.min, privat: f.privat };
+        }),
+    );
   };
   const dockFensterKlick = (id: string) => {
     const i = wo(ap(), id);
     if (i < 1) return;
     const w = bildschirmBei(ap(), i)!.fenster.find((x) => x.id === id)!;
+    // Verdeckt (anderer Bildschirm, Raum oder Apps-Seite darüber): nach vorn holen, nicht minimieren
+    const verdeckt = i !== aktiv() || imRaum() || start() || uebersicht();
     if (w.min) fensterHolen(id);
-    else if (fokus() === id && !schmal()) fensterMinimieren(id);
-    else setFokus(id);
+    if (verdeckt) {
+      setStart(false);
+      gehe(i);
+      setFokus(id);
+    } else if (!w.min) {
+      if (fokus() === id && !schmal()) fensterMinimieren(id);
+      else setFokus(id);
+    }
   };
   const ruhe = () => (aktiv() !== START && !uebersicht()) || untaetig() || versteckt() || start();
   const vorne = () => {
@@ -1512,6 +1588,9 @@ export default function Shell(): JSX.Element {
       ablegen: (g) => ablegenAuf(index(), g),
       an: setZiel,
     });
+    // Nicht vorn, in der Übersicht oder unter der Apps-Seite: weder sichtbar noch bedienbar (der Startbildschirm trüge
+    // sonst dieselben Kacheln ein zweites Mal)
+    const verborgen = () => uebersicht() || aktiv() !== index() || start();
     return (
     <div
       class="os-platz"
@@ -1524,8 +1603,8 @@ export default function Shell(): JSX.Element {
       <section
         class="os-bildschirm"
         aria-label={index() === START ? name() : `Bildschirm: ${name()}`}
-        aria-hidden={uebersicht() || aktiv() !== index()}
-        ref={(el) => createEffect(() => { el.inert = uebersicht() || aktiv() !== index(); })}
+        aria-hidden={verborgen()}
+        ref={(el) => createEffect(() => { el.inert = verborgen(); })}
       >
         {inhalt()}
       </section>
@@ -1561,6 +1640,23 @@ export default function Shell(): JSX.Element {
         onDoppelklick={ansichtRueckenWunsch}
         rechts={
           <>
+            <AmpelPunkt oeffne={(id) => oeffne(id)} />
+            <MeldungenGlocke onEinstellungen={einstellungen} />
+            <Show when={wartet() != null && wartet()! > 0}>
+              <button
+                type="button"
+                data-privat="privat"
+                class="os-leiste-punkt os-leiste-wartet"
+                aria-label={`Wartet auf dich: ${wartet()}`}
+                aria-haspopup="dialog"
+                aria-expanded={schublade()}
+                title="Was auf dich wartet"
+                classList={{ 'os-leiste-an': schublade() }}
+                onClick={() => setSchublade((x) => !x)}
+              >
+                <span class="max-sm:hidden">Wartet auf dich</span> <span class="os-zahl">{wartet()}</span>
+              </button>
+            </Show>
             <button
               type="button"
               data-kz-knopf
@@ -1583,7 +1679,16 @@ export default function Shell(): JSX.Element {
 
       <div class="relative z-[1] flex min-h-0 flex-1">
         <Show when={raeume().an && !schmal()}>
-          <RaeumeLeiste zustand={raeume()} onRaum={raumGehe} agentAn={agent()} onAgent={toggleAgent} />
+          <RaeumeLeiste
+            zustand={raeume()}
+            verfuegbar={verfuegbar()}
+            onRaum={raumGehe}
+            agentAn={agent()}
+            onAgent={toggleAgent}
+            appsOffen={start()}
+            onApps={() => (start() ? setStart(false) : oeffneStart())}
+            onAgentAblegen={fragenZuGut}
+          />
         </Show>
         {/* overflow: clip statt hidden — hidden lässt sich per Skript scrollen (scrollIntoView, Fokus): das Band verrutschte
             dann seitlich und blieb so (lib/os/ansicht.ts). Fehlt clip (alter Browser), rückt onScroll es zurück. */}
@@ -1591,7 +1696,7 @@ export default function Shell(): JSX.Element {
           ref={bereich}
           data-os-bereich
           class="relative min-w-0 flex-1 overflow-clip"
-          classList={{ 'os-uebersicht': uebersicht(), 'os-im-raum': imRaum() }}
+          classList={{ 'os-uebersicht': uebersicht(), 'os-im-raum': imRaum(), 'os-apps-offen': start() }}
           onScroll={() => ansichtRuecken()}
         >
           <Show when={meldung()}>
@@ -1599,6 +1704,36 @@ export default function Shell(): JSX.Element {
           </Show>
           <Show when={imRaum()}>
             <Raum id={raeume().aktiv} oeffne={(id) => oeffne(id)} schmal={schmal()} heim={() => raumGehe(ZENTRALE)} />
+          </Show>
+          {/* Die Apps-Seite (Launcher, /os/apps/): eigene Seite über Raum und Bildschirmen, die darunter bleiben erhalten */}
+          <Show when={start()}>
+            <Start
+              seite
+              suche={suche()}
+              setSuche={setSuche}
+              gruppen={gruppen()}
+              suchstand={sucheStand()}
+              onTreffer={trefferOeffnen}
+              griffe={griffTreffer()}
+              onGriff={(g) => void griffSchalten(g)}
+              offen={(id) => wo(ap(), id) >= 1}
+              onOeffnen={(id) => oeffne(id)}
+              onZiehEnde={() => zugEndet()}
+              bildschirme={bildschirme()}
+              aktiv={aktiv()}
+              onWechseln={(i) => { gehe(i); setStart(false); }}
+              onNeuerBildschirm={() => { neuerBildschirmAn(); setStart(false); }}
+              vorlagen={vorlagen()}
+              onVorlage={vorlageOeffnen}
+              vorlageName={vorlageName()}
+              setVorlageName={setVorlageName}
+              onVorlageSpeichern={() => void vorlageSpeichern()}
+              onVorlageEntfernen={(n) => void vorlageEntfernen(n)}
+              vorlageFehler={vorlageFehler()}
+              kannSpeichern={!!aktueller(ap())?.fenster.length}
+              onSchliessen={() => setStart(false)}
+              feld={(el) => (sucheFeld = el)}
+            />
           </Show>
           <Show
             when={!schmal()}
@@ -1653,38 +1788,15 @@ export default function Shell(): JSX.Element {
             <button type="button" class="os-knopf" aria-label={`${agentName()} schließen`} onClick={() => setAgent(false)}>✕</button>
           </header>
           <Show when={agentGeladen()}>
-            <iframe src={agentAdresse()} title={`${agentName()}-Chat`} class="min-h-0 flex-1 border-0 bg-(--color-bg)" style={{ 'pointer-events': ziehen() ? 'none' : 'auto', 'color-scheme': 'dark light' }} onLoad={(e) => fremdesThemaAnwenden(e.currentTarget)} />
+            {/* Ab 0.2.0 die native Agent-App gegen den Runner (/api/agent) statt des eingebetteten OpenClaw-Chats */}
+            <div class="min-h-0 flex-1 flex flex-col" style={{ 'pointer-events': ziehen() ? 'none' : 'auto' }}>
+              <Suspense fallback={null}>
+                <AgentRunner schmal oeffne={oeffne} fuellen entwurf={agentEntwurf()} />
+              </Suspense>
+            </div>
           </Show>
         </aside>
 
-        <Show when={start()}>
-          <Start
-            suche={suche()}
-            setSuche={setSuche}
-            gruppen={gruppen()}
-            suchstand={sucheStand()}
-            onTreffer={trefferOeffnen}
-            griffe={griffTreffer()}
-            onGriff={(g) => void griffSchalten(g)}
-            offen={(id) => wo(ap(), id) >= 1}
-            onOeffnen={(id) => oeffne(id)}
-            onZiehEnde={() => zugEndet()}
-            bildschirme={bildschirme()}
-            aktiv={aktiv()}
-            onWechseln={(i) => { gehe(i); setStart(false); }}
-            onNeuerBildschirm={() => { neuerBildschirmAn(); setStart(false); }}
-            vorlagen={vorlagen()}
-            onVorlage={vorlageOeffnen}
-            vorlageName={vorlageName()}
-            setVorlageName={setVorlageName}
-            onVorlageSpeichern={() => void vorlageSpeichern()}
-            onVorlageEntfernen={(n) => void vorlageEntfernen(n)}
-            vorlageFehler={vorlageFehler()}
-            kannSpeichern={!!aktueller(ap())?.fenster.length}
-            onSchliessen={() => setStart(false)}
-            feld={(el) => (sucheFeld = el)}
-          />
-        </Show>
         <Show when={hilfe()}>
           <Hilfe onSchliessen={() => setHilfe(false)} />
         </Show>
@@ -1714,6 +1826,8 @@ export default function Shell(): JSX.Element {
         onFenster={dockFensterKlick}
         agent={agent()}
         onAgent={toggleAgent}
+        modus={dockOffene() ? 'offene' : 'klassisch'}
+        sicht={dockSichtbar}
         onAblegen={(i, g) => ablegenAuf(i, g)}
         onAblegenNeu={(g) => ablegenAuf('neu', g)}
         onAgentAblegen={fragenZuGut}
@@ -1734,23 +1848,23 @@ export default function Shell(): JSX.Element {
       <Show when={kz() != null}>
         <Kontrollzentrum x={kz()!} onSchliessen={() => setKz(null)} einstellungenDa={einstellungenDa()} onEinstellungen={einstellungen} />
       </Show>
-      <Mitteilungen
-        liste={mitt}
+      {/* Die OS-Brücke zum Hub (components/os/Bruecke.tsx): Lage und Werkzeuge für den Agenten, Mitteilungen samt Rückgängig-Karte */}
+      <MeldungenHost agentVorn={() => agent() || fokus() === 'nativ:agent'} />
+      <SpielFeier />
+      <WartetSchublade offen={schublade()} schliessen={() => setSchublade(false)} oeffne={(ziel) => void oeffneZiel(ziel)} />
+      <Bruecke
+        ap={ap}
+        fokus={fokus}
+        agent={agent}
         flaeche={flaeche}
-        onOeffnen={async (m) => (oeffneZiel(m.zeigt.ziel, m.zeigt.eingabe ?? undefined) ? null : 'Diese Fläche gibt es hier nicht.')}
-        onWeg={(id) => setMitt((l) => l.filter((x) => x.id !== id))}
-        onStumm={(minuten) => {
-          const vorher = mittEinst();
-          mittEinstellen({ ...vorher, stumm_bis: Date.now() + minuten * 60_000 });
-          rueckgaengigAnbieten({ text: 'Mitteilungen eine Stunde stumm.', zurueck: () => mittEinstellen(vorher) });
+        flaechen={flaechen}
+        oeffne={(id) => oeffne(id)}
+        schliesse={(id) => {
+          const i = wo(ap(), id);
+          if (i < 1) return false;
+          setze(fensterAendern(ap(), i, (l) => schliessen(l, id)));
+          return true;
         }}
-        onAus={() => {
-          const vorher = mittEinst();
-          mittEinstellen({ ...vorher, aus: true });
-          rueckgaengigAnbieten({ text: 'Mitteilungen sind aus.', zurueck: () => mittEinstellen(vorher) });
-        }}
-        hinweis={rueckHinweis}
-        onHinweisWeg={() => rueckgaengigAnbieten(null)}
       />
       <Menue />
     </div>

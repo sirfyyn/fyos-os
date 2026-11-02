@@ -7,8 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RaeumeEinstellen from '~/components/einstellungen/RaeumeEinstellen';
 import RaeumeLeiste from '~/components/os/RaeumeLeiste';
 import { raumHatInhalt } from '~/components/os/Raum';
+import { verfuegbarSetzen } from '~/lib/os/raeume-inhalt';
+import { NichtEingerichtet } from '~/components/raeume/Huelle';
 import {
   RAEUME,
+  ausblendGrund,
+  ausblenden,
+  leereAusblenden,
+  raumHatPlugin,
   einschalten,
   laden,
   leiste,
@@ -173,11 +179,107 @@ describe('Räume einstellen', () => {
 
   it('der Schalter schaltet die Räume ein und aus; sind alle gebaut, fehlt „Noch im Bau“', () => {
     render(() => <RaeumeEinstellen />);
-    const schalter = screen.getByRole('switch', { name: /Räume/ });
+    const schalter = screen.getByRole('switch', { name: /^Räume/ });
     expect(schalter.getAttribute('aria-checked')).toBe('true');
     fireEvent.click(schalter);
     expect(raeume().an).toBe(false);
-    expect(screen.getByRole('switch', { name: /Räume/ }).getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('switch', { name: /^Räume/ }).getAttribute('aria-checked')).toBe('false');
     expect(screen.queryByText('Noch im Bau')).toBeNull();
+  });
+});
+
+describe('Räume ausblenden', () => {
+  const nurOeffentlich = ['vorgaenge__zeigen', 'werkstatt__suchen', 'mcp__uebersicht', 'termine__zeigen', 'posteingang__zeigen', 'desktop__zeigen'];
+
+  it('ohne Wissen über den Hub bleiben alle Räume in der Leiste', () => {
+    expect(ids(an())).toEqual(['zentrale', 'gespraech', 'sammlung', 'atelier', 'vorhaben', 'buero', 'zuhause', 'betrieb', 'einstellungen']);
+    expect(leiste(an(), null).length).toBe(9);
+    expect(raumHatPlugin('zuhause', null)).toBe(true);
+  });
+
+  it('blendet Räume ohne Plugin von selbst aus, Zentrale, Gespräch, Sammlung und Einstellungen nie', () => {
+    const verf = new Set(nurOeffentlich);
+    expect(leiste(an(), verf).map((r) => r.id)).toEqual(['zentrale', 'gespraech', 'sammlung', 'vorhaben', 'buero', 'betrieb', 'einstellungen']);
+    expect(ausblendGrund(an(), 'zuhause', verf)).toBe('leer');
+    expect(ausblendGrund(an(), 'atelier', verf)).toBe('leer');
+    expect(ausblendGrund(an(), 'buero', verf)).toBeNull();
+    for (const fest of ['zentrale', 'gespraech', 'sammlung', 'einstellungen'] as const) expect(ausblendGrund(an(), fest, new Set())).toBeNull();
+  });
+
+  it('ein Plugin holt den Raum zurück, auch eine registrierte Seite', () => {
+    expect(leiste(an(), new Set([...nurOeffentlich, 'haus__geraete'])).map((r) => r.id)).toContain('zuhause');
+    expect(raumHatPlugin('buero', new Set(['seite:finanzen']))).toBe(true);
+    expect(raumHatPlugin('atelier', new Set(['medien__bild']))).toBe(true);
+  });
+
+  it('„Leere Räume ausblenden“ aus: alle Räume bleiben, auch ohne Plugin', () => {
+    const z = leereAusblenden(an(), false);
+    expect(z.leereAus).toBe(false);
+    expect(leiste(z, new Set()).length).toBe(9);
+    expect(leereAusblenden(z, false)).toBe(z);
+  });
+
+  it('von Hand ausblenden und einblenden; ist der Raum vorn, geht es in die Zentrale', () => {
+    const z = ausblenden(an({ aktiv: 'betrieb' }), 'betrieb', true);
+    expect(z.ausgeblendet).toEqual(['betrieb']);
+    expect(z.aktiv).toBe('zentrale');
+    expect(ids(z)).not.toContain('betrieb');
+    expect(ausblendGrund(z, 'betrieb', new Set(['vorgaenge__zeigen']))).toBe('hand');
+    expect(ausblenden(z, 'betrieb', true)).toBe(z);
+    expect(ids(ausblenden(z, 'betrieb', false))).toContain('betrieb');
+  });
+
+  it('feste Plätze lassen sich nicht ausblenden', () => {
+    const z = an();
+    expect(ausblenden(z, 'zentrale', true)).toBe(z);
+    expect(ausblenden(z, 'einstellungen', true)).toBe(z);
+  });
+
+  it('das Kreisen über die Räume überspringt ausgeblendete', () => {
+    const verf = new Set(nurOeffentlich);
+    expect(schritt(an({ aktiv: 'sammlung' }), 1, verf).aktiv).toBe('vorhaben');
+    expect(schritt(ausblenden(an({ aktiv: 'sammlung' }), 'vorhaben', true), 1, verf).aktiv).toBe('buero');
+  });
+
+  it('prüft Fremdstände: Unbekanntes und feste Plätze fliegen aus „ausgeblendet“, ohne Angabe ist leereAus an', () => {
+    const z = pruefen({ ausgeblendet: ['zuhause', 'zuhause', 'zentrale', 'quatsch', 'einstellungen'] });
+    expect(z.ausgeblendet).toEqual(['zuhause']);
+    expect(z.leereAus).toBe(true);
+    expect(pruefen({ leereAus: false }).leereAus).toBe(false);
+  });
+
+  it('die Leiste folgt dem Hub, die Einstellungen zeigen den Grund und schalten', () => {
+    verfuegbarSetzen(nurOeffentlich);
+    render(() => <RaeumeEinstellen />);
+    expect(document.querySelector('[data-raum-zeile="zuhause"] [data-raum-grund="leer"]')).toBeTruthy();
+    expect(document.querySelector('[data-raum-zeile="betrieb"] [data-raum-grund]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Betrieb ausblenden' }));
+    expect(raeume().ausgeblendet).toEqual(['betrieb']);
+    expect(document.querySelector('[data-raum-zeile="betrieb"] [data-raum-grund="hand"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Betrieb einblenden' }));
+    expect(raeume().ausgeblendet).toEqual([]);
+    fireEvent.click(screen.getByRole('switch', { name: /Leere Räume ausblenden/ }));
+    expect(raeume().leereAus).toBe(false);
+    expect(document.querySelector('[data-raum-zeile="zuhause"] [data-raum-grund]')).toBeNull();
+    verfuegbarSetzen(null);
+  });
+
+  it('die Räume-Leiste zeigt nur Räume mit Plugin, sobald der Hub bekannt ist', () => {
+    render(() => <RaeumeLeiste zustand={an()} verfuegbar={new Set(nurOeffentlich)} onRaum={vi.fn()} agentAn={false} onAgent={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Zuhause' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Atelier' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Betrieb' })).toBeTruthy();
+  });
+});
+
+describe('Hinweis bei fehlendem Plugin', () => {
+  it('nennt neben dem Satz den Weg: Plugin-Vorlage und die Anleitung ERWEITERN.md', () => {
+    render(() => <NichtEingerichtet detail="Im Hub fehlt das Werkzeug haus__geraete." />);
+    expect(screen.getByText('Noch nicht eingerichtet.')).toBeTruthy();
+    const weg = document.querySelector('[data-nicht-eingerichtet-weg]')!;
+    expect(weg.textContent).toContain('Plugin');
+    const links = [...weg.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['https://pypi.org/project/fyos-plugin-vorlage/']);
+    expect(weg.querySelector('code')!.textContent).toBe('docs/ERWEITERN.md');
   });
 });

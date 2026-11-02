@@ -3,14 +3,15 @@
 # Der Browser spricht nur mit diesem Server:
 #   /hub-api/*  ->  ${FYOS_HUB_UPSTREAM}/hub/*       (Hub: Apps, Ressourcen, App-Aufrufe, OS-Brücke)
 #   /hub/gui/<id>[/daten]  ->  ${FYOS_HUB_UPSTREAM}/hub/gui/…  (gebaute Ansichten, nur GET, Pfad bleibt)
-#   /agent, /agent/*  ->  ${FYOS_AGENT_UPSTREAM}/agent…  (Agent-Gateway mit Präfix, inkl. WebSocket)
+#   /api/agent/*  ->  ${FYOS_AGENT_UPSTREAM}/*  (Agenten-Runner: Präfix ab, Token setzt dieser Server, SSE ohne Puffer)
+#   /agent, /agent/*  ->  ${FYOS_OPENCLAW_UPSTREAM}/agent…  (veraltet: OpenClaw-Gateway mit Präfix, inkl. WebSocket)
 #   /fyos.config.json  aus einer Datei (Laufzeit-Konfiguration, siehe README)
 #
 # Die Datei ist eine envsubst-Vorlage (nginx-Image: /etc/nginx/templates). Ersetzt werden nur
-# FYOS_HUB_UPSTREAM und FYOS_AGENT_UPSTREAM; alle anderen $-Variablen gehören nginx.
-# Es gibt keinen festen Resolver: beide Upstreams sind statische Namen, die nginx beim Start auflöst.
-# FYOS_AGENT_UPSTREAM steht ohne Pfad (http://agent:18789): die Agent-Location ist ein regulärer Ausdruck,
-# und nginx verbietet dort einen Pfad hinter proxy_pass.
+# FYOS_HUB_UPSTREAM, FYOS_AGENT_UPSTREAM, FYOS_AGENT_TOKEN und FYOS_OPENCLAW_UPSTREAM; alle anderen
+# $-Variablen gehören nginx. Es gibt keinen festen Resolver: die Upstreams sind statische Namen, die nginx
+# beim Start auflöst. FYOS_OPENCLAW_UPSTREAM steht ohne Pfad (http://openclaw:18789): die Location ist ein
+# regulärer Ausdruck, und nginx verbietet dort einen Pfad hinter proxy_pass.
 
 # Die Oberfläche des Gateways verbietet jede Einbettung (X-Frame-Options DENY, CSP frame-ancestors 'none').
 # Die Shell zeigt den Chat aber als Fenster im eigenen Ursprung. Für /agent ersetzt dieser Server deshalb
@@ -47,6 +48,12 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "interest-cohort=()" always;
 
+    # Agent und OpenClaw werden erst je Anfrage aufgelöst (proxy_pass mit Variable): fehlt einer der Dienste, startet die
+    # Shell trotzdem, nur dieser Weg antwortet 502. NGINX_LOCAL_RESOLVERS setzt das nginx-Bild aus /etc/resolv.conf
+    # (Docker und Kubernetes); NGINX_ENVSUBST_FILTER lässt die Variable durch.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+    resolver_timeout 5s;
+
     # Gesundheitsabfrage (Container-Healthcheck, Kubernetes-Probes)
     location = /healthz {
         access_log off;
@@ -63,13 +70,45 @@ server {
         add_header X-Content-Type-Options "nosniff" always;
     }
 
-    # Agent-Gateway (Chat im Dock und als Fläche), mit WebSocket-Upgrade. Pfad GENAU /agent und /agent/…,
+    # Agenten-Runner (native Agent-App im Dock und als Fläche, lib/agent-runner/verbindung.ts): /api/agent/<weg> geht
+    # als /<weg> an den Runner. Das Token kennt der Browser nie: dieser Server setzt `Authorization: Bearer` aus
+    # FYOS_AGENT_TOKEN und streicht Cookie und eigene Authorization des Browsers. Ohne den Kopf `X-FYOS-Agent: 1`
+    # (setzt die App, eine fremde Seite kann ihn nicht ohne Vorabfrage schicken) antwortet 404. Die Ströme sind
+    # Server-Sent Events: kein Puffer, langes Lesefenster. Wer die Shell nach außen stellt, schützt diesen Weg
+    # mit einer Anmeldung davor: jeder, der ihn erreicht, spricht mit dem Token des Runners.
+    location ^~ /api/agent/ {
+        if ($http_x_fyos_agent != "1") { return 404; }
+        limit_except GET POST PUT PATCH DELETE { deny all; }
+        # Präfix ab, dann zur Laufzeit aufgelöst an den Runner (Pfad und Abfrage bleiben)
+        set $fyos_agent ${FYOS_AGENT_UPSTREAM};
+        rewrite ^/api/agent/(.*)$ /$1 break;
+        proxy_pass $fyos_agent;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Cookie "";
+        proxy_set_header Authorization "Bearer ${FYOS_AGENT_TOKEN}";
+        client_max_body_size 2m;
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        add_header X-Accel-Buffering "no" always;
+        add_header Cache-Control "no-cache, no-transform" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+    location = /api/agent { return 404; }
+
+    # Veraltet (bis 0.1): OpenClaw-Gateway (Control UI), mit WebSocket-Upgrade. Pfad GENAU /agent und /agent/…,
     # nicht /agent… (das träfe auch /agents). Der Pfad geht unverändert durch: das Gateway liefert seine
     # Oberfläche unter gateway.controlUi.basePath=/agent aus und baut Assets und WebSocket mit diesem Präfix,
     # ohne Präfix antwortet es 404. Diese Location steht vor den Regex-Locations für Medien und HTML, sonst
     # landeten Bilder der Oberfläche (/agent/….svg) bei den statischen Dateien.
     location ~ ^/agent(/|$) {
-        proxy_pass ${FYOS_AGENT_UPSTREAM};
+        set $fyos_openclaw ${FYOS_OPENCLAW_UPSTREAM};
+        proxy_pass $fyos_openclaw;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header Upgrade $http_upgrade;

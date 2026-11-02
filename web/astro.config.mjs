@@ -19,6 +19,36 @@ if (hub) {
     rewrite: (/** @type {string} */ p) => p.replace(/^\/hub-api/, '/hub'),
   };
 }
+// Agenten-Runner (FYOS_DEV_RUNNER, z. B. http://localhost:18438): dieselbe Tür wie nginx — Pflicht-Kopf
+// X-FYOS-Agent: 1 (sonst 404), Präfix /api/agent ab, Cookie weg, Authorization: Bearer aus FYOS_DEV_RUNNER_TOKEN.
+// Das Token steht nie im Browser.
+const runner = process.env.FYOS_DEV_RUNNER?.trim();
+if (runner) {
+  const token = process.env.FYOS_DEV_RUNNER_TOKEN ?? '';
+  proxy['/api/agent'] = {
+    target: new URL(runner).origin,
+    changeOrigin: true,
+    ws: false,
+    rewrite: (/** @type {string} */ p) => p.replace(/^\/api\/agent/, '') || '/',
+    /** @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res */
+    bypass(req, res) {
+      if (req.headers['x-fyos-agent'] !== '1' && res) {
+        res.statusCode = 404;
+        res.end('nicht freigegeben');
+        return false;
+      }
+      return undefined;
+    },
+    /** @param {import('http-proxy').Server} p */
+    configure(p) {
+      p.on('proxyReq', (proxyReq) => {
+        proxyReq.removeHeader('cookie');
+        proxyReq.setHeader('Authorization', `Bearer ${token}`);
+      });
+    },
+  };
+}
+// Veraltet: OpenClaw-Gateway unter /agent
 if (agent) {
   proxy['/agent'] = {
     target: agent,

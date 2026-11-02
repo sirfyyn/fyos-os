@@ -1,0 +1,91 @@
+/* Spiel (OS-Neubau P9): Feier und Level-Anzeige, Gestaltung aus styles/fyos2.css. */
+.spiel-feier {
+  position: fixed;
+  right: calc(20px + env(safe-area-inset-right, 0px));
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+.spiel-punkte {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--f2-surface);
+  border: 1px solid color-mix(in oklab, var(--f2-amber) 45%, transparent);
+  box-shadow: var(--f2-shadow-2), 0 0 24px color-mix(in oklab, var(--f2-amber) 30%, transparent);
+  color: var(--f2-fg-2);
+  font-size: 0.8125rem;
+  animation: spiel-steigen 2.6s var(--f2-ease) forwards;
+}
+.spiel-punkte b { font: 800 1.125rem / 1 var(--f2-font-display); color: var(--f2-amber); }
+.spiel-funken { position: absolute; left: 18px; top: 50%; }
+.spiel-funken i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--f2-amber);
+  animation: spiel-funke 0.9s var(--f2-ease) forwards;
+}
+.spiel-funken i:nth-child(1) { --dx: -22px; --dy: -26px; }
+.spiel-funken i:nth-child(2) { --dx: 6px; --dy: -34px; background: var(--f2-coral); }
+.spiel-funken i:nth-child(3) { --dx: 26px; --dy: -20px; }
+.spiel-funken i:nth-child(4) { --dx: -30px; --dy: -6px; background: var(--f2-agent); }
+.spiel-funken i:nth-child(5) { --dx: 34px; --dy: -2px; background: var(--f2-mint); }
+
+.spiel-level {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: var(--f2-r);
+  background: linear-gradient(135deg, var(--f2-surface-2), var(--f2-surface));
+  border: 1px solid color-mix(in oklab, var(--f2-agent) 45%, transparent);
+  box-shadow: var(--f2-shadow-2), var(--f2-glow-agent);
+  animation: spiel-auftritt 6.5s var(--f2-spring) forwards;
+}
+.spiel-level-titel { font: 800 1.125rem / 1.2 var(--f2-font-display); color: var(--f2-fg); }
+.spiel-level-text { margin-top: 4px; font-size: 0.8125rem; color: var(--f2-fg-2); }
+
+/* Level-Anzeige (Zentrale) */
+.spiel-anzeige { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; color: var(--f2-fg-3); }
+.spiel-anzeige b { color: var(--f2-fg); font-weight: 650; white-space: nowrap; }
+.spiel-balken { flex: 1; height: 6px; border-radius: 3px; background: var(--f2-surface-3); overflow: hidden; }
+.spiel-balken span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--f2-agent), var(--f2-coral));
+  transition: width var(--f2-slow) var(--f2-spring);
+}
+
+@keyframes spiel-steigen {
+  0% { opacity: 0; transform: translateY(14px) scale(0.9); }
+  12% { opacity: 1; transform: translateY(0) scale(1.04); }
+  20% { transform: scale(1); }
+  80% { opacity: 1; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-22px); }
+}
+@keyframes spiel-funke {
+  from { opacity: 1; transform: translate(0, 0) scale(1); }
+  to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.4) rotate(90deg); }
+}
+@keyframes spiel-auftritt {
+  0% { opacity: 0; transform: translateX(40px) scale(0.9); }
+  8% { opacity: 1; transform: translateX(-6px) scale(1.02); }
+  12% { transform: none; }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spiel-punkte, .spiel-level { animation: none; }
+  .spiel-funken { display: none; }
+  .spiel-balken span { transition: none; }
+}

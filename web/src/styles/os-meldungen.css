@@ -1,0 +1,236 @@
+/*
+ * os-meldungen.css — Toasts und Glocke des Meldungsdienstes (28.10.2026, components/os/MeldungenHost.tsx, MeldungenGlocke.tsx).
+ *
+ * Ort: unten rechts; am Handy im Stapel von „Agent zeigt dir …“ (oben). „Agent zeigt dir …“ steht oben rechts (os-mitteilung.css), das Dock mittig
+ * unten mit dem Pfeil in der Mitte: unten rechts kollidiert mit keinem von beiden. Stufen sind an der Farbe des linken Rands UND am Wort
+ * zu erkennen (nie nur Farbe). Bewegung: Einblenden mit kurzem Gleiten; mit prefers-reduced-motion nur Einblenden (Deckkraft).
+ * Gleiche Ebenenreihenfolge wie os-mitteilung.css, damit die Reihenfolge der Importe nichts ändert.
+ */
+@layer theme, base, components, utilities;
+
+@layer components {
+
+.os-meldungen {
+  position: absolute;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  /* über Dock-Bereich (3) und Dock-Hülle (8), unter Kontrollzentrum (60), Agent zeigt dir (62) und den Menüs */
+  z-index: 58;
+  display: flex;
+  width: min(22rem, calc(100% - 1.5rem));
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.os-meldungen:empty { display: none; }
+/* Am Handy steht der Host im Container von „Agent zeigt dir …“ (components/os/MeldungenHost.tsx, Portal): ein Stapel, unsere Toasts zuerst. */
+@media (max-width: 767px) {
+  .os-meldungen {
+    position: static;
+    order: -1;
+    width: auto;
+    flex-direction: column;
+  }
+}
+
+.os-meldung {
+  --os-meldung-streifen: var(--os-akzent, #0a84ff);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem 0.65rem 0.9rem;
+  border-radius: 1rem;
+  font-family: var(--os-schrift, system-ui, sans-serif);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+  box-shadow: 0 18px 44px -16px rgb(0 0 0 / 0.55), inset 4px 0 0 var(--os-meldung-streifen);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
+  pointer-events: auto;
+  transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: os-meldung-ein 0.34s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+html[data-theme="light"] .os-meldung {
+  box-shadow: 0 12px 30px -14px rgb(0 0 0 / 0.3), inset 4px 0 0 var(--os-meldung-streifen);
+}
+.os-meldung[data-stufe="kritisch"] { --os-meldung-streifen: #ff453a; border-color: color-mix(in oklab, #ff453a 55%, transparent); }
+html[data-theme="light"] .os-meldung[data-stufe="kritisch"] { --os-meldung-streifen: #d70015; border-color: color-mix(in oklab, #d70015 55%, transparent); }
+.os-meldung[data-stufe="hoch"] { --os-meldung-streifen: #ff9f0a; }
+html[data-theme="light"] .os-meldung[data-stufe="hoch"] { --os-meldung-streifen: #b25000; }
+.os-meldung[data-stufe="niedrig"] { --os-meldung-streifen: color-mix(in oklab, var(--color-fg) 45%, transparent); }
+
+@keyframes os-meldung-ein { from { opacity: 0; transform: translate3d(1.25rem, 0, 0); } }
+@keyframes os-meldung-ein-ruhig { from { opacity: 0; } }
+.os-meldung.os-meldung-weg { opacity: 0; transform: translate3d(0.75rem, 0, 0); pointer-events: none; }
+
+.os-meldung-kopf { display: flex; align-items: center; gap: 0.4rem; min-height: 1.4rem; }
+.os-meldung-quelle {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-fg) 82%, transparent);
+}
+.os-meldung-stufe { font-weight: 700; }
+.os-meldung-zu {
+  margin-left: auto;
+  display: inline-flex;
+  width: 1.6rem;
+  height: 1.6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg);
+  cursor: pointer;
+}
+.os-meldung-zu:hover { background: color-mix(in oklab, var(--color-fg) 12%, transparent); }
+@media (pointer: coarse) { .os-meldung-zu { width: 2.75rem; height: 2.75rem; } }
+
+.os-meldung-haupt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.1rem 0.15rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.os-meldung-haupt:hover .os-meldung-titel { text-decoration: underline; text-underline-offset: 2px; }
+.os-meldung-titel { font-size: 0.875rem; font-weight: 650; overflow-wrap: anywhere; }
+.os-meldung-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: color-mix(in oklab, var(--color-fg) 86%, transparent);
+}
+
+.os-meldung-aktionen { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.os-meldung-aktionen:empty { display: none; }
+.os-meldung-knopf {
+  min-height: 1.9rem;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--os-akzent, #0a84ff) 55%, transparent);
+  background: color-mix(in oklab, var(--os-akzent, #0a84ff) 16%, transparent);
+  color: var(--color-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.os-meldung-knopf:hover { background: color-mix(in oklab, var(--os-akzent, #0a84ff) 28%, transparent); }
+.os-meldung-knopf.os-meldung-leise { border-color: color-mix(in oklab, var(--color-fg) 30%, transparent); background: transparent; }
+@media (pointer: coarse) { .os-meldung-knopf { min-height: 2.75rem; } }
+
+.os-meldung :is(button):focus-visible { outline: 2px solid var(--os-akzent, #0a84ff); outline-offset: 2px; }
+
+.os-meldungen-mehr {
+  margin: 0;
+  align-self: flex-end;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+  pointer-events: auto;
+}
+
+/* ── Glocke und Verlauf ────────────────────────────────────────────────────────────────────── */
+.os-glocke { position: relative; }
+.os-glocke-zahl {
+  position: absolute;
+  top: 0;
+  right: 0.05rem;
+  min-width: 0.95rem;
+  height: 0.95rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 0.95rem;
+  text-align: center;
+  color: #fff;
+  background: #c4001a;
+  font-variant-numeric: tabular-nums;
+}
+.os-glocke-stoeren { position: absolute; right: -0.05rem; bottom: 0.1rem; width: 0.55rem; height: 0.55rem; }
+.os-verlauf {
+  position: absolute;
+  top: calc(var(--os-leiste-hoehe, 1.75rem) + 0.25rem);
+  right: 0.75rem;
+  z-index: 63;
+  display: flex;
+  width: min(24rem, calc(100% - 1.5rem));
+  max-height: min(70vh, 32rem);
+  flex-direction: column;
+  border-radius: 1rem;
+  font-family: var(--os-schrift, system-ui, sans-serif);
+  font-size: 0.8125rem;
+  color: var(--color-fg);
+  background: var(--os-menue-bg);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+  box-shadow: 0 22px 54px -18px rgb(0 0 0 / 0.6);
+  -webkit-backdrop-filter: var(--os-glas-filter);
+  backdrop-filter: var(--os-glas-filter);
+  animation: os-meldung-ein 0.24s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.os-verlauf-kopf { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 0.8rem 0.4rem; }
+.os-verlauf-kopf h2 { margin: 0; flex: 1; font-size: 0.9rem; font-weight: 650; }
+.os-verlauf-knopf {
+  min-height: 1.75rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 24%, transparent);
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.os-verlauf-knopf:hover { background: color-mix(in oklab, var(--color-fg) 10%, transparent); }
+.os-verlauf-knopf[aria-pressed="true"] { background: color-mix(in oklab, var(--os-akzent, #0a84ff) 24%, transparent); border-color: var(--os-akzent, #0a84ff); }
+.os-verlauf-liste { margin: 0; padding: 0.2rem 0.4rem 0.5rem; list-style: none; overflow-y: auto; }
+.os-verlauf-leer { margin: 0; padding: 1rem 0.9rem 1.2rem; color: color-mix(in oklab, var(--color-fg) 82%, transparent); }
+.os-verlauf-eintrag {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.5rem 0.45rem 0.7rem;
+  border: 0;
+  border-left: 3px solid color-mix(in oklab, var(--color-fg) 35%, transparent);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.os-verlauf-eintrag:hover { background: color-mix(in oklab, var(--color-fg) 8%, transparent); }
+.os-verlauf-eintrag[data-stufe="kritisch"] { border-left-color: #ff453a; }
+.os-verlauf-eintrag[data-stufe="hoch"] { border-left-color: #ff9f0a; }
+html[data-theme="light"] .os-verlauf-eintrag[data-stufe="kritisch"] { border-left-color: #d70015; }
+html[data-theme="light"] .os-verlauf-eintrag[data-stufe="hoch"] { border-left-color: #b25000; }
+.os-verlauf-eintrag[data-gelesen="ja"] { opacity: 0.78; }
+.os-verlauf-eintrag strong { font-weight: 650; overflow-wrap: anywhere; }
+.os-verlauf-meta { font-size: 0.7rem; color: color-mix(in oklab, var(--color-fg) 80%, transparent); font-variant-numeric: tabular-nums; }
+.os-verlauf :focus-visible { outline: 2px solid var(--os-akzent, #0a84ff); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .os-meldung, .os-verlauf { animation-name: os-meldung-ein-ruhig; transition-property: opacity; }
+  .os-meldung.os-meldung-weg { transform: none; }
+}
+
+}

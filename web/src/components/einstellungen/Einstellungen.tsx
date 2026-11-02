@@ -6,6 +6,7 @@ import type { JSX } from 'solid-js';
 import type { NativProps } from '~/lib/os/nativ';
 import { Abschnitt } from './bausteine';
 import Erscheinungsbild from './Erscheinungsbild';
+import MeldungenEinstellen from './MeldungenEinstellen';
 import RaeumeEinstellen from './RaeumeEinstellen';
 
 export default function Einstellungen(_p: NativProps): JSX.Element {
@@ -14,6 +15,9 @@ export default function Einstellungen(_p: NativProps): JSX.Element {
       <div class="mx-auto w-full max-w-3xl space-y-5 px-4 py-5 @2xl:px-8">
         <Abschnitt id="erscheinungsbild" titel="Erscheinungsbild" geltung="Gilt in diesem Browser">
           <Erscheinungsbild kulisseId="kulisse" />
+        </Abschnitt>
+        <Abschnitt id="meldungen" titel="Meldungen" geltung="Gilt in diesem Browser">
+          <MeldungenEinstellen />
         </Abschnitt>
         <Abschnitt id="raeume" titel="Räume" geltung="Gilt in diesem Browser">
           <RaeumeEinstellen />

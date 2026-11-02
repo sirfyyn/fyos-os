@@ -16,15 +16,29 @@ Der Browser spricht nur mit diesem Server:
 | `/hub-api/os/*` | `${FYOS_HUB_UPSTREAM}/hub/os/…` | OS-Brücke: die Shell meldet sich (`lib/os/bruecke.ts`) und holt Mitteilungen des Agenten ab, auch vorgemerkte der Nacht |
 | `/hub-api/dateien/datei` | `${FYOS_HUB_UPSTREAM}/hub/dateien/datei` | Dateien der Ablage herunterladen (GET) und hochladen (PUT, ohne Zwischenspeicher; Größe begrenzt der Hub); hochgeladen wird aus der Shell (`lib/mcp-apps/host.ts`), nicht aus der App |
 | `/hub/gui/<id>`, `/hub/gui/<id>/daten` | `${FYOS_HUB_UPSTREAM}/hub/gui/…` | gebaute Ansichten als ganze Seite für einen Link (nur GET, Pfad bleibt; Begründung in `docs/HUB-VERTRAG.md`) |
-| `/agent`, `/agent/*` | `${FYOS_AGENT_UPSTREAM}/agent/…` | Chat des Agenten (Control UI des Gateways, mit WebSocket) |
+| `/api/agent/*` | `${FYOS_AGENT_UPSTREAM}/…` (Präfix ab) | Agenten-Runner für die native Agent-App (Dock und Fläche `nativ:agent`): Gespräche, Live-Strom (SSE), Freigaben, Läufe. Nur mit Kopf `X-FYOS-Agent: 1`, sonst 404; nginx setzt `Authorization: Bearer ${FYOS_AGENT_TOKEN}` und streicht Cookie und Authorization des Browsers; ohne Puffer, Lesefenster 1 h |
+| `/agent`, `/agent/*` | `${FYOS_OPENCLAW_UPSTREAM}/agent/…` | veraltet: Control UI des OpenClaw-Gateways (mit WebSocket), nur für Installationen mit dem alten Agenten |
 | `/fyos.config.json` | Datei `/etc/fyos/fyos.config.json` | Laufzeit-Konfiguration |
 | `/healthz` | nginx | Gesundheitsabfrage |
 
-Die Vorlage `nginx/default.conf.template` ist eine envsubst-Vorlage: ersetzt werden nur `FYOS_HUB_UPSTREAM`
-(Vorgabe im Image `http://hub:8080`) und `FYOS_AGENT_UPSTREAM` (`http://agent:18789`, ohne Pfad). Es gibt
-keinen festen Resolver; beide Upstreams sind Namen, die nginx beim Start auflöst.
+Die Vorlage `nginx/default.conf.template` ist eine envsubst-Vorlage (`NGINX_ENVSUBST_FILTER=FYOS_`). Umgebung:
 
-Die Durchreiche zum Agenten hat drei Eigenheiten, die `tools/test_nginx_vorlage.py` festhält:
+| Variable | Vorgabe im Image | Zweck |
+| --- | --- | --- |
+| `FYOS_HUB_UPSTREAM` | `http://hub:8080` | Hub |
+| `FYOS_AGENT_UPSTREAM` | `http://agent:18438` | Agenten-Runner (ab 0.2.0), ohne Pfad |
+| `FYOS_AGENT_TOKEN` | leer | Token des Runners; nginx setzt es als `Authorization: Bearer …`. Leer lehnt der Runner jede Anfrage ab (401). |
+| `FYOS_OPENCLAW_UPSTREAM` | `http://openclaw:18789` | veraltet: OpenClaw-Gateway unter `/agent` |
+
+Es gibt keinen festen Resolver; die Upstreams sind Namen, die nginx beim Start auflöst.
+
+**Runner-Zugang:** Der Browser kennt das Runner-Token nie, nginx setzt es. Damit spricht jeder, der `/api/agent/`
+erreicht, mit den Rechten des Runners. Wer die Shell über das eigene Netz hinaus erreichbar macht, setzt eine Anmeldung
+davor (Proxy mit Login); die Agent-App erkennt eine Umleitung zur Anmeldung und bietet „Anmelden“ an. Der Pflicht-Kopf
+`X-FYOS-Agent: 1` hält fremde Seiten ab: ein Browser schickt ihn quer zur Herkunft nur nach einer Vorabfrage, die
+nginx nicht beantwortet. Im Dev-Server: `FYOS_DEV_RUNNER=http://localhost:18438 FYOS_DEV_RUNNER_TOKEN=… npm run dev`.
+
+Die veraltete Durchreiche zum OpenClaw-Gateway (`/agent`) hat drei Eigenheiten, die `tools/test_nginx_vorlage.py` festhält:
 
 - **Präfix bleibt:** Das Gateway liefert die Control UI unter `/agent/` aus (fyos-agent setzt
   `gateway.controlUi.basePath`). nginx reicht den Pfad deshalb unverändert weiter; `/` des Gateways ist 404.
@@ -145,7 +159,7 @@ window.dispatchEvent(new CustomEvent('fyos:zeigt', {
 
 Den Agenten fragen (aus Apps, Seiten und Objekten): `fyos:agent-fragen` mit `detail: { text, kontext, quelle }` am
 Fenster, aus einer Seite im Fenster per `postMessage({ fyosAgentFragen: { … } })`. Die Shell öffnet das Agent-Dock
-mit der Frage als Entwurf im Chat.
+(native Agent-App gegen den Runner) mit der Frage samt Kontext als Entwurf im Eingabefeld; gesendet wird mit Enter.
 
 Flächen öffnen: `fyos:oeffnen` mit `detail: { ziel, eingabe }` (`ziel` ist eine Fläche oder ein Pfad); die Shell
 setzt `preventDefault()`, wenn sie übernimmt.
@@ -162,11 +176,12 @@ npx astro build      # statische Seiten nach dist/
 Für `npm run dev` leitet der Entwicklungs-Proxy an laufende Dienste, wenn gesetzt:
 
 ```
-FYOS_DEV_HUB=http://localhost:8080 FYOS_DEV_AGENT=http://localhost:18789 npm run dev
+FYOS_DEV_HUB=http://localhost:8080 FYOS_DEV_RUNNER=http://localhost:18438 FYOS_DEV_RUNNER_TOKEN=… npm run dev
 ```
 
-Er verhält sich wie die Auslieferung: `/hub-api/*` wird zu `/hub/*`, `/agent` geht mit dem Präfix durch (das Gateway
-liefert seine Oberfläche unter `/agent` aus und antwortet ohne das Präfix mit 404).
+Er verhält sich wie die Auslieferung: `/hub-api/*` wird zu `/hub/*`, `/api/agent/*` geht ohne Präfix und mit dem
+Token als `Authorization: Bearer` an den Runner (nur mit `X-FYOS-Agent: 1`). Veraltet: `FYOS_DEV_AGENT` reicht `/agent`
+mit dem Präfix an ein OpenClaw-Gateway durch.
 
 Der Typ-Check der Quellen: `npx tsc --noEmit -p .` (die Tests sind davon ausgenommen).
 
@@ -174,7 +189,7 @@ Der Typ-Check der Quellen: `npx tsc --noEmit -p .` (die Tests sind davon ausgeno
 
 ```
 docker build -t fyos-web .
-docker run -p 8080:8080 -e FYOS_HUB_UPSTREAM=http://hub:8080 -e FYOS_AGENT_UPSTREAM=http://agent:18789 fyos-web
+docker run -p 8080:8080 -e FYOS_HUB_UPSTREAM=http://hub:8080 -e FYOS_AGENT_UPSTREAM=http://agent:18438 -e FYOS_AGENT_TOKEN=… fyos-web
 ```
 
 Gesundheit: `GET /healthz`.

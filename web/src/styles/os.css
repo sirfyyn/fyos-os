@@ -298,6 +298,24 @@ html:has([data-shell]), body:has([data-shell]) { overscroll-behavior: none; }
 .os-leiste[aria-label="Menüleiste"] nav > .os-leiste-punkt:not(:first-child) { order: 2; }
 .os-leiste-uhr { padding: 0 0.6rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .os-leiste-wartet { font-weight: 550; }
+/* Lage-Ampel neben Agent (01.11.2026): ein Punkt, die Farbe ist der Zustand; Rot pulsiert leise */
+.os-ampel { padding-inline: 6px; }
+.os-ampel-punkt {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--color-fg-muted);
+  box-shadow: 0 0 0 2px color-mix(in oklab, currentColor 12%, transparent);
+}
+.os-ampel[data-ampel='gruen'] .os-ampel-punkt { background: #3ecf8e; }
+.os-ampel[data-ampel='blau'] .os-ampel-punkt { background: #5aa9ff; }
+.os-ampel[data-ampel='gelb'] .os-ampel-punkt { background: #f5b942; }
+.os-ampel[data-ampel='rot'] .os-ampel-punkt { background: #ff5a5f; animation: os-ampel-puls 1.8s ease-in-out infinite; }
+.os-ampel[data-ampel='dev'] .os-ampel-punkt,
+.os-ampel[data-ampel='debug'] .os-ampel-punkt { background: #b48cff; }
+@keyframes os-ampel-puls { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .os-ampel[data-ampel='rot'] .os-ampel-punkt { animation: none; } }
 .os-zahl {
   display: inline-flex;
   min-width: 1.15rem;
@@ -533,6 +551,63 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
   gap: 0.2rem;
   padding: 0 0.75rem calc(0.4rem + env(safe-area-inset-bottom));
 }
+/* ── Dock nur mit geöffneten Anwendungen, blendet sich aus (28.10.2026) ────────────────────────────
+   Das Dock überlagert den Inhalt (nichts rückt, kein Layoutsprung). Unsichtbar liegt es unter dem unteren Rand; der Zeiger
+   am Rand (Zone), der Pfeil oder der Tastaturfokus holen es hoch (Steuerung: lib/os/dock-sichtbar.ts). Verborgen bleibt es
+   per Tab erreichbar (kein visibility:hidden), der Fokus blendet es ein. */
+.os-dock-huelle {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 8;
+  height: 0;
+  pointer-events: none;
+}
+.os-dock-zone {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 8px;
+  pointer-events: auto;
+}
+.os-dock-offene {
+  position: absolute;
+  inset: auto 0 0 0;
+  pointer-events: none;
+  transform: translateY(calc(100% + 1.5rem));
+  opacity: 0;
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease-out;
+}
+.os-dock-huelle[data-sichtbar="ja"] .os-dock-offene { transform: translateY(0); opacity: 1; }
+.os-dock-huelle[data-sichtbar="ja"] .os-dock-offene .os-dock { pointer-events: auto; }
+.os-dock-offene:focus-within { transform: translateY(0); opacity: 1; }
+.os-dock-offene:focus-within .os-dock { pointer-events: auto; }
+.os-dock-pfeil {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  translate: -50% 0;
+  display: inline-flex;
+  width: 2.4rem;
+  height: 1.1rem;
+  align-items: flex-start;
+  justify-content: center;
+  border-radius: 0.7rem 0.7rem 0 0;
+  color: var(--color-fg-muted);
+  background: color-mix(in oklab, var(--color-bg) 55%, transparent);
+  border: 1px solid var(--os-glas-rand);
+  border-bottom: 0;
+  opacity: 0.55;
+  pointer-events: auto;
+  transition: opacity 0.18s, height 0.18s ease-out, color 0.18s;
+}
+.os-dock-pfeil svg { margin-top: -0.1rem; }
+.os-dock-pfeil:hover, .os-dock-pfeil:focus-visible { opacity: 1; color: var(--color-fg); height: 1.5rem; }
+.os-dock-pfeil:focus-visible { outline: 2px solid var(--os-akzent); outline-offset: 2px; }
+.os-dock-pfeil-weg { opacity: 0; pointer-events: none; visibility: hidden; }
+@media (pointer: coarse) { .os-dock-pfeil { width: 3.2rem; height: 1.5rem; } }
+@media (prefers-reduced-motion: reduce) {
+  .os-dock-offene, .os-dock-pfeil { transition: none; }
+}
+
 .os-punkte { display: flex; align-items: center; gap: 0.1rem; }
 .os-punkt {
   display: inline-flex;
@@ -755,6 +830,9 @@ html[data-theme="light"] .os-fenster { background: color-mix(in oklab, #ffffff 8
    visibility statt Ausblenden per Show: die Bildschirme bleiben gemountet und laden nichts neu, sind aber weder zu sehen
    noch per Tab erreichbar. Ein Werkzeug öffnet ohnehin außerhalb des Raums (Shell: raumVerlassen). */
 .os-im-raum .os-bildschirm { visibility: hidden; }
+/* Dasselbe unter der Apps-Seite (28.10.2026): sie deckt Bildschirme und Räume, nichts darunter ist per Tab erreichbar. */
+.os-apps-offen .os-bildschirm { visibility: hidden; }
+.os-apps-offen > section[data-raum] { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .os-band { transition: none; }
 }
@@ -966,6 +1044,41 @@ html[data-theme="light"] .os-start-panel {
   background: color-mix(in oklab, #f5f5f7 80%, transparent);
   box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.7), 0 0 0 0.5px rgb(0 0 0 / 0.15), 0 30px 70px -20px rgb(0 0 0 / 0.35);
 }
+/* Apps-Seite (28.10.2026): der Launcher als eigene Seite statt als Panel über dem Dock. Deckend wie ein Raum (m-3, glas),
+   Inhalt mittig in lesbarer Breite; Suche und Kacheln wie im Panel, das Raster nutzt die Breite. */
+.os-apps-seite {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  margin: 0.75rem;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--os-radius);
+  background: var(--color-bg-opaque);
+  border: 1px solid var(--os-glas-rand);
+  box-shadow: 0 18px 50px -22px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  animation: os-apps-auf 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.os-apps-panel {
+  display: flex;
+  width: 100%;
+  max-width: 62rem;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin: 0 auto;
+  padding: 1.1rem 1.25rem 0.5rem;
+}
+.os-apps-kopf { display: flex; align-items: center; gap: 0.75rem; }
+.os-apps-kopf h1 { font-size: 1.15rem; }
+.os-apps-panel .os-kachel .os-symbol { width: 3.4rem; height: 3.4rem; border-radius: 0.9rem; }
+@keyframes os-apps-auf { from { opacity: 0; transform: scale(0.985); } }
+@media (max-width: 767px) {
+  .os-apps-seite { margin: 0; border-radius: 0; border: 0; }
+  .os-apps-panel { padding: 0.8rem 0.75rem 0.25rem; }
+}
+@media (prefers-reduced-motion: reduce) { .os-apps-seite { animation: none; } }
 .os-start-suche {
   min-height: 2.5rem;
   width: 100%;

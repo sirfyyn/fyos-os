@@ -48,6 +48,50 @@ export const RAEUME: readonly RaumEintrag[] = [
   },
 ];
 
+/**
+ * Was ein Raum braucht, damit er etwas zeigen kann: Namen von Hub-Werkzeugen (`<plugin>__<werkzeug>`, wie sie
+ * `werkzeugeImHub()` liefert) oder Seiten, die ein Plugin registriert hat (`seite:…`). Reicht eines davon, hat der Raum
+ * Inhalt. Räume ohne Eintrag (Zentrale, Gespräch mit dem Agenten, Sammlung gebauter Ansichten, Einstellungen) haben
+ * immer welchen. Die Räume selbst rufen dieselben Namen auf (components/raeume/Raum*.tsx); ändert sich dort etwas,
+ * ändert sich es hier.
+ */
+export const RAUM_BRAUCHT: Partial<Record<RaumId, readonly string[]>> = {
+  atelier: ['medien__status', 'medien__bild', 'geschichten__liste'],
+  vorhaben: ['vorhaben__brett', 'vorgaenge__zeigen'],
+  buero: [
+    'posteingang__zeigen',
+    'termine__zeigen',
+    'dokumente__eingang',
+    'bestellungen__liste',
+    'brief__heute',
+    'post__zustand',
+    'seite:kalender',
+    'seite:finanzen',
+    'seite:dokumente',
+  ],
+  zuhause: ['haus__geraete'],
+  betrieb: [
+    'leitstand__lagebild',
+    'cluster__knoten',
+    'repos__uebersicht',
+    'vorgaenge__zeigen',
+    'modelle__zustand',
+    'werkstatt__suchen',
+    'mcp__uebersicht',
+    'desktop__zeigen',
+  ],
+};
+
+/** Was der Hub gerade liefert (Namen und Seiten); `null`, solange das unbekannt ist: dann bleibt alles sichtbar. */
+export type Verfuegbar = ReadonlySet<string> | null;
+
+/** Hat der Raum etwas zu zeigen? Unbekannte Lage heißt ja: lieber einen leeren Raum zeigen als einen vollen verstecken. */
+export function raumHatPlugin(id: RaumId, verf: Verfuegbar): boolean {
+  const braucht = RAUM_BRAUCHT[id];
+  if (!braucht || !verf) return true;
+  return braucht.some((n) => verf.has(n));
+}
+
 export const ZENTRALE: RaumId = 'zentrale';
 // v2: Räume sind an, wenn niemand sie ausgeschaltet hat. Aus v1 kommt nur die eigene Ordnung mit,
 // denn „aus“ war dort die alte Vorgabe und keine Wahl.
@@ -63,12 +107,16 @@ export interface RaeumeZustand {
   aktiv: RaumId;
   /** Reihenfolge der ordenbaren Räume (alle, auch noch nicht gebaute) */
   reihenfolge: RaumId[];
+  /** Von Hand ausgeblendete Räume (nur ordenbare); sie bleiben über die Einstellungen erreichbar */
+  ausgeblendet: RaumId[];
+  /** Räume ohne Plugin dafür (`RAUM_BRAUCHT`) von selbst ausblenden; von selbst an */
+  leereAus: boolean;
 }
 
 export const raumZu = (id: string): RaumEintrag | undefined => RAEUME.find((r) => r.id === id);
 const gebaut = (id: string): boolean => !!raumZu(id)?.gebaut;
 
-export const standard = (): RaeumeZustand => ({ an: true, aktiv: ZENTRALE, reihenfolge: [...MITTE] });
+export const standard = (): RaeumeZustand => ({ an: true, aktiv: ZENTRALE, reihenfolge: [...MITTE], ausgeblendet: [], leereAus: true });
 
 /** Aus Speicher: gültige Werte, fehlende Räume hinten angehängt, Unbekanntes verworfen. */
 export function pruefen(roh: unknown): RaeumeZustand {
@@ -78,18 +126,45 @@ export function pruefen(roh: unknown): RaeumeZustand {
     if (typeof id === 'string' && (MITTE as readonly string[]).includes(id) && !reihenfolge.includes(id as RaumId)) reihenfolge.push(id as RaumId);
   }
   for (const id of MITTE) if (!reihenfolge.includes(id)) reihenfolge.push(id);
+  const ausgeblendet: RaumId[] = [];
+  for (const id of Array.isArray(r.ausgeblendet) ? r.ausgeblendet : []) {
+    if (typeof id === 'string' && (MITTE as readonly string[]).includes(id) && !ausgeblendet.includes(id as RaumId)) ausgeblendet.push(id as RaumId);
+  }
   const an = r.an !== false;
   const aktiv = an && typeof r.aktiv === 'string' && gebaut(r.aktiv) ? (r.aktiv as RaumId) : ZENTRALE;
-  return { an, aktiv, reihenfolge };
+  return { an, aktiv, reihenfolge, ausgeblendet, leereAus: r.leereAus !== false };
 }
 
-/** Was die Leiste zeigt, von oben nach unten: Zentrale, die gebauten Räume in eigener Ordnung, Einstellungen. */
-export function leiste(z: RaeumeZustand): RaumEintrag[] {
+/** Warum ein Raum aus der Leiste fehlt: von Hand ausgeblendet, kein Plugin dafür, oder er steht in der Leiste (`null`). */
+export function ausblendGrund(z: RaeumeZustand, id: RaumId, verf: Verfuegbar = null): 'hand' | 'leer' | null {
+  const e = raumZu(id);
+  if (!e || e.fest || !e.gebaut) return null;
+  if (z.ausgeblendet.includes(id)) return 'hand';
+  if (z.leereAus && !raumHatPlugin(id, verf)) return 'leer';
+  return null;
+}
+
+/**
+ * Was die Leiste zeigt, von oben nach unten: Zentrale, die gebauten Räume in eigener Ordnung, Einstellungen.
+ * Mit `verf` (was der Hub liefert) fehlen Räume, die ausgeblendet sind oder kein Plugin haben; ohne bleiben alle.
+ */
+export function leiste(z: RaeumeZustand, verf: Verfuegbar = null): RaumEintrag[] {
   const oben = RAEUME.filter((r) => r.fest === 'oben');
   const unten = RAEUME.filter((r) => r.fest === 'unten');
-  const mitte = z.reihenfolge.map(raumZu).filter((r): r is RaumEintrag => !!r && r.gebaut);
+  const mitte = z.reihenfolge.map(raumZu).filter((r): r is RaumEintrag => !!r && r.gebaut && ausblendGrund(z, r.id, verf) === null);
   return [...oben, ...mitte, ...unten];
 }
+
+/** Einen Raum von Hand aus der Leiste nehmen oder wieder hineinstellen; ist er vorn, geht es heim in die Zentrale. */
+export function ausblenden(z: RaeumeZustand, id: RaumId, aus: boolean): RaeumeZustand {
+  const e = raumZu(id);
+  if (!e || e.fest || !e.gebaut || z.ausgeblendet.includes(id) === aus) return z;
+  const ausgeblendet = aus ? [...z.ausgeblendet, id] : z.ausgeblendet.filter((x) => x !== id);
+  return { ...z, ausgeblendet, aktiv: aus && z.aktiv === id ? ZENTRALE : z.aktiv };
+}
+
+/** Räume ohne Plugin dafür von selbst ausblenden (an) oder immer zeigen (aus). */
+export const leereAusblenden = (z: RaeumeZustand, an: boolean): RaeumeZustand => (an === z.leereAus ? z : { ...z, leereAus: an });
 
 /** Zu Raum `id` wechseln; nicht gebaute oder unbekannte Räume ändern nichts. */
 export function wechseln(z: RaeumeZustand, id: string): RaeumeZustand {
@@ -98,8 +173,8 @@ export function wechseln(z: RaeumeZustand, id: string): RaeumeZustand {
 }
 
 /** Einen Raum weiter (+1) oder zurück (−1) in der Leiste, im Kreis (⌥⌘→ / ⌥⌘← im Raum, Wischen). */
-export function schritt(z: RaeumeZustand, richtung: 1 | -1): RaeumeZustand {
-  const l = leiste(z);
+export function schritt(z: RaeumeZustand, richtung: 1 | -1, verf: Verfuegbar = null): RaeumeZustand {
+  const l = leiste(z, verf);
   const i = Math.max(0, l.findIndex((r) => r.id === z.aktiv));
   const ziel = l[(i + richtung + l.length) % l.length]!;
   return wechseln(z, ziel.id);

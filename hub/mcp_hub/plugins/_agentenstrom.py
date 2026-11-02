@@ -41,6 +41,10 @@ Je typ (optionale Felder fehlen, wenn leer; Textfelder gekürzt mit "…"):
                  kosten_micro_eur (optional, Ganzzahl ≥ 0)
     session.idle —
     error        nachricht ≤ 600, art ≤ 40
+    ruhe         an "1"|"0" (Schalter), pausiert "1"|"0" (Ruhe oder Spielmodus), stufe normal|tief
+                 (Vorgabe normal), quelle ≤ 20 (etwa schalter|nachtruhe|spielmodus), grund ≤ 200,
+                 bis ≤ 40 (ISO-Zeitpunkt), von ≤ 40 — der Ruhe-Schalter eines Runners; an und
+                 pausiert sind Pflicht, alles andere optional
 
 Kürzungsregel: Steuerzeichen fallen weg (in mehrzeiligen Texten bleiben Zeilenumbruch und
 Tabulator erhalten), einzeilige Felder werden zusammengezogen, Textfelder auf ihre Obergrenze
@@ -76,7 +80,9 @@ ARTEN = (
     "usage",
     "session.idle",
     "error",
+    "ruhe",
 )
+RUHE_STUFEN = ("normal", "tief")
 PART_TYPEN = ("text", "reasoning", "tool", "step")
 WERKZEUG_ZUSTAENDE = ("pending", "running", "completed", "error")
 PHASEN = ("start", "finish")
@@ -104,6 +110,7 @@ AKTION_MAX = 200
 KONTEXT_MAX = 600
 NACHRICHT_MAX = 600
 ART_MAX = 40
+GRUND_MAX = 200
 MODELL_MAX = 80
 SCHRITTE_MAX = 20
 PLAN_JSON_MAX = 8192
@@ -315,6 +322,20 @@ def _teil(e: dict[str, str], typ: str, r: dict[str, Any]) -> None:
         art = _text(r.get("art"), ART_MAX, einzeln=True)
         if art:
             e["art"] = art
+    elif typ == "ruhe":
+        stufe = str(r.get("stufe") or "normal")
+        if stufe not in RUHE_STUFEN:
+            raise ValueError(f"ruhe mit unbekannter Stufe: {r.get('stufe')!r}")
+        for schluessel in ("an", "pausiert"):
+            wert = r.get(schluessel)
+            if wert not in (True, False, "1", "0", 1, 0):
+                raise ValueError(f"ruhe: {schluessel} muss ein Wahrheitswert sein: {wert!r}")
+            e[schluessel] = "1" if wert in (True, "1", 1) else "0"
+        e["stufe"] = stufe
+        for schluessel, grenze in (("quelle", 20), ("grund", GRUND_MAX), ("bis", 40), ("von", 40)):
+            text = _text(r.get(schluessel), grenze, einzeln=True)
+            if text:
+                e[schluessel] = text
     # session.idle trägt nichts weiter.
 
 

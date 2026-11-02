@@ -17,7 +17,8 @@ spec:
             - containerPort: 8080
           env:
             - { name: FYOS_HUB_UPSTREAM, value: "http://hub:8080" }
-            - { name: FYOS_AGENT_UPSTREAM, value: "http://agent:18789" }
+            # OpenClaw (veraltet) unter /agent; ab web 0.2.0 eigene Variable (FYOS_AGENT_UPSTREAM ist der Runner)
+            - { name: FYOS_OPENCLAW_UPSTREAM, value: "http://agent:18789" }
           readinessProbe:
             httpGet: { path: /, port: 8080 }
             periodSeconds: 10

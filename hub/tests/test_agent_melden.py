@@ -81,6 +81,22 @@ def test_route_stempelt_die_empfangszeit(client, redis, monkeypatch):
     assert felder["t"] == str(JETZT_MS)
 
 
+def test_route_nimmt_ruhe_an(client, redis):
+    ruhe = ereignis("ruhe", 4, an="1", pausiert="1", stufe="tief", quelle="schalter", von="app")
+    r = client.post("/hub/agent/melden", json=anfrage(TEXT, ruhe))
+    assert r.status_code == 200 and r.json() == {"ok": True, "angenommen": 2}
+    eintraege = [felder for _, felder in redis.stroeme[strom.STROM]]
+    assert eintraege[1]["typ"] == "ruhe" and eintraege[1]["stufe"] == "tief" and eintraege[1]["von"] == "app"
+
+
+def test_route_lehnt_falsche_ruhe_ab_und_schreibt_nichts(client, redis):
+    falsch = ereignis("ruhe", 2, an="vielleicht", pausiert="0")
+    r = client.post("/hub/agent/melden", json=anfrage(TEXT, falsch))
+    assert r.status_code == 400 and r.json()["kind"] == "bad_request"
+    assert "Ereignis 1" in r.json()["error"]  # der Stapel wird als Ganzes abgelehnt, der Fehler nennt das Stück
+    assert redis.stroeme == {}
+
+
 def test_route_fehlerwege(client, redis):
     assert client.post("/hub/agent/melden", content=b"{kaputt", headers=JSON).status_code == 400
     r = client.post("/hub/agent/melden", json=anfrage(ereignis("unbekannt.typ", 1)))
