@@ -24,6 +24,7 @@ import {
   type WartetEintrag,
 } from '~/lib/os/wartet';
 import { WartetKarte } from './WartetKarte';
+import { tr } from '~/lib/i18n';
 
 type Filter = 'alle' | 'fragen' | 'freigaben';
 
@@ -138,7 +139,7 @@ export function WartetSchublade(p: { offen: boolean; schliessen: () => void; oef
         ref={flaeche}
         role="dialog"
         aria-modal="true"
-        aria-label="Wartet auf dich"
+        aria-label={tr('Wartet auf dich')}
         data-wartet-schublade
         class="absolute top-0 right-0 bottom-0 flex w-[min(520px,100vw)] flex-col border-l border-(--os-glas-rand) bg-(--os-menue-bg) shadow-[-24px_0_60px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1.2,0.36,1)] motion-reduce:transition-none"
         classList={{ 'translate-x-full': !p.offen, 'translate-x-0': p.offen }}
@@ -151,15 +152,15 @@ export function WartetSchublade(p: { offen: boolean; schliessen: () => void; oef
       >
         <header class="flex flex-col gap-3 border-b border-(--os-glas-rand) px-6 pt-5 pb-3.5">
           <div class="flex items-center justify-between gap-3">
-            <h2 class="m-0 text-[1.35rem] font-bold text-(--color-fg)">Wartet auf dich</h2>
-            <button type="button" data-wartet-zu class={`${KNOPF} w-10 justify-center px-0`} aria-label="Schließen" onClick={() => p.schliessen()}>
+            <h2 class="m-0 text-[1.35rem] font-bold text-(--color-fg)">{tr('Wartet auf dich')}</h2>
+            <button type="button" data-wartet-zu class={`${KNOPF} w-10 justify-center px-0`} aria-label={tr('Schließen')} onClick={() => p.schliessen()}>
               <svg aria-hidden="true" viewBox="0 0 16 16" class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                 <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
               </svg>
             </button>
           </div>
-          <p class="m-0 text-[0.84rem] leading-snug text-(--color-fg-muted)">{wartetEingang()?.satz ?? 'Lädt …'}</p>
-          <div role="group" aria-label="Filter" class="flex flex-wrap gap-1.5">
+          <p class="m-0 text-[0.84rem] leading-snug text-(--color-fg-muted)">{wartetEingang()?.satz ?? tr('Lädt …')}</p>
+          <div role="group" aria-label={tr('Filter')} class="flex flex-wrap gap-1.5">
             {filterKnopf('alle', 'Alle', eintraege().length)}
             {filterKnopf('fragen', 'Fragen', gruppen().fragen.length)}
             {filterKnopf('freigaben', 'Freigaben', gruppen().freigaben.length)}
@@ -168,17 +169,17 @@ export function WartetSchublade(p: { offen: boolean; schliessen: () => void; oef
 
         <div class="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-6 py-4">
           <Show when={wartetFehler() && !wartetEingang()}>
-            <p role="alert" class="m-0 rounded-xl bg-(--color-warn-soft) px-3 py-2 text-sm">Nicht erreichbar: {wartetFehler()}</p>
+            <p role="alert" class="m-0 rounded-xl bg-(--color-warn-soft) px-3 py-2 text-sm">{tr('Nicht erreichbar:')}{' '}{wartetFehler()}</p>
           </Show>
           <Show when={wartetEingang() && eintraege().length === 0}>
             <p class="m-0 py-10 text-center text-sm text-(--color-fg-muted)">{zahlText(0)}.</p>
           </Show>
           <Show when={zeigeFreigaben() && gruppen().freigaben.length > 0}>
-            <h3 class={`${ABSCHNITT} text-(--color-error)`}>Freigabe · nicht umkehrbar</h3>
+            <h3 class={`${ABSCHNITT} text-(--color-error)`}>{tr('Freigabe · nicht umkehrbar')}</h3>
             <For each={gruppen().freigaben}>{karte}</For>
           </Show>
           <Show when={zeigeFragen() && gruppen().fragen.length > 0}>
-            <h3 class={`${ABSCHNITT} mt-1.5 text-(--color-fg-muted)`}>Fragen · umkehrbar</h3>
+            <h3 class={`${ABSCHNITT} mt-1.5 text-(--color-fg-muted)`}>{tr('Fragen · umkehrbar')}</h3>
             <For each={gruppen().fragen}>{karte}</For>
           </Show>
         </div>
@@ -186,13 +187,13 @@ export function WartetSchublade(p: { offen: boolean; schliessen: () => void; oef
         <footer class="flex items-center gap-3 border-t border-(--os-glas-rand) bg-[color-mix(in_oklab,var(--color-bg)_40%,transparent)] px-6 py-4">
           <Show
             when={buendel().length > 0}
-            fallback={<span class="text-[0.8rem] text-(--color-fg-muted)">{hinweis() || 'Nichts zum Bündeln.'}</span>}
+            fallback={<span class="text-[0.8rem] text-(--color-fg-muted)">{hinweis() || tr('Nichts zum Bündeln.')}</span>}
           >
             <button type="button" class={`${KNOPF_VOLL} min-h-10`} disabled={buendelLaeuft()} aria-busy={buendelLaeuft()} onClick={() => void alleErlauben()}>
-              {buendelLaeuft() ? 'Erlaube …' : `Alle ${buendel().length} umkehrbaren erlauben`}
+              {buendelLaeuft() ? tr('Erlaube …') : tr('Alle {0} umkehrbaren erlauben', buendel().length)}
             </button>
             <span class="text-[0.8rem] leading-snug text-(--color-fg-muted)" aria-live="polite">
-              {hinweis() || (gruppen().freigaben.length ? 'Nicht Umkehrbares bleibt außen vor.' : 'Umkehrbar, du kannst es zurücknehmen.')}
+              {hinweis() || (gruppen().freigaben.length ? tr('Nicht Umkehrbares bleibt außen vor.') : tr('Umkehrbar, du kannst es zurücknehmen.'))}
             </span>
           </Show>
         </footer>

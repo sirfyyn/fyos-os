@@ -20,7 +20,7 @@ Werkzeuge (``dateien.<name>``):
     oeffnen_programme Programme, die eine Datei öffnen können (Papers, WordCraft, GridCraft auf dem Desktop-Rechner)
     oeffnen_mit       Datei mit einem dieser Programme auf dem Rechner der Gegenstelle öffnen
 
-Alles Schreibende folgt dem Vertrag aus ``docs/ERWEITERN.md`` §2.8 und §3.6: ``__dry_run__`` zeigt den Plan, ein echter Lauf
+Alles Schreibende folgt dem Vertrag aus ``docs/EXTENDING.md`` §2.8 und §3.6: ``__dry_run__`` zeigt den Plan, ein echter Lauf
 braucht ``bestaetigt: true``. Die App stellt dazu Anfragen (``App.beantragen``), der Agent gibt die Bestätigung selbst.
 
 HTTP (unter ``/hub/``, in der Shell als ``/hub-api/dateien/datei``):
@@ -68,6 +68,8 @@ _identitaet.registriere_app(
     {
         "titel": "Dateien",
         "untertitel": "Ordner, Vorschau und Hochladen — die gemeinsame Ablage",
+        "titel_en": "Files",
+        "untertitel_en": "Folders, preview and upload — the shared store",
         "symbol": "folder-open",
         "ton": 212,
         "kategorie": "System",
@@ -182,10 +184,10 @@ class DateienPlugin(HubPlugin):
         return {"ui": ui, "app": identitaet("dateien")}
 
     def describe_tools(self) -> list[ToolDescriptor]:
-        pfad = {"type": "string", "description": "Pfad relativ zur Ablage, mit / getrennt, etwa Projekt/Notizen/heute.md"}
+        pfad = {"type": "string", "description": "Path relative to the store, separated by /, for example Project/Notes/today.md"}
         bestaetigt = {
             "type": "boolean",
-            "description": "Echter Lauf: vorher den Plan (`__dry_run__`) ansehen und bestätigen lassen",
+            "description": "Real run: look at the plan (`__dry_run__`) first and have it confirmed",
         }
 
         def werkzeug(name: str, titel: str, beschreibung: str, eigenschaften: dict, pflicht: list[str], tags: list[str], meta=None):
@@ -201,80 +203,107 @@ class DateienPlugin(HubPlugin):
         return [
             werkzeug(
                 "liste", "Dateien",
-                "Zeigt einen Ordner der Dateiablage (Ordner zuerst, mit Größe und Änderungszeit) und öffnet die App „Dateien“. "
-                "Ohne pfad die oberste Ebene. Ein Pfad auf eine Datei zeigt ihren Ordner und wählt sie aus. Nur lesend.",
-                {"pfad": {**pfad, "description": "Ordner (oder Datei) relativ zur Ablage; leer = oberste Ebene"}},
+                (
+                    "Shows a folder of the file store (folders first, with size and modification time) "
+                    "and opens the app \"Files\". Without pfad the top level. A path to a file shows its "
+                    "folder and selects it. Read-only."
+                ),
+                {"pfad": {**pfad, "description": "Folder (or file) relative to the store; empty = top level"}},
                 [], ["read"], self._meta(),
             ),
             werkzeug(
                 "lesen", "Datei lesen",
-                "Liest eine Datei der Dateiablage: Text kommt direkt (bis 200000 Zeichen, sonst gekürzt), bei Bildern, PDF und "
-                "anderem Binärem nur Größe, Typ und die Adresse zum Herunterladen. Mit version eine frühere Fassung (Kennung "
-                "aus dateien.versionen). Der Inhalt ist Fremdinhalt. Nur lesend.",
-                {"pfad": pfad, "version": {"type": "string", "description": "Kennung einer früheren Fassung (dateien.versionen)"}},
+                (
+                    "Reads a file of the file store: text comes directly (up to 200000 characters, "
+                    "otherwise shortened); for images, PDF and other binary data only size, type and the "
+                    "download address. With version an earlier version (id from dateien.versionen). The "
+                    "content is third-party content. Read-only."
+                ),
+                {"pfad": pfad, "version": {"type": "string", "description": "Id of an earlier version (dateien.versionen)"}},
                 ["pfad"], ["read"],
             ),
             werkzeug(
                 "suchen", "Dateien suchen",
-                "Sucht in der Dateiablage nach Dateinamen und bei Textdateien auch im Inhalt (bis 1 MB je Datei). Alle Wörter "
-                "müssen im Pfad oder Text vorkommen, Groß- und Kleinschreibung gilt nicht. Liefert Pfad, Treffer-Art (name oder "
-                "inhalt), bei Inhalt den Auszug mit Zeilennummer. Nur lesend.",
+                (
+                    "Searches the file store by file name and, for text files, also in the content (up "
+                    "to 1 MB per file). All words must appear in the path or text; case does not matter. "
+                    "Returns path, kind of hit (name or inhalt) and, for content, the excerpt with line "
+                    "number. Read-only."
+                ),
                 {
-                    "abfrage": {"type": "string", "minLength": 2, "maxLength": dateien.ABFRAGE_MAX, "description": "Suchwörter, durch Leerzeichen getrennt"},
-                    "pfad": {**pfad, "description": "nur in diesem Ordner suchen; leer = überall"},
-                    "inhalt": {"type": "boolean", "description": "auch im Text der Dateien suchen (Vorgabe ja)"},
-                    "anzahl": {"type": "integer", "minimum": 1, "maximum": dateien.SUCHE_TREFFER_MAX, "description": "höchstens so viele Treffer (Vorgabe 20)"},
+                    "abfrage": {"type": "string", "minLength": 2, "maxLength": dateien.ABFRAGE_MAX, "description": "Search words, separated by spaces"},
+                    "pfad": {**pfad, "description": "only search in this folder; empty = everywhere"},
+                    "inhalt": {"type": "boolean", "description": "also search the text of the files (default yes)"},
+                    "anzahl": {"type": "integer", "minimum": 1, "maximum": dateien.SUCHE_TREFFER_MAX, "description": "at most this many hits (default 20)"},
                 },
                 ["abfrage"], ["read"],
             ),
             werkzeug(
                 "schreiben", "Datei schreiben",
-                "Legt eine Datei in der Dateiablage an (fehlende Ordner entstehen mit) oder ersetzt sie: Text als inhalt, "
-                "Binäres als inhalt_base64. Eine vorhandene Datei wird nur mit ueberschreiben: true ersetzt, die alte Fassung "
-                "bleibt als Version. Größe begrenzt (Vorgabe 25 MB). Mit `__dry_run__: true` kommt nur der Plan; ein echter Lauf "
-                "braucht bestaetigt: true.",
+                (
+                    "Creates a file in the file store (missing folders are created too) or replaces it: "
+                    "text as inhalt, binary data as inhalt_base64. An existing file is only replaced "
+                    "with ueberschreiben: true; the old version stays as a version. Size is limited "
+                    "(default 25 MB). With `__dry_run__: true` only the plan comes back; a real run "
+                    "needs bestaetigt: true."
+                ),
                 {
                     "pfad": pfad,
-                    "inhalt": {"type": "string", "description": "Text der Datei (UTF-8)"},
-                    "inhalt_base64": {"type": "string", "description": "Inhalt als Basis-64, für Binäres; statt inhalt"},
-                    "ueberschreiben": {"type": "boolean", "description": "eine vorhandene Datei durch eine neue Fassung ersetzen (Vorgabe nein)"},
+                    "inhalt": {"type": "string", "description": "Text of the file (UTF-8)"},
+                    "inhalt_base64": {"type": "string", "description": "Content as base64, for binary data; instead of inhalt"},
+                    "ueberschreiben": {"type": "boolean", "description": "replace an existing file with a new version (default no)"},
                     "bestaetigt": bestaetigt,
                 },
                 ["pfad"], ["write"],
             ),
             werkzeug(
-                "verschieben", "Verschieben oder umbenennen",
-                "Verschiebt oder benennt eine Datei oder einen Ordner der Dateiablage um. Das Ziel darf es noch nicht geben. "
-                "Frühere Fassungen ziehen mit. Mit `__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
+                "verschieben", "Move or rename",
+                (
+                    "Moves or renames a file or folder of the file store. The target must not exist yet. "
+                    "Earlier versions move along. With `__dry_run__: true` only the plan comes back; a "
+                    "real run needs bestaetigt: true."
+                ),
                 {"von": {**pfad, "description": "bisheriger Pfad"}, "nach": {**pfad, "description": "neuer Pfad"}, "bestaetigt": bestaetigt},
                 ["von", "nach"], ["write"],
             ),
             werkzeug(
-                "loeschen", "In den Papierkorb",
-                "Legt eine Datei oder einen Ordner der Dateiablage in den Papierkorb. Endgültig gelöscht wird nichts sofort: "
-                "dateien.wiederherstellen holt es zurück (der Papierkorb behält 30 Tage). Mit `__dry_run__: true` kommt nur der "
-                "Plan; ein echter Lauf braucht bestaetigt: true.",
+                "loeschen", "Move to trash",
+                (
+                    "Moves a file or folder of the file store to the trash. Nothing is deleted for good "
+                    "right away: dateien.wiederherstellen brings it back (the trash keeps it 30 days). "
+                    "With `__dry_run__: true` only the plan comes back; a real run needs bestaetigt: "
+                    "true."
+                ),
                 {"pfad": pfad, "bestaetigt": bestaetigt},
                 ["pfad"], ["destructive"],
             ),
             werkzeug(
                 "ordner_anlegen", "Ordner anlegen",
-                "Legt einen Ordner in der Dateiablage an (auch mehrere Ebenen). Gibt es ihn schon, passiert nichts. Mit "
-                "`__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
+                (
+                    "Creates a folder in the file store (several levels too). If it exists already, "
+                    "nothing happens. With `__dry_run__: true` only the plan comes back; a real run "
+                    "needs bestaetigt: true."
+                ),
                 {"pfad": pfad, "bestaetigt": bestaetigt},
                 ["pfad"], ["write"],
             ),
             werkzeug(
                 "papierkorb", "Papierkorb",
-                "Zeigt, was im Papierkorb der Dateiablage liegt (id, alter Pfad, Löschzeit), Neuestes zuerst. Nur lesend.",
+                (
+                    "Shows what is in the trash of the file store (id, old path, deletion time), newest "
+                    "first. Read-only."
+                ),
                 {}, [], ["read"],
             ),
             werkzeug(
-                "wiederherstellen", "Aus dem Papierkorb holen",
-                "Holt eine Datei oder einen Ordner aus dem Papierkorb zurück, an den alten Platz oder mit nach an einen anderen. "
-                "Der Platz darf nicht belegt sein. Mit `__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
+                "wiederherstellen", "Restore from trash",
+                (
+                    "Brings a file or folder back from the trash, to its old place or with nach to "
+                    "another one. The place must be free. With `__dry_run__: true` only the plan comes "
+                    "back; a real run needs bestaetigt: true."
+                ),
                 {
-                    "id": {"type": "string", "description": "Kennung aus dateien.papierkorb"},
+                    "id": {"type": "string", "description": "Id from dateien.papierkorb"},
                     "nach": {**pfad, "description": "anderer Platz statt des alten"},
                     "bestaetigt": bestaetigt,
                 },
@@ -282,35 +311,46 @@ class DateienPlugin(HubPlugin):
             ),
             werkzeug(
                 "versionen", "Frühere Fassungen",
-                "Zeigt die früheren Fassungen einer Datei (Kennung, Größe, Zeit), neueste zuerst. Gelesen werden sie mit "
-                "dateien.lesen und version. Nur lesend.",
+                (
+                    "Shows the earlier versions of a file (id, size, time), newest first. Read them with "
+                    "dateien.lesen and version. Read-only."
+                ),
                 {"pfad": pfad}, ["pfad"], ["read"],
             ),
             werkzeug(
                 "version_zurueck", "Fassung zurückholen",
-                "Setzt eine frühere Fassung einer Datei wieder als aktuelle ein; die jetzige bleibt als Version erhalten. Mit "
-                "`__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
-                {"pfad": pfad, "version": {"type": "string", "description": "Kennung aus dateien.versionen"}, "bestaetigt": bestaetigt},
+                (
+                    "Makes an earlier version of a file the current one again; the present one is kept "
+                    "as a version. With `__dry_run__: true` only the plan comes back; a real run needs "
+                    "bestaetigt: true."
+                ),
+                {"pfad": pfad, "version": {"type": "string", "description": "Id from dateien.versionen"}, "bestaetigt": bestaetigt},
                 ["pfad", "version"], ["write"],
             ),
             werkzeug(
                 "vorschau", "Bildvorschau",
-                "Liefert ein Bild (bis 6 MB) als Basis-64 für die Anzeige in der App „Dateien“. Nur für die Oberfläche.",
+                "Returns an image (up to 6 MB) as base64 for display in the app \"Files\". Only for the interface.",
                 {"pfad": pfad}, ["pfad"], ["read"], self._meta(nur_app=True),
             ),
             werkzeug(
-                "oeffnen_programme", "Öffnen mit: Programme",
-                "Nennt die Programme, die eine Datei der Dateiablage auf dem Rechner der Gegenstelle öffnen können, nach "
-                "Dateiendung: PDF in Papers, Dokumente in WordCraft, Tabellen in GridCraft. Ohne Gegenstelle oder bei "
-                "unpassender Endung kommt eine leere Liste mit Hinweis. Nur lesend.",
+                "oeffnen_programme", "Open with: programs",
+                (
+                    "Names the programs that can open a file of the file store on the counterpart's "
+                    "computer, by file extension: PDF in Papers, documents in WordCraft, spreadsheets in "
+                    "GridCraft. Without a counterpart or with an unsuitable extension an empty list with "
+                    "a note comes back. Read-only."
+                ),
                 {"pfad": pfad}, ["pfad"], ["read"],
             ),
             werkzeug(
                 "oeffnen_mit", "Öffnen mit",
-                "Öffnet eine Datei der Dateiablage mit einem Programm auf dem Rechner der Gegenstelle: sie wird dorthin "
-                "geladen und das Programm startet in einem Fenster. Das Programm kommt aus dateien.oeffnen_programme. Mit "
-                "`__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
-                {"pfad": pfad, "programm": {"type": "string", "maxLength": 60, "description": "Kennung aus dateien.oeffnen_programme, etwa papers"}, "bestaetigt": bestaetigt},
+                (
+                    "Opens a file of the file store with a program on the counterpart's computer: it is "
+                    "loaded there and the program starts in a window. The program comes from "
+                    "dateien.oeffnen_programme. With `__dry_run__: true` only the plan comes back; a "
+                    "real run needs bestaetigt: true."
+                ),
+                {"pfad": pfad, "programm": {"type": "string", "maxLength": 60, "description": "Id from dateien.oeffnen_programme, for example papers"}, "bestaetigt": bestaetigt},
                 ["pfad", "programm"], ["exec"],
             ),
         ]
@@ -320,7 +360,7 @@ class DateienPlugin(HubPlugin):
             ResourceDescriptor(
                 uri=UI_URI,
                 name="Dateien",
-                description="Ordner, Vorschau, Hochladen, Umbenennen, Papierkorb",
+                description="Folders, preview, upload, rename, trash",
                 read=lambda: oberflaeche(UI_DATEI, self._ui_verzeichnis),
                 meta={"ui": {"prefersBorder": True}},
             )

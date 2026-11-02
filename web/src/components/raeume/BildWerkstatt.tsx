@@ -9,6 +9,7 @@ import { For, Show, createResource, createSignal, type JSX } from 'solid-js';
 import { NichtEingerichtet } from '~/components/raeume/Huelle';
 import { hub } from '~/lib/hub';
 import { gesperrt } from './freigabe';
+import { tr } from '~/lib/i18n';
 
 export { gesperrt };
 
@@ -53,22 +54,22 @@ export default function BildWerkstatt(): JSX.Element {
     const text = prompt().trim();
     if (text.length < 3 || laeuft()) return;
     setLaeuft(true);
-    setMeldung('Erzeuge … Der erste Auftrag kann etwas länger dauern.');
+    setMeldung(tr('Erzeuge … Der erste Auftrag kann etwas länger dauern.'));
     try {
       const args: Record<string, unknown> = { prompt: text };
       if (modell() !== 'standard') args.modell = modell();
       const r = await hub<BildAntwort>('medien.bild', args, { zeitMs: 420_000, art: 'bewusst' });
       if (!r.ok || !r.datei) {
-        setMeldung(r.satz ?? 'Gerade kein Bild.');
+        setMeldung(r.satz ?? tr('Gerade kein Bild.'));
         return;
       }
       const d = await hub<Datei>('medien.datei', { datei: r.datei }, { zeitMs: 60_000, art: 'bewusst' });
-      if (!d.base64) throw new Error('Bild nicht geholt');
+      if (!d.base64) throw new Error(tr('Bild nicht geholt'));
       setBilder((b) => [{ id: r.id ?? r.datei!, prompt: text, src: `data:${d.mime ?? 'image/png'};base64,${d.base64}`, satz: r.satz ?? '' }, ...b].slice(0, 12));
       setMeldung(r.satz ?? '');
       void refetch();
     } catch (err) {
-      setMeldung(gesperrt(err) ? 'Noch nicht eingerichtet: Bilder erzeugen.' : `Fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
+      setMeldung(gesperrt(err) ? tr('Noch nicht eingerichtet: Bilder erzeugen.') : tr('Fehlgeschlagen: {0}', err instanceof Error ? err.message : String(err)));
     } finally {
       setLaeuft(false);
     }
@@ -77,10 +78,10 @@ export default function BildWerkstatt(): JSX.Element {
   return (
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-5" data-bild-werkstatt>
       <div class="flex items-baseline gap-3">
-        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">Bild erzeugen</h1>
+        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">{tr('Bild erzeugen')}</h1>
         <span class="text-xs text-(--color-fg-muted)" role="status" data-medien-status>
-          <Show when={!zu()} fallback="noch nicht eingerichtet">
-            {status.loading && !statusWert() ? 'frage den Medien-Dienst …' : (statusWert()?.satz ?? (status.error ? 'Medien-Dienst nicht erreichbar' : ''))}
+          <Show when={!zu()} fallback={tr('noch nicht eingerichtet')}>
+            {status.loading && !statusWert() ? tr('frage den Medien-Dienst …') : (statusWert()?.satz ?? (status.error ? tr('Medien-Dienst nicht erreichbar') : ''))}
           </Show>
         </span>
       </div>
@@ -88,15 +89,15 @@ export default function BildWerkstatt(): JSX.Element {
         when={!zu()}
         fallback={
           <NichtEingerichtet
-            detail="Die Medien-Werkzeuge (medien.status, medien.bild, medien.datei) fehlen im Hub oder sind für den Browser nicht freigegeben (Tag „flaeche“). Sobald ein Plugin sie liefert, erzeugt dieser Bereich Bilder."
+            detail={tr('Die Medien-Werkzeuge (medien.status, medien.bild, medien.datei) fehlen im Hub oder sind für den Browser nicht freigegeben (Tag „flaeche“). Sobald ein Plugin sie liefert, erzeugt dieser Bereich Bilder.')}
             data-medien-gesperrt
           />
         }
       >
         <form class="flex flex-col gap-2" onSubmit={erzeugen}>
           <textarea
-            aria-label="Beschreibung des Bildes"
-            placeholder="Was soll auf dem Bild sein?"
+            aria-label={tr('Beschreibung des Bildes')}
+            placeholder={tr('Was soll auf dem Bild sein?')}
             rows={3}
             maxLength={2000}
             value={prompt()}
@@ -106,7 +107,7 @@ export default function BildWerkstatt(): JSX.Element {
           <div class="flex flex-wrap items-center gap-2">
             <Show when={MODELLE.length > 1}>
               <select
-                aria-label="Modell"
+                aria-label={tr('Modell')}
                 value={modell()}
                 onChange={(e) => setModell(e.currentTarget.value)}
                 class="h-9 rounded-[10px] border border-(--color-border) bg-(--color-card) px-2 text-sm text-(--color-fg)"
@@ -115,12 +116,12 @@ export default function BildWerkstatt(): JSX.Element {
               </select>
             </Show>
             <button type="submit" class="os-knopf h-9 px-4" disabled={laeuft() || prompt().trim().length < 3}>
-              {laeuft() ? 'Erzeuge …' : 'Erzeugen'}
+              {laeuft() ? tr('Erzeuge …') : tr('Erzeugen')}
             </button>
             <span class="text-xs text-(--color-fg-muted)" aria-live="polite" data-bild-meldung>{meldung()}</span>
           </div>
         </form>
-        <Show when={bilder().length} fallback={<p class="m-0 text-sm text-(--color-fg-muted)">Hier erscheinen die Bilder dieser Sitzung.</p>}>
+        <Show when={bilder().length} fallback={<p class="m-0 text-sm text-(--color-fg-muted)">{tr('Hier erscheinen die Bilder dieser Sitzung.')}</p>}>
           <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 p-0">
             <For each={bilder()}>
               {(b) => (

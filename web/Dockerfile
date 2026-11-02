@@ -22,6 +22,8 @@ ENV FYOS_HUB_UPSTREAM=http://hub:8080
 ENV FYOS_AGENT_UPSTREAM=http://agent:18438
 ENV FYOS_AGENT_TOKEN=
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+# Unter Kubernetes den kurzen Agent-Namen voll ausschreiben (der nginx-Resolver kennt keine Suchdomänen)
+COPY --chmod=0755 nginx/18-fyos-agent-fqdn.envsh /docker-entrypoint.d/18-fyos-agent-fqdn.envsh
 COPY --from=build /app/dist /usr/share/nginx/html
 # Laufzeit-Konfiguration: diese Datei kann gemountet werden (ConfigMap, Volume).
 COPY nginx/fyos.config.default.json /etc/fyos/fyos.config.json

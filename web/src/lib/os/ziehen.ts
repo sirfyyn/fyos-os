@@ -31,6 +31,7 @@ import { createSignal } from 'solid-js';
 import { agentName } from '~/lib/config';
 import { anApp } from '~/lib/mcp-apps/eingehaengt';
 import { registrierteDinge, registrierteUebergabe, type Uebergabe } from './register';
+import { tr } from '~/lib/i18n';
 
 /** Typ eines ziehbaren Dings (`fyos://<typ>/<id>`); bekannt sind die registrierten. */
 export type DingTyp = string;
@@ -124,23 +125,23 @@ export function gutArt(dt: DataTransfer | null | undefined): GutArt | null {
 export function wasPassiert(art: GutArt | null, ziel: ZielArt, name?: string): string | null {
   if (!art) return null;
   const wen = art !== 'fenster' && art !== 'flaeche' ? dingName(art) : null;
-  const dort = name ? `„${name}“` : 'diesen Bildschirm';
+  const dort = name ? `„${name}“` : tr('diesen Bildschirm');
   switch (ziel) {
     case 'schreibtisch':
-      if (art === 'fenster') return 'Hier einordnen';
-      if (art === 'flaeche') return 'Hier öffnen';
-      return `${wen} öffnen`;
+      if (art === 'fenster') return tr('Hier einordnen');
+      if (art === 'flaeche') return tr('Hier öffnen');
+      return tr('{0} öffnen', wen);
     case 'bildschirm':
-      if (art === 'fenster') return `Auf ${dort} verschieben`;
-      return `Auf ${dort} öffnen`;
+      if (art === 'fenster') return tr('Auf {0} verschieben', dort);
+      return tr('Auf {0} öffnen', dort);
     case 'start':
       // Der Startbildschirm ist ein Launcher: dort liegen keine Fenster. Verweilen wechselt trotzdem hin.
       return null;
     case 'neu':
-      if (art === 'fenster') return 'Auf neuen Bildschirm';
-      return 'Auf neuem Bildschirm öffnen';
+      if (art === 'fenster') return tr('Auf neuen Bildschirm');
+      return tr('Auf neuem Bildschirm öffnen');
     case 'agent':
-      return `${agentName()} dazu fragen`;
+      return tr('{0} dazu fragen', agentName());
   }
 }
 
@@ -159,22 +160,22 @@ export function ablageAufApp(art: GutArt | null, flaecheId: string): AppAblage |
   const u = registrierteUebergabe(art, flaecheId);
   if (u) return { modus: 'uebergabe', text: u.wirkung, uebergabe: u };
   if (registrierteDinge(art)?.flaeche === flaecheId) return null;
-  return { modus: 'agent', text: `${agentName()} dazu fragen` };
+  return { modus: 'agent', text: tr('{0} dazu fragen', agentName()) };
 }
 
 /** Die Frage an den Agenten, wenn ein Ding auf eine App fällt, die es nicht von selbst annimmt. */
 export function frageUebergabe(gut: Extract<Gut, { art: 'ding' }>, appTitel: string): string {
   const was = `${dingName(gut.typ)} ${gut.id}${gut.label ? ` („${gut.label}“)` : ''}`;
-  return `Ich habe ${was} auf „${appTitel}“ gezogen. Was lässt sich damit dort tun, und wie legst du es an?`;
+  return tr('Ich habe {0} auf „{1}“ gezogen. Was lässt sich damit dort tun, und wie legst du es an?', was, appTitel);
 }
 
 /** Die Frage an den Agenten zu einem Gut (Entwurf; der Mensch kann sie ändern, bevor sie rausgeht). */
 export function frageZu(gut: Gut, titel?: string): string {
   if (gut.art === 'ding') {
     const was = `${dingName(gut.typ)} ${gut.id}${gut.label ? ` („${gut.label}“)` : ''}`;
-    return `Schau dir ${was} an: Worum geht es, und was ist zu tun?`;
+    return tr('Schau dir {0} an: Worum geht es, und was ist zu tun?', was);
   }
-  return `Was fällt dir an „${titel ?? gut.id}“ gerade auf?`;
+  return tr('Was fällt dir an „{0}“ gerade auf?', titel ?? gut.id);
 }
 
 /** Die Seite, auf der ein Ding lebt (für die Suche nach der passenden Fläche). */

@@ -29,7 +29,10 @@ const dokument = {
   querySelectorAll: (selektor) => elemente[selektor] || [],
   getElementById: () => null,
 };
+// Die Prüfungen unten lesen deutsche Texte: Browser auf Deutsch (ohne ?sprache= und ohne Host gilt dessen Sprache).
+// Englisch als Vorgabe prüft der Block „Sprache“ am Ende mit einer zweiten Brücke.
 const ctx = vm.createContext({
+  navigator: { language: 'de-DE' },
   window: fenster, document: dokument, Date: Uhr, console,
   ResizeObserver: class { observe() {} },
   requestAnimationFrame: () => 0,
@@ -457,6 +460,19 @@ const antrag = (ort, text = 'hallo', extra = {}) => App.beantragen({ werkzeug: '
   gleich('ablage: eigener bei-Hörer ersetzt die Anfrage', eigene[0], 'n-1');
   ab3();
   pruefe('ablage: ohne Element ein Fehler', /Element/.test((await grund((async () => App.ablage(null))())) || ''));
+}
+{ // Sprache: ohne Angabe Englisch; texte() meldet die Fassungen einer App an; die Sprache der Shell (locale) gewinnt
+  const ctxEn = vm.createContext({ ...ctx, navigator: undefined });
+  vm.runInContext(fs.readFileSync(brueckePfad, 'utf8'), ctxEn);
+  const En = vm.runInContext('App', ctxEn);
+  gleich('Sprache: Vorgabe Englisch', En.sprache, 'en');
+  pruefe('Sprache: Frische englisch', En.frische(vor(5)).endsWith('>Updated 5 min ago</time>'), En.frische(vor(5)));
+  gleich('Sprache: Dauer englisch', En.zeit.dauer(180), '3 h');
+  En.texte({ 'Keine offenen Vorgänge': 'No open tickets', '{0} Vorgänge': '{0} tickets' });
+  gleich('Sprache: Text der App', En.t('Keine offenen Vorgänge'), 'No open tickets');
+  gleich('Sprache: Platzhalter', En.t('{0} Vorgänge', 3), '3 tickets');
+  gleich('Sprache: unbekannter Text bleibt', En.t('Unbekannt'), 'Unbekannt');
+  gleich('Sprache: Deutsch bleibt Deutsch', App.t('Keine offenen Vorgänge'), 'Keine offenen Vorgänge');
 }
 } catch (e) { fehler.push(`Abbruch: ${(e && e.stack) || e}`); }
 

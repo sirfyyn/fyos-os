@@ -6,6 +6,7 @@ import { laeuft, laufTon, statusText } from '~/lib/agent-runner/laeufe';
 import { fehlerText, vor } from '~/lib/agent-runner/text';
 import type { Lauf } from '~/lib/agent-runner/typen';
 import { FELD, Fehler, KARTE_ZEILE, KNOPF, KNOPF_VOLL, Laedt, Leer, Marke } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 const MARKEN_TON = { laeuft: 'warn', fertig: 'ok', fehler: 'fehler', offen: 'leise' } as const;
 
@@ -30,9 +31,9 @@ function LaufKarte(p: {
   };
   const ergebnis = () => p.l.antwort || p.l.fehler || p.l.notiz || '';
   return (
-    <article class={KARTE_ZEILE} data-lauf={p.l.id} data-status={p.l.status} aria-label={`Lauf: ${p.l.titel ?? p.l.id}`}>
+    <article class={KARTE_ZEILE} data-lauf={p.l.id} data-status={p.l.status} aria-label={tr('Lauf: {0}', p.l.titel ?? p.l.id)}>
       <div class="flex flex-wrap items-start justify-between gap-2">
-        <h3 class="m-0 min-w-0 flex-[1_1_12rem] text-[0.95rem] font-semibold">{p.l.titel || 'Lauf'}</h3>
+        <h3 class="m-0 min-w-0 flex-[1_1_12rem] text-[0.95rem] font-semibold">{p.l.titel || tr('Lauf')}</h3>
         <div class="flex flex-wrap items-center gap-1.5">
           <Marke ton={MARKEN_TON[laufTon(p.l)]}>{statusText(p.l)}</Marke>
           <Show when={p.l.phase}>
@@ -57,17 +58,17 @@ function LaufKarte(p: {
       <div class="mt-3 flex flex-wrap gap-2">
         <Show when={p.l.kindId}>
           <button type="button" class={KNOPF} onClick={() => p.oeffneKind(p.l.kindId!)}>
-            Kindgespräch öffnen
+            {tr('Kindgespräch öffnen')}
           </button>
         </Show>
         <Show when={p.l.freigabeId && laeuft(p.l)}>
           <button type="button" class={KNOPF} onClick={p.zurFreigabe}>
-            Wartet auf Freigabe
+            {tr('Wartet auf Freigabe')}
           </button>
         </Show>
         <Show when={laeuft(p.l)}>
           <button type="button" class={KNOPF} disabled={arbeitet()} aria-busy={arbeitet()} onClick={() => void abbrechen()}>
-            {arbeitet() ? 'Breche ab …' : 'Abbrechen'}
+            {arbeitet() ? tr('Breche ab …') : tr('Abbrechen')}
           </button>
         </Show>
       </div>
@@ -114,37 +115,37 @@ export function Laeufe(p: {
   return (
     <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-0.5" data-tab="laeufe">
       <div class="flex items-center justify-between gap-2 px-1">
-        <h2 class="os-titel m-0">Läufe</h2>
+        <h2 class="os-titel m-0">{tr('Läufe')}</h2>
         <button type="button" class={KNOPF} aria-expanded={formular()} onClick={() => setFormular((f) => !f)}>
-          {formular() ? 'Schließen' : 'Neuer Lauf'}
+          {formular() ? tr('Schließen') : tr('Neuer Lauf')}
         </button>
       </div>
       <Show when={formular()}>
-        <form class={`${KARTE_ZEILE} flex flex-col gap-2`} onSubmit={(e) => void absenden(e)} aria-label="Neuer Lauf">
+        <form class={`${KARTE_ZEILE} flex flex-col gap-2`} onSubmit={(e) => void absenden(e)} aria-label={tr('Neuer Lauf')}>
           <label class="flex flex-col gap-1 text-xs font-semibold text-(--color-fg-muted)">
-            Titel
-            <input class={FELD} value={titel()} onInput={(e) => setTitel(e.currentTarget.value)} placeholder="z. B. Cluster prüfen" maxLength={120} required />
+            {tr('Titel')}
+            <input class={FELD} value={titel()} onInput={(e) => setTitel(e.currentTarget.value)} placeholder={tr('z. B. Cluster prüfen')} maxLength={120} required />
           </label>
           <label class="flex flex-col gap-1 text-xs font-semibold text-(--color-fg-muted)">
-            Auftrag
-            <textarea class={`${FELD} min-h-20`} value={auftrag()} onInput={(e) => setAuftrag(e.currentTarget.value)} placeholder="Was soll der Lauf tun?" required />
+            {tr('Auftrag')}
+            <textarea class={`${FELD} min-h-20`} value={auftrag()} onInput={(e) => setAuftrag(e.currentTarget.value)} placeholder={tr('Was soll der Lauf tun?')} required />
           </label>
-          <p class="m-0 text-xs text-(--color-fg-subtle)">Der Lauf bekommt ein eigenes Kindgespräch und überlebt Abstürze. Er startet vom offenen Gespräch aus.</p>
+          <p class="m-0 text-xs text-(--color-fg-subtle)">{tr('Der Lauf bekommt ein eigenes Kindgespräch und überlebt Abstürze. Er startet vom offenen Gespräch aus.')}</p>
           <Show when={fehler()}>
             <Fehler text={fehler()} />
           </Show>
           <div>
             <button type="submit" class={KNOPF_VOLL} disabled={sendet() || !titel().trim() || !auftrag().trim()}>
-              {sendet() ? 'Starte …' : 'Lauf starten'}
+              {sendet() ? tr('Starte …') : tr('Lauf starten')}
             </button>
           </div>
         </form>
       </Show>
       <Show when={p.fehler}>
-        <Fehler text={`Läufe nicht abrufbar: ${p.fehler}`} nochmal={p.erneut} />
+        <Fehler text={tr('Läufe nicht abrufbar: {0}', p.fehler)} nochmal={p.erneut} />
       </Show>
-      <Show when={p.geladen || p.fehler} fallback={<Laedt text="Läufe werden geladen" />}>
-        <Show when={p.laeufe.length} fallback={<Leer>Noch kein Lauf. Ein Lauf ist ein dauerhafter Auftrag mit Phasen und eigenem Kindgespräch.</Leer>}>
+      <Show when={p.geladen || p.fehler} fallback={<Laedt text={tr('Läufe werden geladen')} />}>
+        <Show when={p.laeufe.length} fallback={<Leer>{tr('Noch kein Lauf. Ein Lauf ist ein dauerhafter Auftrag mit Phasen und eigenem Kindgespräch.')}</Leer>}>
           <For each={p.laeufe}>
             {(l) => <LaufKarte l={l} oeffneKind={p.oeffneKind} abbrechen={p.abbrechen} zurFreigabe={p.zurFreigabe} />}
           </For>

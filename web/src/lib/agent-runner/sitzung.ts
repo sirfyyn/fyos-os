@@ -10,7 +10,6 @@
  */
 import { AgentApi, type SendeArt } from './api';
 import { leerGespraech, mitAnsicht, mitEreignissen, mitSnapshot } from './gespraech';
-import { agentAnzeigename } from './anzeige';
 import { offeneZahl, ordneFreigaben, type Entscheidung } from './freigaben';
 import { ordneLaeufe } from './laeufe';
 import { haltStrom, type SseNachricht, type StromStatus } from './sse';
@@ -20,6 +19,7 @@ import { NACHFASS_TEXT } from './status';
 import { fehlerText } from './text';
 import type { Freigabe, GeteilterZustand, Gespraech, GespraechId, GespraechsZustand, Hinweis, Lauf } from './typen';
 import { AgentVerbindung, RunnerFehler } from './verbindung';
+import { tr } from '~/lib/i18n';
 
 export const FOKUS_SPEICHER = 'fyos:agent:fokus';
 
@@ -28,7 +28,11 @@ export interface SitzungsStand {
   start: 'laedt' | 'bereit' | 'fehler';
   /** Warum der Zugang nicht klappt (nur bei start = fehler). */
   fehler: RunnerFehler | null;
-  agentName: string;
+  /**
+   * Kennung des Agenten beim Runner (`agent` aus /api/health, z. B. „main“), leer bis zur ersten Antwort. Das ist kein
+   * Name: angezeigt wird `agentName()` aus der Laufzeit-Konfiguration (lib/config.ts), die Kennung höchstens als Nebeninfo.
+   */
+  agentKennung: string;
   geraet: string;
   gespraeche: Gespraech[];
   fokus: GespraechId | null;
@@ -108,7 +112,7 @@ export class AgentSitzung {
     this.s = {
       start: 'laedt',
       fehler: null,
-      agentName: 'Agent',
+      agentKennung: '',
       geraet: '',
       gespraeche: [],
       fokus: null,
@@ -172,7 +176,7 @@ export class AgentSitzung {
     }
     const gez: Partial<SitzungsStand> = { start: 'bereit', gespraeche: gespraeche.value };
     if (gesund.status === 'fulfilled') {
-      gez.agentName = agentAnzeigename(gesund.value.agent);
+      gez.agentKennung = String(gesund.value.agent ?? '').trim();
       gez.geraet = gesund.value.geraet?.name ?? '';
       gez.spielmodus = gesund.value.spielmodus || null;
     }
@@ -320,26 +324,26 @@ export class AgentSitzung {
     const b = liveBefehl(t);
     if (b) {
       this.setzeLive(b === 'wechseln' ? !this.s.live : b === 'an');
-      this.melde({ text: this.s.live ? 'Live an: du siehst die autonome Arbeit.' : 'Live aus: Strom ausgeblendet. /live blendet ihn wieder ein.' });
+      this.melde({ text: this.s.live ? tr('Live an: du siehst die autonome Arbeit.') : tr('Live aus: Strom ausgeblendet. /live blendet ihn wieder ein.') });
       return { befehl: true };
     }
     const c = liesBefehl(t);
     if (c?.name === 'ruhe') {
       this.setzeLive(false);
-      this.melde({ text: 'Ruhe: die eigenständige Arbeit des Agenten ist ausgeblendet. /live blendet sie wieder ein.' });
+      this.melde({ text: tr('Ruhe: die eigenständige Arbeit des Agenten ist ausgeblendet. /live blendet sie wieder ein.') });
       return { befehl: true };
     }
     if (c?.name === 'neu') {
       await this.neuesGespraech(c.rest || undefined);
-      this.melde({ text: 'Neues Gespräch.' });
+      this.melde({ text: tr('Neues Gespräch.') });
       return { befehl: true };
     }
     if (c?.name === 'stopp') {
       await this.abbrechen();
-      this.melde({ text: 'Zug angehalten.' });
+      this.melde({ text: tr('Zug angehalten.') });
       return { befehl: true };
     }
-    if (this.s.fokus === null) throw new RunnerFehler('anfrage', 0, 'Es ist kein Gespräch offen.');
+    if (this.s.fokus === null) throw new RunnerFehler('anfrage', 0, tr('Es ist kein Gespräch offen.'));
     await this.api.sende(this.s.fokus, t, art, `web:${this.zufall()}`);
     return { befehl: false };
   }
@@ -347,7 +351,7 @@ export class AgentSitzung {
   /** „Nachfassen“ bei einem hängenden Zug: eine Rückfrage, die in den laufenden Zug eingreift. */
   async nachfassen(): Promise<void> {
     if (this.s.fokus === null) return;
-    await this.api.sende(this.s.fokus, NACHFASS_TEXT, 'steuern', `web:${this.zufall()}`);
+    await this.api.sende(this.s.fokus, tr(NACHFASS_TEXT), 'steuern', `web:${this.zufall()}`);
     this.setze({ letzteRegung: Date.now() });
     this.melde({ text: 'Nachgefasst.' });
   }
@@ -407,7 +411,7 @@ export class AgentSitzung {
 
   /** Name eines Gesprächs für Anzeige (aus Liste oder Strom). */
   titelVon(id: GespraechId): string {
-    return this.s.gespraeche.find((g) => g.id === id)?.titel ?? stromTitel(this.s.strom, id) ?? `Gespräch ${id}`;
+    return this.s.gespraeche.find((g) => g.id === id)?.titel ?? stromTitel(this.s.strom, id) ?? tr('Gespräch {0}', id);
   }
 
   // ── Dokumente: Freigaben, Läufe, Zustand ──────────────────────────────────
@@ -479,21 +483,21 @@ export class AgentSitzung {
   async entscheideFreigabe(id: string, entscheidung: Entscheidung, notiz?: string): Promise<void> {
     const liste = await this.api.entscheideFreigabe(id, entscheidung, notiz);
     this.setzeFreigaben(liste);
-    this.melde({ text: entscheidung === 'erteilt' ? 'Freigabe erteilt.' : 'Freigabe abgelehnt.' });
+    this.melde({ text: entscheidung === 'erteilt' ? tr('Freigabe erteilt.') : tr('Freigabe abgelehnt.') });
   }
 
   async neuerLauf(titel: string, auftrag: string): Promise<Lauf> {
-    if (this.s.fokus === null) throw new RunnerFehler('anfrage', 0, 'Es ist kein Gespräch offen, von dem aus der Lauf startet.');
+    if (this.s.fokus === null) throw new RunnerFehler('anfrage', 0, tr('Es ist kein Gespräch offen, von dem aus der Lauf startet.'));
     const lauf = await this.api.neuerLauf(this.s.fokus, { titel: titel.trim(), auftrag: auftrag.trim() });
     this.planeAuffrischen('laeufe');
-    this.melde({ text: `Lauf „${lauf.titel ?? titel}“ gestartet.` });
+    this.melde({ text: tr('Lauf „{0}“ gestartet.', lauf.titel ?? titel) });
     return lauf;
   }
 
   async laufAbbrechen(id: string): Promise<void> {
     await this.api.laufAbbrechen(id);
     this.planeAuffrischen('laeufe');
-    this.melde({ text: 'Lauf abgebrochen.' });
+    this.melde({ text: tr('Lauf abgebrochen.') });
   }
 
   /** Wert setzen: JSON, wenn es welches ist, sonst Text. */

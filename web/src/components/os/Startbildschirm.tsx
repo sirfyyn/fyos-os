@@ -13,6 +13,7 @@ import { pins as lesePins, pinsBeobachten } from '~/lib/mcp-apps/pins';
 import type { Flaeche } from '~/lib/os/flaechen';
 import { gutSetzen, zugBeginnt, zugBild } from '~/lib/os/ziehen';
 import Symbol from './Symbol';
+import { tr } from '~/lib/i18n';
 
 export interface StartbildschirmProps {
   gruppen: { gruppe: string; flaechen: Flaeche[] }[];
@@ -53,7 +54,7 @@ export default function Startbildschirm(p: StartbildschirmProps): JSX.Element {
       </span>
       <span class="leading-tight">{k.f.titel}</span>
       <Show when={p.offen(k.f.id)}>
-        <span class="text-[11px] text-(--color-fg-muted)">offen</span>
+        <span class="text-[11px] text-(--color-fg-muted)">{tr('offen')}</span>
       </Show>
     </button>
   );
@@ -62,11 +63,11 @@ export default function Startbildschirm(p: StartbildschirmProps): JSX.Element {
     <div class="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-8 px-6 py-10 max-sm:px-4" data-startbildschirm>
       <header>
         <h1 class="m-0 text-3xl font-semibold tracking-tight">{systemName()}</h1>
-        <p class="mt-1 text-sm text-(--color-fg-muted)">Alle Flächen und Apps. Mit ⌘K suchst du, mit ⌘J fragst du den Agenten.</p>
+        <p class="mt-1 text-sm text-(--color-fg-muted)">{tr('Alle Flächen und Apps. Mit ⌘K suchst du, mit ⌘J fragst du den Agenten.')}</p>
       </header>
       <Show when={angeheftet().length}>
-        <div role="group" aria-label="Angeheftet">
-          <h2 class="os-titel mb-2.5">Angeheftet</h2>
+        <div role="group" aria-label={tr('Angeheftet')}>
+          <h2 class="os-titel mb-2.5">{tr('Angeheftet')}</h2>
           <div class="grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-x-1 gap-y-3">
             <For each={angeheftet()}>{(f) => <Kachel f={f} />}</For>
           </div>
@@ -74,8 +75,8 @@ export default function Startbildschirm(p: StartbildschirmProps): JSX.Element {
       </Show>
       <For each={p.gruppen}>
         {(g) => (
-          <div role="group" aria-label={g.gruppe}>
-            <h2 class="os-titel mb-2.5">{g.gruppe}</h2>
+          <div role="group" aria-label={tr(g.gruppe)}>
+            <h2 class="os-titel mb-2.5">{tr(g.gruppe)}</h2>
             <div class="grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-x-1 gap-y-3">
               <For each={g.flaechen}>{(f) => <Kachel f={f} />}</For>
             </div>

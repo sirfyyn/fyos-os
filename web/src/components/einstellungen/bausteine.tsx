@@ -6,6 +6,7 @@
  * Tastatur (Pfeiltasten in Auswahlgruppen), hat einen sichtbaren Fokus und Übergänge von 200 ms.
  */
 import { ErrorBoundary, For, Show, Suspense, createSignal, createUniqueId, type JSX } from 'solid-js';
+import { tr } from '~/lib/i18n';
 
 export const FOKUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)';
 
@@ -139,7 +140,7 @@ export function Wahl<T extends string>(p: {
             aria-checked={o.wert === p.wert}
             tabindex={(index() < 0 ? i() === 0 : o.wert === p.wert) ? 0 : -1}
             disabled={p.gesperrt}
-            title={o.titel}
+            title={o.titel ? tr(o.titel) : undefined}
             onClick={() => waehle(i())}
             onKeyDown={(e) => radioTaste(e, i(), p.optionen.length, waehle)}
             class="relative z-[1] flex min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 transition-colors duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--color-accent) disabled:cursor-not-allowed"
@@ -155,7 +156,7 @@ export function Wahl<T extends string>(p: {
                 {o.symbol}
               </span>
             </Show>
-            <span class="truncate">{o.text}</span>
+            <span class="truncate">{tr(o.text)}</span>
           </button>
         )}
       </For>
@@ -309,7 +310,7 @@ export function Regler(p: {
 
 export function Laedt(p: { text?: string }): JSX.Element {
   return (
-    <div role="status" class="flex flex-col gap-2 py-2" aria-label={p.text ?? 'Wird geladen'}>
+    <div role="status" class="flex flex-col gap-2 py-2" aria-label={p.text ?? tr('Wird geladen')}>
       <span class="h-3 w-2/5 animate-pulse rounded-full bg-[color-mix(in_oklab,var(--color-fg)_10%,transparent)]" />
       <span class="h-3 w-4/5 animate-pulse rounded-full bg-[color-mix(in_oklab,var(--color-fg)_7%,transparent)]" />
       <span class="h-3 w-3/5 animate-pulse rounded-full bg-[color-mix(in_oklab,var(--color-fg)_7%,transparent)]" />
@@ -323,7 +324,7 @@ export function Fehler(p: { text: string; nochmal?: () => void }): JSX.Element {
       <span class="min-w-0 flex-1">{p.text}</span>
       <Show when={p.nochmal}>
         <button type="button" class={KNOPF} onClick={() => p.nochmal!()}>
-          Erneut versuchen
+          {tr('Erneut versuchen')}
         </button>
       </Show>
     </div>
@@ -363,7 +364,7 @@ export function Aufklapper(p: { titel: string; unter?: JSX.Element; children: JS
       </button>
       <Show when={offen()}>
         <div id={`${id}-inhalt`} class="pb-4 [&_.luxe-title]:hidden" data-eingebettet>
-          <ErrorBoundary fallback={(e, nochmal) => <Fehler text={`Konnte nicht geladen werden: ${e instanceof Error ? e.message : String(e)}`} nochmal={nochmal} />}>
+          <ErrorBoundary fallback={(e, nochmal) => <Fehler text={tr('Konnte nicht geladen werden: {0}', e instanceof Error ? e.message : String(e))} nochmal={nochmal} />}>
             <Suspense fallback={<Laedt />}>{p.children}</Suspense>
           </ErrorBoundary>
         </div>

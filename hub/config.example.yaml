@@ -1,10 +1,10 @@
-# FYOS-Hub — Beispielkonfiguration
+# FYOS Hub — example configuration
 #
-# Alles ist optional. Ohne Datei laedt der Hub jedes installierte Plugin der Entry-Point-Gruppe `mcp_hub.plugins`
-# mit seinen Vorgaben. Ein Eintrag unter `plugins:` braucht es nur fuer Konfiguration, Geheimnisse oder
-# `enabled: false`. Ein Eintrag ohne `module` bezieht das Plugin aus der Entry-Point-Gruppe (Name = Entry-Point-Name).
+# Everything is optional. Without a file the Hub loads every installed plugin of the entry-point group
+# `mcp_hub.plugins` with its defaults. An entry under `plugins:` is only needed for configuration, secrets or
+# `enabled: false`. An entry without `module` takes the plugin from the entry-point group (name = entry-point name).
 #
-# Pfad der Datei: Umgebung MCP_HUB_CONFIG_PATH (Vorgabe ./config.yaml).
+# Path of the file: environment MCP_HUB_CONFIG_PATH (default ./config.yaml).
 host: 0.0.0.0
 port: 8080
 path: /mcp
@@ -15,108 +15,121 @@ circuit_breaker:
   timeout_sec: 30
   half_open_max_calls: 3
 
-# Plugins live nachladen und offene Clients ueber Aenderungen der Werkzeugliste informieren (alles aus, wenn nicht genannt;
-# docs/ERWEITERN.md 10.5):
+# Reload plugins live and tell open clients about changes to the tool list (all off unless set;
+# docs/EXTENDING.md 10.5):
 # plugins_live: true
 # plugins_live_takt_s: 30
-# plugins_live_quellen: [/workspace/mein-plugin-repo]   # oder Umgebung FYOS_PLUGINS_LIVE_QUELLEN
+# plugins_live_quellen: [/workspace/my-plugin-repo]   # or environment FYOS_PLUGINS_LIVE_QUELLEN
 # liste_melden: true
-# mcp_sitzungen: false       # nur mit einer Hub-Replika oder Sticky-Routing
+# mcp_sitzungen: false       # only with a single Hub replica or sticky routing
 
 plugins:
-  # Referenz-Plugins: nur zum Ausprobieren, im Alltag aus.
+  # Reference plugins: only for trying things out, off in daily use.
   - name: echo
     enabled: false
   - name: math
     enabled: false
 
-  # Audit-Protokoll aller Werkzeugaufrufe. Ohne Qdrant (QDRANT_URL leer) arbeitet es im Ringpuffer;
-  # mit Qdrant und einem Embedding-Dienst (FYOS_EMBED_URL) gibt es Vektorsuche ueber die Historie.
+  # Audit log of all tool calls. Without Qdrant (QDRANT_URL empty) it works in a ring buffer;
+  # with Qdrant and an embedding service (FYOS_EMBED_URL) there is vector search over the history.
   - name: audit
     config:
       collection_name: mcp_audit_log
 
-  # Ereignisse der Werkzeugaufrufe auf Redis-Streams. Ohne REDIS_URL bleiben sie im Speicher des Prozesses.
+  # Events of the tool calls on Redis streams. Without REDIS_URL they stay in the memory of the process.
   - name: event_bus_publisher
 
-  # Arbeitsanleitungen (SKILL.md je Ordner). Quellen: Liste von Verzeichnissen.
+  # Work instructions (one SKILL.md per folder). Sources: list of directories.
   - name: skills
     config:
       quellen:
         - /opt/fyos/skills
 
-  # Angemeldete Skripte eines Repos (Kopfblock WERKSTATT) finden und mit Trockenlauf ausfuehren.
+  # Find the registered scripts of a repo (header block WERKSTATT) and run them with a dry run (workshop).
   - name: werkstatt
     config:
       repo: /opt/fyos/repo
       # favoriten: [ops/plattenplatz]
 
-  # Werkzeugkasten: Plugins, Werkzeuge, Apps und Protokolle des Hubs ansehen.
+  # Toolbox: look at the Hub's plugins, tools, apps and logs.
   - name: mcp
     # config:
-    #   privat_plugins: [meinplugin]
+    #   privat_plugins: [myplugin]
 
-  # Anordnung der Shell (offene Fenster) als Werkzeuge.
+  # Layout of the shell (open windows) as tools.
   - name: shell
 
-  # Verbindung zur Shell (OS-Bruecke): der Agent sieht, ob jemand vor der Shell sitzt, zeigt Flaechen und
-  # meldet sich mit os.mitteilen. Ist niemand da (Nachtauftrag), wartet die Mitteilung bis zu 24 h und erscheint,
-  # sobald die Shell geoeffnet wird. Braucht REDIS_URL. Abschalten des Nachholens: OS_NACHHOLEN=aus.
-  # Anleitung: Skill nachtarbeit, docs/NACHTARBEIT.md.
+  # Connection to the shell (OS bridge): the agent sees whether someone sits at the shell, shows surfaces and
+  # reports with os.mitteilen. If nobody is there (night job), the notification waits up to 24 h and appears
+  # as soon as the shell is opened. Needs REDIS_URL. To switch off catching up: OS_NACHHOLEN=aus.
+  # Guide: skill nachtarbeit, docs/NIGHT-WORK.md.
   - name: os
     # config:
     #   nachholen: false
 
-  # Generative Oberflaechen: der Agent baut eine bedienbare Ansicht (Kennzahlen, Balken, Verlauf, Tabelle ...) aus
-  # einer Vorlage oder frei und zeigt sie als App. Die Ansichten liegen in mcp_hub.kv (Redis, wenn REDIS_URL gesetzt
-  # ist, sonst im Speicher des Prozesses). Anleitung: Skill generative-ui (Teil des Kerns).
+  # Generative interfaces: the agent builds a usable view (key figures, bars, history, table ...) from
+  # a template or freely and shows it as an app. The views live in mcp_hub.kv (Redis if REDIS_URL is set,
+  # otherwise in the memory of the process). Guide: skill generative-ui (part of the core).
   - name: gui
     # config:
-    #   vorlagen: /opt/fyos/vorlagen   # eigener Ordner statt der Vorlagen des Kerns (gleicher Aufbau)
-    #   daten: /data/fle                # Dateiablage statt mcp_hub.kv: <daten>/gui/g-....json (auch Umgebung FYOS_GUI_DATEN)
+    #   vorlagen: /opt/fyos/vorlagen   # own folder instead of the core's templates (same structure)
+    #   daten: /data/fle                # file store instead of mcp_hub.kv: <daten>/gui/g-....json (also environment FYOS_GUI_DATEN)
 
-  # Dateiablage mit App "Dateien": Ordner, Vorschau, Hochladen per Ziehen, Papierkorb, fruehere Fassungen. Ohne Ordner
-  # ist sie "nicht eingerichtet". Der Ordner kommt aus FYOS_DATEIEN (Container: /data/dateien auf einem Volume);
-  # FYOS_DATEIEN_MAX_MB (25), FYOS_DATEIEN_VERSIONEN (10) und FYOS_DATEIEN_PAPIERKORB_TAGE (30) stellen die Grenzen ein.
-  # Anleitung: docs/ERWEITERN.md 2.17.
+  # File store with the app "Files": folders, preview, upload by dragging, trash, earlier versions. Without a folder
+  # it is "not set up". The folder comes from FYOS_DATEIEN (container: /data/dateien on a volume);
+  # FYOS_DATEIEN_MAX_MB (25), FYOS_DATEIEN_VERSIONEN (10) and FYOS_DATEIEN_PAPIERKORB_TAGE (30) set the limits.
+  # Guide: docs/EXTENDING.md 2.17.
   - name: dateien
     # config:
-    #   verzeichnis: /data/dateien   # statt FYOS_DATEIEN
-    #   oeffnen:                      # "Oeffnen mit ...": Programme auf einem Rechner (z. B. Papers, WordCraft), docs/ERWEITERN.md 2.17
-    #     gegenstelle: http://rechner:18445   # der Dienst fyos-oeffnen dort; ohne Eintrag fehlen die Knoepfe
-    #     token_env: FYOS_OEFFNEN_TOKEN     # Name der Umgebungsvariable mit dem Token (nie das Token selbst eintragen)
+    #   verzeichnis: /data/dateien   # instead of FYOS_DATEIEN
+    #   oeffnen:                      # "Open with ...": programs on a computer (e.g. Papers, WordCraft), docs/EXTENDING.md 2.17
+    #     gegenstelle: http://computer:18445   # the fyos-oeffnen service there; without an entry the buttons are missing
+    #     token_env: FYOS_OEFFNEN_TOKEN     # name of the environment variable holding the token (never enter the token itself)
 
-  # Desktop eines Rechners: offene Fenster, Starter, Bildschirmfoto; Starten, Fokus und Schliessen nur mit Plan und
-  # Bestaetigung. Derselbe Dienst fyos-oeffnen wie bei "Oeffnen mit" (docs/ERWEITERN.md 2.19). Ohne Gegenstelle meldet jedes
-  # Werkzeug "nicht eingerichtet". Adresse und Token kommen aus FYOS_OEFFNEN_GEGENSTELLE und FYOS_OEFFNEN_TOKEN (oder config:
+  # Desktop of a computer: open windows, launchers, screenshot; launching, focusing and closing only with a plan and
+  # confirmation. The same fyos-oeffnen service as for "Open with" (docs/EXTENDING.md 2.19). Without a counterpart every
+  # tool reports "not set up". Address and token come from FYOS_OEFFNEN_GEGENSTELLE and FYOS_OEFFNEN_TOKEN (or config:
   # gegenstelle / token_env).
   - name: desktop
 
-  # Kleine Beispiel-App (Notizzettel mit Oberflaeche).
+  # Small example app (sticky notes with an interface).
   - name: beispiel_app
 
-  # Arbeits-Apps: Vorgaenge, Mail (nur lesend) und Termine zeigen, was die Quellen des Kerns liefern (Vorgangs-Dienst oder
-  # Ablage eines Plugins, Mail-Dienst oder Mail-Plugin, Termin-Dienst oder Kalender-Plugin; docs/ERWEITERN.md 2.13 bis 2.15). Ohne Quelle
-  # sagen sie das. Mails und Vorgaenge lassen sich per Ziehen uebergeben (Mail -> Vorgang, Vorgang -> Vorgang, Vorgang -> Termin).
+  # Work apps: Tickets, Mail (read-only) and Appointments show what the core's sources deliver (ticket service or
+  # store of a plugin, mail service or mail plugin, appointment service or calendar plugin; docs/EXTENDING.md 2.13 to 2.15).
+  # Without a source they say so. Mails and tickets can be handed over by dragging (mail -> ticket, ticket -> ticket,
+  # ticket -> appointment).
   - name: vorgaenge
+  # ITSM of the core: tickets (INC incident, CHG change, VOR project) with status, comments, history and approvals
+  # in the Hub's Redis (keys fyos:itsm:*). Registers as the ticket store and so fills the app "Tickets";
+  # the runner reads itsm.wartend and itsm.vorgang. Without REDIS_URL "not set up"; a ticket service
+  # (FYOS_VORGAENGE_URL) takes precedence, the ITSM then rests. Answers from the interface are filed under the actor
+  # FYOS_BESITZER_AKTEUR (default besitzer); the runner needs the same name as itsm.besitzer. Guide: docs/ITSM.md.
+  - name: itsm
+    # config:
+    #   agent: agent          # actor for calls without `wer` (otherwise FYOS_AGENT_ID)
+    #   besitzer: besitzer    # instead of FYOS_BESITZER_AKTEUR
+    #   redis_url: redis://redis:6379/0   # instead of REDIS_URL
+    #   bestaetigung: true    # every write needs bestaetigt: true; or per tool:
+    #   bestaetigung: {anlegen: true, kommentieren: false, status_setzen: true, notiz: false}
   - name: posteingang
   - name: termine
 
-  # Suche ueber alles (Kommando-K in der Shell): Vorgaenge, Mail, Dateien, Notizen und weitere Quellen, die Plugins anmelden
-  # (docs/ERWEITERN.md 2.18).
+  # Search over everything (Command-K in the shell): tickets, mail, files, notes and further sources that plugins
+  # register (docs/EXTENDING.md 2.18).
   - name: suche
 
-  # Eingang und Ausgang des Agenten (Runner) (/hub/agent/eingang, /melden, /alarm; keine Werkzeuge). Ohne
-  # Quellen-Tokens innen offen wie der übrige Hub; mit FYOS_AGENT_TOKENS (rolle=token, …) verlangt jeder Weg ein
-  # Token, und die Quelle folgt dem Token. streng: ohne brauchbares Token antwortet alles 401.
+  # Inbox and outbox of the agent (Runner) (/hub/agent/eingang, /melden, /alarm; no tools). Without
+  # source tokens open on the inside like the rest of the Hub; with FYOS_AGENT_TOKENS (role=token, …) every route
+  # requires a token, and the source follows the token. streng: without a usable token everything answers 401.
   - name: agent
     # config:
-    #   agent: agent        # Agenten-ID für Ereignisse ohne eigene
+    #   agent: agent        # agent ID for events without one of their own
     #   streng: true
     # secrets: [FYOS_AGENT_TOKENS]
 
-  # Ein Plugin aus einem eigenen Paket (uv pip install fyos-plugin-finanzen) laedt ohne Eintrag.
-  # Mit Eintrag laesst sich seine Konfiguration setzen, z. B.:
+  # A plugin from a package of its own (uv pip install fyos-plugin-finanzen) loads without an entry.
+  # With an entry its configuration can be set, e.g.:
   # - name: finance
   #   config:
   #     finanzen_url: http://finanzen:8080

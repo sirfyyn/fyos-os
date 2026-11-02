@@ -11,7 +11,7 @@ Code die Ansicht rechts im Panel; diese Datei ist der Weg ohne Mod: `--oeffnen` 
     --oeffnen                                 danach im Standardbrowser öffnen
 
 Ohne ZIEL: ./gui-<id>.html. Gibt den Pfad aus. Der Hub steht in FYOS_HUB_URL (Vorgabe http://localhost:8080, ein /mcp
-am Ende wird abgeschnitten); `/hub/call` erreicht nur, wer den Hub selbst erreicht (siehe docs/HUB-VERTRAG.md).
+am Ende wird abgeschnitten); `/hub/call` erreicht nur, wer den Hub selbst erreicht (siehe docs/HUB-CONTRACT.md).
 Eine Live-Quelle bleibt in der Datei auf dem Stand des Abrufs: die Datei lädt nichts nach.
 
 Braucht Python 3.11 oder neuer und den Quelltext des Hubs: das installierte Paket fyos-hub oder, in einem Checkout

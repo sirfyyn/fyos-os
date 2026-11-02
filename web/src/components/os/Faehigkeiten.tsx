@@ -9,6 +9,7 @@ import { Portal } from 'solid-js/web';
 import { agentName } from '~/lib/config';
 import { anstossen, laden, schalten, type Faehigkeit, type FaehigkeitId } from '~/lib/os/faehigkeiten';
 import { TON_HILFE, TON_MODI, TON_NAMEN, tonModusLesen, tonModusSchreiben, type TonModus } from '~/lib/os/ton-modus';
+import { tr } from '~/lib/i18n';
 
 const REIHE: FaehigkeitId[] = ['agent', 'stimme', 'augen'];
 const TAKT_MS = 60_000;
@@ -123,7 +124,7 @@ export default function Faehigkeiten(p: { oeffne: (flaeche: string) => void }): 
           const text = () => {
             const x = s();
             if (!x) return x;
-            const zustand = x.aktiv == null ? 'nicht eingerichtet' : x.aktiv ? 'an' : 'aus';
+            const zustand = x.aktiv == null ? tr('nicht eingerichtet') : x.aktiv ? 'an' : 'aus';
             return `${x.name}: ${zustand}`;
           };
           return (
@@ -158,10 +159,10 @@ export default function Faehigkeiten(p: { oeffne: (flaeche: string) => void }): 
             <span class="os-faehigkeit-symbol" data-faehigkeit={f()!.id} classList={{ 'os-faehigkeit-an': f()!.aktiv === true }}>{SYMBOL[f()!.id]()}</span>
             <div class="min-w-0 flex-1">
               <p class="m-0 font-semibold">{f()!.name}</p>
-              <p class="m-0 text-(--color-fg-muted)">{f()!.satz || (f()!.aktiv ? 'An' : 'Aus')}</p>
+              <p class="m-0 text-(--color-fg-muted)">{f()!.satz || (f()!.aktiv ? 'An' : tr('Aus'))}</p>
             </div>
             <Show when={f()!.schalter.length > 1}>
-              <label class="os-kipper" title="Alle">
+              <label class="os-kipper" title={tr('Alle')}>
                 <input
                   type="checkbox"
                   aria-label={`${f()!.name}: alle`}
@@ -181,17 +182,17 @@ export default function Faehigkeiten(p: { oeffne: (flaeche: string) => void }): 
                     <div class="min-w-0 flex-1">
                       <span>{x.text}</span>
                       <Show when={x.hinweis}><small class="block line-clamp-2 break-words text-(--color-fg-muted)" title={x.hinweis}>{x.hinweis}</small></Show>
-                      <Show when={x.anstoss === 'laeuft'}><small class="block text-(--color-fg-muted)">Angestoßen</small></Show>
+                      <Show when={x.anstoss === 'laeuft'}><small class="block text-(--color-fg-muted)">{tr('Angestoßen')}</small></Show>
                       <Show when={x.anstoss === 'moeglich'}>
                         <button
                           type="button"
                           class="mt-1 block text-xs underline underline-offset-2 disabled:opacity-50"
                           data-agent-anstossen={x.id}
-                          title={`${x.text} sofort einen Durchgang machen lassen`}
+                          title={tr('{0} sofort einen Durchgang machen lassen', x.text)}
                           disabled={laeuft() != null}
                           onClick={() => void anstoss(x.id)}
                         >
-                          {laeuft() === `agent:anstoss:${x.id}` ? 'Wird angestoßen …' : 'Jetzt anstoßen'}
+                          {laeuft() === `agent:anstoss:${x.id}` ? tr('Wird angestoßen …') : tr('Jetzt anstoßen')}
                         </button>
                       </Show>
                     </div>
@@ -212,8 +213,8 @@ export default function Faehigkeiten(p: { oeffne: (flaeche: string) => void }): 
           </Show>
           <Show when={fehler()}><p role="alert" class="m-0 px-1 text-xs text-(--color-error)">{fehler()}</p></Show>
           <Show when={f()!.id === 'agent'}>
-            <div class="px-1" role="radiogroup" aria-label="Ton an diesem Gerät" data-agent-ton>
-              <p class="m-0 mb-1 text-xs text-(--color-fg-muted)">Ton an diesem Gerät</p>
+            <div class="px-1" role="radiogroup" aria-label={tr('Ton an diesem Gerät')} data-agent-ton>
+              <p class="m-0 mb-1 text-xs text-(--color-fg-muted)">{tr('Ton an diesem Gerät')}</p>
               <div class="flex gap-1">
                 <For each={TON_MODI}>
                   {(m) => (
@@ -222,17 +223,17 @@ export default function Faehigkeiten(p: { oeffne: (flaeche: string) => void }): 
                       role="radio"
                       aria-checked={ton() === m}
                       data-ton={m}
-                      title={TON_HILFE[m]}
+                      title={tr(TON_HILFE[m])}
                       class="flex-1 rounded px-1 py-0.5 text-xs"
                       classList={{ 'bg-(--color-accent-soft) font-semibold': ton() === m, 'underline-offset-2 hover:underline': ton() !== m }}
                       onClick={() => tonWaehlen(m)}
                     >
-                      {TON_NAMEN[m]}
+                      {tr(TON_NAMEN[m])}
                     </button>
                   )}
                 </For>
               </div>
-              <p class="m-0 mt-1 text-xs text-(--color-fg-muted)">{TON_HILFE[ton()]}</p>
+              <p class="m-0 mt-1 text-xs text-(--color-fg-muted)">{tr(TON_HILFE[ton()])}</p>
             </div>
           </Show>
           <Show when={f()!.oeffnen}>

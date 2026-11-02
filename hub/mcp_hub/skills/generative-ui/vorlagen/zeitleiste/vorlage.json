@@ -1,6 +1,6 @@
 {
-  "titel": "Zeitleiste",
-  "zweck": "Was wann geschah: Ereignisse nach Tag gruppiert, neueste oder älteste zuerst, Ton je Ereignis, Klick fragt nach.",
+  "titel": "Timeline",
+  "zweck": "What happened when: events grouped by day, newest or oldest first, tone per event, a click asks about it.",
   "schema": {
     "type": "object",
     "required": ["ereignisse"],
@@ -12,7 +12,7 @@
       "ereignisse": {
         "type": "array", "minItems": 1, "maxItems": 500,
         "items": {"type": "object", "required": ["zeit", "titel"], "properties": {
-          "zeit": {"type": "string", "description": "ISO-Zeit"},
+          "zeit": {"type": "string", "description": "ISO time"},
           "titel": {"type": "string"},
           "text": {"type": "string"},
           "ton": {"type": "string", "enum": ["gut", "warn", "schlecht", "info", "aus"]},
@@ -22,12 +22,12 @@
     }
   },
   "beispiel": {
-    "ueberschrift": "Heute im Betrieb",
-    "herkunft": "Beispielwerte",
+    "ueberschrift": "Operations today",
+    "herkunft": "Example values",
     "ereignisse": [
-      {"zeit": "2026-10-10T08:40:00+02:00", "titel": "Update eingespielt", "text": "alle Prüfungen grün", "ton": "gut"},
-      {"zeit": "2026-10-10T07:15:00+02:00", "titel": "Dienst langsamer", "text": "Antwortzeit 2,1 s", "ton": "warn", "frage": "Warum war der Dienst um 7:15 langsamer?"},
-      {"zeit": "2026-10-09T23:55:00+02:00", "titel": "Sicherung abgeschlossen", "ton": "info"}
+      {"zeit": "2026-10-10T08:40:00+02:00", "titel": "Update installed", "text": "all checks green", "ton": "gut"},
+      {"zeit": "2026-10-10T07:15:00+02:00", "titel": "Service slower", "text": "response time 2.1 s", "ton": "warn", "frage": "Why was the service slower at 7:15?"},
+      {"zeit": "2026-10-09T23:55:00+02:00", "titel": "Backup finished", "ton": "info"}
     ]
   }
 }

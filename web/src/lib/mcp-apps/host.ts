@@ -41,6 +41,7 @@ import { APP_WERKZEUG_FRIST_MS, appWerkzeugeFuer, type AppWerkzeuge } from './ap
 import { anApp, kanalAnmelden, kanalBereit } from './eingehaengt';
 import { gesichterMerken } from './gesicht';
 import { zustandMerken } from './zustand';
+import { gebietsschema, tr } from '~/lib/i18n';
 
 export const HUB_API = '/hub-api';
 export const PROTOKOLL = '2026-01-26';
@@ -91,10 +92,10 @@ async function hubAnfrage<T>(pfad: string, init: RequestInit = {}): Promise<T> {
   const typ = r.headers?.get?.('content-type') ?? '';
   if (r.type === 'opaqueredirect' || r.status === 401 || typ.includes('text/html')) {
     meldeSitzungAbgelaufen();
-    throw new Error(SITZUNG_FEHLER);
+    throw new Error(tr(SITZUNG_FEHLER));
   }
   const d = await r.json().catch(() => undefined);
-  if (d === undefined) throw new Error(r.ok ? 'Antwort des Hubs ist kein JSON' : `HTTP ${r.status}`);
+  if (d === undefined) throw new Error(r.ok ? tr('Antwort des Hubs ist kein JSON') : `HTTP ${r.status}`);
   if (!r.ok && !(d && typeof d === 'object' && 'ok' in d)) throw new Error(`HTTP ${r.status}`);
   return d as T;
 }
@@ -141,7 +142,7 @@ export function werkzeugeImHub(): Promise<McpApp[]> {
 /** Inhalt einer `ui://`-Ressource samt `_meta` (dort steht nach der Spezifikation `ui.csp`). */
 export async function ressourceLesen(uri: string): Promise<{ text: string; meta?: unknown }> {
   const d = await hubAnfrage<{ ok: boolean; text?: string; error?: string; _meta?: unknown }>(`/resource?uri=${encodeURIComponent(uri)}`);
-  if (!d.ok || d.text == null) throw new Error(d.error || 'Ressource nicht lesbar');
+  if (!d.ok || d.text == null) throw new Error(d.error || tr('Ressource nicht lesbar'));
   return { text: d.text, meta: d._meta };
 }
 
@@ -177,7 +178,7 @@ export async function appCall(name: string, args: Record<string, unknown>, art: 
  */
 export async function alleSuchen(abfrage: string): Promise<unknown> {
   const r = await appCall('suche__alles', { abfrage, anzahl: 12 }, 'abfrage');
-  if (r.isError) throw new Error(r.content[0]?.text || 'Die Suche ging nicht.');
+  if (r.isError) throw new Error(r.content[0]?.text || tr('Die Suche ging nicht.'));
   return r.structuredContent ?? {};
 }
 
@@ -220,11 +221,11 @@ export async function dateiHochladen(pfad: string, daten: Blob, ueberschreiben =
   const typ = r.headers?.get?.('content-type') ?? '';
   if (r.type === 'opaqueredirect' || r.status === 401 || typ.includes('text/html')) {
     meldeSitzungAbgelaufen();
-    throw new Error(SITZUNG_FEHLER);
+    throw new Error(tr(SITZUNG_FEHLER));
   }
   const d = (await r.json().catch(() => undefined)) as { ok?: boolean; result?: Record<string, unknown>; kind?: string; error?: string } | undefined;
   if (d === undefined || typeof d !== 'object') {
-    return { ok: false, kind: r.status === 413 ? 'zu_gross' : 'fehler', error: r.status === 413 ? 'Die Datei ist zu groß.' : `HTTP ${r.status}` };
+    return { ok: false, kind: r.status === 413 ? 'zu_gross' : 'fehler', error: r.status === 413 ? tr('Die Datei ist zu groß.') : `HTTP ${r.status}` };
   }
   if (r.ok && d.ok) return { ok: true, result: d.result };
   return { ok: false, kind: d.kind ?? 'fehler', error: d.error ?? `HTTP ${r.status}` };
@@ -532,7 +533,7 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
       const id = `h-${++hostN}`;
       const t = setTimeout(() => {
         ausstehend.delete(id);
-        fail(new Error(`Die App ${o.app.titel || plugin} hat nicht binnen ${Math.round(frist / 1000)} s geantwortet.`));
+        fail(new Error(tr('Die App {0} hat nicht binnen {1} s geantwortet.', o.app.titel ? tr(o.app.titel) : plugin, Math.round(frist / 1000))));
       }, frist);
       ausstehend.set(id, {
         ok: (r) => { clearTimeout(t); ok(r); },
@@ -567,7 +568,7 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
     if (!m.method && typeof m.id === 'string' && ausstehend.has(m.id)) {
       const a = ausstehend.get(m.id)!;
       ausstehend.delete(m.id);
-      if (m.error) a.fail(new Error(String(m.error.message ?? 'Fehler in der App')));
+      if (m.error) a.fail(new Error(String(m.error.message ?? tr('Fehler in der App'))));
       else a.ok(m.result);
       return;
     }
@@ -606,7 +607,7 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
             toolInfo: { tool: { name: o.app.name, description: o.app.description, inputSchema: { type: 'object', ...o.app.inputSchema } } },
             theme: o.theme(),
             styles: hostStile(o.theme()),
-            locale: 'de-DE',
+            locale: gebietsschema(),
             timeZone: 'Europe/Berlin',
             displayMode: 'inline',
             availableDisplayModes: ['inline'],
@@ -633,7 +634,7 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
       case 'tools/call': {
         if (!anfrage) return;
         const name = String(p.name ?? '');
-        if (!name.startsWith(`${plugin}__`)) return abgelehnt(`Werkzeug ${name} gehört nicht zu dieser App`);
+        if (!name.startsWith(`${plugin}__`)) return abgelehnt(tr('Werkzeug {0} gehört nicht zu dieser App', name));
         const args = (p.arguments as Record<string, unknown>) ?? {};
         try {
           // Spezifikation: der Host lässt eine App nur Werkzeuge rufen, deren `_meta.ui.visibility` „app“ enthält.
@@ -643,12 +644,12 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
             await werkzeugeImHub().catch(() => []);
             t = bekannt.get(name);
           }
-          if (!t) return abgelehnt(`Werkzeug ${name} kennt der Hub nicht`);
-          if (!fuerAppSichtbar(t)) return abgelehnt(`Werkzeug ${name} ist nur für das Modell gedacht, nicht für die App`);
+          if (!t) return abgelehnt(tr('Werkzeug {0} kennt der Hub nicht', name));
+          if (!fuerAppSichtbar(t)) return abgelehnt(tr('Werkzeug {0} ist nur für das Modell gedacht, nicht für die App', name));
           // Bestätigungspflicht (app-werkzeuge.ts): während und kurz nach einem Agentenaufruf schreibt die App nur nach
           // einem Klick des Benutzers — also über App.beantragen und sein „Ja“.
           if (t.scope !== 'READ' && appWerkzeuge && !appWerkzeuge.schreibenErlaubt(nutzergeste())) {
-            return abgelehnt(`${name} verändert etwas: Aus einem Agentenaufruf nur nach App.beantragen und Bestätigung des Benutzers.`);
+            return abgelehnt(tr('{0} verändert etwas: Aus einem Agentenaufruf nur nach App.beantragen und Bestätigung des Benutzers.', name));
           }
           // Art für die Nutzungsmessung: ein Aufruf aus der App kurz nach Klick oder Tastendruck ist bewusst,
           // ein Zeitgeber der App (Auffrischung) eine Abfrage.
@@ -701,9 +702,9 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
         // Nur die App „Dateien“, nur mit Antwortweg. Die Datei kommt als File/Blob per postMessage; ein Fehler des Hubs
         // (Datei da, zu groß …) ist ein gewöhnliches Ergebnis `{ok: false, kind, error}`, nur Ausfälle sind Fehler.
         if (!anfrage) return;
-        if (plugin !== 'dateien') return abgelehnt('Hochladen gibt es nur in der App „Dateien“');
+        if (plugin !== 'dateien') return abgelehnt(tr('Hochladen gibt es nur in der App „Dateien“'));
         const pfad = typeof p.pfad === 'string' ? p.pfad : '';
-        if (!pfad || pfad.length > 400 || !(p.datei instanceof Blob)) return abgelehnt('Pfad und Datei werden gebraucht');
+        if (!pfad || pfad.length > 400 || !(p.datei instanceof Blob)) return abgelehnt(tr('Pfad und Datei werden gebraucht'));
         try {
           antworten(id, await dateiHochladen(pfad, p.datei, p.ueberschreiben === true));
         } catch (err) {
@@ -742,7 +743,7 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
       case 'ui/request-display-mode':
         return antwort({ mode: 'inline' });
       default:
-        abgelehnt(`nicht unterstützt: ${m.method}`);
+        abgelehnt(tr('nicht unterstützt: {0}', m.method));
     }
   };
   window.addEventListener('message', hoerer);
@@ -786,7 +787,7 @@ export async function appEinhaengen(iframe: HTMLIFrameElement, o: HostOptionen):
     kanalAb?.();
     // Fenster zu: seine Werkzeuge verschwinden aus Register, WebMCP und Brücke; offene Aufrufe enden mit Fehler
     appWerkzeuge?.alleAbmelden();
-    for (const a of ausstehend.values()) a.fail(new Error('Das Fenster der App wurde geschlossen.'));
+    for (const a of ausstehend.values()) a.fail(new Error(tr('Das Fenster der App wurde geschlossen.')));
     ausstehend.clear();
     // Verschwindet die App mitten im Ziehen, bleibt kein Zug hängen
     if (aktuellerZug()?.quelle === iframe.contentWindow) {

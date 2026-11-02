@@ -336,7 +336,7 @@ def test_vorlagen_beispiele_sind_ausdruecklich_beispielwerte(plugin):
     for v in plugin.vorlagen_zeigen({})["vorlagen"]:
         beispiel = plugin.vorlagen_zeigen({"name": v["name"]})["beispiel"]
         if "herkunft" in beispiel:
-            assert beispiel["herkunft"] == "Beispielwerte", v["name"]
+            assert beispiel["herkunft"] == "Example values", v["name"]
 
 
 def test_eigener_vorlagenordner_ersetzt_die_des_kerns(tmp_path):

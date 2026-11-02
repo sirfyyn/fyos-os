@@ -1,6 +1,6 @@
 {
   "titel": "Status",
-  "zweck": "Viele Dinge mit ihrem Zustand (Dienste, Prüfungen, Geräte): Zählung je Zustand, nach Gruppe, Filter „nur Probleme“, Probleme zuerst, Klick fragt nach.",
+  "zweck": "Many things with their state (services, checks, devices): count per state, by group, filter \"problems only\", problems first, a click asks about it.",
   "schema": {
     "type": "object",
     "required": ["eintraege"],
@@ -21,13 +21,13 @@
     }
   },
   "beispiel": {
-    "ueberschrift": "Hub-Plugins",
-    "herkunft": "Beispielwerte",
+    "ueberschrift": "Hub plugins",
+    "herkunft": "Example values",
     "eintraege": [
-      {"name": "skills", "zustand": "ok", "gruppe": "Kern"},
-      {"name": "werkstatt", "zustand": "ok", "gruppe": "Kern"},
-      {"name": "wetter", "zustand": "warn", "text": "Zugangsdaten fehlen", "gruppe": "Zusätze", "frage": "Warum fehlen dem Plugin wetter die Zugangsdaten?"},
-      {"name": "notizen", "zustand": "fehler", "text": "Speicher nicht erreichbar", "gruppe": "Zusätze"}
+      {"name": "skills", "zustand": "ok", "gruppe": "Core"},
+      {"name": "werkstatt", "zustand": "ok", "gruppe": "Core"},
+      {"name": "wetter", "zustand": "warn", "text": "credentials missing", "gruppe": "Add-ons", "frage": "Why is the plugin wetter missing its credentials?"},
+      {"name": "notizen", "zustand": "fehler", "text": "storage unreachable", "gruppe": "Add-ons"}
     ]
   }
 }

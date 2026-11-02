@@ -7,6 +7,7 @@ import { QUELLEN, QUELLEN_NAME, type MeldungenEinstellungen, type Quelle } from 
 import { aendereEinstellungen, dienst, einstellungen, ruht, system } from '~/lib/os/meldungen-produktiv';
 import { kannErlaubnisAnfragen, umgebungLesen, waehleBruecke } from '~/lib/os/meldungen-system';
 import { KNOPF, SchalterZeile, Zeile } from './bausteine';
+import { tr } from '~/lib/i18n';
 
 const QUELLEN_UNTER: Record<Quelle, string> = {
   agent: 'Neue Antworten von Agent, solange ihr Fenster nicht vorn ist.',
@@ -58,8 +59,8 @@ export default function MeldungenEinstellen(): JSX.Element {
         )}
       </For>
       <Show when={e().quellen.mail}>
-        <Zeile titel="Mail-Ordner" unter="Aus welchen Ordnern neue Mails gemeldet werden (mindestens einer)." darunter>
-          <div class="flex flex-wrap gap-3" role="group" aria-label="Mail-Ordner">
+        <Zeile titel={tr('Mail-Ordner')} unter={tr('Aus welchen Ordnern neue Mails gemeldet werden (mindestens einer).')} darunter>
+          <div class="flex flex-wrap gap-3" role="group" aria-label={tr('Mail-Ordner')}>
             <For each={MAIL_ORDNER}>
               {(o) => (
                 <label class="inline-flex min-h-11 items-center gap-2 text-sm md:min-h-8">
@@ -74,27 +75,27 @@ export default function MeldungenEinstellen(): JSX.Element {
 
       <SchalterZeile
         name="Systemmitteilungen"
-        unter={`Wenn FYOS OS im Hintergrund ist, zeigt auch das System eine Mitteilung (ab „normal“). ${wegText()}`}
+        unter={tr('Wenn FYOS OS im Hintergrund ist, zeigt auch das System eine Mitteilung (ab „normal“). {0}', wegText())}
         an={e().system}
         onKlick={() => aendern((x) => ({ ...x, system: !x.system }))}
       />
       <SchalterZeile
-        name="Absender und Betreff in Systemmitteilungen zeigen"
-        unter="Aus (Vorgabe): Das System zeigt nur „Neue Mail“ bzw. „Agent hat geschrieben“, auch auf dem Sperrbildschirm. Die Toasts im OS zeigen weiter Absender, Betreff und einen kurzen Auszug von des Agenten Nachricht, nie einen Mailtext."
+        name={tr('Absender und Betreff in Systemmitteilungen zeigen')}
+        unter={tr('Aus (Vorgabe): Das System zeigt nur „Neue Mail“ bzw. „Agent hat geschrieben“, auch auf dem Sperrbildschirm. Die Toasts im OS zeigen weiter Absender, Betreff und einen kurzen Auszug von des Agenten Nachricht, nie einen Mailtext.')}
         an={e().systemDetails}
         onKlick={() => aendern((x) => ({ ...x, systemDetails: !x.systemDetails }))}
       />
       <Show when={kannErlaubnisAnfragen(umgebungLesen())}>
-        <Zeile titel="Browser-Erlaubnis" unter="Der Browser fragt erst, wenn du hier klickst.">
+        <Zeile titel="Browser-Erlaubnis" unter={tr('Der Browser fragt erst, wenn du hier klickst.')}>
           <button type="button" class={KNOPF} onClick={() => void system.erlaubnisAnfragen().then((r) => setAntwort(r))}>
-            Mitteilungen erlauben
+            {tr('Mitteilungen erlauben')}
           </button>
           <Show when={antwort()}>
-            <p role="status" class="m-0 mt-1 text-xs text-(--color-fg-muted)">Antwort des Browsers: {antwort()}</p>
+            <p role="status" class="m-0 mt-1 text-xs text-(--color-fg-muted)">{tr('Antwort des Browsers:')}{' '}{antwort()}</p>
           </Show>
         </Zeile>
       </Show>
-      <Zeile titel="Probe" unter={weg() === 'keine' ? 'Zeigt eine Test-Meldung im OS (ohne Systemmitteilung, solange keine Brücke da ist).' : 'Zeigt eine Test-Meldung; liegt das Fenster im Hintergrund, kommt auch eine Systemmitteilung.'}>
+      <Zeile titel={tr('Probe')} unter={weg() === 'keine' ? tr('Zeigt eine Test-Meldung im OS (ohne Systemmitteilung, solange keine Brücke da ist).') : tr('Zeigt eine Test-Meldung; liegt das Fenster im Hintergrund, kommt auch eine Systemmitteilung.')}>
         <button
           type="button"
           class={KNOPF}
@@ -102,45 +103,45 @@ export default function MeldungenEinstellen(): JSX.Element {
             dienst.melde({ quelle: 'agent', schluessel: `probe-${Date.now()}`, stufe: 'normal', titel: 'FYOS OS Test', text: 'So sieht eine Meldung aus.' })
           }
         >
-          Test-Meldung zeigen
+          {tr('Test-Meldung zeigen')}
         </button>
       </Zeile>
 
       <SchalterZeile
         name="Nicht stören"
-        unter="Meldungen landen nur im Verlauf (Glocke), ohne Toast und ohne Systemmitteilung."
+        unter={tr('Meldungen landen nur im Verlauf (Glocke), ohne Toast und ohne Systemmitteilung.')}
         an={e().nichtStoeren.manuell}
         onKlick={() => aendern((x) => ({ ...x, nichtStoeren: { ...x.nichtStoeren, manuell: !x.nichtStoeren.manuell } }))}
       />
       <SchalterZeile
-        name="Nicht stören nach Uhrzeit"
-        unter="Jeden Tag im Zeitfenster."
+        name={tr('Nicht stören nach Uhrzeit')}
+        unter={tr('Jeden Tag im Zeitfenster.')}
         an={e().nichtStoeren.zeit}
         onKlick={() => aendern((x) => ({ ...x, nichtStoeren: { ...x.nichtStoeren, zeit: !x.nichtStoeren.zeit } }))}
       />
       <Show when={e().nichtStoeren.zeit}>
-        <Zeile titel="Zeitfenster" unter="Auch über Mitternacht (22:00 bis 07:00)." darunter>
+        <Zeile titel={tr('Zeitfenster')} unter={tr('Auch über Mitternacht (22:00 bis 07:00).')} darunter>
           <div class="flex flex-wrap items-center gap-3 text-sm">
             <label class="inline-flex items-center gap-2">
-              von
+              {tr('von')}
               <input type="time" value={e().nichtStoeren.von} class="min-h-9 rounded-lg border border-(--color-border) bg-transparent px-2" onChange={(ev) => aendern((x) => ({ ...x, nichtStoeren: { ...x.nichtStoeren, von: ev.currentTarget.value || x.nichtStoeren.von } }))} />
             </label>
             <label class="inline-flex items-center gap-2">
-              bis
+              {tr('bis')}
               <input type="time" value={e().nichtStoeren.bis} class="min-h-9 rounded-lg border border-(--color-border) bg-transparent px-2" onChange={(ev) => aendern((x) => ({ ...x, nichtStoeren: { ...x.nichtStoeren, bis: ev.currentTarget.value || x.nichtStoeren.bis } }))} />
             </label>
           </div>
         </Zeile>
       </Show>
       <SchalterZeile
-        name="Kritisches durchbricht"
-        unter="Störungen und Freigaben mit hohem Risiko kommen auch bei „Nicht stören“ durch."
+        name={tr('Kritisches durchbricht')}
+        unter={tr('Störungen und Freigaben mit hohem Risiko kommen auch bei „Nicht stören“ durch.')}
         an={e().nichtStoeren.kritischDurchbrechen}
         onKlick={() => aendern((x) => ({ ...x, nichtStoeren: { ...x.nichtStoeren, kritischDurchbrechen: !x.nichtStoeren.kritischDurchbrechen } }))}
       />
       <SchalterZeile
-        name="Ruhe von Agent beachten"
-        unter={`Ruht Agent (Ruhe-Schalter oder Spielmodus), gilt das wie „Nicht stören“. Der Schalter wird nur gelesen. Jetzt: ${ruht() ? 'Agent ruht' : 'keine Ruhe'}.`}
+        name={tr('Ruhe von Agent beachten')}
+        unter={tr('Ruht Agent (Ruhe-Schalter oder Spielmodus), gilt das wie „Nicht stören“. Der Schalter wird nur gelesen. Jetzt: {0}.', ruht() ? tr('Agent ruht') : 'keine Ruhe')}
         an={e().ruheBeachten}
         onKlick={() => aendern((x) => ({ ...x, ruheBeachten: !x.ruheBeachten }))}
       />

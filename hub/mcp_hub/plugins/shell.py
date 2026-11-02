@@ -177,25 +177,30 @@ class ShellPlugin(HubPlugin):
         return [
             ToolDescriptor(
                 name="zustand",
-                title="Was ist offen?",
+                title="What is open?",
                 description=(
-                    "Zeigt die Arbeitsflaeche der FYOS-Shell: offene und minimierte Flaechen (in Reihenfolge), "
-                    "die Bildschirme (0 = Start mit der Zentrale, dahinter Arbeitsbildschirme, `aktiv`), ob der "
-                    "Agent-Dock offen ist, und welche Flaechen es gibt (`verfuegbar`, mit id und Titel). "
-                    "IDs: seite:<name> · app:<name> · nativ:<name> · agent."
+                    (
+                        "Shows the workspace of the FYOS shell: open and minimised surfaces (in order), "
+                        "the screens (0 = start with the control center, after it the work screens, "
+                        "`aktiv`), whether the agent dock is open, and which surfaces exist "
+                        "(`verfuegbar`, with id and title). IDs: seite:<name> · app:<name> · "
+                        "nativ:<name> · agent."
+                    )
                 ),
                 input_schema=leer,
                 tags=_TAGS_LESEN,
             ),
             ToolDescriptor(
                 name="befehl",
-                title="Flaeche oeffnen oder schliessen",
+                title="Open or close a surface",
                 description=(
-                    "Bittet die Shell, eine Flaeche zu oeffnen, zu schliessen, zu minimieren oder zurueckzuholen, "
-                    "oder (aktion `bildschirm`) zu einem Bildschirm zu wechseln (`name` oder `index`, 0 = Start). "
-                    "Die Shell fuehrt es innerhalb weniger Sekunden aus, wenn sie offen ist. `flaeche` ist eine ID "
-                    "aus `shell.zustand`.verfuegbar (z. B. seite:uebersicht, app:werkstatt__suchen, nativ:notizen). "
-                    "Aendert nur die Anordnung, keine Daten."
+                    (
+                        "Asks the shell to open, close, minimise or restore a surface, or (action "
+                        "`bildschirm`) to switch to a screen (`name` or `index`, 0 = start). The shell "
+                        "does it within a few seconds if it is open. `flaeche` is an ID from "
+                        "`shell.zustand`.verfuegbar (e.g. seite:uebersicht, app:werkstatt__suchen, "
+                        "nativ:notizen). Only changes the layout, no data."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -216,14 +221,17 @@ class ShellPlugin(HubPlugin):
             ToolDescriptor(
                 name="plaetze",
                 title="Arbeitsplaetze",
-                description="Die gespeicherten Arbeitsplaetze (benannte Anordnungen, z. B. Morgen, Haus, Betrieb) mit ihren Flaechen.",
+                description="The saved workplaces (named layouts, e.g. Morning, Home, Operations) with their surfaces.",
                 input_schema=leer,
                 tags=_TAGS_LESEN,
             ),
             ToolDescriptor(
                 name="platz_laden",
                 title="Arbeitsplatz wechseln",
-                description="Bittet die Shell, einen gespeicherten Arbeitsplatz zu laden (ersetzt die offenen Flaechen). `name` aus shell.plaetze.",
+                description=(
+                    "Asks the shell to load a saved workplace (replaces the open surfaces). `name` from "
+                    "shell.plaetze."
+                ),
                 input_schema={
                     "type": "object",
                     "properties": {"name": {"type": "string", "minLength": 2, "maxLength": 30}},
@@ -236,8 +244,10 @@ class ShellPlugin(HubPlugin):
                 name="platz_speichern",
                 title="Arbeitsplatz speichern",
                 description=(
-                    "Speichert eine Anordnung unter einem Namen (hoechstens 12 Arbeitsplaetze; ein vorhandener Name wird "
-                    "ueberschrieben). Ohne `fenster` wird die aktuelle Anordnung der Shell gespeichert."
+                    (
+                        "Saves a layout under a name (at most 12 workplaces; an existing name is "
+                        "overwritten). Without `fenster` the shell's current layout is saved."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -253,7 +263,7 @@ class ShellPlugin(HubPlugin):
             ToolDescriptor(
                 name="platz_entfernen",
                 title="Arbeitsplatz entfernen",
-                description="Entfernt einen gespeicherten Arbeitsplatz (nur die Anordnung, keine Daten der Flaechen).",
+                description="Removes a saved workplace (only the layout, no data of the surfaces).",
                 input_schema={
                     "type": "object",
                     "properties": {"name": {"type": "string", "minLength": 2, "maxLength": 30}},
@@ -266,8 +276,10 @@ class ShellPlugin(HubPlugin):
                 name="merken",
                 title="Anordnung melden (Shell)",
                 description=(
-                    "Nur fuer die Shell selbst: meldet die aktuelle Anordnung (fenster, agent, verfuegbar). "
-                    "Nicht fuer Modelle gedacht."
+                    (
+                        "Only for the shell itself: reports the current layout (fenster, agent, "
+                        "verfuegbar). Not meant for models."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -287,7 +299,7 @@ class ShellPlugin(HubPlugin):
             ToolDescriptor(
                 name="abholen",
                 title="Befehle abholen (Shell)",
-                description="Nur fuer die Shell selbst: holt die wartenden Befehle ab und leert die Warteschlange.",
+                description="Only for the shell itself: fetches the waiting commands and empties the queue.",
                 input_schema=leer,
                 tags=_TAGS_SCHREIBEN,
             ),

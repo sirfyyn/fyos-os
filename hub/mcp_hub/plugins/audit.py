@@ -128,8 +128,10 @@ class AuditPlugin(HubPlugin):
             ToolDescriptor(
                 name="stats",
                 description=(
-                    "Audit-log telemetry: Ereignisse gesamt und in 24 h, Top-Plugins und -Aufrufer "
-                    "(24 h), dazu die nur gezaehlten Sekundentakt-Abfragen."
+                    (
+                        "Audit-log telemetry: events in total and in 24 h, top plugins and callers (24 "
+                        "h), plus the per-second polls that are only counted."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -141,11 +143,13 @@ class AuditPlugin(HubPlugin):
             ToolDescriptor(
                 name="nutzung",
                 description=(
-                    "Nutzung je Werkzeug in `tage` Tagen (Vorgabe 30), getrennt nach Art: bewusste Aufrufe "
-                    "(Mensch oder Agent fragt gezielt), Abfragen (Kachel-Auffrischung, Polling, Laeufer) und "
-                    "unbekannte (kein Absender, eine Luecke), dazu die letzte bewusste Nutzung. Auch "
-                    "Werkzeuge ohne jeden Aufruf stehen drin. Nur gezaehlte Sekundentakt-Werkzeuge "
-                    "(audit.stats) fehlen im Log."
+                    (
+                        "Usage per tool over `tage` days (default 30), split by kind: deliberate calls "
+                        "(a human or agent asks on purpose), polls (tile refresh, polling, runners) and "
+                        "unknown (no sender, a gap), plus the last deliberate use. Tools without any "
+                        "call are listed too. Only the counted per-second tools (audit.stats) are "
+                        "missing from the log."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -171,7 +175,7 @@ class AuditPlugin(HubPlugin):
             ),
             ToolDescriptor(
                 name="recent",
-                description="Chronological tail of audit-events (newest first, nach timestamp sortiert).",
+                description="Chronological tail of audit events (newest first, sorted by timestamp).",
                 input_schema={
                     "type": "object",
                     "properties": {

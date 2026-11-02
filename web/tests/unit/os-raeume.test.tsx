@@ -273,13 +273,13 @@ describe('Räume ausblenden', () => {
 });
 
 describe('Hinweis bei fehlendem Plugin', () => {
-  it('nennt neben dem Satz den Weg: Plugin-Vorlage und die Anleitung ERWEITERN.md', () => {
+  it('nennt neben dem Satz den Weg: Plugin-Vorlage und die Anleitung EXTENDING.md', () => {
     render(() => <NichtEingerichtet detail="Im Hub fehlt das Werkzeug haus__geraete." />);
     expect(screen.getByText('Noch nicht eingerichtet.')).toBeTruthy();
     const weg = document.querySelector('[data-nicht-eingerichtet-weg]')!;
     expect(weg.textContent).toContain('Plugin');
     const links = [...weg.querySelectorAll('a')].map((a) => a.getAttribute('href'));
     expect(links).toEqual(['https://pypi.org/project/fyos-plugin-vorlage/']);
-    expect(weg.querySelector('code')!.textContent).toBe('docs/ERWEITERN.md');
+    expect(weg.querySelector('code')!.textContent).toBe('docs/EXTENDING.md');
   });
 });

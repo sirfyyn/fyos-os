@@ -3,6 +3,7 @@
  */
 import { For, onCleanup, onMount, type JSX } from 'solid-js';
 import { IST_MAC, altUmschalt, mod, modAlt, modAltUmschalt } from '~/lib/os/menue';
+import { tr } from '~/lib/i18n';
 
 const KUERZEL: [string, string][] = [
   [mod('K'), 'Apps-Seite öffnen und suchen (Esc oder Zurück schließt sie)'],
@@ -60,21 +61,21 @@ export default function Hilfe(p: { onSchliessen: () => void }): JSX.Element {
   });
   return (
     <div class="os-start absolute inset-0 z-40 flex items-center justify-center bg-black/25 p-4" onClick={(e) => { if (e.target === e.currentTarget) p.onSchliessen(); }}>
-      <div ref={el} role="dialog" aria-modal="true" aria-label="Tastenkürzel und Gesten" class="os-glas os-glas-blur os-menue max-h-full w-[min(40rem,100%)] overflow-auto p-6">
+      <div ref={el} role="dialog" aria-modal="true" aria-label={tr('Tastenkürzel und Gesten')} class="os-glas os-glas-blur os-menue max-h-full w-[min(40rem,100%)] overflow-auto p-6">
         <div class="mb-4 flex items-center">
-          <h2 class="m-0 flex-1 text-lg font-semibold">Tastenkürzel und Gesten</h2>
-          <button type="button" class="os-knopf" aria-label="Schließen" onClick={() => p.onSchliessen()}>✕</button>
+          <h2 class="m-0 flex-1 text-lg font-semibold">{tr('Tastenkürzel und Gesten')}</h2>
+          <button type="button" class="os-knopf" aria-label={tr('Schließen')} onClick={() => p.onSchliessen()}>✕</button>
         </div>
         <For each={[['Tastatur', KUERZEL], ['Trackpad und Touch', GESTEN], ['Ziehen und Ablegen', ZIEHEN]] as const}>
           {([titel, liste]) => (
             <section class="mb-5 last:mb-0">
-              <p class="os-kz-titel mb-2">{titel}</p>
+              <p class="os-kz-titel mb-2">{tr(titel)}</p>
               <dl class="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
                 <For each={liste}>
                   {([k, t]) => (
                     <>
-                      <dt class="font-medium whitespace-nowrap"><kbd class="os-taste">{k}</kbd></dt>
-                      <dd class="m-0 text-(--color-fg-muted)">{t}</dd>
+                      <dt class="font-medium whitespace-nowrap"><kbd class="os-taste">{tr(k)}</kbd></dt>
+                      <dd class="m-0 text-(--color-fg-muted)">{tr(t)}</dd>
                     </>
                   )}
                 </For>

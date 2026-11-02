@@ -9,6 +9,7 @@
 import { Match, Switch, createSignal, type JSX } from 'solid-js';
 import { type RaumProps, RaumRahmen } from '~/components/os/Raum';
 import { EintragLeiste, Geplant, HubApp, SeitenFlaeche, gemerkteWahl, wahlMerken } from '~/components/raeume/Huelle';
+import { tr } from '~/lib/i18n';
 
 type Art = { art: 'app'; name: string } | { art: 'seite'; id: string } | { art: 'geplant'; quelle: string };
 export interface Eintrag {
@@ -44,9 +45,9 @@ export default function RaumBetrieb(p: RaumProps): JSX.Element {
 
   return (
     <RaumRahmen
-      titel="Betrieb"
+      titel={tr('Betrieb')}
       leiste={<EintragLeiste eintraege={leistenEintraege()} gruppen={GRUPPEN} gewaehlt={gewaehlt()} waehle={waehle} schmal={p.schmal} kennung="betrieb" />}
-      leisteName="Bereiche des Betriebs"
+      leisteName={tr('Bereiche des Betriebs')}
       schmal={p.schmal}
       heim={p.heim}
       fuellen={aktuell().inhalt.art !== 'geplant'}

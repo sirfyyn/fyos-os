@@ -1,22 +1,23 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>FYOS einrichten</title>
+<title>Set up FYOS</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/stil.css">
 </head>
 <body>
-<a class="sprung" href="#inhalt">Zum Inhalt springen</a>
+<a class="sprung" id="sprung" href="#inhalt">Skip to content</a>
 <header class="kopf">
   <div class="marke"><span class="punkt" aria-hidden="true"></span><strong>FYOS</strong><span class="zusatz">For Your Own Sake</span></div>
-  <nav aria-label="Schritte"><ol id="schritte" class="schritte"></ol></nav>
+  <nav aria-label="Steps" id="schritte-nav"><ol id="schritte" class="schritte"></ol></nav>
+  <div id="sprachwahl" class="sprachwahl"></div>
 </header>
-<main id="inhalt" tabindex="-1"><p class="laden">Lade …</p></main>
+<main id="inhalt" tabindex="-1"><p class="laden">Loading …</p></main>
 <footer class="fuss" id="fuss"></footer>
-<noscript><p class="laden">Der Assistent braucht JavaScript. Alternativ: <code>fyos-install --auswahl kern,agent --ziel compose</code>.</p></noscript>
+<noscript><p class="laden">The wizard needs JavaScript. Alternatively: <code>fyos-install --auswahl kern,agent --ziel compose</code>.</p></noscript>
 <script src="/static/app.js"></script>
 </body>
 </html>

@@ -27,6 +27,8 @@ body {
 .marke { display: flex; align-items: baseline; gap: .6rem; }
 .marke strong { font-size: 1.35rem; letter-spacing: .02em; }
 .marke .zusatz { color: var(--leise); font-size: .85rem; }
+.sprachwahl { display: flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--leise); }
+.sprachwahl select { font: inherit; }
 .punkt { width: .8rem; height: .8rem; border-radius: 50%; background: var(--akzent); align-self: center; }
 .schritte { display: flex; flex-wrap: wrap; gap: .35rem; list-style: none; margin: 0; padding: 0; counter-reset: s; }
 .schritte li {

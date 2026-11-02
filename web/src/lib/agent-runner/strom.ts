@@ -6,6 +6,7 @@
  */
 import type { StromGespraech, StromZeile } from './typen';
 import { werkzeugTitel } from './verlauf';
+import { tr } from '~/lib/i18n';
 
 /** So viele Zeilen hält der Client (app.js: 200). */
 export const STROM_MAX = 200;
@@ -36,7 +37,7 @@ export function mitZeile(alt: StromZustand, zeile: unknown): StromZustand {
   // Ein Gespräch, das der Strom zum ersten Mal nennt (z. B. ein neuer Lauf), in die Namensliste aufnehmen.
   let gespraeche = alt.gespraeche;
   if (typeof z.gespraech === 'number' && !gespraeche.some((g) => g.id === z.gespraech)) {
-    gespraeche = [...gespraeche, { id: z.gespraech, titel: z.titel ?? `Gespräch ${z.gespraech}`, art: z.art ?? '' }];
+    gespraeche = [...gespraeche, { id: z.gespraech, titel: z.titel ?? tr('Gespräch {0}', z.gespraech), art: z.art ?? '' }];
   }
   return { zeilen, gespraeche, letzte: t };
 }
@@ -74,8 +75,8 @@ export function stromKlartext(z: StromZeile): string {
     return werkzeugTitel(wz, argAusKurz(wz, kurz));
   }
   if (z.typ === 'fehler') return z.text;
-  if (z.typ === 'sagt') return `schreibt: ${z.text}`;
-  if (z.typ === 'fertig') return 'Zug fertig';
+  if (z.typ === 'sagt') return tr('schreibt: {0}', z.text);
+  if (z.typ === 'fertig') return tr('Zug fertig');
   return z.text;
 }
 
@@ -93,11 +94,10 @@ export function aktivitaet(s: StromZustand, agentName: string, jetzt: number = D
       break;
     }
   }
-  if (!zeile || jetzt - zeile.t > AKTIVITAET_MS || zeile.typ === 'fertig') return { aktiv: false, text: `${agentName} ist ruhig`, zeile };
+  if (!zeile || jetzt - zeile.t > AKTIVITAET_MS || zeile.typ === 'fertig') return { aktiv: false, text: tr('{0} ist ruhig', agentName), zeile };
   const titel = zeile.art === 'lauf' && zeile.titel ? zeile.titel.replace(/^Lauf\s+\S+:\s*/, '') : '';
-  const ort = titel ? ` an ${titel}` : '';
-  const was = zeile.typ === 'eingang' ? `liest Eingang ${stromKlartext(zeile)}` : stromKlartext(zeile);
-  return { aktiv: true, text: `${agentName} arbeitet${ort}: ${was}`, zeile };
+  const was = zeile.typ === 'eingang' ? tr('liest Eingang {0}', stromKlartext(zeile)) : stromKlartext(zeile);
+  return { aktiv: true, text: titel ? tr('{0} arbeitet an {1}: {2}', agentName, titel, was) : tr('{0} arbeitet: {1}', agentName, was), zeile };
 }
 
 export type LiveBefehl = 'an' | 'aus' | 'wechseln';

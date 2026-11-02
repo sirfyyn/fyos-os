@@ -28,6 +28,7 @@ import {
 import { ZUSTAND_ARGUMENTE, ZUSTAND_WERKZEUG, type ZentraleZustand } from '~/lib/zentrale';
 import Symbol, { Glyphe } from './Symbol';
 import './app-drawer.css';
+import { tr } from '~/lib/i18n';
 
 export interface Vorlage {
   name: string;
@@ -120,6 +121,7 @@ export default function Start(p: StartProps): JSX.Element {
     setZuletzt(zuletztMerken(id));
     p.onOeffnen(id);
   };
+  // Texte sind Schlüssel für tr(): beim Zeichnen übersetzt, damit ein Sprachwechsel sofort greift
   const ANSICHTEN: { id: DrawerAnsicht; text: string }[] = [
     { id: 'raum', text: 'Nach Raum' },
     { id: 'az', text: 'A–Z' },
@@ -155,7 +157,7 @@ export default function Start(p: StartProps): JSX.Element {
       <span class="ad-text">
         <span class="ad-name">
           {f.titel}
-          <Show when={p.offen(f.id)}><span class="ad-offen">offen</span></Show>
+          <Show when={p.offen(f.id)}><span class="ad-offen">{tr('offen')}</span></Show>
         </span>
         <span class="ad-stand" data-ton={standTon(f, quellen()) ?? undefined}>
           {standFuer(f, quellen()) ?? f.untertitel ?? ''}
@@ -173,12 +175,12 @@ export default function Start(p: StartProps): JSX.Element {
       <div
         class={p.seite ? 'os-apps-panel' : 'os-start-panel'}
         role={p.seite ? 'region' : 'dialog'}
-        aria-label={p.seite ? 'Apps' : systemName()}
+        aria-label={p.seite ? tr('Apps') : systemName()}
       >
       <Show when={p.seite}>
         <header class="os-apps-kopf">
-          <button type="button" class="os-knopf" aria-label="Zurück" title="Zurück (Esc)" onClick={() => p.onSchliessen()}>‹ Zurück</button>
-          <h1 class="os-titel m-0">Apps</h1>
+          <button type="button" class="os-knopf" aria-label={tr('Zurück')} title={tr('Zurück (Esc)')} onClick={() => p.onSchliessen()}>‹ {tr('Zurück')}</button>
+          <h1 class="os-titel m-0">{tr('Apps')}</h1>
         </header>
       </Show>
       <input
@@ -190,51 +192,51 @@ export default function Start(p: StartProps): JSX.Element {
           if (e.key === 'Enter') eingabeTaste();
           else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') griffTaste(e, griffe().length, griffWahl, setGriffWahl, () => setGriffWahl(-1));
         }}
-        placeholder="Suchen: Flächen, Vorgänge, Mail, Dateien, Notizen"
-        aria-label="Alles durchsuchen"
+        placeholder={tr('Suchen: Flächen, Vorgänge, Mail, Dateien, Notizen')}
+        aria-label={tr('Alles durchsuchen')}
         class="os-start-suche"
       />
       <div class="os-start-inhalt">
         <Show when={p.suche && griffe().length}>
-          <section aria-label="Schalten">
-            <h3 class="os-titel mb-1.5">Schalten</h3>
+          <section aria-label={tr('Schalten')}>
+            <h3 class="os-titel mb-1.5">{tr('Schalten')}</h3>
             <Show when={griffFrage()} fallback={<GriffListe griffe={griffe()} aktiv={griffWahl()} onWahl={griffWaehlen} class="!p-0" />}>
               {(g) => <GriffFrage g={g()} onJa={() => p.onGriff?.(g())} onNein={() => setGriffFrage(null)} />}
             </Show>
           </section>
         </Show>
         <Show when={!p.suche}>
-          <div class="ad-ansicht f2-seg" role="group" aria-label="Ansicht"
+          <div class="ad-ansicht f2-seg" role="group" aria-label={tr('Ansicht')}
             data-modus="normal"
             style={{ '--f2-seg-i': String(ANSICHTEN.findIndex((a) => a.id === ansicht())), '--f2-seg-n': '3' }}>
             <span class="f2-seg-marke" aria-hidden="true" />
             <For each={ANSICHTEN}>
-              {(a) => <button type="button" aria-pressed={ansicht() === a.id} onClick={() => setAnsicht(a.id)}>{a.text}</button>}
+              {(a) => <button type="button" aria-pressed={ansicht() === a.id} onClick={() => setAnsicht(a.id)}>{tr(a.text)}</button>}
             </For>
           </div>
         </Show>
         <Show when={favoriten().length && ansicht() === 'raum'}>
-          <section aria-label="Favoriten">
-            <h3 class="os-titel mb-2.5">Favoriten</h3>
+          <section aria-label={tr('Favoriten')}>
+            <h3 class="os-titel mb-2.5">{tr('Favoriten')}</h3>
             {raster(favoriten())}
           </section>
         </Show>
         <Show when={!p.suche && ansicht() === 'zuletzt'}>
-          <section aria-label="Zuletzt">
-            <Show when={zuletztFlaechen(zuletzt(), p.gruppen).length} fallback={<p class="ad-leer">Noch nichts geöffnet. Was du öffnest, steht hier zuerst.</p>}>
+          <section aria-label={tr('Zuletzt')}>
+            <Show when={zuletztFlaechen(zuletzt(), p.gruppen).length} fallback={<p class="ad-leer">{tr('Noch nichts geöffnet. Was du öffnest, steht hier zuerst.')}</p>}>
               {raster(zuletztFlaechen(zuletzt(), p.gruppen))}
             </Show>
           </section>
         </Show>
         <Show when={!p.suche && ansicht() === 'az'}>
-          <section aria-label="A bis Z">{raster(alphabetisch(p.gruppen))}</section>
+          <section aria-label={tr('A bis Z')}>{raster(alphabetisch(p.gruppen))}</section>
         </Show>
         <Show when={p.suche || ansicht() === 'raum'}>
-          <Show when={p.gruppen.length} fallback={<Show when={!sucht() || !p.suchstand}><p class="text-center text-sm text-(--color-fg-muted)">Nichts gefunden.</p></Show>}>
+          <Show when={p.gruppen.length} fallback={<Show when={!sucht() || !p.suchstand}><p class="text-center text-sm text-(--color-fg-muted)">{tr('Nichts gefunden.')}</p></Show>}>
             <For each={p.gruppen}>
               {(g) => (
                 <section>
-                  <h3 class="os-titel mb-2.5">{g.gruppe}</h3>
+                  <h3 class="os-titel mb-2.5">{tr(g.gruppe)}</h3>
                   {raster(g.flaechen)}
                 </section>
               )}
@@ -242,10 +244,10 @@ export default function Start(p: StartProps): JSX.Element {
           </Show>
         </Show>
         <Show when={!p.suche}>
-          <section aria-label="Bildschirme">
-            <h3 class="os-titel mb-2.5">Bildschirme</h3>
+          <section aria-label={tr('Bildschirme')}>
+            <h3 class="os-titel mb-2.5">{tr('Bildschirme')}</h3>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="os-chip" classList={{ 'os-chip-fokus': p.aktiv === 0 }} onClick={() => p.onWechseln(0)}>Start</button>
+              <button type="button" class="os-chip" classList={{ 'os-chip-fokus': p.aktiv === 0 }} onClick={() => p.onWechseln(0)}>{tr('Start')}</button>
               <For each={p.bildschirme}>
                 {(b) => (
                   <button type="button" class="os-chip" classList={{ 'os-chip-fokus': p.aktiv === b.index }} onClick={() => p.onWechseln(b.index)}>
@@ -254,19 +256,19 @@ export default function Start(p: StartProps): JSX.Element {
                   </button>
                 )}
               </For>
-              <button type="button" class="os-chip" onClick={() => p.onNeuerBildschirm()}>+ Neuer Bildschirm</button>
+              <button type="button" class="os-chip" onClick={() => p.onNeuerBildschirm()}>{tr('+ Neuer Bildschirm')}</button>
             </div>
           </section>
           <Show when={true}>
-            <section aria-label="Vorlagen">
-              <h3 class="os-titel mb-2.5">Vorlagen</h3>
+            <section aria-label={tr('Vorlagen')}>
+              <h3 class="os-titel mb-2.5">{tr('Vorlagen')}</h3>
               <div class="flex flex-wrap items-center gap-2">
                 <For each={p.vorlagen}>
                   {(v) => (
                     <span class="inline-flex overflow-hidden rounded-[0.8rem] border border-(--os-glas-rand)">
-                      <button type="button" class="min-h-10 px-3.5 text-sm hover:bg-(--color-fg)/8" onClick={() => p.onVorlage(v)} title={`Als Bildschirm öffnen (${v.fenster.length} Flächen)`}>{v.name}</button>
+                      <button type="button" class="min-h-10 px-3.5 text-sm hover:bg-(--color-fg)/8" onClick={() => p.onVorlage(v)} title={tr('Als Bildschirm öffnen ({0} Flächen)', v.fenster.length)}>{v.name}</button>
                       <Show when={v.eigene}>
-                        <button type="button" class="min-h-10 border-l border-(--os-glas-rand) px-2.5 text-(--color-fg-muted) hover:text-(--color-error)" aria-label={`Vorlage ${v.name} entfernen`} onClick={() => p.onVorlageEntfernen(v.name)}>✕</button>
+                        <button type="button" class="min-h-10 border-l border-(--os-glas-rand) px-2.5 text-(--color-fg-muted) hover:text-(--color-error)" aria-label={tr('Vorlage {0} entfernen', v.name)} onClick={() => p.onVorlageEntfernen(v.name)}>✕</button>
                       </Show>
                     </span>
                   )}
@@ -275,12 +277,12 @@ export default function Start(p: StartProps): JSX.Element {
                   <input
                     value={p.vorlageName}
                     onInput={(e) => p.setVorlageName(e.currentTarget.value)}
-                    placeholder="Diesen Bildschirm speichern als …"
-                    aria-label="Name für die Vorlage"
+                    placeholder={tr('Diesen Bildschirm speichern als …')}
+                    aria-label={tr('Name für die Vorlage')}
                     maxLength={30}
                     class="min-h-10 w-44 min-w-0 flex-1 rounded-[0.8rem] border border-(--os-glas-rand) bg-transparent px-3 text-sm outline-none focus:border-(--os-neon-1)"
                   />
-                  <button type="submit" disabled={p.vorlageName.trim().length < 2 || !p.kannSpeichern} class="os-chip disabled:opacity-40">Speichern</button>
+                  <button type="submit" disabled={p.vorlageName.trim().length < 2 || !p.kannSpeichern} class="os-chip disabled:opacity-40">{tr('Speichern')}</button>
                 </form>
               </div>
               <Show when={p.vorlageFehler}><p role="alert" class="mt-2 text-xs text-(--color-error)">{p.vorlageFehler}</p></Show>
@@ -289,11 +291,11 @@ export default function Start(p: StartProps): JSX.Element {
         </Show>
         {/* Suche über alles: Treffer aus Vorgängen, Mail, Dateien, Notizen … (Fremdinhalt, nur als Text gezeigt) */}
         <Show when={sucht() && p.suchstand}>
-          <section aria-label="Treffer" aria-live="polite">
-            <Show when={stand().art === 'laeuft'}><p class="text-center text-sm text-(--color-fg-muted)">Sucht …</p></Show>
+          <section aria-label={tr('Treffer')} aria-live="polite">
+            <Show when={stand().art === 'laeuft'}><p class="text-center text-sm text-(--color-fg-muted)">{tr('Sucht …')}</p></Show>
             <Show when={stand().art === 'fehler'}>
               <p role="alert" class="text-center text-xs text-(--color-error)">
-                Die Suche über alles ging nicht{(() => { const s = stand(); return s.art === 'fehler' ? `: ${s.text}` : ''; })()}
+                {tr('Die Suche über alles ging nicht')}{(() => { const s = stand(); return s.art === 'fehler' ? `: ${s.text}` : ''; })()}
               </p>
             </Show>
             <Show when={stand().art === 'fertig'}>
@@ -329,10 +331,10 @@ export default function Start(p: StartProps): JSX.Element {
                   </div>
                 )}
               </For>
-              <Show when={!treffer().length && !p.gruppen.length}><p class="text-center text-sm text-(--color-fg-muted)">Nichts gefunden.</p></Show>
+              <Show when={!treffer().length && !p.gruppen.length}><p class="text-center text-sm text-(--color-fg-muted)">{tr('Nichts gefunden.')}</p></Show>
               <Show when={(() => { const s = stand(); return s.art === 'fertig' && s.fehlend.length > 0; })()}>
                 <p class="text-xs text-(--color-fg-muted)">
-                  Nicht durchsucht: {(() => { const s = stand(); return s.art === 'fertig' ? s.fehlend.join(', ') : ''; })()} (nicht eingerichtet oder nicht erreichbar).
+                  {tr('Nicht durchsucht: {0} (nicht eingerichtet oder nicht erreichbar).', (() => { const s = stand(); return s.art === 'fertig' ? s.fehlend.join(', ') : ''; })())}
                 </p>
               </Show>
             </Show>

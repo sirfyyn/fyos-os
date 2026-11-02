@@ -15,6 +15,7 @@ import { Dynamic } from 'solid-js/web';
 import type { NativProps } from '~/lib/os/nativ';
 import { raumZu, type RaumId } from '~/lib/os/raeume';
 import { Laedt } from '~/components/einstellungen/bausteine';
+import { tr } from '~/lib/i18n';
 
 export type RaumProps = NativProps & {
   /** Zurück in die Zentrale (im schmalen Fenster gibt es keine Räume-Leiste) */
@@ -50,13 +51,13 @@ export function RaumRahmen(p: {
     <div class="flex h-full min-h-0 w-full" classList={{ 'flex-col': p.schmal }} data-raum-rahmen>
       <Show when={p.schmal}>
         <div class="flex shrink-0 items-center gap-2 px-3 pt-3">
-          <button type="button" class="os-knopf" aria-label="Zur Zentrale" onClick={() => p.heim()}>
+          <button type="button" class="os-knopf" aria-label={tr('Zur Zentrale')} onClick={() => p.heim()}>
             ‹
           </button>
-          <h1 class="os-titel m-0 truncate">{p.titel}</h1>
+          <h1 class="os-titel m-0 truncate">{tr(p.titel)}</h1>
         </div>
         <Show when={p.leiste}>
-          <nav aria-label={p.leisteName ?? `Leiste ${p.titel}`} class="shrink-0 overflow-x-auto px-3 pt-2" data-raum-leiste>
+          <nav aria-label={p.leisteName ?? tr('Leiste {0}', p.titel)} class="shrink-0 overflow-x-auto px-3 pt-2" data-raum-leiste>
             {p.leiste}
           </nav>
         </Show>
@@ -71,7 +72,7 @@ export function RaumRahmen(p: {
       </main>
       <Show when={!p.schmal && p.leiste}>
         <aside
-          aria-label={p.leisteName ?? `Leiste ${p.titel}`}
+          aria-label={p.leisteName ?? tr('Leiste {0}', p.titel)}
           class="flex w-[17.5rem] shrink-0 flex-col gap-0.5 overflow-y-auto border-l border-(--color-border) px-3.5 py-4"
           data-raum-leiste
         >
@@ -92,12 +93,12 @@ export default function Raum(p: { id: RaumId } & RaumProps): JSX.Element {
       // große Schrift und Uhr der Zentrale schimmerten sonst noch durch)
       style={{ background: 'var(--color-bg-opaque)' }}
       classList={{ 'm-3': !p.schmal, 'rounded-none': p.schmal }}
-      aria-label={`Raum ${raumZu(p.id)?.name ?? ''}`}
+      aria-label={tr('Raum {0}', tr(raumZu(p.id)?.name ?? ''))}
       data-raum={p.id}
     >
       <Show
         when={inhalt()}
-        fallback={<p class="m-auto text-sm text-(--color-fg-muted)">Dieser Raum ist noch nicht gebaut.</p>}
+        fallback={<p class="m-auto text-sm text-(--color-fg-muted)">{tr('Dieser Raum ist noch nicht gebaut.')}</p>}
       >
         {(k) => (
           <Suspense fallback={<div class="m-auto"><Laedt /></div>}>

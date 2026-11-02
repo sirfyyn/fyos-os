@@ -12,7 +12,7 @@ und was die nächste Stufe wäre. Er sagt damit, was man bekommt, und gibt ein Z
 Herleitung: Jede Schicht beginnt auf Stufe 1; das leistet der Kern mit dem Agenten, beide sind Pflicht. Ein Baustein hebt
 sie, indem sein Katalogeintrag unter `reife` eine höhere Stufe nennt (`katalog.py`); es zählt die höchste Stufe unter den
 gewählten Bausteinen. Für `takte` kommt eine Regel aus der erzeugten Hub-Konfiguration dazu: Trägt ein gewähltes
-Hub-Plugin `takt_grenzen` (Tageslimit und Zeitfenster der Takte, `docs/ERWEITERN.md` 2.12), steht die Schicht auf Stufe 3.
+Hub-Plugin `takt_grenzen` (Tageslimit und Zeitfenster der Takte, `docs/EXTENDING.md` 2.12), steht die Schicht auf Stufe 3.
 
 Das ist eine Auskunft über die Konfiguration, kein Messwert. Ob die Dienste nach dem Start antworten, prüft die
 Gesundheitsprüfung (`ausfuehren.py`), ob der Hub verbotene Anfragen ablehnt, die Abnahme (`abnahme.py`).
@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterable
+
+from .sprache import _
 
 if TYPE_CHECKING:  # nur für die Typangaben; katalog.py importiert dieses Modul
     from .katalog import Baustein
@@ -86,7 +88,7 @@ class Reife:
 
     def zeile(self) -> str:
         """Eine Zeile für Text-Oberflächen: `Gedächtnis: Stufe 2 von 3 (Wissen aus Bausteinen)`."""
-        return f"{self.titel}: Stufe {self.stufe} von {MAX_STUFE} ({self.name})"
+        return _("{0}: Stufe {1} von {2} ({3})", self.titel, self.stufe, MAX_STUFE, self.name)
 
 
 def _traegt_grenzen(eintrag: dict[str, Any]) -> bool:
@@ -114,19 +116,19 @@ def bestimme(bausteine: Iterable[Baustein]) -> list[Reife]:
     for schicht in SCHICHTEN:
         leiter, n = LEITER[schicht], stufe[schicht]
         ergebnis.append(Reife(
-            schicht=schicht, titel=TITEL[schicht], frage=FRAGE[schicht], stufe=n,
-            name=leiter[n - 1].name, erkennbar=leiter[n - 1].erkennbar,
-            naechste=leiter[n].erkennbar if n < MAX_STUFE else "",
+            schicht=schicht, titel=_(TITEL[schicht]), frage=_(FRAGE[schicht]), stufe=n,
+            name=_(leiter[n - 1].name), erkennbar=_(leiter[n - 1].erkennbar),
+            naechste=_(leiter[n].erkennbar) if n < MAX_STUFE else "",
         ))
     return ergebnis
 
 
 def zeilen(reife: Iterable[Reife]) -> list[str]:
     """Zeilen für die Kommandozeile: Kopf, dann je Schicht Stufe und Satz."""
-    ergebnis = [f"Reifegrad (je Schicht Stufe 1 bis {MAX_STUFE}, aus der Auswahl abgeleitet):"]
+    ergebnis = [_("Reifegrad (je Schicht Stufe 1 bis {0}, aus der Auswahl abgeleitet):", MAX_STUFE)]
     for r in reife:
         ergebnis.append(f"  {r.zeile()}")
-        ergebnis.append(f"    Erkennbar: {r.erkennbar}")
+        ergebnis.append("    " + _("Erkennbar: {0}", r.erkennbar))
         if r.naechste:
-            ergebnis.append(f"    Nächste Stufe: {r.naechste}")
+            ergebnis.append("    " + _("Nächste Stufe: {0}", r.naechste))
     return ergebnis

@@ -32,6 +32,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .sprache import _
+
 ZEITLIMIT_S = 5.0
 MAX_ANTWORT = 64_000  # Bytes, die von einer Antwort gelesen werden
 FREMDE_HERKUNFT = "https://fremd.example.com"  # nie eine eigene Adresse (Beispieldomain)
@@ -143,7 +145,7 @@ def basis_url(adresse: str) -> str:
     """`http(s)://host[:port]` ohne Pfad und Zugangsdaten; sonst ValueError."""
     basis = (adresse or "").strip().rstrip("/")
     if not _BASIS.match(basis):
-        raise ValueError(f"'{adresse}' ist keine Adresse der Form http://host:port")
+        raise ValueError(_("'{0}' ist keine Adresse der Form http://host:port", adresse))
     return basis
 
 
@@ -168,28 +170,30 @@ def _art(a: Antwort) -> str | None:
 
 
 def urteil_gegenprobe(p: Probe, a: Antwort) -> Befund:
+    titel, hilfe = _(p.titel), _(p.hilfe)
     if a.status is None:
-        return Befund(p.id, p.titel, False, "unklar", f"keine Antwort ({a.fehler})", hilfe=p.hilfe)
+        return Befund(p.id, titel, False, "unklar", _("keine Antwort ({0})", a.fehler), hilfe=hilfe)
     if a.status == 200 and isinstance(a.inhalt, dict) and a.inhalt.get("ok") is True:
-        return Befund(p.id, p.titel, True, "beantwortet", "beantwortet (200)")
+        return Befund(p.id, titel, True, "beantwortet", _("beantwortet (200)"))
     art = _art(a)
-    return Befund(p.id, p.titel, False, "unklar",
-                  f"nicht beantwortet (Status {a.status}" + (f", {art}" if art else "") + ")", hilfe=p.hilfe)
+    return Befund(p.id, titel, False, "unklar",
+                  _("nicht beantwortet (Status {0})", f"{a.status}" + (f", {art}" if art else "")), hilfe=hilfe)
 
 
 def urteil_probe(p: Probe, a: Antwort) -> Befund:
     """Nur eine Ablehnung wie erwartet besteht; Erfolg ist durchgefallen, alles andere nicht nachgewiesen."""
+    titel, hilfe = _(p.titel), _(p.hilfe)
     if a.status is None:
-        return Befund(p.id, p.titel, False, "unklar", f"keine Antwort ({a.fehler})", hilfe=p.hilfe)
+        return Befund(p.id, titel, False, "unklar", _("keine Antwort ({0})", a.fehler), hilfe=hilfe)
     art = _art(a)
     gesehen = f"{a.status}" + (f", {art}" if art else "")
     if 200 <= a.status < 300:
-        return Befund(p.id, p.titel, False, "durchgelassen", f"NICHT abgelehnt (Antwort {a.status})",
-                      wirkung=p.wirkung, hilfe=p.hilfe)
+        return Befund(p.id, titel, False, "durchgelassen", _("NICHT abgelehnt (Antwort {0})", a.status),
+                      wirkung=_(p.wirkung), hilfe=hilfe)
     if a.status in p.status and (p.art is None or art == p.art):
-        return Befund(p.id, p.titel, True, "abgelehnt", f"abgelehnt ({gesehen})")
-    erwartet = " oder ".join(str(s) for s in p.status) + (f" mit {p.art}" if p.art else "")
-    return Befund(p.id, p.titel, False, "unklar", f"anders als erwartet ({gesehen} statt {erwartet})", hilfe=p.hilfe)
+        return Befund(p.id, titel, True, "abgelehnt", _("abgelehnt ({0})", gesehen))
+    erwartet = _(" oder ").join(str(s) for s in p.status) + (_(" mit {0}", p.art) if p.art else "")
+    return Befund(p.id, titel, False, "unklar", _("anders als erwartet ({0} statt {1})", gesehen, erwartet), hilfe=hilfe)
 
 
 @dataclass
@@ -209,16 +213,16 @@ class Abnahme:
     def zusammenfassung(self) -> str:
         n = len(self.proben)
         if not self.gegenprobe.ok:
-            return (f"Abnahme NICHT bestanden: Die erlaubte Gegenprobe scheiterte ({self.gegenprobe.text}); "
-                    "die Ablehnungen sind so nicht aussagekräftig.")
+            return _("Abnahme NICHT bestanden: Die erlaubte Gegenprobe scheiterte ({0}); "
+                     "die Ablehnungen sind so nicht aussagekräftig.", self.gegenprobe.text)
         if self.abgelehnt < n:
-            return f"Abnahme NICHT bestanden: {self.abgelehnt} von {n} verbotenen Anfragen wurden abgelehnt."
-        return f"Abnahme bestanden: alle {n} verbotenen Anfragen wurden abgelehnt."
+            return _("Abnahme NICHT bestanden: {0} von {1} verbotenen Anfragen wurden abgelehnt.", self.abgelehnt, n)
+        return _("Abnahme bestanden: alle {0} verbotenen Anfragen wurden abgelehnt.", n)
 
     def zeilen(self) -> list[str]:
-        z = [f"== Abnahme: verbotene Anfragen an {self.basis} müssen abgelehnt werden",
-             f"Gegenprobe: {self.gegenprobe.titel}: {self.gegenprobe.text}"]
-        z += [f"Probe {i}: {b.titel}: {b.text}" for i, b in enumerate(self.proben, 1)]
+        z = [_("== Abnahme: verbotene Anfragen an {0} müssen abgelehnt werden", self.basis),
+             _("Gegenprobe: {0}: {1}", self.gegenprobe.titel, self.gegenprobe.text)]
+        z += [_("Probe {0}: {1}: {2}", i, b.titel, b.text) for i, b in enumerate(self.proben, 1)]
         z.append(self.zusammenfassung())
         for b in [self.gegenprobe, *self.proben]:
             if not b.ok:
@@ -226,7 +230,7 @@ class Abnahme:
                 if b.wirkung:
                     z.append(f"    {b.wirkung}")
                 if b.hilfe:
-                    z.append(f"    Prüfen: {b.hilfe}")
+                    z.append("    " + _("Prüfen: {0}", b.hilfe))
         return z
 
     def als_dict(self) -> dict[str, Any]:
@@ -255,9 +259,9 @@ def hinweis(port: int, ziel: str) -> str:
     """Satz für Zusammenfassung und Anleitung: was die Abnahme tut und wie man sie (wieder)holt."""
     n = len(PROBEN)
     befehl = f"fyos-install --abnahme http://localhost:{port}"
-    harmlos = "Die Anfragen lesen nur und ändern nichts."
+    harmlos = _("Die Anfragen lesen nur und ändern nichts.")
     if ziel == "compose":
-        return (f"Abnahme: Nach dem Start stellt der Installer {n} verbotene Anfragen an die Shell; FYOS muss sie "
-                f"ablehnen. {harmlos} Wiederholen: `{befehl}`.")
-    wann = "Mit laufendem Port-Forward" if ziel == "k8s" else "Ist FYOS gestartet"
-    return f"Abnahme: {wann}, prüft `{befehl}`, ob FYOS {n} verbotene Anfragen ablehnt. {harmlos}"
+        return _("Abnahme: Nach dem Start stellt der Installer {0} verbotene Anfragen an die Shell; FYOS muss sie "
+                 "ablehnen. {1} Wiederholen: `{2}`.", n, harmlos, befehl)
+    wann = _("Mit laufendem Port-Forward") if ziel == "k8s" else _("Ist FYOS gestartet")
+    return _("Abnahme: {0}, prüft `{1}`, ob FYOS {2} verbotene Anfragen ablehnt. {3}", wann, befehl, n, harmlos)

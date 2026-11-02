@@ -34,14 +34,87 @@
 //               ablage(ort, {nimmt, danach, ja, bei}) — nimmt Dinge der Typen in nimmt an, die auf dieses Fenster fallen: Plan und Rückfrage
 //               (beantragen) erscheinen in ort, erst „Ja“ führt das Werkzeug der Übergabe aus; danach(ergebnis, ding) · gibt „lösen“ zurück
 //               kann("fyosUebergaben"): nur in der FYOS-Shell. Auf Dinge, die man dir zeigt (fyos/oeffne): auf("fyos/oeffne", ({typ, id}) => …)
+//   Sprache     sprache ("en" Vorgabe, "de"; aus ?sprache=, hostContext.locale der Shell oder dem Browser) · t(deutscher Text, …werte)
+//               · texte({"Deutsch": "English"}) meldet die englischen Fassungen an und übersetzt die festen Texte der Seite
+//               (Elemente mit data-t, Attribute title/placeholder/aria-label, <title>)
 //   Takt        takt(ms, fn) — fn regelmäßig, nur solange sichtbar, beim Wiederauftauchen sofort; gibt „anhalten“ zurück
 //   Größe       stufe ("blick" · "kompakt" · "normal" · "weit", aus containerDimensions; Ereignis „app-stufe“) ·
 //               anzahl({blick, kompakt, normal, weit}) → wie viele Einträge in dieser Stufe
 const App = (() => {
-  const KONFIG = /*KONFIG*/{};   // vom Hub eingesetzt: app, titel, symbol, ton, werkzeug (Hauptwerkzeug), os (Adresse)
+  const KONFIG = /*KONFIG*/{};   // vom Hub eingesetzt: app, titel, untertitel (mit _en englisch), symbol, ton, werkzeug (Hauptwerkzeug), os (Adresse)
   const SYMBOLE = /*SYMBOLE*/{}; // vom Hub eingesetzt: Glyphe → inneres SVG, nur was diese App nennt
   let n = 0; const offen = new Map(); const hoerer = {}; const aktionen = {};
   const wurzel = document.documentElement;
+
+  // ── Sprache ────────────────────────────────────────────────────────────────
+  // Englisch als Vorgabe, Deutsch wählbar. Quelle der Reihe nach: `?sprache=` in der Adresse, hostContext.locale (die
+  // FYOS-Shell meldet dort die Sprache ihrer Oberfläche), die Sprache des Browsers. Texte: t(deutscher Ausgangstext, …werte)
+  // mit {0}, {1} als Platzhaltern; die englischen Fassungen bringt jede App mit texte({ "Deutsch": "English" }) mit (die der
+  // Brücke stehen in BRUECKE_EN). Fehlt ein Eintrag, bleibt der deutsche Text. Feste Texte im HTML: Elemente mit
+  // `data-t` (ihre Textknoten) sowie die Attribute title, placeholder und aria-label übersetzt seiteUebersetzen().
+  const spracheVon = (x) => { const s = String(x || "").trim().toLowerCase(); return !s ? "" : s.startsWith("de") ? "de" : "en"; };
+  let sprache = (() => { try { return spracheVon(new URLSearchParams(location.search).get("sprache")); } catch { return ""; } })()
+    || (() => { try { return spracheVon(navigator.language); } catch { return ""; } })() || "en";
+  const ausAdresse = (() => { try { return !!new URLSearchParams(location.search).get("sprache"); } catch { return false; } })();
+  const EN = {};
+  function t(text, ...werte) {
+    if (text == null) return "";
+    const aus =sprache === "en" && Object.prototype.hasOwnProperty.call(EN, text) ? EN[text] : String(text);
+    return werte.length ? aus.replace(/\{(\d+)\}/g, (m, i) => (werte[i] === undefined ? m : String(werte[i]))) : aus;
+  }
+  const ATTRIBUTE = ["title", "placeholder", "aria-label"];
+  function seiteUebersetzen() {
+    wurzel.lang = sprache;
+    // Der Kopf kommt vom Hub (_identitaet.py): Titel und Untertitel tragen ihre englische Fassung in KONFIG.
+    for (const [sel, de, en] of [[".kopf h1", KONFIG.titel, KONFIG.titel_en], ["#kopf-satz", KONFIG.untertitel, KONFIG.untertitel_en]]) {
+      if (!de || !en) continue;
+      if (!Object.prototype.hasOwnProperty.call(EN, de)) EN[de] = en;
+      const el = document.querySelector(sel);
+      if (el && (el.textContent === de || el.textContent === en)) el.textContent = t(de);
+    }
+    for (const el of document.querySelectorAll("[data-t]")) {
+      for (const k of el.childNodes) {
+        if (k.nodeType !== 3 || !k.nodeValue.trim()) continue;
+        if (k.fyosDe === undefined) k.fyosDe = k.nodeValue.trim();
+        k.nodeValue = k.nodeValue.replace(k.nodeValue.trim(), t(k.fyosDe));
+      }
+    }
+    for (const a of ATTRIBUTE) {
+      for (const el of document.querySelectorAll(`[${a}]`)) {
+        const merk = "fyosDe" + a.replace(/-/g, "");
+        if (el[merk] === undefined) el[merk] = el.getAttribute(a);
+        el.setAttribute(a, t(el[merk]));
+      }
+    }
+    if (document.title && wurzel.dataset.titelDe === undefined) wurzel.dataset.titelDe = document.title;
+    if (wurzel.dataset.titelDe) document.title = t(wurzel.dataset.titelDe);
+  }
+  function texte(tabelle) { Object.assign(EN, tabelle || {}); seiteUebersetzen(); }
+  const gebiet = () => (sprache === "de" ? "de-DE" : "en-GB");
+  const BRUECKE_EN = {
+    "Fehler": "Error", "nicht unterstützt: {0}": "not supported: {0}",
+    "Keine Antwort vom Host auf {0} (nach {1} s)": "No answer from the host to {0} (after {1} s)",
+    "gleich": "soon", "gerade eben": "just now", "in {0} Min.": "in {0} min", "vor {0} Min.": "{0} min ago",
+    "in {0} Std.": "in {0} h", "vor {0} Std.": "{0} h ago", "in {0} Tagen": "in {0} days", "vor {0} Tagen": "{0} days ago",
+    "{0} Min.": "{0} min", "{0} Std.": "{0} h", "{0} Tage": "{0} days",
+    "seit eben": "since just now", "seit {0} Min.": "for {0} min", "seit {0} Std.": "for {0} h", "seit {0} Tagen": "for {0} days",
+    "Stand": "Updated", " · veraltet": " · stale", "{0} unbekannt · veraltet": "{0} unknown · stale",
+    "Zu diesen Daten gibt es keinen Zeitpunkt": "These data have no timestamp",
+    "Die Aktion ausführen": "Run the action", "Ausführen": "Run", "Abbrechen": "Cancel", "Rückfrage": "Confirmation",
+    "beantragen: werkzeug und ort sind nötig": "beantragen: werkzeug and ort are required",
+    "Es läuft noch eine Ausführung — bitte kurz warten.": "An action is still running — please wait a moment.",
+    "Dieses Werkzeug kann nicht vorab zeigen, was es tut — die Oberfläche löst es darum nicht aus.":
+      "This tool cannot show beforehand what it does — so the interface does not trigger it.",
+    "In FYOS öffnen": "Open in FYOS", "Die Ansicht lässt sich nicht aufbauen": "The view cannot be built",
+    "Der Host hat die Adresse nicht geöffnet.": "The host did not open the address.",
+    "Hochladen geht hier nicht — nur in der FYOS-Shell.": "Uploading is not possible here — only in the FYOS shell.",
+    "ablage: ein Element für die Rückfrage wird gebraucht": "ablage: an element for the confirmation is required",
+    "Übernehmen": "Apply", "Lädt …": "Loading …", "Aktualisieren": "Refresh", "Zurück": "Back", "Erledigt.": "Done.",
+    "Das hat nicht geklappt": "That did not work",
+    "Der Host hat die Nachricht nicht angenommen.": "The host did not accept the message.",
+  };
+  Object.assign(EN, BRUECKE_EN);
+  try { seiteUebersetzen(); } catch { /* ohne DOM (Tests) */ }
   let hostName = "", hostFaehig = {}, werkzeugName = "", eingabeArgs = {}, hubLink = "", fyosKnopf = null;
 
   // ── Protokoll ──────────────────────────────────────────────────────────────
@@ -53,8 +126,8 @@ const App = (() => {
   function anfrage(method, params, frist) {
     const id = ++n; senden({ jsonrpc: "2.0", id, method, params });
     return new Promise((ok, fail) => {
-      const t = setTimeout(() => { offen.delete(id); fail(new Error(`Keine Antwort vom Host auf ${method} (nach ${Math.round((frist || FRIST_MS) / 1000)} s)`)); }, frist || FRIST_MS);
-      offen.set(id, { ok: (r) => { clearTimeout(t); ok(r); }, fail: (e) => { clearTimeout(t); fail(e); } });
+      const wecker = setTimeout(() => { offen.delete(id); fail(new Error(t("Keine Antwort vom Host auf {0} (nach {1} s)", method, Math.round((frist || FRIST_MS) / 1000)))); }, frist || FRIST_MS);
+      offen.set(id, { ok: (r) => { clearTimeout(wecker); ok(r); }, fail: (e) => { clearTimeout(wecker); fail(e); } });
     });
   }
   function melden(method, params) { senden({ jsonrpc: "2.0", method, params }); }
@@ -62,8 +135,16 @@ const App = (() => {
   // Aussehen vom Host (hostContext): Thema und Gestaltungsvariablen wie applyDocumentTheme,
   // applyHostStyleVariables und applyHostFonts im offiziellen SDK. Die Variablen landen inline auf
   // <html> und schlagen damit die Vorgaben aus _stil.css; ein neuer Satz ersetzt den alten ganz.
-  // Bis der Host antwortet, gilt das Farbschema, das der Rahmen dem iframe gibt (prefers-color-scheme).
-  try { if (window.matchMedia("(prefers-color-scheme: light)").matches) wurzel.dataset.theme = "light"; } catch {}
+  // Bis der Host ein Thema meldet, gilt das Farbschema, das der Rahmen dem iframe gibt (prefers-color-scheme), hell
+  // wie dunkel, und folgt einem Wechsel des Geräts. Meldet der Host eins (die Shell: ihre Wahl Hell/Dunkel/System),
+  // gilt nur noch das.
+  let themaVomHost = false;
+  try {
+    const geraet = window.matchMedia("(prefers-color-scheme: light)");
+    const folgen = () => { if (!themaVomHost) wurzel.dataset.theme = geraet.matches ? "light" : "dark"; };
+    folgen();
+    geraet.addEventListener("change", folgen);
+  } catch {}
   let gesetzt = [];
   // Größenstufe aus dem Rahmen des Hosts (hostContext.containerDimensions; ändert sich die Kachelgröße,
   // soll sich auch der Inhalt anpassen). Nur ein Rahmen mit fester Höhe (OS-Fenster, Kachel) macht die App kompakt —
@@ -119,8 +200,11 @@ const App = (() => {
   }
   function kontext(k) {
     if (!k || typeof k !== "object") return;
+    // Sprache der Shell (locale), außer die Adresse nennt ausdrücklich eine
+    const neu = !ausAdresse && spracheVon(k.locale);
+    if (neu && neu !== sprache) { sprache = neu; seiteUebersetzen(); }
     if (k.containerDimensions && typeof k.containerDimensions === "object") rahmen(k.containerDimensions);
-    if (k.theme === "light" || k.theme === "dark") wurzel.dataset.theme = k.theme;
+    if (k.theme === "light" || k.theme === "dark") { themaVomHost = true; wurzel.dataset.theme = k.theme; }
     if (k.toolInfo && k.toolInfo.tool && typeof k.toolInfo.tool.name === "string") werkzeugName = k.toolInfo.tool.name;
     const s = k.styles;
     if (s && typeof s === "object") {
@@ -169,7 +253,7 @@ const App = (() => {
       const fertig = Promise.all(fns.map((fn) => Promise.resolve().then(() => fn(m.params || {})).catch(() => {})));
       return void Promise.race([fertig, new Promise((ok) => setTimeout(ok, 500))]).then(() => antwort({}));
     }
-    antwort(null, { code: -32601, message: "nicht unterstützt: " + m.method });
+    antwort(null, { code: -32601, message: t("nicht unterstützt: {0}", m.method) });
   });
 
   // Hoehe wie im offiziellen SDK (App.setupSizeChangedNotifications) messen: mit max-content, erst
@@ -223,13 +307,13 @@ const App = (() => {
     try { return JSON.parse(String(t.text).replace(/\s*In FYOS öffnen: \S+\s*$/, "")); } catch { return null; }
   }
   function fehlertext(e) {
-    return String((e && e.message) || e || "Fehler").replace(/^(ValueError|RuntimeError|KeyError|TypeError|Exception|Error):\s*/, "");
+    return String((e && e.message) || e || t("Fehler")).replace(/^(ValueError|RuntimeError|KeyError|TypeError|Exception|Error):\s*/, "");
   }
   async function rufen(name, args) {
     let r;
     try { r = await werkzeug(name, args || {}); }
     catch (e) { throw new Error(fehlertext(e)); }
-    if (r && r.isError) throw new Error(fehlertext(((r.content || [])[0] || {}).text || "Fehler"));
+    if (r && r.isError) throw new Error(fehlertext(((r.content || [])[0] || {}).text || t("Fehler")));
     return daten(r);
   }
 
@@ -238,26 +322,34 @@ const App = (() => {
   const BERLIN = { timeZone: "Europe/Berlin" };
   const zeit = {
     /** „14:32“ — t: ISO-Text, Millisekunden, Sekunden (Unix) oder Date */
-    uhr: (t) => { const d = MS(t); return d ? d.toLocaleTimeString("de-DE", { ...BERLIN, hour: "2-digit", minute: "2-digit" }) : "—"; },
+    uhr: (t) => { const d = MS(t); return d ? d.toLocaleTimeString(gebiet(), { ...BERLIN, hour: "2-digit", minute: "2-digit" }) : "—"; },
     /** „3. Okt.“, mit mit_uhr „3. Okt., 14:32“ */
-    tag: (t, mit_uhr) => { const d = MS(t); return d ? d.toLocaleString("de-DE", { ...BERLIN, day: "numeric", month: "short", ...(mit_uhr ? { hour: "2-digit", minute: "2-digit" } : {}) }) : "—"; },
+    tag: (t, mit_uhr) => { const d = MS(t); return d ? d.toLocaleString(gebiet(), { ...BERLIN, day: "numeric", month: "short", ...(mit_uhr ? { hour: "2-digit", minute: "2-digit" } : {}) }) : "—"; },
     /** „03.10.2026“ */
-    datum: (t) => { const d = MS(t); return d ? d.toLocaleDateString("de-DE", { ...BERLIN, day: "2-digit", month: "2-digit", year: "numeric" }) : "—"; },
-    /** „gerade eben“, „vor 5 Min.“, „vor 3 Std.“, „vor 2 Tagen“ — oder „in 5 Min.“ */
-    vor: (t) => {
-      const d = MS(t); if (!d) return "—";
-      const s = (Date.now() - d.getTime()) / 1000, a = Math.abs(s), v = s < 0 ? "in " : "vor ";
-      if (a < 90) return s < 0 ? "gleich" : "gerade eben";
-      if (a < 5400) return `${v}${Math.round(a / 60)} Min.`;
-      if (a < 129600) return `${v}${Math.round(a / 3600)} Std.`;
-      return `${v}${Math.round(a / 86400)} Tagen`;
+    datum: (t) => { const d = MS(t); return d ? d.toLocaleDateString(gebiet(), { ...BERLIN, day: "2-digit", month: "2-digit", year: "numeric" }) : "—"; },
+    /** „gerade eben“, „vor 5 Min.“, „vor 3 Std.“, „vor 2 Tagen“ — oder „in 5 Min.“ (englisch „5 min ago“, „in 5 min“) */
+    vor: (x) => {
+      const d = MS(x); if (!d) return "—";
+      const s = (Date.now() - d.getTime()) / 1000, a = Math.abs(s), v = s < 0 ? "in" : "vor";
+      if (a < 90) return s < 0 ? t("gleich") : t("gerade eben");
+      if (a < 5400) return t(`${v} {0} Min.`, Math.round(a / 60));
+      if (a < 129600) return t(`${v} {0} Std.`, Math.round(a / 3600));
+      return t(`${v} {0} Tagen`, Math.round(a / 86400));
     },
     /** Minuten als Dauer: „5 Min.“, „3 Std.“, „2 Tage“ */
-    dauer: (min) => min == null ? "—" : min < 60 ? `${Math.round(min)} Min.` : min < 2880 ? `${Math.round(min / 60)} Std.` : `${Math.round(min / 1440)} Tage`,
+    dauer: (min) => min == null ? "—" : min < 60 ? t("{0} Min.", Math.round(min)) : min < 2880 ? t("{0} Std.", Math.round(min / 60)) : t("{0} Tage", Math.round(min / 1440)),
     /** „seit eben“, „seit 5 Min.“, „seit 3 Std.“, „seit 2 Tagen“ — wie `vor`, für Zustände, die noch andauern. */
-    seit: (t) => { const v = zeit.vor(t); return v === "gerade eben" ? "seit eben" : v.replace(/^vor /, "seit "); },
+    seit: (x) => {
+      const d = MS(x); if (!d) return "—";
+      const s = (Date.now() - d.getTime()) / 1000, a = Math.abs(s);
+      if (s < -90) return zeit.vor(x); // liegt in der Zukunft: „in 5 Min.“ wie bisher
+      if (a < 90) return t("seit eben");
+      if (a < 5400) return t("seit {0} Min.", Math.round(a / 60));
+      if (a < 129600) return t("seit {0} Std.", Math.round(a / 3600));
+      return t("seit {0} Tagen", Math.round(a / 86400));
+    },
     /** Volle Zeit für den title: „Sa., 3. Okt. 2026, 14:32“ */
-    voll: (t) => { const d = MS(t); return d ? d.toLocaleString("de-DE", { ...BERLIN, weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""; },
+    voll: (t) => { const d = MS(t); return d ? d.toLocaleString(gebiet(), { ...BERLIN, weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""; },
     /** HTML: relative Zeit als <time>, die volle Zeit steht im title und die Anzeige rückt von selbst nach (alle 30 s).
      *  o.seit: „seit 3 Std.“ statt „vor 3 Std.“; o.gross: erster Buchstabe groß (am Satzanfang); o.klasse: weitere Klassen.
      *  Fehlt die Zeit, steht ein Strich da. */
@@ -275,18 +367,18 @@ const App = (() => {
   const FRISCHE_MIN = 15; // Schwelle in Minuten, wenn das Panel keine nennt
   const schwelleVon = (min) => { const z = Number(min); return z > 0 ? z : FRISCHE_MIN; };
   const alterMin = (t) => (Date.now() - t) / 60000;
-  const frischeText = (t, vor, alt) => `${vor} ${zeit.vor(Math.min(t, Date.now()))}${alt ? " · veraltet" : ""}`;
+  const frischeText = (ms, vor, alt) => `${t(vor)} ${zeit.vor(Math.min(ms, Date.now()))}${alt ? t(" · veraltet") : ""}`;
   /** true, wenn die Daten von `t` älter sind als `schwelleMin` Minuten (Vorgabe 15) oder gar keinen Zeitpunkt haben. */
   function veraltet(t, schwelleMin) { const d = MS(t); return !d || alterMin(d.getTime()) >= schwelleVon(schwelleMin); }
   /** HTML: Frische-Stempel „Stand vor 5 Min.“ (volle Zeit im title), ab `schwelleMin` Minuten (Vorgabe 15) „Stand vor 3 Std. · veraltet“ in
    *  Warnfarbe. t: Zeitpunkt der Daten (ISO-Text, Millisekunden, Unix-Sekunden, Date). Ohne Zeitpunkt: „Stand unbekannt · veraltet“.
    *  o: schwelleMin · text (statt „Stand“, z. B. „Gemessen“) · klasse. Die Anzeige rückt alle 30 s nach und kippt von selbst auf „veraltet“. */
-  function frische(t, o = {}) {
-    const d = MS(t), vor = o.text || "Stand", klasse = o.klasse ? " " + esc(o.klasse) : "";
-    if (!d) return `<span class="frische veraltet${klasse}" title="Zu diesen Daten gibt es keinen Zeitpunkt">${esc(vor)} unbekannt · veraltet</span>`;
+  function frische(x, o = {}) {
+    const d = MS(x), vor = o.text || "Stand", klasse = o.klasse ? " " + esc(o.klasse) : "";
+    if (!d) return `<span class="frische veraltet${klasse}" title="${esc(t("Zu diesen Daten gibt es keinen Zeitpunkt"))}">${esc(t("{0} unbekannt · veraltet", t(vor)))}</span>`;
     const schwelle = schwelleVon(o.schwelleMin), alt = alterMin(d.getTime()) >= schwelle;
     return `<time class="frische${alt ? " veraltet" : ""}${klasse}" datetime="${esc(d.toISOString())}" data-t="${d.getTime()}" data-schwelle="${schwelle}" data-vor="${esc(vor)}"`
-      + ` title="${esc(vor)}: ${esc(zeit.voll(d))}">${esc(frischeText(d.getTime(), vor, alt))}</time>`;
+      + ` title="${esc(t(vor))}: ${esc(zeit.voll(d))}">${esc(frischeText(d.getTime(), vor, alt))}</time>`;
   }
 
   // Relative Zeiten und Frische-Stempel nachführen: „vor 5 Min.“ bleibt nicht stehen, solange die App offen ist.
@@ -297,8 +389,8 @@ const App = (() => {
       if (el.textContent !== neu) el.textContent = neu;
     }
     for (const el of document.querySelectorAll("time.frische[data-t]")) {
-      const t = Number(el.dataset.t), alt = alterMin(t) >= schwelleVon(el.dataset.schwelle);
-      const neu = frischeText(t, el.dataset.vor || "Stand", alt);
+      const ms = Number(el.dataset.t), alt = alterMin(ms) >= schwelleVon(el.dataset.schwelle);
+      const neu = frischeText(ms, el.dataset.vor || "Stand", alt);
       el.classList.toggle("veraltet", alt);
       if (el.textContent !== neu) el.textContent = neu;
     }
@@ -319,15 +411,16 @@ const App = (() => {
   }
   /** Kleine Pille, auf Wunsch mit Symbol. */
   function marke(text, ton, name) {
-    return `<span class="marke${ton ? " " + ton : ""}">${name ? symbol(name) : ""}${esc(text)}</span>`;
+    return `<span class="marke${ton ? " " + ton : ""}">${name ? symbol(name) : ""}${esc(t(text))}</span>`;
   }
-  /** Leer-, Fehler- und Hinweisansicht: Kachel, Ueberschrift, ein Satz, auf Wunsch ein Knopf (Klick → App.bei(aktion)). */
+  /** Leer-, Fehler- und Hinweisansicht: Kachel, Ueberschrift, ein Satz, auf Wunsch ein Knopf (Klick → App.bei(aktion)).
+   *  Feste Texte laufen durch t() (deutscher Ausgangstext → Sprache der App); so auch in satz, knopf, knoepfe, bestaetigung. */
   function zustand(o) {
     const k = o.knopf;
     return `<div class="zustand${o.klein ? " klein" : ""}" role="${o.ton === "schlecht" ? "alert" : "status"}">`
       + kachel(o.symbol || "circle-help", o.ton || "grau", "gross")
-      + `<h3>${esc(o.titel)}</h3>` + (o.text ? `<p>${esc(o.text)}</p>` : "")
-      + (k ? `<div class="knoepfe"><button type="button" class="${esc(k.klasse || "")}" data-aktion="${esc(k.aktion)}">${k.symbol ? symbol(k.symbol) : ""}${esc(k.text)}</button></div>` : "")
+      + `<h3>${esc(t(o.titel))}</h3>` + (o.text ? `<p>${esc(t(o.text))}</p>` : "")
+      + (k ? `<div class="knoepfe"><button type="button" class="${esc(k.klasse || "")}" data-aktion="${esc(k.aktion)}">${k.symbol ? symbol(k.symbol) : ""}${esc(t(k.text))}</button></div>` : "")
       + "</div>";
   }
   /** Der eine Satz im Kopf der App (was gerade der Fall ist), auf Wunsch mit Statuspunkt (ton: gut | warn | schlecht | akz). */
@@ -335,7 +428,7 @@ const App = (() => {
     const el = document.getElementById("kopf-satz"); if (!el) return;
     el.replaceChildren();
     if (ton) { const p = document.createElement("span"); p.className = "punkt " + ton; el.append(p); }
-    el.append(document.createTextNode(text || ""));
+    el.append(document.createTextNode(text ? t(text) : ""));
   }
 
   // ── Aktionsblock: Knopfreihe mit Rückfrage und „beschäftigt“-Zustand ─────────────────────────────────
@@ -353,47 +446,47 @@ const App = (() => {
     const klasse = [o.klasse, o.rechts && "rechts", busy && "drehen"].filter(Boolean).join(" ");
     const sym = busy ? "loader-circle" : o.symbol;
     return `<button type="button"${klasse ? ` class="${esc(klasse)}"` : ""}${o.aktion ? ` data-aktion="${esc(o.aktion)}"` : ""}`
-      + `${o.titel ? ` title="${esc(o.titel)}"` : ""}${o.aria ? ` aria-label="${esc(o.aria)}"` : ""}${attribute(o.attr)}${aus ? " disabled" : ""}>`
-      + `${sym ? symbol(sym) : ""}${esc(busy && o.busyText ? o.busyText : o.text)}</button>`;
+      + `${o.titel ? ` title="${esc(t(o.titel))}"` : ""}${o.aria ? ` aria-label="${esc(t(o.aria))}"` : ""}${attribute(o.attr)}${aus ? " disabled" : ""}>`
+      + `${sym ? symbol(sym) : ""}${esc(t(busy && o.busyText ? o.busyText : o.text))}</button>`;
   }
   /** Reihe von Knöpfen (`.knoepfe`). o: klasse (zusätzlich, für das Layout der App) · label (Name der Gruppe für Screenreader)
    *  · beschaeftigt (sperrt alle Knöpfe außer denen mit `frei`). Leere Einträge (null, false) werden übersprungen. */
   function knoepfe(liste, o = {}) {
     const klasse = ["knoepfe", o.klasse].filter(Boolean).join(" ");
-    return `<div class="${esc(klasse)}"${o.label ? ` role="group" aria-label="${esc(o.label)}"` : ""}${o.beschaeftigt ? ' aria-busy="true"' : ""}>`
+    return `<div class="${esc(klasse)}"${o.label ? ` role="group" aria-label="${esc(t(o.label))}"` : ""}${o.beschaeftigt ? ' aria-busy="true"' : ""}>`
       + (liste || []).filter(Boolean).map((k) => knopf(k, !!o.beschaeftigt)).join("") + "</div>";
   }
   /** Rückfrage vor einer Wirkung: auf Wunsch ein Hinweis (frage als Text, frageHtml als schon maskiertes HTML), dann „Ja“ und „Abbrechen“.
    *  o: ja {text, symbol, klasse (Vorgabe „haupt“), attr, aktion, busyText, busy} · nein {text (Vorgabe „Abbrechen“), klasse, attr, aktion} oder false
    *  · beschaeftigt (ja dreht, beide gesperrt) · umgekehrt (Abbrechen zuerst) · ton (Hinweis: info, fehler, gut oder leer = Warnung) · klasse · label. */
   function bestaetigung(o) {
-    const text = o.frageHtml != null ? o.frageHtml : o.frage != null ? esc(o.frage) : "";
+    const text = o.frageHtml != null ? o.frageHtml : o.frage != null ? esc(t(o.frage)) : "";
     const hinweis = text ? `<div class="hinweis${o.ton === undefined ? " info" : o.ton ? " " + o.ton : ""}" role="status">${symbol(o.symbol || "info")}<span>${text}</span></div>` : "";
     const ja = { klasse: "haupt", symbol: "check", busy: !!o.beschaeftigt, ...o.ja };
-    const nein = o.nein === false ? null : { text: "Abbrechen", klasse: "leise", ...o.nein };
+    const nein = o.nein === false ? null : { text: t("Abbrechen"), klasse: "leise", ...o.nein };
     return hinweis + knoepfe(o.umgekehrt ? [nein, ja] : [ja, nein], { klasse: o.klasse, label: o.label, beschaeftigt: o.beschaeftigt });
   }
 
   // ── Anfrage statt Aktion ─────────────────────────────────────────────────────────────────────────────
   // Ein Knopf löst nie direkt etwas Schreibendes aus. Er stellt eine Anfrage: das Werkzeug läuft zuerst als Trockenlauf
   // (`__dry_run__`, ändert nichts), die App zeigt den Plan, und erst nach „Ja“ läuft es wirklich — mit `bestaetigt: true`, das
-  // schreibende Werkzeuge für den echten Lauf verlangen (docs/ERWEITERN.md §3.6). Lesen, Aktualisieren, Filtern und Trockenläufe
+  // schreibende Werkzeuge für den echten Lauf verlangen (docs/EXTENDING.md §3.6). Lesen, Aktualisieren, Filtern und Trockenläufe
   // brauchen das nicht.
   /** HTML (nur Fließtext, passt in `bestaetigung({frageHtml})`): was geschähe, danach die Wirkungen als Zeilen. Eingabe ist die Antwort
    *  eines Trockenlaufs (Form von `build_dry_run_result` im Hub: would_execute, expected_side_effects); alles wird maskiert. */
   function plan(r) {
     const p = r && typeof r === "object" ? r : {};
     const wirkungen = (Array.isArray(p.expected_side_effects) ? p.expected_side_effects : []).filter((w) => w != null && w !== "");
-    return `<strong>${esc(p.would_execute || "Die Aktion ausführen")}</strong>`
+    return `<strong>${esc(p.would_execute || t("Die Aktion ausführen"))}</strong>`
       + (wirkungen.length ? `<span class="wirkungen">${wirkungen.map((w) => `<span>${esc(w)}</span>`).join("")}</span>` : "");
   }
   let antrag = null, antragNr = 0; // der eine offene Antrag { ort, werkzeug, args, o, trocken, laeuft, fertig, fehler }; Zähler für „ein neuerer war schneller“
   function antragZeichnen(a, beschaeftigt) {
-    const ja = { text: a.o.ja || "Ausführen", aktion: "antrag-ja" };
+    const ja = { text: t(a.o.ja || "Ausführen"), aktion: "antrag-ja" };
     if (a.o.symbol) ja.symbol = a.o.symbol;
     if (a.o.klasse) ja.klasse = a.o.klasse;
     a.ort.innerHTML = '<div class="antrag">'
-      + bestaetigung({ frageHtml: plan(a.trocken), ja, nein: { text: a.o.nein || "Abbrechen", aktion: "antrag-nein" }, beschaeftigt: !!beschaeftigt, label: "Rückfrage" })
+      + bestaetigung({ frageHtml: plan(a.trocken), ja, nein: { text: t(a.o.nein || "Abbrechen"), aktion: "antrag-nein" }, beschaeftigt: !!beschaeftigt, label: t("Rückfrage") })
       + "</div>";
   }
   function antragSchliessen(ergebnis) {
@@ -416,8 +509,8 @@ const App = (() => {
    *  die Oberfläche nicht). Es gibt nur einen offenen Antrag; sein Platz `ort` bleibt leer, sobald er erledigt ist. */
   async function beantragen(o) {
     const ort = o && o.ort, werkzeug = o && o.werkzeug;
-    if (!ort || !werkzeug) throw new Error("beantragen: werkzeug und ort sind nötig");
-    if (antrag && antrag.laeuft) throw new Error("Es läuft noch eine Ausführung — bitte kurz warten.");
+    if (!ort || !werkzeug) throw new Error(t("beantragen: werkzeug und ort sind nötig"));
+    if (antrag && antrag.laeuft) throw new Error(t("Es läuft noch eine Ausführung — bitte kurz warten."));
     const nr = ++antragNr;
     antragSchliessen(null); // ein älterer Antrag verfällt, sein Promise ergibt null
     const args = { ...(o.args || {}) };
@@ -427,7 +520,7 @@ const App = (() => {
     if (!trocken || trocken.dry_run !== true || trocken.ok === false) {
       const grund = trocken && typeof trocken.error === "string" ? trocken.error : "";
       throw new Error(grund && grund !== "dry_run_unsupported" ? fehlertext(grund)
-        : "Dieses Werkzeug kann nicht vorab zeigen, was es tut — die Oberfläche löst es darum nicht aus.");
+        : t("Dieses Werkzeug kann nicht vorab zeigen, was es tut — die Oberfläche löst es darum nicht aus."));
     }
     if (nr !== antragNr) return null; // währenddessen hat jemand einen neueren Antrag gestellt
     return new Promise((fertig, fehler) => {
@@ -441,8 +534,8 @@ const App = (() => {
    *  · offen · klasse · inhalt (HTML, schon maskiert). Mit `offenMerken` bleibt er beim Neuzeichnen, wie er war. */
   function aufklapper(o) {
     return `<details class="sektion${o.klasse ? " " + esc(o.klasse) : ""}"${o.id ? ` id="${esc(o.id)}"` : ""}${o.offen ? " open" : ""}>`
-      + `<summary>${o.symbol ? symbol(o.symbol) : ""}${esc(o.titel)}${o.anzahl != null && o.anzahl !== "" && o.anzahl !== 0 ? `<span class="anzahl">${esc(o.anzahl)}</span>` : ""}`
-      + `${o.rechts ? `<span class="rechts">${esc(o.rechts)}</span>` : ""}</summary>${o.inhalt || ""}</details>`;
+      + `<summary>${o.symbol ? symbol(o.symbol) : ""}${esc(t(o.titel))}${o.anzahl != null && o.anzahl !== "" && o.anzahl !== 0 ? `<span class="anzahl">${esc(o.anzahl)}</span>` : ""}`
+      + `${o.rechts ? `<span class="rechts">${esc(t(o.rechts))}</span>` : ""}</summary>${o.inhalt || ""}</details>`;
   }
   /** Merkt, welche <details> mit einer id unter `wurzel` offen sind (Set der ids), damit sie ein Neuzeichnen überstehen. */
   function offenMerken(wurzel) {
@@ -497,7 +590,7 @@ const App = (() => {
     if (!fyosKnopf) {
       fyosKnopf = document.createElement("button");
       fyosKnopf.type = "button"; fyosKnopf.className = "zweit klein knopf-sym"; fyosKnopf.id = "fyos-oeffnen";
-      fyosKnopf.title = "In FYOS öffnen"; fyosKnopf.setAttribute("aria-label", "In FYOS öffnen");
+      fyosKnopf.title = t("In FYOS öffnen"); fyosKnopf.setAttribute("aria-label", t("In FYOS öffnen"));
       fyosKnopf.innerHTML = symbol("square-arrow-out-up-right") + '<span class="beschriftung">In FYOS öffnen</span>';
       fyosKnopf.addEventListener("click", () => { const url = link(); if (url) anfrage("ui/open-link", { url }).catch(() => {}); });
       ort.append(fyosKnopf);
@@ -510,7 +603,7 @@ const App = (() => {
   function abgestuerzt(e) {
     const orte = document.querySelectorAll(".laedt");
     if (!orte.length) return;
-    const html = zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: "Die Ansicht lässt sich nicht aufbauen", text: fehlertext(e && (e.error || e.reason || e.message) || e) });
+    const html = zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: t("Die Ansicht lässt sich nicht aufbauen"), text: fehlertext(e && (e.error || e.reason || e.message) || e) });
     for (const el of orte) el.outerHTML = html;
   }
   window.addEventListener("error", abgestuerzt);
@@ -524,7 +617,7 @@ const App = (() => {
   async function nachricht(text) {
     if (!kann("message")) throw new Error("Dieser Host nimmt keine Nachrichten der App an.");
     const r = await anfrage("ui/message", { role: "user", content: [{ type: "text", text: String(text || "").slice(0, 4000) }] });
-    if (r && r.isError) throw new Error("Der Host hat die Nachricht nicht angenommen.");
+    if (r && r.isError) throw new Error(t("Der Host hat die Nachricht nicht angenommen."));
     return r;
   }
   /** Stillen Kontext für das Modell hinterlegen (ui/update-model-context): ersetzt den vorigen, löst keine Antwort aus.
@@ -539,13 +632,13 @@ const App = (() => {
   /** Adresse im Browser öffnen (ui/open-link): wirft, wenn der Host sie ablehnt. Wie ein Klick auf einen Link: nur nach einer Geste. */
   async function oeffnen(url) {
     const r = await anfrage("ui/open-link", { url: String(url || "") });
-    if (r && r.isError) throw new Error("Der Host hat die Adresse nicht geöffnet.");
+    if (r && r.isError) throw new Error(t("Der Host hat die Adresse nicht geöffnet."));
   }
   /** Datei in die Dateiablage legen — nur in der App „Dateien“ in der FYOS-Shell: die App selbst darf nicht zum Hub (Sandbox ohne Ursprung),
    *  darum nimmt der Host die Datei entgegen und schickt sie. datei: File oder Blob; o.ueberschreiben ersetzt eine vorhandene.
    *  Antwort `{ok: true, result}` oder `{ok: false, kind, error}` (kind: existiert · zu_gross · …); wirft nur, wenn der Host ausfällt. */
   async function hochladen(pfad, datei, o = {}) {
-    if (!kann("fyosDateien")) throw new Error("Hochladen geht hier nicht — nur in der FYOS-Shell.");
+    if (!kann("fyosDateien")) throw new Error(t("Hochladen geht hier nicht — nur in der FYOS-Shell."));
     return anfrage("fyos/datei-hochladen", { pfad: String(pfad || ""), datei, ueberschreiben: !!o.ueberschreiben }, FRIST_HOCHLADEN_MS);
   }
   // ── Übergaben: Dinge ziehen und annehmen ──────────────────────────────────────────────────────────
@@ -589,7 +682,7 @@ const App = (() => {
     };
   }
   function ablage(ort, o = {}) {
-    if (!ort || !ort.replaceChildren) throw new Error("ablage: ein Element für die Rückfrage wird gebraucht");
+    if (!ort || !ort.replaceChildren) throw new Error(t("ablage: ein Element für die Rückfrage wird gebraucht"));
     const nimmt = Array.isArray(o.nimmt) ? o.nimmt : [];
     return auf("fyos/uebergabe", async (u) => {
       if (!u || typeof u.typ !== "string" || (nimmt.length && !nimmt.includes(u.typ))) return;
@@ -627,6 +720,10 @@ const App = (() => {
     esc, symbol, kachel, marke, zustand, satz, link, zeit, zahl,
     knopf: (o) => knopf(o, false), knoepfe, bestaetigung, aufklapper, offenMerken, aufklappen,
     frische, veraltet, plan, beantragen,
+    // Sprache: t(deutscher Text, …werte), texte({Deutsch: English}) meldet die englischen Fassungen der App an
+    t, texte, seiteUebersetzen,
+    /** "en" (Vorgabe) oder "de": aus ?sprache=, der Sprache der Shell (hostContext.locale) oder des Browsers */
+    get sprache() { return sprache; },
     get host() { return wurzel.dataset.host || ""; },
     /** Größenstufe des Rahmens: "blick" · "kompakt" · "normal" · "weit" (Ereignis „app-stufe“ bei Wechsel) */
     get stufe() { return wurzel.dataset.stufe || "normal"; },

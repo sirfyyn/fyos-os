@@ -15,6 +15,21 @@ bausteine:
       Der Hub ist der gemeinsame Werkzeugkasten: Er bündelt alle Fähigkeiten als Werkzeuge, die du und der Agent benutzen können.
       Alles läuft auf deinem eigenen Rechner, ohne Anmeldung bei einem Fremddienst.
       Mit dem Kern allein hast du eine funktionierende, aber noch leere Arbeitsfläche, auf der du später Bausteine ergänzt.
+    en:
+      titel: FYOS interface and Hub
+      kurz: The desktop in the browser with windows, dock and the Hub as the toolbox.
+      was_daraus_wird: |
+        You open an address in the browser and see your own desktop with windows, dock, menu bar and tiles.
+        Every surface is a small app provided by the Hub; new apps from plugins appear there without further effort.
+        The Hub is the shared toolbox: it bundles all capabilities as tools that you and the agent can use.
+        Everything runs on your own computer, without signing in to a third-party service.
+        With the core alone you have a working but still empty workspace, to which you add building blocks later.
+      voraussetzungen:
+        - Docker with Compose (for the Docker Compose target) or a Kubernetes cluster
+        - A current browser
+      felder:
+        port: { titel: Port, beschreibung: Port on this computer under which FYOS should be reachable }
+        oeffentliche_url: { titel: Public address, beschreibung: Address at which you open FYOS in the browser }
     bilder: [kern-1.svg, kern-2.svg]
     art: kern
     pflicht: true
@@ -36,6 +51,7 @@ bausteine:
       - { name: dateien }
       - { name: suche }
       - { name: vorgaenge }
+      - { name: itsm }
       - { name: posteingang }
       - { name: termine }
     konfiguration:
@@ -63,6 +79,17 @@ bausteine:
       Was er nicht allein entscheiden darf, etwa Löschen, Geld oder Zugangsdaten, legt er dir als Freigabe-Karte vor, die du mit einem Klick bestätigst oder ablehnst.
       Kleines erledigt er selbst und meldet es knapp, ohne dich mit Nachrichten zu überhäufen.
       Ruhezeiten und ein Tagesbudget für Meldungen sind eingebaut.
+    en:
+      titel: Agent foundation
+      kurz: A personal agent in the chat that asks first when something is serious.
+      was_daraus_wird: |
+        Next to the desktop a chat window opens in which you talk to your agent; you set its name, character and language during setup.
+        The agent finds and uses all tools of the Hub as soon as building blocks bring some.
+        What it may not decide alone, such as deleting, money or credentials, it puts before you as an approval card that you confirm or reject with one click.
+        Small things it does itself and reports briefly, without flooding you with messages.
+        Quiet hours and a daily budget for messages are built in.
+      voraussetzungen:
+        - A language model with an OpenAI-compatible interface (local or hosted)
     bilder: [agent-1.svg]
     art: agent
     pflicht: true
@@ -81,6 +108,15 @@ bausteine:
       Der Agent kann die Beispielwerkzeuge aufrufen und das Ergebnis im Chat zeigen.
       So probierst du aus, wie Werkzeuge, Fenster und Chat zusammenspielen, bevor du echte Bausteine wählst.
       Gedacht ist die App auch als Vorlage für eigene Plugins.
+    en:
+      titel: Example app
+      kurz: A small demo app that shows how plugins bring their own interfaces.
+      was_daraus_wird: |
+        An additional window with a simple example surface appears on the desktop.
+        It shows how a plugin gets its own interface through the Hub, which the shell displays without extra code.
+        The agent can call the example tools and show the result in the chat.
+        This lets you try how tools, windows and chat work together before you choose real building blocks.
+        The app is also meant as a template for your own plugins.
     bilder: [beispiel_app-1.svg]
     art: plugin
     pflicht: false
@@ -101,6 +137,22 @@ bausteine:
       Der Agent beantwortet Fragen wie »Was ist diesen Monat noch offen?« oder »Wofür ging diese Woche am meisten weg?«.
       IBAN, Referenz und Notizen gibt er nicht weiter, und die Zahlen bleiben auf deinem Rechner.
       Überweisungen löst nichts davon aus; es wird nur gelesen.
+    en:
+      titel: Finances with MoneyMoney
+      kurz: Balances, transactions and monthly plan as an app; the agent knows your numbers.
+      was_daraus_wird: |
+        You get a finance app with account balances, a transaction list and a monthly plan in which paid and paused items are ticked off.
+        The data comes from MoneyMoney on your Mac, which sends it to your installation once or twice a day.
+        The agent answers questions like »What is still open this month?« or »What did I spend the most on this week?«.
+        It does not pass on IBAN, reference or notes, and the numbers stay on your computer.
+        None of this triggers transfers; it only reads.
+      voraussetzungen:
+        - macOS with MoneyMoney for the export
+        - The data service for the monthly plan and webhooks must be reachable (see the plugin's README)
+      felder:
+        finanzen_url: { titel: Address of the monthly plan service, beschreibung: Address of the monthly plan service (leave empty for the plugin's default) }
+        life_url: { titel: Address of the MoneyMoney service, beschreibung: Address of the service that receives the MoneyMoney data }
+        auth_header: { titel: Access header, beschreibung: "Header »Name: Value« for internal calls to both services" }
     bilder: [finanzen-1.svg]
     art: plugin
     pflicht: false
@@ -142,6 +194,22 @@ bausteine:
       Kamerabilder und Bewegungsmeldungen erscheinen als Kacheln, ohne dass Aufnahmen die Installation verlassen.
       Als Anbindung dient dein vorhandenes Home Assistant.
       Wetter und Raumbelegung liegen als Werkzeuge bereit, auf die auch andere Apps zugreifen können.
+    en:
+      titel: Home, lights and presence
+      kurz: Lights, scenes, presence and cameras through Home Assistant.
+      was_daraus_wird: |
+        You get a floor plan with your lights, scenes and favourites, which you click or call out to the agent.
+        The agent understands sentences like »lights on« and switches in the room you are in, if presence is known; otherwise it asks.
+        Camera images and motion events appear as tiles, without recordings leaving the installation.
+        Your existing Home Assistant serves as the connection.
+        Weather and room occupancy are available as tools that other apps can use too.
+      voraussetzungen:
+        - A running Home Assistant installation that the Hub can reach
+        - A long-lived access token from Home Assistant
+        - Optionally Frigate for cameras
+      felder:
+        ha_url: { titel: Address of Home Assistant, beschreibung: Address of Home Assistant }
+        ha_token: { titel: Access token, beschreibung: Long-lived access token (profile in Home Assistant, section Security) }
     bilder: [haus-1.svg]
     art: plugin
     pflicht: false
@@ -177,6 +245,21 @@ bausteine:
       Ein Konten-Überblick zeigt, welche Verbindung gerade gültig ist und wo eine Anmeldung erneuert werden muss.
       Zugangsdaten liegen im Tresor und im Hub, nicht im Chatverlauf.
       Jede Verbindung schaltest du einzeln ein; ohne Eintrag bleibt sie unberührt.
+    en:
+      titel: Personal accounts and media
+      kurz: Password vault, mail, calendar, photos, media and orders in one place.
+      was_daraus_wird: |
+        Surfaces for mail, calendar, photos, media and orders appear on the desktop and tap into your existing accounts.
+        The agent then adds appointments, summarises mails or searches photos when you ask it to.
+        An accounts overview shows which connection is currently valid and where a sign-in must be renewed.
+        Credentials live in the vault and in the Hub, not in the chat history.
+        You switch on each connection separately; without an entry it stays untouched.
+      voraussetzungen:
+        - Access to the services you want to connect (mail, calendar, photos)
+        - A password vault or the willingness to create one
+      felder:
+        tresor_url: { titel: Address of the vault, beschreibung: Address of your password vault }
+        tresor_token: { titel: Vault token, beschreibung: Access token for the vault }
     bilder: [konten-1.svg]
     art: plugin
     pflicht: false
@@ -212,6 +295,24 @@ bausteine:
       Wiederkehrende Termine, Ausnahmen und Zeitzonen werden richtig aufgelöst.
       Ändern oder Löschen gibt es bewusst nicht; ein Termin entsteht nur, wenn du den Agenten darum bittest.
       Ist der Leitstand dabei, zeigt seine Zentrale den Tag, und ohne Kalender sagt sie ehrlich »Kalender nicht eingerichtet«.
+    en:
+      titel: Calendar with CalDAV and ICS subscription
+      kurz: Your appointments without a service of your own, via CalDAV with an app password or as an ICS subscription.
+      was_daraus_wird: |
+        The agent knows your appointments: it tells you what is due today and in the next days, and adds a new appointment on request.
+        Your calendar is connected via CalDAV with an app password, for example at iCloud, Nextcloud or Fastmail.
+        More calendars, for example the secret address from Google or Outlook or a holiday calendar, are added as ICS subscriptions and only read.
+        Recurring appointments, exceptions and time zones are resolved correctly.
+        Changing or deleting is deliberately not offered; an appointment is only created when you ask the agent to.
+        If the control room is included, its control center shows the day, and without a calendar it honestly says »Calendar not set up«.
+      voraussetzungen:
+        - A calendar with CalDAV access and app password, or the address of an ICS subscription
+        - A Hub from version 0.1.1 (appointment source for the control room); an older Hub offers the plugin's tools, but no appointments in the control center
+        - The package comes from the package index (FYOS_PAKETINDEX) or the plugin source (FYOS_PLUGIN_QUELLE), not from PyPI
+      felder:
+        url: { titel: Calendar address, beschreibung: "CalDAV address of the provider, such as https://caldav.icloud.com, or the address of an ICS subscription (then leave user name and password empty); more accounts are described in the plugin's README" }
+        nutzer: { titel: User name, beschreibung: User name of the CalDAV account (at iCloud the Apple ID address) }
+        passwort: { titel: App password, beschreibung: "App password of the calendar, not the account's main password (create it in the provider's security settings)" }
     bilder: [kalender-1.svg]
     art: plugin
     pflicht: false
@@ -254,6 +355,24 @@ bausteine:
       Es wird nur gelesen: Senden, Antworten, Löschen oder Verschieben gibt es bewusst nicht, und auch der Gelesen-Status bleibt, wie er war.
       Mailtext gilt dem Agenten als fremder Inhalt, den er berichtet und dem er nicht folgt.
       Ist der Leitstand dabei, wacht er über neue Mails, und ohne Postfach sagt er ehrlich »Mail nicht eingerichtet«.
+    en:
+      titel: Read mail via IMAP
+      kurz: Your inbox without a service of your own, via IMAP with an app password, read-only.
+      was_daraus_wird: |
+        The agent knows your inbox: it tells you what is unread, searches for senders or keywords and reads a single mail aloud.
+        Your mailbox is connected via IMAP with an app password, for example at Gmail, iCloud, Fastmail, Outlook or your own mail server; you add more accounts as described in the plugin's README.
+        It only reads: sending, replying, deleting or moving is deliberately not offered, and the read status stays as it was.
+        To the agent, mail text is foreign content that it reports and does not follow.
+        If the control room is included, it watches for new mails, and without a mailbox it honestly says »Mail not set up«.
+      voraussetzungen:
+        - A mailbox with IMAP access and an app password (not the account's main password)
+        - A Hub from version 0.1.1 (mailbox source for the control room); an older Hub offers the plugin's tools, but no mails in the control center
+        - The package comes from the package index (FYOS_PAKETINDEX) or the plugin source (FYOS_PLUGIN_QUELLE), not from PyPI
+      felder:
+        host: { titel: IMAP server, beschreibung: "Name of the IMAP server, such as imap.gmail.com, imap.mail.me.com or imap.fastmail.com" }
+        port: { titel: Port, beschreibung: "Port of the IMAP server; 993 for encrypted connections (IMAPS), 143 with STARTTLS" }
+        nutzer: { titel: User name, beschreibung: User name of the mailbox, usually the mail address }
+        passwort: { titel: App password, beschreibung: "App password of the mailbox, not the account's main password (create it in the provider's security settings)" }
     bilder: [mail-1.svg]
     art: plugin
     pflicht: false
@@ -304,6 +423,26 @@ bausteine:
       Die Grenzen stehen im Code, nicht nur in der Rolle: Mails gehen nur an vorhandene Abonnenten, Betreff und Text werden nie als Vorlage ausgewertet, und es gibt höchstens 30 Sendungen am Tag (einstellbar).
       „Angenommen“ heißt nicht „zugestellt“: scheitert der SMTP-Weg von Listmonk danach, steht der Fehler im Protokoll von Listmonk.
       Ohne Adresse von Listmonk sagt der Agent ehrlich „FYOS Post ist nicht eingerichtet“.
+    en:
+      titel: FYOS Post
+      kurz: "Your own mail service (Listmonk): the agent sends you notices and prepares campaigns."
+      was_daraus_wird: |
+        The agent can send you (and other subscribers of your Listmonk) a notice as an email, for example when a task is done or something needs your attention.
+        It also creates campaigns (bulk mails) as drafts and sends test mails; a campaign is never started by the agent, you do that in the Listmonk interface.
+        The limits are in the code, not only in the role: mails only go to existing subscribers, subject and text are never evaluated as templates, and there are at most 30 sends per day (configurable).
+        "Accepted" does not mean "delivered": if Listmonk's SMTP route fails afterwards, the error is in Listmonk's log.
+        Without a Listmonk address the agent honestly says "FYOS Post is not set up".
+      voraussetzungen:
+        - A running Listmonk (the tools are built against the API of version 6) with a configured SMTP route and a sender address; this building block does not ship Listmonk
+        - Listmonk's admin access for a one-time step, `fyos-post-einrichten --ja` (creates template, role and API access)
+        - The package comes from the package index (FYOS_PAKETINDEX) or the plugin source (FYOS_PLUGIN_QUELLE), not from PyPI
+      felder:
+        url: { titel: Listmonk address, beschreibung: "Where the Hub reaches Listmonk, such as http://listmonk:9000 (without an address FYOS Post is not set up)" }
+        link: { titel: Address of the Listmonk interface, beschreibung: "Where you open Listmonk in the browser; with it the answers show links to campaigns (empty = no links)" }
+        an: { titel: Default recipient, beschreibung: "The address notices go to when none is given; it must be a subscriber in Listmonk (empty = the agent must name a recipient)" }
+        zugaenge: { titel: Accesses, beschreibung: "Which Listmonk user applies to which surface, as pairs surface=user or surface=user/name; surfaces are os, chat, code, agent, dienste, * stands for all others. The default *=fyos is usually enough." }
+        token_fyos: { titel: Token of the fyos access, beschreibung: "The token of the API user fyos in Listmonk (created by `fyos-post-einrichten --ja --token-datei …`); for other accesses set the variable FYOS_POST_TOKEN_<ACCESS> yourself" }
+        tagesgrenze: { titel: Sends per day, beschreibung: "At most this many mails per day (UTC) across all accesses; a safety belt against loops and mistakes" }
     bilder: [post-1.svg]
     art: plugin
     pflicht: false
@@ -367,6 +506,22 @@ bausteine:
       Der Agent liest Zustände und Logs selbst und schlägt bei Problemen einen Neustart oder einen Rückweg vor.
       Alles Schreibende läuft über die Freigabe, zum Beispiel ein Löschen oder ein Hochziehen von Versionen.
       Gedacht ist der Baustein für alle, die einen eigenen Server oder Cluster betreiben.
+    en:
+      titel: Operations with cluster, Git and CI
+      kurz: Cluster, code hosting and builds at a glance and operable through the agent.
+      was_daraus_wird: |
+        You get a control panel for your Kubernetes cluster with nodes, workloads, logs and update state.
+        Git repositories and CI build runs are added, so you see in one place what is green and what is stuck.
+        The agent reads states and logs itself and suggests a restart or a rollback when there are problems.
+        Everything that writes goes through approval, for example deleting or bumping versions.
+        The building block is meant for everyone who runs their own server or cluster.
+      voraussetzungen:
+        - Access to a Kubernetes cluster via kubeconfig
+        - Optionally a Git hosting (Gitea or GitLab) with an API token
+      felder:
+        kubeconfig_pfad: { titel: Path of the kubeconfig, beschreibung: Path of the kubeconfig in the Hub container (you mount the file itself later) }
+        git_url: { titel: Address of the Git hosting, beschreibung: Address of your Git hosting }
+        git_token: { titel: Git token, beschreibung: API token of the Git hosting }
     bilder: [betrieb-1.svg]
     art: plugin
     pflicht: false
@@ -408,6 +563,21 @@ bausteine:
       Die Messkette fährt Vergleichsläufe, sammelt die Ergebnisse und stellt Profile nebeneinander, bevor du eines umstellst.
       Der Agent erklärt den Zustand und schlägt Umstellungen vor, die du freigibst.
       Der Baustein ist für Fortgeschrittene gedacht, die Rechenzeit und Speicher gezielt einsetzen wollen.
+    en:
+      titel: Own language model and measurement chain
+      kurz: A self-hosted model with a machine overview and measurement runs.
+      was_daraus_wird: |
+        Instead of a hosted service you run your own language model on your own hardware and see its state in an app.
+        An overview shows which profile is running, how fast it answers and how busy the machine is.
+        The measurement chain runs comparison runs, collects the results and puts profiles side by side before you switch one.
+        The agent explains the state and suggests changes that you approve.
+        The building block is meant for advanced users who want to use compute time and memory deliberately.
+      voraussetzungen:
+        - A machine of your own with a GPU and ssh access
+        - A model server with an OpenAI-compatible interface
+      felder:
+        rechner_host: { titel: Model machine, beschreibung: Name of the machine the model runs on (ssh short name) }
+        pult_url: { titel: Address of the control panel, beschreibung: Address of the model server's control panel }
     bilder: [eigenes_modell-1.svg]
     art: plugin
     pflicht: false
@@ -442,6 +612,24 @@ bausteine:
       Freigaben beantwortest du mit einem Klick oder direkt im Chat.
       Agenten-Schleifen erledigen Routinearbeit in der Zeit, in der du nicht aktiv bist, und halten an, sobald du dich meldest.
       Ein Verlauf zeigt jederzeit, was getan wurde und warum.
+    en:
+      titel: Control room, tickets and agent loops
+      kurz: A control center for decisions, approvals, tickets and the agent's routine work.
+      was_daraus_wird: |
+        You get a control center that shows what is waiting for you: decisions, approvals and open tickets in one list.
+        The agent creates tickets, works through them and reports the state without you having to ask.
+        You answer approvals with one click or directly in the chat.
+        Agent loops do routine work while you are not active, and stop as soon as you return.
+        A history shows at any time what was done and why.
+      voraussetzungen:
+        - No external services; without a ticket service the tickets live in a store in the Hub
+        - For the document inbox a Paperless-ngx with a token (address below); without it the inbox honestly says »Documents not set up«
+      felder:
+        vorgaenge_url: { titel: Address of the ticket service, beschreibung: "Ticket service with the ticket contract (…/tickets); empty = the store in the Hub" }
+        vorgaenge_kopf: { titel: Header for the ticket service, beschreibung: "A header »Name: Value« that every call to the ticket service sends, such as a sign-in" }
+        dokumente_url: { titel: Paperless address, beschreibung: "Paperless-ngx for the document inbox, as the Hub reaches it (only the root, without /api); empty = documents are not set up" }
+        dokumente_kopf: { titel: Token for Paperless, beschreibung: "A header »Name: Value« for Paperless, usually »Authorization: Token <token>« (Paperless: My profile, auth token)" }
+        dokumente_link: { titel: Paperless address in the browser, beschreibung: Target of the links from the document inbox; empty = no links }
     bilder: [leitstand-1.svg]
     art: plugin
     pflicht: false

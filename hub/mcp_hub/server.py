@@ -12,7 +12,7 @@ Start:
 
 Einhaengen:
     HTTP POST http://<host>:<port>/mcp   (streamable-HTTP MCP transport)
-REST fuer die Shell: siehe docs/HUB-VERTRAG.md.
+REST fuer die Shell: siehe docs/HUB-CONTRACT.md.
 """
 
 from __future__ import annotations
@@ -1113,7 +1113,7 @@ def _aufgaben_fehler(exc: Any) -> JSONResponse:
 async def rest_aufgabe(request: Request) -> JSONResponse:
     """POST /hub/aufgaben/{get|update|cancel} {taskId, inputResponses?}, GET /hub/aufgaben/liste — MCP Tasks ueber REST.
 
-    Dieselben Antworten wie `tasks/get|update|cancel` (docs/HUB-VERTRAG.md), mit `ok: true` davor. Nur der Akteur,
+    Dieselben Antworten wie `tasks/get|update|cancel` (docs/HUB-CONTRACT.md), mit `ok: true` davor. Nur der Akteur,
     der die Aufgabe angelegt hat (AUFRUFER), kommt heran; fremde und unbekannte Kennungen antworten gleich (404).
     """
     aktion = str(request.path_params.get("aktion", ""))

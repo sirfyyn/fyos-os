@@ -20,6 +20,7 @@ import { menue, menueOeffnen, type MenuePunkt } from '~/lib/os/menue';
 import { deeplink } from '~/lib/os/oeffnen';
 import type { RueckHinweis } from '~/lib/os/rueckgaengig';
 import Symbol, { Glyphe } from './Symbol';
+import { tr } from '~/lib/i18n';
 
 /** So lange spielt die Ausblend-Bewegung (CSS: os-mitteilung-aus) — danach wird die Karte entfernt. */
 const AUS_MS = 200;
@@ -81,7 +82,7 @@ function HinweisKarte(p: { h: Hinweis; onWeg: () => void }): JSX.Element {
               schliessen();
             }}
           >
-            Rückgängig
+            {tr('Rückgängig')}
           </button>
         )}
       </Show>
@@ -158,7 +159,7 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
     menueOeffnen({ x: r.right - 248, y: r.bottom + 4, punkte: punkte(), quelle: menueQuelle, tastatur: e.detail === 0 });
   };
 
-  const titel = () => z.titel || flaeche()?.titel || 'App';
+  const titel = () => z.titel || flaeche()?.titel || tr('App');
   /** „Agent meldet sich“ bei eigenen Meldungen (os.mitteilen), „Agent zeigt dir“ beim Ergebnis einer App */
   const meldet = () => z.art === 'mitteilung';
   /** Nachgeholt: wann es entstanden ist („heute Nacht, 03:12“), sonst wie lange her */
@@ -173,7 +174,7 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
       data-kontext="inhalt"
       tabindex="0"
       role="group"
-      aria-label={`${agentName()} ${meldet() ? 'meldet sich' : 'zeigt dir'} ${titel()}. Enter öffnet, Escape schließt.`}
+      aria-label={tr('{0} {1} {2}. Enter öffnet, Escape schließt.', agentName(), meldet() ? tr('meldet sich') : tr('zeigt dir'), titel())}
       onPointerEnter={() => setUeber(true)}
       onPointerLeave={() => setUeber(false)}
       onFocusIn={() => setUeber(true)}
@@ -194,14 +195,14 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
       <Symbol id={z.ziel} gruppe={flaeche()?.gruppe} class="os-mitteilung-symbol" />
       <div class="os-mitteilung-text">
         <div class="os-mitteilung-kopf">
-          <span class="os-mitteilung-ueber">{agentName()} {meldet() ? 'meldet sich' : 'zeigt dir'}</span>
+          <span class="os-mitteilung-ueber">{agentName()} {meldet() ? tr('meldet sich') : tr('zeigt dir')}</span>
           <time class="os-mitteilung-zeit" classList={{ 'os-mitteilung-nachgeholt': !!z.nachgeholt }}>{zeit()}</time>
           <span class="os-mitteilung-knoepfe">
-            <button type="button" class="os-mitteilung-knopf" aria-label="Weitere Aktionen" aria-haspopup="menu" title="Weitere Aktionen" onClick={menueAuf}>
+            <button type="button" class="os-mitteilung-knopf" aria-label={tr('Weitere Aktionen')} aria-haspopup="menu" title={tr('Weitere Aktionen')} onClick={menueAuf}>
               <Glyphe name="ellipsis" />
             </button>
             {/* Das × ist für die Maus; der Knopf „Schließen“ unten ist derselbe Weg für Tastatur und Screenreader. */}
-            <button type="button" class="os-mitteilung-knopf" aria-hidden="true" title="Schließen" tabindex="-1" onClick={schliessen}>
+            <button type="button" class="os-mitteilung-knopf" aria-hidden="true" title={tr('Schließen')} tabindex="-1" onClick={schliessen}>
               <Glyphe name="x" />
             </button>
           </span>
@@ -220,10 +221,10 @@ function Karte(p: { m: Mitteilung; stufe: number; jetzt: () => number; sichtbar:
         </Show>
         <div class="os-mitteilung-aktionen">
           <button type="button" class="os-mitteilung-oeffnen" disabled={laeuft()} onClick={() => void oeffnen()}>
-            Öffnen
+            {tr('Öffnen')}
             <Glyphe name="arrow-up-right" />
           </button>
-          <button type="button" class="os-mitteilung-schliessen" onClick={schliessen}>Schließen</button>
+          <button type="button" class="os-mitteilung-schliessen" onClick={schliessen}>{tr('Schließen')}</button>
         </div>
       </div>
     </article>
@@ -261,7 +262,7 @@ export default function Mitteilungen(p: MitteilungenProps): JSX.Element {
   };
 
   return (
-    <div class="os-mitteilungen" role="status" aria-live="polite" aria-label={`Mitteilungen von ${agentName()}`} onKeyDown={taste}>
+    <div class="os-mitteilungen" role="status" aria-live="polite" aria-label={tr('Mitteilungen von {0}', agentName())} onKeyDown={taste}>
       <For each={liste()}>
         {(m, i) => (
           <Karte

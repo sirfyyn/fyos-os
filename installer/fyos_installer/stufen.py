@@ -1,7 +1,7 @@
 """Stufe je Fähigkeit: Grundstufe, Ausbaustufe oder aus, und was der Installer daraus macht.
 
 Eine Fähigkeit (Vorgänge, Termine, Postfach lesen, Post senden, Dokumente) gehört zu einem Baustein und kennt bis zu
-zwei Stufen (`katalog_stufen.yaml`, Begriffe in `docs/NACHBAU.md`):
+zwei Stufen (`katalog_stufen.yaml`, Begriffe in `docs/REBUILD.md`):
 
     Grundstufe   ohne eigenen Dienst: eine Ablage im Hub, CalDAV oder ICS direkt, IMAP direkt.
     Ausbaustufe  ein eigener Dienst, den der Hub über eine Adresse erreicht (`FYOS_TERMINE_URL` und ähnlich).
@@ -25,11 +25,23 @@ from typing import Any, Iterable, Mapping
 
 import yaml
 
+from . import sprache as spr
 from .katalog import _ID, Feld, Katalog, KatalogFehler, _feld
 
 GRUND, AUSBAU, AUS = "grund", "ausbau", "aus"
 STUFEN = (GRUND, AUSBAU, AUS)
-STUFE_TITEL = {GRUND: "Grundstufe", AUSBAU: "Ausbaustufe", AUS: "aus"}
+_STUFE_TITEL = {GRUND: "Grundstufe", AUSBAU: "Ausbaustufe", AUS: "aus"}
+
+
+class _StufenTitel(dict):
+    """Anzeigename der Stufe in der aktiven Sprache (Grundstufe/basic tier, Ausbaustufe/extended tier, aus/off)."""
+
+    def __getitem__(self, k: str) -> str:
+        return spr._(_STUFE_TITEL[k])
+
+
+STUFE_TITEL = _StufenTitel(_STUFE_TITEL)
+_k = spr.katalog_text
 #: Welche Stufe eine Bauart ohne ausdrückliche Wahl vorzieht. »Nur Dateien« hat das Layout von Docker Compose.
 VORGABE_JE_ZIEL = {"compose": GRUND, "dateien": GRUND, "k8s": AUSBAU}
 #: Wohin der Nutzer eine fehlende Adresse einträgt.
@@ -79,9 +91,9 @@ class Faehigkeit:
     def als_dict(self) -> dict[str, Any]:
         """Für den Web-Assistenten: Stufen mit Feldern, Vorgabe je Bauart und die wählbaren Stufen."""
         return {
-            "id": self.id, "titel": self.titel, "kurz": self.kurz, "baustein": self.baustein, "aus": self.aus,
+            "id": self.id, "titel": _k(self.titel), "kurz": _k(self.kurz), "baustein": self.baustein, "aus": self.aus,
             "stufen": [
-                {"id": s.id, "name": STUFE_TITEL[s.id], "titel": s.titel, "text": s.text,
+                {"id": s.id, "name": STUFE_TITEL[s.id], "titel": _k(s.titel), "text": _k(s.text),
                  "felder": list(s.felder), "verfuegbar": s.verfuegbar}
                 for s in self.stufen.values()
             ],
@@ -107,16 +119,16 @@ class Wahl:
     @property
     def was(self) -> str:
         s = self.faehigkeit.stufen.get(self.stufe)
-        return s.titel if s else "nicht eingerichtet"
+        return _k(s.titel) if s else spr._("nicht eingerichtet")
 
     def zeile(self) -> str:
-        herkunft = "Vorgabe" if self.vorgabe else "von dir gewählt"
-        return f"{self.faehigkeit.titel}: {self.stufe_titel} ({herkunft}), {self.was}"
+        herkunft = spr._("Vorgabe") if self.vorgabe else spr._("von dir gewählt")
+        return f"{_k(self.faehigkeit.titel)}: {self.stufe_titel} ({herkunft}), {self.was}"
 
     def als_dict(self) -> dict[str, Any]:
         f = self.faehigkeit
         return {
-            "id": f.id, "titel": f.titel, "baustein": f.baustein, "stufe": self.stufe,
+            "id": f.id, "titel": _k(f.titel), "baustein": f.baustein, "stufe": self.stufe,
             "stufe_titel": self.stufe_titel, "vorgabe": self.vorgabe, "was": self.was,
             "umgebung": self.url_umgebung, "adresse_gesetzt": self.url_gesetzt,
         }
@@ -160,6 +172,7 @@ def _stufe(roh: Any, id_: str, ort: str, fehler: list[str]) -> Stufe | None:
         fehler.append(f"{ort}: 'url' gibt es nur bei der Ausbaustufe und muss eines ihrer Felder sein")
     if len(fehler) > n0:
         return None
+    spr.lerne_texte(roh.get("en"), {"titel": titel, "text": text})
     return Stufe(id_, titel.strip(), text.strip(), tuple(namen), tuple(neue), url, verfuegbar)
 
 
@@ -204,6 +217,7 @@ def parse(daten: Any, herkunft: str = "katalog_stufen") -> list[Faehigkeit]:
         if len(fehler) > n0:
             continue
         stufen = {s: stufen[s] for s in (GRUND, AUSBAU) if s in stufen}
+        spr.lerne_texte(e.get("en"), {"titel": texte["titel"], "kurz": texte["kurz"]})
         f = Faehigkeit(id_, texte["titel"], texte["kurz"], texte["baustein"], stufen, aus)
         if not any(s.verfuegbar for s in stufen.values()):
             fehler.append(f"{ort}: mindestens eine Stufe muss verfügbar sein")
@@ -271,20 +285,20 @@ def waehle(
     if wunsch is None:
         wunsch = {}
     if not isinstance(wunsch, Mapping):
-        fehler.append("Antworten: 'stufen' muss ein Objekt aus Fähigkeit und Stufe sein")
+        fehler.append(spr._("Antworten: 'stufen' muss ein Objekt aus Fähigkeit und Stufe sein"))
         wunsch = {}
     wunsch = stufen_als_text(wunsch)
     gewaehlt = set(auswahl)
     for name in wunsch:
         if name not in katalog.faehigkeiten:
-            fehler.append(f"Unbekannte Fähigkeit '{name}' bei den Stufen (bekannt: {', '.join(katalog.faehigkeiten)})")
+            fehler.append(spr._("Unbekannte Fähigkeit '{0}' bei den Stufen (bekannt: {1})", name, ", ".join(katalog.faehigkeiten)))
     wahlen: list[Wahl] = []
     for f in katalog.faehigkeiten.values():
         if f.baustein not in gewaehlt:
             if f.id in wunsch:
-                hinweise.append(
-                    f"Die Stufe für {f.titel} wird ignoriert: der Baustein '{f.baustein}' ist nicht gewählt."
-                )
+                hinweise.append(spr._(
+                    "Die Stufe für {0} wird ignoriert: der Baustein '{1}' ist nicht gewählt.", _k(f.titel), f.baustein
+                ))
             continue
         if f.id not in wunsch:
             wahlen.append(Wahl(f, f.vorgabe(ziel), True))
@@ -292,7 +306,7 @@ def waehle(
         stufe = wunsch[f.id].lower()
         grund = _warum_nicht(f, stufe)
         if grund:
-            fehler.append(f"{f.titel}: {grund}")
+            fehler.append(f"{_k(f.titel)}: {grund}")
         else:
             wahlen.append(Wahl(f, stufe, False))
     return wahlen, fehler, hinweise
@@ -302,16 +316,16 @@ def _warum_nicht(f: Faehigkeit, stufe: str) -> str:
     """Leer, wenn die Stufe wählbar ist, sonst der Grund in einem Satz."""
     moeglich = f.moegliche()
     if stufe not in STUFEN:
-        return f"die Stufe '{stufe}' gibt es nicht (erlaubt: {', '.join(STUFEN)})"
+        return spr._("die Stufe '{0}' gibt es nicht (erlaubt: {1})", stufe, ", ".join(STUFEN))
     if stufe in moeglich:
         return ""
-    waehlbar = " oder ".join(moeglich)
+    waehlbar = spr._(" oder ").join(moeglich)
     if stufe == AUS:
-        return f"lässt sich nicht ausschalten; wähle {waehlbar}"
+        return spr._("lässt sich nicht ausschalten; wähle {0}", waehlbar)
     s = f.stufen.get(stufe)
     if s is None:
-        return f"hat keine {STUFE_TITEL[stufe]}; wähle {waehlbar}"
-    return f"die {STUFE_TITEL[stufe]} ({s.titel}) gibt es noch nicht; wähle {waehlbar}"
+        return spr._("hat keine {0}; wähle {1}", STUFE_TITEL[stufe], waehlbar)
+    return spr._("die {0} ({1}) gibt es noch nicht; wähle {2}", STUFE_TITEL[stufe], _k(s.titel), waehlbar)
 
 
 def anwenden(
@@ -334,10 +348,11 @@ def anwenden(
                 env = b.umgebungsname(felder[name])
                 wert, geheim, baustein = werte.get(env, ("", False, b))
                 if wert and str(wert) != str(felder[name].standard):
-                    hinweise.append(
-                        f"{f.titel}: Das Feld »{felder[name].titel}« gehört zur {STUFE_TITEL[sid]} und wird bei "
-                        f"{w.stufe_titel if w.stufe == AUS else 'der ' + w.stufe_titel} nicht verwendet."
-                    )
+                    hinweise.append(spr._(
+                        "{0}: Das Feld »{1}« gehört zur {2} und wird bei {3} nicht verwendet.",
+                        _k(f.titel), _k(felder[name].titel), STUFE_TITEL[sid],
+                        w.stufe_titel if w.stufe == AUS else spr._("der ") + w.stufe_titel,
+                    ))
                 werte[env] = ("", geheim, baustein)
         if w.stufe == AUSBAU and f.stufen[AUSBAU].url in felder:
             s = f.stufen[AUSBAU]
@@ -345,18 +360,19 @@ def anwenden(
             w.url_umgebung = env
             w.url_gesetzt = bool(str(werte.get(env, ("", 0, 0))[0]).strip())
             if w.url_gesetzt:
-                hinweise.append(
-                    f"{f.titel}, Ausbaustufe: Der Hub fragt den Dienst unter {env}. Den Dienst selbst ({s.titel}) "
-                    "liefert der Installer noch nicht mit; er muss laufen und erreichbar sein."
-                )
+                hinweise.append(spr._(
+                    "{0}, Ausbaustufe: Der Hub fragt den Dienst unter {1}. Den Dienst selbst ({2}) "
+                    "liefert der Installer noch nicht mit; er muss laufen und erreichbar sein.",
+                    _k(f.titel), env, _k(s.titel),
+                ))
             else:
-                ohne = ("Ohne eigenen Dienst wähle die Grundstufe." if GRUND in f.moegliche()
-                        else "Eine Grundstufe ohne Dienst gibt es hier nicht.")
-                hinweise.append(
-                    f"{f.titel}, Ausbaustufe: Den Dienst ({s.titel}) liefert der Installer noch nicht mit; trage "
-                    f"{env} selbst ein, in {EINTRAGEN_IN.get(ziel, '.env')}. Solange die Adresse fehlt, gilt "
-                    f"»{f.titel}« als nicht eingerichtet. {ohne}"
-                )
+                ohne = (spr._("Ohne eigenen Dienst wähle die Grundstufe.") if GRUND in f.moegliche()
+                        else spr._("Eine Grundstufe ohne Dienst gibt es hier nicht."))
+                hinweise.append(spr._(
+                    "{0}, Ausbaustufe: Den Dienst ({1}) liefert der Installer noch nicht mit; trage "
+                    "{2} selbst ein, in {3}. Solange die Adresse fehlt, gilt »{4}« als nicht eingerichtet. {5}",
+                    _k(f.titel), _k(s.titel), env, spr._(EINTRAGEN_IN.get(ziel, ".env")), _k(f.titel), ohne,
+                ))
     return hinweise
 
 
@@ -370,10 +386,11 @@ def beschreibe_katalog(katalog: Katalog) -> list[str]:
     zeilen_: list[str] = []
     for f in katalog.faehigkeiten.values():
         stufen = ", ".join(
-            f"{s.id}: {s.titel}" + ("" if s.verfuegbar else " (noch nicht vorhanden)") for s in f.stufen.values()
+            f"{s.id}: {_k(s.titel)}" + ("" if s.verfuegbar else spr._(" (noch nicht vorhanden)"))
+            for s in f.stufen.values()
         )
         zeilen_.append(
-            f"{f.id:<10} [{f.baustein}] {f.titel}: {stufen}{', aus' if f.aus else ''}; "
-            f"Vorgabe Compose {f.vorgabe('compose')}, Kubernetes {f.vorgabe('k8s')}"
+            f"{f.id:<10} [{f.baustein}] {_k(f.titel)}: {stufen}{', aus' if f.aus else ''}; "
+            + spr._("Vorgabe Compose {0}, Kubernetes {1}", f.vorgabe("compose"), f.vorgabe("k8s"))
         )
     return zeilen_

@@ -166,9 +166,9 @@ def test_beispiel_wird_gezeichnet(ergebnis):
     for knoten in ("agent", "bauen", "vorlage", "ablage", "app", "chat", "os", "panel"):
         assert f'data-sc-node="{knoten}"' in svg
     assert svg.count("data-sc-edge=") == 8
-    assert "Wie eine Ansicht in den Chat kommt" in svg   # Titel der Zeichnung (title-Element)
+    assert "How a view gets into the chat" in svg   # Titel der Zeichnung (title-Element), Beispiel der Vorlage englisch
     assert e["hinweise"] == []
-    assert "Agent → gui.bauen: Spezifikation" in e["liste"]["verbindungen"]
+    assert "Agent → gui.bauen: specification" in e["liste"]["verbindungen"]
     assert "gui.bauen" in e["liste"]["elemente"]
     # Legende deutsch
     assert "LEGENDE" in svg.upper() and "Hauptweg" in svg
@@ -176,8 +176,8 @@ def test_beispiel_wird_gezeichnet(ergebnis):
 
 def test_doku_beispiel_wird_gezeichnet(ergebnis):
     e = ergebnis["doku"]
-    assert e["ok"] and e["hinweise"] == [] and "Alles grün?" in e["svg"]
-    assert "Alles grün? → Nach main mergen: ja" in e["liste"]["verbindungen"]
+    assert e["ok"] and e["hinweise"] == [] and "All green?" in e["svg"]
+    assert "All green? → Merge to main: yes" in e["liste"]["verbindungen"]
 
 
 def test_ergebnis_ohne_abruf(ergebnis):

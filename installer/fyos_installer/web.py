@@ -1,7 +1,8 @@
 """Web-Assistent: lokaler Server nur mit der Standardbibliothek.
 
 Bindet an 127.0.0.1 auf einem zufälligen Port. Ohne das einmalige Zugangstoken aus der URL
-antwortet er nicht. API: GET /api/katalog, POST /api/plan, POST /api/installieren, GET /api/protokoll (SSE).
+antwortet er nicht. API: GET /api/katalog, POST /api/plan, POST /api/installieren, GET /api/protokoll (SSE),
+POST /api/sprache ({"sprache": "en"|"de"}: Sprache des Assistenten, Texte des Katalogs und Vorgabe der Oberfläche).
 Das Ereignis `ende` trägt `ok`, `meldung`, `url` und beim Ziel Docker Compose die `abnahme` (abnahme.py).
 """
 
@@ -23,6 +24,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import ausfuehren as ausf
 from . import erzeugen
+from . import sprache as spr
 from .katalog import BILD_TYPEN, Katalog, bilder_von
 
 WEB = Path(__file__).resolve().parent / "web"
@@ -76,25 +78,28 @@ class Zustand:
     def katalog_json(self) -> dict[str, Any]:
         bereit, meldung = self._docker()
         bausteine = []
+        k = spr.katalog_text  # Katalogtexte in der Sprache des Assistenten (Block `en:` im Katalog)
         for b in self.katalog:
             bausteine.append({
-                "id": b.id, "titel": b.titel, "kurz": b.kurz, "was_daraus_wird": b.was_daraus_wird, "art": b.art,
-                "pflicht": b.pflicht, "abhaengig_von": b.abhaengig_von, "voraussetzungen": b.voraussetzungen,
+                "id": b.id, "titel": k(b.titel), "kurz": k(b.kurz), "was_daraus_wird": k(b.was_daraus_wird), "art": b.art,
+                "pflicht": b.pflicht, "abhaengig_von": b.abhaengig_von, "voraussetzungen": [k(v) for v in b.voraussetzungen],
                 "braucht_quelle": bool(b.paket),
-                "bilder": [f"/bild/{b.id}/{i}" for i, _ in enumerate(bilder_von(b))],
+                "bilder": [f"/bild/{b.id}/{i}" for i in range(len(bilder_von(b)))],
                 "konfiguration": [
-                    {"name": f.name, "typ": f.typ, "titel": f.titel, "beschreibung": f.beschreibung, "standard": f.standard,
-                     "pflicht": f.pflicht, "optionen": f.optionen}
+                    {"name": f.name, "typ": f.typ, "titel": k(f.titel), "beschreibung": k(f.beschreibung),
+                     "standard": f.standard, "pflicht": f.pflicht, "optionen": f.optionen}
                     for f in b.konfiguration
                 ],
                 "herkunft": b.herkunft,
             })
         optionen = erzeugen.vorgaben_optionen(self.umgebung, bezug_aufloesen=True)
+        persona = {**erzeugen.VORGABE_PERSONA, "sprache": spr.persona_sprache()}
         return {
+            "sprache": spr.aktiv(), "sprachen": list(spr.SPRACHEN),
             "bausteine": bausteine,
             "faehigkeiten": [f.als_dict() for f in self.katalog.faehigkeiten.values()],
-            "ziele": erzeugen.ZIELE,
-            "vorgaben": {"persona": erzeugen.VORGABE_PERSONA, "modell": erzeugen.VORGABE_MODELL, "optionen": optionen},
+            "ziele": {z: spr._(t) for z, t in erzeugen.ZIELE.items()},
+            "vorgaben": {"persona": persona, "modell": erzeugen.VORGABE_MODELL, "optionen": optionen},
             "docker": {"bereit": bereit, "meldung": meldung},
             "verzeichnis": str(self.verzeichnis.resolve()),
             "plugin_quelle_beispiel": self.katalog.plugin_quelle_beispiel,
@@ -104,7 +109,7 @@ class Zustand:
         auswahl = daten.get("auswahl") or []
         if not isinstance(auswahl, list) or not all(isinstance(a, str) for a in auswahl):
             plan = erzeugen.Plan(ziel=str(daten.get("ziel")), verzeichnis=self.verzeichnis)
-            plan.fehler.append("auswahl muss eine Liste von Baustein-ids sein")
+            plan.fehler.append(spr._("auswahl muss eine Liste von Baustein-ids sein"))
             return plan
         antworten = daten.get("antworten") or {}
         if not isinstance(antworten, dict):
@@ -127,18 +132,18 @@ class Zustand:
 
     def _arbeit(self, plan: erzeugen.Plan) -> None:
         try:
-            self.log(f"== Dateien nach {plan.verzeichnis} schreiben")
+            self.log(spr._("== Dateien nach {0} schreiben", plan.verzeichnis))
             for pfad in erzeugen.schreiben(plan):
-                self.log(f"geschrieben: {pfad}")
+                self.log(spr._("geschrieben: {0}", pfad))
             if plan.ausfuehrbar:
                 erg = ausf.ausfuehren(plan, self.log)
                 self.abschliessen(erg.ok, erg.meldung, erg.url, erg.abnahme.als_dict() if erg.abnahme else None)
             else:
-                self.log("Dateien sind fertig. Die nächsten Schritte stehen in ANLEITUNG.md.")
-                self.abschliessen(True, "Dateien erzeugt. Weiter mit ANLEITUNG.md im Zielordner.", None)
+                self.log(spr._("Dateien sind fertig. Die nächsten Schritte stehen in ANLEITUNG.md."))
+                self.abschliessen(True, spr._("Dateien erzeugt. Weiter mit ANLEITUNG.md im Zielordner."), None)
         except Exception as e:  # noqa: BLE001 - Fehler gehören ins Protokoll, nicht in den Thread
-            self.log(f"Fehler: {e}", "fehler")
-            self.abschliessen(False, f"Fehler: {e}")
+            self.log(spr._("Fehler: {0}", e), "fehler")
+            self.abschliessen(False, spr._("Fehler: {0}", e))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -228,9 +233,9 @@ class Handler(BaseHTTPRequestHandler):
         url = urlsplit(self.path)
         query = parse_qs(url.query)
         if not self._host_ok():
-            return self._fehler(HTTPStatus.FORBIDDEN, "Host nicht erlaubt.")
+            return self._fehler(HTTPStatus.FORBIDDEN, spr._("Host nicht erlaubt."))
         if not self._token_ok(query):
-            return self._fehler(HTTPStatus.FORBIDDEN, "Zugang nur mit dem Link, den fyos-install ausgibt.")
+            return self._fehler(HTTPStatus.FORBIDDEN, spr._("Zugang nur mit dem Link, den fyos-install ausgibt."))
         pfad = url.path
         if methode == "GET":
             if pfad == "/":
@@ -252,19 +257,27 @@ class Handler(BaseHTTPRequestHandler):
             if pfad in ("/api/plan", "/api/installieren"):
                 daten = self._body()
                 if daten is None:
-                    return self._json(HTTPStatus.BAD_REQUEST, {"fehler": ["Erwartet wird ein JSON-Objekt."]})
+                    return self._json(HTTPStatus.BAD_REQUEST, {"fehler": [spr._("Erwartet wird ein JSON-Objekt.")]})
                 plan = self.z.plan_aus(daten)
                 if pfad == "/api/plan":
                     return self._json(HTTPStatus.OK, plan.als_dict())
                 if not plan.ok:
                     return self._json(HTTPStatus.UNPROCESSABLE_ENTITY, plan.als_dict())
                 if not self.z.installieren(plan):
-                    return self._json(HTTPStatus.CONFLICT, {"fehler": ["Es läuft bereits eine Installation."]})
+                    return self._json(HTTPStatus.CONFLICT, {"fehler": [spr._("Es läuft bereits eine Installation.")]})
                 return self._json(HTTPStatus.ACCEPTED, {"gestartet": True})
+            if pfad == "/api/sprache":
+                # Sprachwahl im Assistenten: gilt für ihn selbst und als Vorgabe der erzeugten Oberfläche
+                daten = self._body()
+                neu = spr.normalisiere((daten or {}).get("sprache"))
+                if neu is None:
+                    return self._json(HTTPStatus.BAD_REQUEST, {"fehler": [spr._("Sprache: en oder de")]})
+                spr.setze(neu)
+                return self._json(HTTPStatus.OK, {"sprache": spr.aktiv()})
             if pfad == "/api/beenden":
                 self.z.beenden.set()
                 return self._json(HTTPStatus.OK, {"beendet": True})
-        self._fehler(HTTPStatus.NOT_FOUND, "Nicht gefunden.")
+        self._fehler(HTTPStatus.NOT_FOUND, spr._("Nicht gefunden."))
 
     def _bild(self, pfad: str) -> None:
         teile = pfad.split("/")
@@ -272,7 +285,7 @@ class Handler(BaseHTTPRequestHandler):
             baustein = self.z.katalog[teile[2]]
             datei = bilder_von(baustein)[int(teile[3])]
         except Exception:  # noqa: BLE001 - alles hier heißt: nicht gefunden
-            return self._fehler(HTTPStatus.NOT_FOUND, "Kein solches Bild.")
+            return self._fehler(HTTPStatus.NOT_FOUND, spr._("Kein solches Bild."))
         typ = BILD_TYPEN.get(datei.suffix.lower()) or mimetypes.guess_type(datei.name)[0] or "application/octet-stream"
         self._senden(HTTPStatus.OK, datei.read_bytes(), typ)
 
@@ -329,9 +342,9 @@ def starte(
     ausgabe: Callable[[str], None] = lambda text: print(text, flush=True),
 ) -> int:
     server = Server(Zustand(katalog, verzeichnis=verzeichnis), port)
-    ausgabe("FYOS-Installer läuft. Öffne diesen Link (gilt nur für diese Sitzung):")
+    ausgabe(spr._("FYOS-Installer läuft. Öffne diesen Link (gilt nur für diese Sitzung):"))
     ausgabe(server.url())
-    ausgabe("Beenden mit Strg+C.")
+    ausgabe(spr._("Beenden mit Strg+C."))
     if browser:
         try:
             webbrowser.open(server.url())
@@ -341,7 +354,7 @@ def starte(
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        ausgabe("Beendet.")
+        ausgabe(spr._("Beendet."))
     finally:
         server.server_close()
     return 0

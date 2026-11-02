@@ -17,6 +17,7 @@ import { ordnerAbfrage } from '~/lib/mail-abfrage';
 import type { BusEreignis } from '~/lib/live';
 import type { MeldungEingabe } from './meldungen';
 import type { MeldungenEinstellungen, Quelle } from './meldungen-einstellungen';
+import { tr } from '~/lib/i18n';
 
 export const TERMIN_ABRUF_MS = 10 * 60_000;
 export const TERMIN_TAKT_MS = 30_000;
@@ -39,13 +40,14 @@ export function stoerungAus(e: BusEreignis): MeldungEingabe | null {
   if (!kritisch && !e.thema.endsWith('.alert')) return null;
   const d = e.daten ?? {};
   const was = text(d.name) || text(d.service) || text(d.node) || text(d.title) || text(d.titel) || text(d.entity_id);
-  const titel = (
+  const titelDe = (
     {
       'node.critical': 'Knoten kritisch',
       'services.service_down': 'Dienst ausgefallen',
       'cluster.degraded': 'Cluster eingeschränkt',
     } as Record<string, string>
-  )[e.thema] ?? `Warnung ${e.thema.replace(/\.alert$/, '')}`;
+  )[e.thema];
+  const titel = titelDe ? tr(titelDe) : tr('Warnung {0}', e.thema.replace(/\.alert$/, ''));
   const detail = was || text(d.message).split('\n').slice(-1)[0] || '';
   return {
     quelle: 'stoerung',
@@ -54,7 +56,7 @@ export function stoerungAus(e: BusEreignis): MeldungEingabe | null {
     titel: was && !detail.startsWith(titel) ? `${titel}: ${was}`.slice(0, 80) : titel,
     text: detail && detail !== was ? detail.slice(0, 140) : '',
     ziel: { ziel: 'app:leitstand__lagebild' },
-    aktionen: [{ id: 'oeffnen', text: 'Lagebild öffnen', ziel: { ziel: 'app:leitstand__lagebild' } }],
+    aktionen: [{ id: 'oeffnen', text: tr('Lagebild öffnen'), ziel: { ziel: 'app:leitstand__lagebild' } }],
     entdoppelnMs: 30 * 60_000,
   };
 }
@@ -67,17 +69,17 @@ const RISIKO: Record<string, string> = { low: 'niedrig', medium: 'mittel', high:
  */
 export function freigabeAus(f: Freigabe, nurVerlauf = false): MeldungEingabe | null {
   if (f.status !== 'offen') return null;
-  const risiko = RISIKO[f.risiko ?? ''] ?? (f.risiko || 'mittel');
+  const risiko = tr(RISIKO[f.risiko ?? ''] ?? (f.risiko || 'mittel'));
   const hoch = f.risiko === 'high' || f.zerstoererisch === true;
   const ziel = { ziel: 'nativ:agent' };
   return {
     quelle: 'freigabe',
     schluessel: f.id,
     stufe: hoch ? 'kritisch' : 'hoch',
-    titel: `Freigabe: ${text(f.aktion) || text(f.werkzeug) || 'Aktion'}`.slice(0, 80),
-    text: `Risiko ${risiko}${f.gespraechTitel ? ` · ${f.gespraechTitel}` : ''}`.slice(0, 140),
+    titel: tr('Freigabe: {0}', text(f.aktion) || text(f.werkzeug) || tr('Aktion')).slice(0, 80),
+    text: (tr('Risiko {0}', risiko) + (f.gespraechTitel ? ` · ${f.gespraechTitel}` : '')).slice(0, 140),
     ziel,
-    aktionen: [{ id: 'oeffnen', text: 'Freigabe öffnen', ziel }],
+    aktionen: [{ id: 'oeffnen', text: tr('Freigabe öffnen'), ziel }],
     ...(nurVerlauf ? { nurVerlauf: true } : {}),
   };
 }
@@ -111,11 +113,11 @@ export function wartetAus(e: WartetMeldbar, nurVerlauf = false): MeldungEingabe 
     quelle: 'freigabe',
     schluessel: `wartet:${e.id}`,
     stufe: kritisch ? 'kritisch' : einzeln ? 'hoch' : 'normal',
-    titel: `${einzeln ? 'Freigabe' : 'Frage'}: ${text(e.satz) || 'wartet auf dich'}`.slice(0, 80),
+    titel: tr(einzeln ? 'Freigabe: {0}' : 'Frage: {0}', text(e.satz) || tr('wartet auf dich')).slice(0, 80),
     text: text(e.warum).slice(0, 140),
-    ...(ziel ? { ziel, aktionen: [{ id: 'oeffnen', text: 'Ansehen', ziel }] } : {}),
-    ...(einzeln ? {} : { sammeln: (n: number) => `${n} Fragen warten auf dich` }),
-    sicher: { titel: 'Etwas wartet auf dich', sammeln: (n: number) => `${n} Dinge warten auf dich` },
+    ...(ziel ? { ziel, aktionen: [{ id: 'oeffnen', text: tr('Ansehen'), ziel }] } : {}),
+    ...(einzeln ? {} : { sammeln: (n: number) => tr('{0} Fragen warten auf dich', n) }),
+    sicher: { titel: tr('Etwas wartet auf dich'), sammeln: (n: number) => tr('{0} Dinge warten auf dich', n) },
     ...(nurVerlauf ? { nurVerlauf: true } : {}),
   };
 }
@@ -145,7 +147,7 @@ export function termineAus(d: unknown): Termin[] {
     if (start.length <= 10) continue; // ohne Uhrzeit
     const t = Date.parse(start);
     if (!Number.isFinite(t)) continue;
-    const titel = text(e.title) || text(e.summary) || 'Termin';
+    const titel = text(e.title) || text(e.summary) || tr('Termin');
     aus.push({ id: text(e.id) || `${titel}|${start}`, titel, start: t });
   }
   return aus;
@@ -157,12 +159,12 @@ export function terminMeldungen(termine: Termin[], jetzt: number): MeldungEingab
   for (const t of termine) {
     const bis = t.start - jetzt;
     const ziel = { ziel: 'seite:kalender' };
-    const aktionen = [{ id: 'oeffnen', text: 'Kalender öffnen', ziel }];
+    const aktionen = [{ id: 'oeffnen', text: tr('Kalender öffnen'), ziel }];
     if (bis <= 0 && bis > -2 * 60_000) {
-      aus.push({ quelle: 'termin', schluessel: `${t.id}|jetzt`, stufe: 'hoch', titel: `Jetzt: ${t.titel}`.slice(0, 80), text: '', ziel, aktionen });
+      aus.push({ quelle: 'termin', schluessel: `${t.id}|jetzt`, stufe: 'hoch', titel: tr('Jetzt: {0}', t.titel).slice(0, 80), text: '', ziel, aktionen });
     } else if (bis > 0 && bis <= TERMIN_VORLAUF_MS) {
       const min = Math.max(1, Math.round(bis / 60_000));
-      aus.push({ quelle: 'termin', schluessel: `${t.id}|vor10`, stufe: 'hoch', titel: `In ${min} Min: ${t.titel}`.slice(0, 80), text: '', ziel, aktionen });
+      aus.push({ quelle: 'termin', schluessel: `${t.id}|vor10`, stufe: 'hoch', titel: tr('In {0} Min: {1}', min, t.titel).slice(0, 80), text: '', ziel, aktionen });
     }
   }
   return aus;
@@ -186,8 +188,8 @@ export function mailsAus(d: unknown): MailEintrag[] {
     if (m.unread === false) continue;
     const von = text(m.from);
     const teil = /^(.+?)\s*<(.+)>$/.exec(von);
-    const absender = (teil ? teil[1]!.replace(/^["']|["']$/g, '') : von.split('@')[0] || von).trim() || 'Unbekannt';
-    aus.push({ id, absender: absender.slice(0, 40), betreff: (text(m.subject) || '(ohne Betreff)').slice(0, 120) });
+    const absender = (teil ? teil[1]!.replace(/^["']|["']$/g, '') : von.split('@')[0] || von).trim() || tr('Unbekannt');
+    aus.push({ id, absender: absender.slice(0, 40), betreff: (text(m.subject) || tr('(ohne Betreff)')).slice(0, 120) });
   }
   return aus;
 }
@@ -198,12 +200,12 @@ export function mailMeldung(m: MailEintrag): MeldungEingabe {
     quelle: 'mail',
     schluessel: m.id,
     stufe: 'normal',
-    titel: `Neue Mail von ${m.absender}`.slice(0, 80),
+    titel: tr('Neue Mail von {0}', m.absender).slice(0, 80),
     text: m.betreff,
     ziel,
-    aktionen: [{ id: 'oeffnen', text: 'Mail öffnen', ziel }],
-    sammeln: (n) => `${n} neue Mails`,
-    sicher: { titel: 'Neue Mail', sammeln: (n) => `${n} neue Mails` },
+    aktionen: [{ id: 'oeffnen', text: tr('Mail öffnen'), ziel }],
+    sammeln: (n) => tr('{0} neue Mails', n),
+    sicher: { titel: tr('Neue Mail'), sammeln: (n) => tr('{0} neue Mails', n) },
   };
 }
 
@@ -219,12 +221,12 @@ export function agentMeldung(titel: string, textStueck: string, gespraech: numbe
     quelle: 'agent',
     schluessel: `${gespraech}|${n}`,
     stufe: 'normal',
-    titel: (titel ? `Agent: ${titel}` : 'Agent').slice(0, 80),
+    titel: (titel ? tr('Agent: {0}', titel) : tr('Agent')).slice(0, 80),
     text: textStueck.replace(/\s+/g, ' ').trim().slice(0, 140),
     ziel,
-    aktionen: [{ id: 'oeffnen', text: 'Öffnen', ziel }],
-    sammeln: (k) => `${k} neue Nachrichten von Agent`,
-    sicher: { titel: 'Agent hat geschrieben', sammeln: (k) => `Agent hat ${k}-mal geschrieben` },
+    aktionen: [{ id: 'oeffnen', text: tr('Öffnen'), ziel }],
+    sammeln: (k) => tr('{0} neue Nachrichten von Agent', k),
+    sicher: { titel: tr('Agent hat geschrieben'), sammeln: (k) => tr('Agent hat {0}-mal geschrieben', k) },
   };
 }
 

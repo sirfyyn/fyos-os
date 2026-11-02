@@ -9,6 +9,7 @@
  * Reine Logik ohne DOM, damit sie sich mit echten Ereignisformen des Runners testen lässt.
  */
 import type { Anzeige, AnzeigeBlock, KartenStatus, WerkzeugKarte } from './anzeige';
+import { tr } from '~/lib/i18n';
 
 // ── Werkzeugtitel in Klartext ────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ export function befehlKern(befehl: string): string {
 function hubName(name: string): { ns: string; verb: string } {
   const [ns = '', ...rest] = name.split('.');
   const verb = rest.join('.');
-  return { ns: WORTE[ns] ?? ns, verb: WORTE[verb] ?? verb };
+  return { ns: WORTE[ns] ? tr(WORTE[ns]) : ns, verb: WORTE[verb] ? tr(WORTE[verb]) : verb };
 }
 
 /**
@@ -78,57 +79,57 @@ export function werkzeugTitel(name: string, args: Record<string, unknown> = {}):
   const a = args && typeof args === 'object' ? args : {};
   switch (name) {
     case 'bash':
-      return `Shell: ${befehlKern(erstes(a, ['command', 'befehl'])) || 'Befehl'}`;
+      return tr('Shell: {0}', befehlKern(erstes(a, ['command', 'befehl'])) || tr('Befehl'));
     case 'read':
-      return `Datei gelesen: ${dateiname(erstes(a, ['path', 'pfad', 'file'])) || '?'}`;
+      return tr('Datei gelesen: {0}', dateiname(erstes(a, ['path', 'pfad', 'file'])) || '?');
     case 'write':
-      return `Datei geschrieben: ${dateiname(erstes(a, ['path', 'pfad', 'file'])) || '?'}`;
+      return tr('Datei geschrieben: {0}', dateiname(erstes(a, ['path', 'pfad', 'file'])) || '?');
     case 'edit':
-      return `Datei geändert: ${dateiname(erstes(a, ['path', 'pfad', 'file'])) || '?'}`;
+      return tr('Datei geändert: {0}', dateiname(erstes(a, ['path', 'pfad', 'file'])) || '?');
     case 'hub_suchen':
-      return `Werkzeuge gesucht: ${kuerzeZeile(erstes(a, ['suche']), 50) || 'Verzeichnis'}`;
+      return tr('Werkzeuge gesucht: {0}', kuerzeZeile(erstes(a, ['suche']), 50) || tr('Verzeichnis'));
     case 'hub_schema':
-      return `Schema gelesen: ${erstes(a, ['werkzeug']) || '?'}`;
+      return tr('Schema gelesen: {0}', erstes(a, ['werkzeug']) || '?');
     case 'hub_aufrufen': {
       const werkzeug = erstes(a, ['werkzeug']);
       const argumente = (a.argumente && typeof a.argumente === 'object' ? a.argumente : {}) as Record<string, unknown>;
       return hubTitel(werkzeug, argumente);
     }
     case 'freigabe_bitten':
-      return `Freigabe erbeten: ${kuerzeZeile(erstes(a, ['aktion']), 70) || '?'}`;
+      return tr('Freigabe erbeten: {0}', kuerzeZeile(erstes(a, ['aktion']), 70) || '?');
     case 'zustand_lesen':
-      return `Zustand gelesen${erstes(a, ['schluessel']) ? `: ${erstes(a, ['schluessel'])}` : ''}`;
+      return tr('Zustand gelesen') + (erstes(a, ['schluessel']) ? `: ${erstes(a, ['schluessel'])}` : '');
     case 'zustand_schreiben':
-      return `Zustand gesetzt${erstes(a, ['schluessel']) ? `: ${erstes(a, ['schluessel'])}` : ''}`;
+      return tr('Zustand gesetzt') + (erstes(a, ['schluessel']) ? `: ${erstes(a, ['schluessel'])}` : '');
     case 'aufgabe_starten':
-      return `Aufgabe gestartet: ${kuerzeZeile(erstes(a, ['titel', 'auftrag']), 60) || '?'}`;
+      return tr('Aufgabe gestartet: {0}', kuerzeZeile(erstes(a, ['titel', 'auftrag']), 60) || '?');
     case 'aufgaben_liste':
-      return 'Aufgaben angesehen';
+      return tr('Aufgaben angesehen');
     case 'web_suchen':
-      return `Web gesucht: ${kuerzeZeile(erstes(a, ['suche', 'q', 'query']), 60) || '?'}`;
+      return tr('Web gesucht: {0}', kuerzeZeile(erstes(a, ['suche', 'q', 'query']), 60) || '?');
     case 'web_holen':
-      return `Seite geladen: ${hostVon(erstes(a, ['url'])) || '?'}`;
+      return tr('Seite geladen: {0}', hostVon(erstes(a, ['url'])) || '?');
     case 'knoten_liste':
-      return 'Knoten angesehen';
+      return tr('Knoten angesehen');
     case 'knoten_befehl':
-      return `Befehl auf ${erstes(a, ['knoten', 'id']) || 'Knoten'}: ${befehlKern(erstes(a, ['befehl', 'command'])) || '?'}`;
+      return tr('Befehl auf {0}: {1}', erstes(a, ['knoten', 'id']) || tr('Knoten'), befehlKern(erstes(a, ['befehl', 'command'])) || '?');
     case 'unteragent':
-      return `Unteragent: ${kuerzeZeile(erstes(a, ['auftrag', 'aufgabe', 'titel']), 60) || 'beauftragt'}`;
+      return tr('Unteragent: {0}', kuerzeZeile(erstes(a, ['auftrag', 'aufgabe', 'titel']), 60) || tr('beauftragt'));
     case 'matrix_senden':
-      return 'Matrix-Nachricht gesendet';
+      return tr('Matrix-Nachricht gesendet');
     case 'agent_bericht':
-      return 'Bericht abgelegt';
+      return tr('Bericht abgelegt');
     case 'kontextbuch_lesen':
-      return 'Kontextbuch gelesen';
+      return tr('Kontextbuch gelesen');
     case 'kontextbuch_schreiben':
-      return 'Kontextbuch ergänzt';
+      return tr('Kontextbuch ergänzt');
     case 'browser':
-      return `Browser: ${kuerzeZeile(erstes(a, ['aktion', 'url']), 60) || 'Seite'}`;
+      return tr('Browser: {0}', kuerzeZeile(erstes(a, ['aktion', 'url']), 60) || tr('Seite'));
     default:
       break;
   }
   if (name.startsWith('desktop_')) return `Desktop: ${name.slice(8).replace(/_/g, ' ')}`;
-  if (name.startsWith('hintergrund_')) return `Hintergrundjob: ${name.slice(12).replace(/_/g, ' ')}`;
+  if (name.startsWith('hintergrund_')) return tr('Hintergrundjob: {0}', name.slice(12).replace(/_/g, ' '));
   if (name.includes('.')) return hubTitel(name, a);
   const arg = kuerzeZeile(erstes(a, KERN_ARGUMENTE), 50);
   return `${name.replace(/_/g, ' ')}${arg ? `: ${arg}` : ''}`;
@@ -143,9 +144,9 @@ function hostVon(url: string): string {
 }
 
 function hubTitel(werkzeug: string, argumente: Record<string, unknown>): string {
-  if (!werkzeug) return 'Hub-Werkzeug aufgerufen';
+  if (!werkzeug) return tr('Hub-Werkzeug aufgerufen');
   const arg = kuerzeZeile(erstes(argumente, KERN_ARGUMENTE), 50);
-  if (werkzeug === 'vorgaenge.zeigen' && arg) return `Vorgang ${arg} gelesen`;
+  if (werkzeug === 'vorgaenge.zeigen' && arg) return tr('Vorgang {0} gelesen', arg);
   const { ns, verb } = hubName(werkzeug);
   return `${ns}${verb ? ` ${verb}` : ''}${arg ? `: ${arg}` : ''}`;
 }
@@ -159,7 +160,7 @@ export function kuerzeAusgabe(text: string, max: number = AUSGABE_MAX): { text: 
   if (text.length <= max) return { text, gekuerzt: false };
   const kopf = Math.floor(max * 0.55);
   const fuss = max - kopf;
-  return { text: `${text.slice(0, kopf)}\n… ${text.length - max} Zeichen gekürzt …\n${text.slice(text.length - fuss)}`, gekuerzt: true };
+  return { text: `${text.slice(0, kopf)}\n… ${tr('{0} Zeichen gekürzt', text.length - max)} …\n${text.slice(text.length - fuss)}`, gekuerzt: true };
 }
 
 /** „38 s“, „2 min 5 s“, „1 h 3 min“; unter einer Sekunde leer. */
@@ -435,7 +436,7 @@ function mitTagen(punkte: VerlaufsPunkt[], jetzt: number): VerlaufsPunkt[] {
 
 // ── Zusammenfassung der Arbeit ───────────────────────────────────────────────
 
-export const schrittWort = (n: number): string => `${n} ${n === 1 ? 'Schritt' : 'Schritte'}`;
+export const schrittWort = (n: number): string => (n === 1 ? tr('1 Schritt') : tr('{0} Schritte', n));
 
 /** Dauer eines Zugs in ms; ein laufender Zug zählt bis `jetzt`. */
 export function zugDauer(z: Zug, jetzt: number = Date.now()): number | null {
@@ -454,11 +455,11 @@ export const hatArbeit = (z: Zug): boolean => z.schritte.length > 0 || z.laeuft;
 export function arbeitsZeile(z: Zug, jetzt: number = Date.now()): string {
   const teile: string[] = [];
   const nurGedanken = z.schrittZahl === 0 && z.schritte.some((s) => s.art === 'gedanken');
-  teile.push(z.laeuft ? 'Arbeitet …' : nurGedanken ? 'Gedacht' : 'Gearbeitet');
+  teile.push(z.laeuft ? tr('Arbeitet …') : nurGedanken ? tr('Gedacht') : tr('Gearbeitet'));
   if (z.schrittZahl > 0) teile.push(schrittWort(z.schrittZahl));
   const d = dauerText(zugDauer(z, jetzt));
   if (d) teile.push(d);
-  if (z.fehlerZahl > 0) teile.push(z.fehlerZahl === 1 ? '1 Fehler' : `${z.fehlerZahl} Fehler`);
+  if (z.fehlerZahl > 0) teile.push(z.fehlerZahl === 1 ? tr('1 Fehler') : tr('{0} Fehler', z.fehlerZahl));
   return teile.join(' · ');
 }
 

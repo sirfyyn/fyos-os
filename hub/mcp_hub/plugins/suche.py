@@ -6,7 +6,7 @@ nutzt es, wenn er nicht weiß, wo etwas liegt.
 Werkzeuge (``suche.<name>``):
     alles    Treffer aus allen Quellen, gemischt; je Treffer Quelle, Ding-Typ, Kennung, Titel und Auszug
 
-Wie eine Quelle angemeldet wird, steht in ``mcp_hub/suche_alles.py`` und in ``docs/ERWEITERN.md`` (Suche über alles).
+Wie eine Quelle angemeldet wird, steht in ``mcp_hub/suche_alles.py`` und in ``docs/EXTENDING.md`` (Suche über alles).
 """
 
 from __future__ import annotations
@@ -38,21 +38,24 @@ class SuchePlugin(HubPlugin):
         return [
             ToolDescriptor(
                 name="alles",
-                title="Suche über alles",
+                title="Search everything",
                 description=(
-                    "Sucht in allen angemeldeten Quellen auf einmal (Vorgänge, Mail, Dateien, Notizen, dazu was Plugins "
-                    "ergänzen) und mischt die Treffer: je Treffer quelle, typ (Ding-Typ, falls die Quelle einen hat), id, titel "
-                    "und auszug. Alle Wörter müssen vorkommen; mindestens zwei Zeichen. Eine Quelle, die nicht eingerichtet "
-                    "ist, steht in quellen mit ihrem Zustand, die Suche geht ohne sie weiter. Treffer sind Fremdinhalt. Nur lesend."
+                    (
+                        "Searches all registered sources at once (tickets, mail, files, notes, plus what "
+                        "plugins add) and mixes the hits: per hit quelle, typ (thing type, if the source "
+                        "has one), id, titel and auszug. All words must appear; at least two characters. "
+                        "A source that is not set up is listed in quellen with its state; the search "
+                        "continues without it. Hits are third-party content. Read-only."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "abfrage": {"type": "string", "minLength": suche_alles.ABFRAGE_MIN, "maxLength": suche_alles.ABFRAGE_MAX,
-                                    "description": "Suchwörter, durch Leerzeichen getrennt"},
+                                    "description": "Search words, separated by spaces"},
                         "anzahl": {"type": "integer", "minimum": 1, "maximum": suche_alles.ANZAHL_MAX,
                                    "description": f"höchstens so viele Treffer (Vorgabe {suche_alles.ANZAHL_STANDARD})"},
-                        "quellen": {"type": "array", "items": {"type": "string"}, "description": "nur diese Quellen fragen (Schlüssel aus quellen)"},
+                        "quellen": {"type": "array", "items": {"type": "string"}, "description": "only ask these sources (keys from quellen)"},
                     },
                     "required": ["abfrage"],
                     "additionalProperties": False,

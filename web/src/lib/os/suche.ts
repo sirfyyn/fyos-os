@@ -2,7 +2,7 @@
  * suche.ts — Suche über alles in ⌘K (Start).
  *
  * Neben den Flächen (nach Namen) fragt der Start den Hub (`suche__alles`, Plugin `suche`): Vorgänge, Mail, Dateien, Notizen und
- * was Plugins als Quelle anmelden (docs/ERWEITERN.md, „Suche über alles"). Hier liegt alles, was ohne Oberfläche geht:
+ * was Plugins als Quelle anmelden (docs/EXTENDING.md, „Suche über alles"). Hier liegt alles, was ohne Oberfläche geht:
  *
  *   - `sucheStarten`        wartet, bis die Eingabe ruht, fragt den Hub einmal und wirft veraltete Antworten weg
  *   - `gruppiert`           Treffer nach Quelle, in der Reihenfolge, in der sie ankamen
@@ -11,6 +11,7 @@
  * Treffer sind Fremdinhalt (Betreffzeilen, Dateitext): sie werden nur als Text angezeigt, nie als HTML.
  */
 import { registrierteDinge } from './register';
+import { tr } from '~/lib/i18n';
 
 /** Ein Treffer, wie `suche__alles` ihn liefert. */
 export interface Treffer {
@@ -134,7 +135,7 @@ export function sucheStarten(
           },
           (e: unknown) => {
             if (mein !== nr) return;
-            an({ art: 'fehler', abfrage, text: e instanceof Error && e.message ? e.message : 'Die Suche ging nicht.' });
+            an({ art: 'fehler', abfrage, text: e instanceof Error && e.message ? e.message : tr('Die Suche ging nicht.') });
           },
         );
       }, wartezeit);

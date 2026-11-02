@@ -23,6 +23,7 @@ import {
   zustellungAbholen, type Gut,
 } from '~/lib/os/ziehen';
 import { AppAktionen, AppTitel } from './AppRahmen';
+import { tr } from '~/lib/i18n';
 
 /**
  * Was eine eingebettete Seite darf: Ohne `allow` sperrt der Browser im iframe Zwischenablage, Vollbild,
@@ -64,7 +65,7 @@ export function Inhalt(p: { f: Flaeche; ziehen: boolean; oeffne: (id: string) =>
     const k = nativKomponente(p.f.id);
     return (
       <div class={fest ? 'h-full overflow-auto' : 'flex flex-1 flex-col'} style={zeiger()}>
-        <Show when={k} fallback={<p class="p-5 text-sm text-(--color-fg-muted)">Diese Fläche gibt es nicht mehr.</p>}>
+        <Show when={k} fallback={<p class="p-5 text-sm text-(--color-fg-muted)">{tr('Diese Fläche gibt es nicht mehr.')}</p>}>
           <Dynamic component={k!} oeffne={p.oeffne} schmal={p.schmal} />
         </Show>
       </div>
@@ -108,10 +109,10 @@ export function Inhalt(p: { f: Flaeche; ziehen: boolean; oeffne: (id: string) =>
       />
       <Show when={stand() !== 'da'}>
         <div class="absolute inset-0 grid place-items-center bg-(--os-glas-tief) text-sm text-(--color-fg-muted)" role="status">
-          <Show when={stand() === 'anmelden'} fallback={<span>Lädt …</span>}>
+          <Show when={stand() === 'anmelden'} fallback={<span>{tr('Lädt …')}</span>}>
             <div class="text-center">
-              <p class="m-0">Die Anmeldung ist abgelaufen.</p>
-              <button type="button" class="os-knopf mt-3 px-3" onClick={() => location.reload()}>Neu anmelden</button>
+              <p class="m-0">{tr('Die Anmeldung ist abgelaufen.')}</p>
+              <button type="button" class="os-knopf mt-3 px-3" onClick={() => location.reload()}>{tr('Neu anmelden')}</button>
             </div>
           </Show>
         </div>
@@ -210,9 +211,9 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
     else p.onVollbild?.();
   };
   const gruenTitel = (): string => {
-    if (!anwendung()) return p.spalten >= SPALTEN ? 'Halbe Breite' : 'Volle Breite';
+    if (!anwendung()) return p.spalten >= SPALTEN ? tr('Halbe Breite') : tr('Volle Breite');
     if (p.vollbild) return 'Vollbild verlassen (⌃⌘F)';
-    return p.w.max ? 'Vollbild-Bildschirm (⌃⌘F) — ⌥-Klick: Maximierung beenden' : 'Vollbild-Bildschirm (⌃⌘F) — ⌥-Klick: maximieren';
+    return p.w.max ? tr('Vollbild-Bildschirm (⌃⌘F) — ⌥-Klick: Maximierung beenden') : tr('Vollbild-Bildschirm (⌃⌘F) — ⌥-Klick: maximieren');
   };
 
   // Größe ziehen: Zeigerposition → Spalten/Zeilen, rastet live ein. Die Ecke ändert beides, die rechte Kante nur die
@@ -272,9 +273,9 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
       ref={menueKnopf}
       type="button"
       class="os-knopf"
-      aria-label={`${p.f.titel}: Größe und Platz`}
+      aria-label={tr('{0}: Größe und Platz', p.f.titel)}
       aria-haspopup="menu"
-      title="Optionen"
+      title={tr('Optionen')}
       onClick={(e) => menueAmKnopf(e.detail === 0)}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.3" fill="currentColor" /><circle cx="8" cy="8" r="1.3" fill="currentColor" /><circle cx="13" cy="8" r="1.3" fill="currentColor" /></svg>
@@ -301,7 +302,7 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
         setUeber(true);
         // Fenster einer Hub-App: nimmt sie das Ding per Übergabe an, steht ihre Wirkung da; sonst nur „Agent fragen“
         const app = istApp() ? ablageAufApp(art, p.f.id) : null;
-        if (ich) hinweisZeigen(ich, art === 'fenster' ? 'Davor einordnen' : app ? app.text : wasPassiert(art, 'schreibtisch'));
+        if (ich) hinweisZeigen(ich, art === 'fenster' ? tr('Davor einordnen') : app ? app.text : wasPassiert(art, 'schreibtisch'));
       }}
       onDragLeave={(e) => {
         if (e.relatedTarget instanceof Node && ich?.contains(e.relatedTarget)) return;
@@ -325,7 +326,7 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
         draggable="true"
         tabindex="0"
         data-kontext={`fenster:${p.f.id}`}
-        aria-label={`${p.f.titel} — Titelleiste. Ziehen ordnet um, Alt+Umschalt+Pfeil verschiebt, Umschalt+F10 öffnet das Menü.`}
+        aria-label={tr('{0} — Titelleiste. Ziehen ordnet um, Alt+Umschalt+Pfeil verschiebt, Umschalt+F10 öffnet das Menü.', p.f.titel)}
         onKeyDown={taste}
         onDblClick={(e) => {
           if ((e.target as Element).closest('button')) return;
@@ -346,18 +347,18 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
         onDragEnd={() => { zugEndet(); hinweisWeg(); }}
       >
         {/* Ampel wie am Mac: Schließen, Minimieren, Zoomen — die Zeichen erscheinen beim Darüberfahren */}
-        <div class="os-ampel" role="group" aria-label="Fenster">
-          <button type="button" class="os-ampel-rot no-touch" aria-label={`${p.f.titel} schließen`} title="Schließen" onClick={() => p.onSchliessen()}>
+        <div class="os-ampel" role="group" aria-label={tr('Fenster')}>
+          <button type="button" class="os-ampel-rot no-touch" aria-label={tr('{0} schließen', p.f.titel)} title={tr('Schließen')} onClick={() => p.onSchliessen()}>
             <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.8 3.8l4.4 4.4M8.2 3.8l-4.4 4.4" /></svg>
           </button>
-          <button type="button" class="os-ampel-gelb no-touch" aria-label={`${p.f.titel} minimieren`} title="Minimieren" onClick={() => p.onMinimieren()}>
+          <button type="button" class="os-ampel-gelb no-touch" aria-label={tr('{0} minimieren', p.f.titel)} title={tr('Minimieren')} onClick={() => p.onMinimieren()}>
             <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 6h6" /></svg>
           </button>
           <Show when={!p.schmal}>
             <button
               type="button"
               class="os-ampel-gruen no-touch"
-              aria-label={anwendung() ? `${p.f.titel} ${p.vollbild ? 'Vollbild verlassen' : 'im Vollbild'}` : `${p.f.titel} zoomen`}
+              aria-label={anwendung() ? tr(p.vollbild ? '{0} Vollbild verlassen' : '{0} im Vollbild', p.f.titel) : tr('{0} zoomen', p.f.titel)}
               title={gruenTitel()}
               onClick={gruenKlick}
             >
@@ -376,7 +377,7 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
           }
         >
           <AppTitel f={p.f} />
-          <div class="os-app-aktionen" role="group" aria-label={`${p.f.titel}: Aktionen`}>
+          <div class="os-app-aktionen" role="group" aria-label={tr('{0}: Aktionen', p.f.titel)}>
             <AppAktionen f={p.f} start={p.w.start} />
             {menueKnopfBau()}
           </div>
@@ -394,8 +395,8 @@ export default function FensterRahmen(p: FensterProps): JSX.Element {
         <button
           type="button"
           class="os-griff"
-          aria-label={`${p.f.titel}: Größe ziehen`}
-          title="Ziehen ändert die Größe"
+          aria-label={tr('{0}: Größe ziehen', p.f.titel)}
+          title={tr('Ziehen ändert die Größe')}
           onPointerDown={(e) => groesseStart(e, 'beide')}
           onKeyDown={(e) => {
             const s = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;

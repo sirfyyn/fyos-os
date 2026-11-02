@@ -5,6 +5,7 @@
 import { Show, createResource, type JSX } from 'solid-js';
 import { hub } from '~/lib/hub';
 import { tapeteHintergrund, type Tapete } from '~/lib/os/tapete';
+import { tr } from '~/lib/i18n';
 
 // ── Bild aus der Dateiablage: einmal laden, als Blob-URL behalten ─────────────────────────────────
 const geladen = new Map<string, Promise<string>>();
@@ -12,7 +13,7 @@ function ablageBild(pfad: string): Promise<string> {
   let p = geladen.get(pfad);
   if (!p) {
     p = hub<{ typ?: string; daten_base64?: string; error?: string }>('dateien.vorschau', { pfad }, { zeitMs: 30_000 }).then((r) => {
-      if (!r?.daten_base64) throw new Error(r?.error ?? 'Bild nicht lesbar');
+      if (!r?.daten_base64) throw new Error(r?.error ?? tr('Bild nicht lesbar'));
       const roh = atob(r.daten_base64);
       const bytes = new Uint8Array(roh.length);
       for (let i = 0; i < roh.length; i++) bytes[i] = roh.charCodeAt(i);

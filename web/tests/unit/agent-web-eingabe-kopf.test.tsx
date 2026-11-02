@@ -142,6 +142,17 @@ describe('Kopf', () => {
     expect(document.querySelector('[data-kopf-status]')!.textContent).toBe('Bereit');
   });
 
+  it('zeigt den Namen aus der Einrichtung, die Kennung des Runners nur als Nebeninfo', () => {
+    kopf({ agentName: 'Fy', kennung: 'main' });
+    const h = screen.getByRole('heading', { name: /Fy/ });
+    expect(h.textContent).not.toContain('main');
+    expect(h.getAttribute('data-kennung')).toBe('main');
+    expect(h.getAttribute('title')).toContain('main');
+    cleanup();
+    kopf({ agentName: 'Fy', kennung: 'fy' });
+    expect(screen.getByRole('heading', { name: /Fy/ }).getAttribute('data-kennung')).toBeNull();
+  });
+
   it.each([
     [{ busy: true }, 'Arbeitet …'],
     [{ busy: true, offeneFreigaben: 3 }, 'Wartet auf dich'],

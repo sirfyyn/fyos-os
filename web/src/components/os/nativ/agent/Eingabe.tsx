@@ -17,6 +17,7 @@ import { liesEntwurf, schreibeEntwurf } from '~/lib/agent-runner/entwurf';
 import { fehlerText } from '~/lib/agent-runner/text';
 import { RunnerFehler } from '~/lib/agent-runner/verbindung';
 import { FELD, Fehler, KNOPF, KNOPF_VOLL } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 const ARTEN = [
   { wert: 'folgen', text: 'Folgen', titel: 'Wartet, bis der laufende Zug zu Ende ist' },
@@ -157,7 +158,7 @@ export function Eingabe(p: {
   return (
     <form
       class="flex flex-col gap-2"
-      aria-label="Nachricht schreiben"
+      aria-label={tr('Nachricht schreiben')}
       data-eingabe
       onSubmit={(e) => {
         e.preventDefault();
@@ -174,7 +175,7 @@ export function Eingabe(p: {
       </Show>
       <Show when={fehler() instanceof RunnerFehler && (fehler() as RunnerFehler).art === 'anmeldung'}>
         <button type="button" class={KNOPF_VOLL} onClick={() => p.anmelden()}>
-          Anmelden
+          {tr('Anmelden')}
         </button>
       </Show>
       <div class="relative flex items-end gap-2">
@@ -182,7 +183,7 @@ export function Eingabe(p: {
           <ul
             id={menueId}
             role="listbox"
-            aria-label="Schnellbefehle"
+            aria-label={tr('Schnellbefehle')}
             class="absolute bottom-full left-0 z-10 mb-1.5 m-0 flex w-[min(22rem,100%)] list-none flex-col gap-0.5 rounded-xl border border-(--os-glas-rand) bg-(--color-bg-opaque) p-1 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.6)]"
             data-befehlsmenue
           >
@@ -201,7 +202,7 @@ export function Eingabe(p: {
                   onMouseEnter={() => setAuswahl(i())}
                 >
                   <span class="font-mono font-semibold">{b.zeichen}</span>
-                  <span class="min-w-0 truncate text-xs text-(--color-fg-muted)">{b.hilfe}</span>
+                  <span class="min-w-0 truncate text-xs text-(--color-fg-muted)">{tr(b.hilfe)}</span>
                 </li>
               )}
             </For>
@@ -211,12 +212,12 @@ export function Eingabe(p: {
           ref={feld}
           rows={1}
           class={`${FELD} max-h-44 min-h-11 resize-none`}
-          aria-label={`Nachricht an ${p.agentName}`}
+          aria-label={tr('Nachricht an {0}', p.agentName)}
           aria-controls={menueOffen() ? menueId : undefined}
           aria-expanded={menueOffen()}
           aria-autocomplete="list"
           aria-activedescendant={menueOffen() && vorschlaege()[auswahl()] ? `${menueId}-${vorschlaege()[auswahl()]!.name}` : undefined}
-          placeholder={p.busy ? `${p.agentName} arbeitet … Folgen wartet, Steuern greift ein` : `Schreib ${p.agentName} …  ( / für Befehle )`}
+          placeholder={p.busy ? tr('{0} arbeitet … Folgen wartet, Steuern greift ein', p.agentName) : tr('Schreib {0} …  ( / für Befehle )', p.agentName)}
           value={text()}
           disabled={p.gesperrt}
           onInput={(e) => {
@@ -226,28 +227,28 @@ export function Eingabe(p: {
           onKeyDown={taste}
         />
         <Show when={p.busy}>
-          <button type="button" class={`${KNOPF} shrink-0`} onClick={() => void abbrechen()} title="Stoppt den laufenden Zug" aria-label="Zug abbrechen" data-stopp>
+          <button type="button" class={`${KNOPF} shrink-0`} onClick={() => void abbrechen()} title={tr('Stoppt den laufenden Zug')} aria-label={tr('Zug abbrechen')} data-stopp>
             <svg aria-hidden="true" viewBox="0 0 16 16" class="size-3.5 fill-current">
               <rect x="3" y="3" width="10" height="10" rx="2" />
             </svg>
-            <span class={p.schmal ? 'sr-only' : ''}>Stopp</span>
+            <span class={p.schmal ? 'sr-only' : ''}>{tr('Stopp')}</span>
           </button>
         </Show>
-        <button type="submit" class={`${KNOPF_VOLL} shrink-0`} disabled={!text().trim() || sendet() || p.gesperrt} aria-label="Senden">
+        <button type="submit" class={`${KNOPF_VOLL} shrink-0`} disabled={!text().trim() || sendet() || p.gesperrt} aria-label={tr('Senden')}>
           <svg aria-hidden="true" viewBox="0 0 16 16" class="size-3.5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2.5 8h10M8.5 3.5 13 8l-4.5 4.5" />
           </svg>
-          <span class={p.schmal ? 'sr-only' : ''}>Senden</span>
+          <span class={p.schmal ? 'sr-only' : ''}>{tr('Senden')}</span>
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Show when={p.busy}>
           <div class="w-44 max-w-full">
-            <Wahl name="Art der Nachricht" optionen={ARTEN} wert={art()} onWahl={setArt} klein />
+            <Wahl name={tr('Art der Nachricht')} optionen={ARTEN} wert={art()} onWahl={setArt} klein />
           </div>
         </Show>
         <Show when={!p.schmal}>
-          <p class="m-0 text-xs text-(--color-fg-subtle)">Enter sendet · Umschalt+Enter neue Zeile · / öffnet die Befehle</p>
+          <p class="m-0 text-xs text-(--color-fg-subtle)">{tr('Enter sendet · Umschalt+Enter neue Zeile · / öffnet die Befehle')}</p>
         </Show>
       </div>
     </form>

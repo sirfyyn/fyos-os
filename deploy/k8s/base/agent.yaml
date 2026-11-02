@@ -1,8 +1,8 @@
-# Der Agent: dauerhafter Runner auf pi-durable (fyos-agent/runner). Die Konfiguration steht in der ConfigMap
-# `fyos-agent-config` (agent-runner.json, Schema: fyos-agent/runner/beispiele/agent-runner.beispiel.json; das Overlay des
-# Installers ersetzt sie). Modellzugang und Token kommen aus Secrets, die das Overlay anlegt: `fyos-modell` (basis_url,
-# name, schluessel) und `fyos-agent-token` (token, dasselbe Token bekommt die Oberfläche für /api/agent/).
-# Matrix als Meldeweg kann der Runner nur über seine eigene Konfiguration (pi_durable.freigabe_meldung.kanaele).
+# The agent: long-running runner on pi-durable (fyos-agent/runner). The configuration is in the ConfigMap
+# `fyos-agent-config` (agent-runner.json, schema: fyos-agent/runner/beispiele/agent-runner.beispiel.json; the
+# installer's overlay replaces it). Model access and token come from Secrets that the overlay creates: `fyos-modell`
+# (basis_url, name, schluessel) and `fyos-agent-token` (token; the interface gets the same token for /api/agent/).
+# The runner can use Matrix as a message route only through its own configuration (pi_durable.freigabe_meldung.kanaele).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -39,8 +39,8 @@ metadata:
   name: agent
 spec:
   replicas: 1
-  # Genau ein Runner: sein Zustand (SQLite im Volume, ReadWriteOnce) ist nicht für zwei Prozesse gebaut.
-  # `rollingUpdate: null` aus demselben Grund wie beim Hub (hub.yaml).
+  # Exactly one runner: its state (SQLite in the volume, ReadWriteOnce) is not built for two processes.
+  # `rollingUpdate: null` for the same reason as with the Hub (hub.yaml).
   strategy:
     type: Recreate
     rollingUpdate: null

@@ -14,6 +14,7 @@ import { createSignal, onCleanup, onMount, type Accessor } from 'solid-js';
 import { hub } from '~/lib/hub';
 import { hoereStand } from '~/lib/live';
 import { istHeute, spielMelden } from '~/lib/spiel';
+import { tr } from '~/lib/i18n';
 
 export type WartetQuelle = 'runner' | 'itsm' | 'entscheidung' | 'kalender' | 'wache';
 export type WartetAktion = 'ja' | 'nein' | 'spaeter' | 'immer' | 'oeffnen';
@@ -81,7 +82,7 @@ export function buendelIds(eintraege: readonly WartetEintrag[]): string[] {
 }
 
 export function zahlText(n: number): string {
-  return n === 0 ? 'Nichts wartet auf dich' : n === 1 ? 'Eins wartet auf dich' : `${n} warten auf dich`;
+  return n === 0 ? tr('Nichts wartet auf dich') : n === 1 ? tr('Eins wartet auf dich') : tr('{0} warten auf dich', n);
 }
 
 /** „seit 3 Tagen“, „seit gestern“, „heute“ — `jetzt` für Tests. */

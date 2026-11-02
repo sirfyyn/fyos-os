@@ -4,7 +4,7 @@
  * Anordnung, die den Neuladen nicht übersteht, ein ausgefallener Hub, der die Shell mitreißt.
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hub = vi.hoisted(() => vi.fn());
 const hubApps = vi.hoisted(() => vi.fn());
@@ -46,8 +46,12 @@ import { zeigtPruefen } from '~/lib/os/agent-zeigt';
 
 import { raeume, raeumeSetzen, raeumeZuruecksetzen } from '~/lib/os/raeume';
 import { wartetZuruecksetzen } from '~/lib/os/wartet';
+import { shellTeileVorladen } from './shell-vorladen';
 
 const seite = (id: string, titel: string, pfad: string) => ({ id, titel, gruppe: 'Arbeit', art: 'seite' as const, kuerzel: titel.slice(0, 2), pfad });
+
+// Apps-Seite & Co. sind lazy: ohne Vorladen zahlte der erste Test, der sie öffnet, das Übersetzen (wackelte in der CI)
+beforeAll(shellTeileVorladen);
 
 beforeEach(() => {
   // Der Speicher von „Wartet auf dich“ liegt im Modul; seit P4 hängt auch der Meldungsdienst der Shell daran.

@@ -3,6 +3,7 @@
  * hat ein eigenes Kindgespräch und überlebt Abstürze.
  */
 import type { Lauf } from './typen';
+import { tr } from '~/lib/i18n';
 
 export type LaufTon = 'laeuft' | 'fertig' | 'fehler' | 'offen';
 
@@ -23,7 +24,7 @@ export const STATUS_TEXT: Record<string, string> = {
   abgebrochen: 'abgebrochen',
 };
 
-export const statusText = (l: Lauf): string => STATUS_TEXT[l.status] ?? l.status;
+export const statusText = (l: Lauf): string => (STATUS_TEXT[l.status] ? tr(STATUS_TEXT[l.status]!) : l.status);
 
 /** Laufende zuerst, danach nach Alter (neueste zuerst). */
 export function ordneLaeufe(liste: Lauf[]): Lauf[] {

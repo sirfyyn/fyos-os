@@ -9,6 +9,7 @@ import { NichtEingerichtet } from '~/components/raeume/Huelle';
 import { agentName } from '~/lib/config';
 import { hub } from '~/lib/hub';
 import { gesperrt } from './freigabe';
+import { gebietsschema, tr } from '~/lib/i18n';
 
 // ── Bestellungen ────────────────────────────────────────────────────────────
 
@@ -43,13 +44,13 @@ export const ZEITRAEUME = [7, 30, 90] as const;
 
 const tag = (iso: string) => {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(gebietsschema(), { day: '2-digit', month: '2-digit' });
 };
 
 function Freigabe(p: { werkzeug: string; wofuer: string }): JSX.Element {
   return (
     <NichtEingerichtet
-      detail={`${p.wofuer}: Das Werkzeug ${p.werkzeug} fehlt im Hub oder ist für den Browser nicht freigegeben (Tag „flaeche“). Sobald ein Plugin es liefert, erscheint hier der Inhalt.`}
+      detail={tr('{0}: Das Werkzeug {1} fehlt im Hub oder ist für den Browser nicht freigegeben (Tag „flaeche“). Sobald ein Plugin es liefert, erscheint hier der Inhalt.', p.wofuer, p.werkzeug)}
       data-buero-gesperrt={p.werkzeug}
     />
   );
@@ -66,8 +67,8 @@ export function Bestellungen(): JSX.Element {
   return (
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-5" data-bestellungen>
       <div class="flex flex-wrap items-baseline gap-3">
-        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">Bestellungen</h1>
-        <div class="flex items-center gap-1" role="group" aria-label="Zeitraum">
+        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">{tr('Bestellungen')}</h1>
+        <div class="flex items-center gap-1" role="group" aria-label={tr('Zeitraum')}>
           <For each={ZEITRAEUME}>
             {(t) => (
               <button
@@ -82,13 +83,13 @@ export function Bestellungen(): JSX.Element {
             )}
           </For>
         </div>
-        <button type="button" class="os-knopf" aria-label="Neu laden" title="Neu laden" onClick={() => void refetch()}>
+        <button type="button" class="os-knopf" aria-label={tr('Neu laden')} title={tr('Neu laden')} onClick={() => void refetch()}>
           ↻
         </button>
       </div>
-      <Show when={!zu()} fallback={<Freigabe werkzeug="bestellungen.liste" wofuer="Die Bestell-Liste" />}>
-        <Show when={!daten.error} fallback={<p role="status" class="m-0 text-sm text-(--color-warn)">Die Bestellungen sind gerade nicht erreichbar.</p>}>
-          <Show when={wert()} fallback={<p role="status" class="m-0 text-sm text-(--color-fg-muted)">Lese die Mails der letzten {tage()} Tage …</p>}>
+      <Show when={!zu()} fallback={<Freigabe werkzeug="bestellungen.liste" wofuer={tr('Die Bestell-Liste')} />}>
+        <Show when={!daten.error} fallback={<p role="status" class="m-0 text-sm text-(--color-warn)">{tr('Die Bestellungen sind gerade nicht erreichbar.')}</p>}>
+          <Show when={wert()} fallback={<p role="status" class="m-0 text-sm text-(--color-fg-muted)">{tr('Lese die Mails der letzten')}{' '}{tage()}{' '}{tr('Tage …')}</p>}>
             <p class="m-0 text-sm text-(--color-fg-muted)" role="status" data-bestellungen-satz>
               {wert()?.satz}
             </p>
@@ -102,7 +103,7 @@ export function Bestellungen(): JSX.Element {
                         <span class="text-sm text-(--color-fg)">
                           <b class="font-semibold">{b.haendler ?? b.shop}</b>
                           <Show when={b.haendler}>
-                            <span class="text-(--color-fg-muted)"> über {b.shop}</span>
+                            <span class="text-(--color-fg-muted)">{' '}{tr('über')}{' '}{b.shop}</span>
                           </Show>
                         </span>
                         <span class="truncate text-xs text-(--color-fg-muted)">{b.betreff}</span>
@@ -124,7 +125,7 @@ export function Bestellungen(): JSX.Element {
           </Show>
         </Show>
       </Show>
-      <p class="m-0 text-[11px] text-(--color-fg-muted)">Aus den Kopfzeilen der Mails zu Bestellungen. Nur lesen.</p>
+      <p class="m-0 text-[11px] text-(--color-fg-muted)">{tr('Aus den Kopfzeilen der Mails zu Bestellungen. Nur lesen.')}</p>
     </div>
   );
 }
@@ -180,21 +181,21 @@ export function Post(): JSX.Element {
   return (
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-5" data-post>
       <div class="flex flex-wrap items-baseline gap-3">
-        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">Serienmails</h1>
+        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">{tr('Serienmails')}</h1>
         <Show when={link()}>
           {(l) => (
             <a class="os-knopf h-8 px-3 text-xs" href={l()} target="_blank" rel="noopener noreferrer" data-post-link>
-              Im Versanddienst öffnen
+              {tr('Im Versanddienst öffnen')}
             </a>
           )}
         </Show>
-        <button type="button" class="os-knopf" aria-label="Neu laden" title="Neu laden" onClick={() => void refetch()}>
+        <button type="button" class="os-knopf" aria-label={tr('Neu laden')} title={tr('Neu laden')} onClick={() => void refetch()}>
           ↻
         </button>
       </div>
-      <Show when={!zu()} fallback={<Freigabe werkzeug="post.zustand" wofuer="Der Zustand des Versanddienstes" />}>
-        <Show when={!daten.error} fallback={<p role="status" class="m-0 text-sm text-(--color-warn)">Der Versanddienst ist gerade nicht erreichbar.</p>}>
-          <Show when={wert()} fallback={<p role="status" class="m-0 text-sm text-(--color-fg-muted)">Frage den Versanddienst …</p>}>
+      <Show when={!zu()} fallback={<Freigabe werkzeug="post.zustand" wofuer={tr('Der Zustand des Versanddienstes')} />}>
+        <Show when={!daten.error} fallback={<p role="status" class="m-0 text-sm text-(--color-warn)">{tr('Der Versanddienst ist gerade nicht erreichbar.')}</p>}>
+          <Show when={wert()} fallback={<p role="status" class="m-0 text-sm text-(--color-fg-muted)">{tr('Frage den Versanddienst …')}</p>}>
             <p class="m-0 text-sm text-(--color-fg-muted)" role="status" data-post-satz classList={{ 'text-(--color-warn)': !ok() }}>
               {wert()?.satz}
             </p>
@@ -204,26 +205,26 @@ export function Post(): JSX.Element {
                   Heute <b class="font-semibold">{wert()?.heute?.gesendet}</b> von {wert()?.heute?.grenze} Sendungen.
                 </p>
               </Show>
-              <section class="flex flex-col gap-1" aria-label="Listen" data-post-listen>
-                <h2 class="m-0 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">Listen</h2>
+              <section class="flex flex-col gap-1" aria-label={tr('Listen')} data-post-listen>
+                <h2 class="m-0 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">{tr('Listen')}</h2>
                 <ul class="m-0 flex list-none flex-col divide-y divide-(--color-border) p-0">
-                  <For each={wert()?.listen ?? []} fallback={<li class="py-2 text-sm text-(--color-fg-muted)">Keine Listen.</li>}>
+                  <For each={wert()?.listen ?? []} fallback={<li class="py-2 text-sm text-(--color-fg-muted)">{tr('Keine Listen.')}</li>}>
                     {(l) => (
                       <li class="flex items-baseline gap-3 py-2" data-post-liste>
                         <span class="min-w-0 flex-1 truncate text-sm text-(--color-fg)">{l.name}</span>
-                        <span class="text-xs text-(--color-fg-muted)">{LISTEN_ART[l.art ?? ''] ?? l.art}</span>
+                        <span class="text-xs text-(--color-fg-muted)">{LISTEN_ART[l.art ?? ''] ? tr(LISTEN_ART[l.art ?? '']!) : l.art}</span>
                         <span class="w-24 shrink-0 text-right text-xs text-(--color-fg-muted)">
-                          {l.abonnenten ?? 0} {l.abonnenten === 1 ? 'Abonnent' : 'Abonnenten'}
+                          {l.abonnenten ?? 0} {l.abonnenten === 1 ? tr('Abonnent') : tr('Abonnenten')}
                         </span>
                       </li>
                     )}
                   </For>
                 </ul>
               </section>
-              <section class="flex flex-col gap-1" aria-label="Kampagnen" data-post-kampagnen>
-                <h2 class="m-0 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">Letzte Kampagnen</h2>
+              <section class="flex flex-col gap-1" aria-label={tr('Kampagnen')} data-post-kampagnen>
+                <h2 class="m-0 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">{tr('Letzte Kampagnen')}</h2>
                 <ul class="m-0 flex list-none flex-col divide-y divide-(--color-border) p-0">
-                  <For each={wert()?.kampagnen ?? []} fallback={<li class="py-2 text-sm text-(--color-fg-muted)">Noch keine Kampagne.</li>}>
+                  <For each={wert()?.kampagnen ?? []} fallback={<li class="py-2 text-sm text-(--color-fg-muted)">{tr('Noch keine Kampagne.')}</li>}>
                     {(k) => (
                       <li class="flex items-start gap-3 py-2.5" data-post-kampagne={k.status}>
                         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -249,7 +250,7 @@ export function Post(): JSX.Element {
           </Show>
         </Show>
       </Show>
-      <p class="m-0 text-[11px] text-(--color-fg-muted)">Nur lesen, ohne Adressen. Kampagnen starten Menschen im Versanddienst selbst.</p>
+      <p class="m-0 text-[11px] text-(--color-fg-muted)">{tr('Nur lesen, ohne Adressen. Kampagnen starten Menschen im Versanddienst selbst.')}</p>
     </div>
   );
 }
@@ -291,7 +292,7 @@ export function zeile(text: string): JSX.Element {
 const uhrzeit = (iso?: string) => {
   if (!iso) return '';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(gebietsschema(), { hour: '2-digit', minute: '2-digit' });
 };
 
 export function Tagesbrief(): JSX.Element {
@@ -302,17 +303,17 @@ export function Tagesbrief(): JSX.Element {
   return (
     <div class="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-5" data-tagesbrief>
       <div class="flex items-baseline gap-3">
-        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">Tagesbrief</h1>
+        <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">{tr('Tagesbrief')}</h1>
         <Show when={wert()?.erzeugt}>
-          <span class="text-xs text-(--color-fg-muted)">Stand {uhrzeit(wert()?.erzeugt)}</span>
+          <span class="text-xs text-(--color-fg-muted)">{tr('Stand')}{' '}{uhrzeit(wert()?.erzeugt)}</span>
         </Show>
-        <button type="button" class="os-knopf" aria-label="Neu bauen" title="Neu bauen" onClick={() => void refetch()}>
+        <button type="button" class="os-knopf" aria-label={tr('Neu bauen')} title={tr('Neu bauen')} onClick={() => void refetch()}>
           ↻
         </button>
       </div>
-      <Show when={!zu()} fallback={<Freigabe werkzeug="brief.heute" wofuer="Der Tagesbrief" />}>
-        <Show when={!daten.error} fallback={<p role="status" class="m-0 text-sm text-(--color-warn)">Der Tagesbrief lässt sich gerade nicht bauen.</p>}>
-          <Show when={wert()} fallback={<p role="status" class="m-0 text-sm text-(--color-fg-muted)">Baue den Brief aus den eingerichteten Quellen …</p>}>
+      <Show when={!zu()} fallback={<Freigabe werkzeug="brief.heute" wofuer={tr('Der Tagesbrief')} />}>
+        <Show when={!daten.error} fallback={<p role="status" class="m-0 text-sm text-(--color-warn)">{tr('Der Tagesbrief lässt sich gerade nicht bauen.')}</p>}>
+          <Show when={wert()} fallback={<p role="status" class="m-0 text-sm text-(--color-fg-muted)">{tr('Baue den Brief aus den eingerichteten Quellen …')}</p>}>
             <p class="m-0 text-base text-(--color-fg)" data-tagesbrief-satz>
               {wert()?.satz}
             </p>
@@ -331,7 +332,7 @@ export function Tagesbrief(): JSX.Element {
           </Show>
         </Show>
       </Show>
-      <p class="m-0 text-[11px] text-(--color-fg-muted)">Derselbe Brief, den {agentName()} morgens zustellt. Hier nur gebaut, nicht gesendet.</p>
+      <p class="m-0 text-[11px] text-(--color-fg-muted)">{tr('Derselbe Brief, den')}{' '}{agentName()}{' '}{tr('morgens zustellt. Hier nur gebaut, nicht gesendet.')}</p>
     </div>
   );
 }

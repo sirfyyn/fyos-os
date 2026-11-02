@@ -70,8 +70,10 @@ DATEINAMEN = frozenset({"Dockerfile", "Makefile", "LICENSE", "Procfile"})
 AUSNAHMEN_DATEI = ".doku/ausserhalb.txt"
 
 # Feste Abschnitte (aus dem Bestand abgeleitet, siehe pruefe_readme).
-WURZEL_ABSCHNITTE = ("Was hier liegt", "Loslegen", "Erweitern", "Entwickeln")
-PRUEF_ABSCHNITT = ("tests", "entwickeln")  # Anfang einer H2 in jeder README
+# Die Doku ist englisch (die deutsche Wurzel-README heisst README.de.md und ist keine README.md).
+WURZEL_ABSCHNITTE = ("What lives here", "Getting started", "Extending", "Developing")
+# Anfang einer H2 in jeder README; "entwickeln" bleibt fuer Plugin-Repos mit deutscher README erlaubt.
+PRUEF_ABSCHNITT = ("tests", "developing", "development", "entwickeln")
 
 CODEZAUN = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 UEBERSCHRIFT = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$")
@@ -480,8 +482,8 @@ def pruefe_readme(dok: Dokument) -> list[Befund]:
 
     * genau eine H1, und sie steht vor jeder anderen Ueberschrift,
     * zwischen der H1 und der naechsten Ueberschrift steht Text (was das hier ist),
-    * ein H2, das mit "Tests" oder "Entwickeln" beginnt (wie man es prueft),
-    * die Wurzel-README zusaetzlich: "Was hier liegt", "Loslegen", "Erweitern", "Entwickeln" (der Wegweiser).
+    * ein H2, das mit "Tests" oder "Developing" (auch "Development", "Entwickeln") beginnt (wie man es prueft),
+    * die Wurzel-README zusaetzlich: "What lives here", "Getting started", "Extending", "Developing" (der Wegweiser).
     """
     befunde: list[Befund] = []
     ue = dok.ueberschriften
@@ -498,7 +500,7 @@ def pruefe_readme(dok: Dokument) -> list[Befund]:
     h2 = [_norm(u.text) for u in ue if u.ebene == 2]
     if not any(t.startswith(PRUEF_ABSCHNITT) for t in h2):
         befunde.append(Befund(
-            dok.pfad, 0, "readme", 'Abschnitt "Tests" oder "Entwickeln" (H2) fehlt; alle READMEs des Repos haben ihn'
+            dok.pfad, 0, "readme", 'Abschnitt "Tests" oder "Developing" (H2) fehlt; alle READMEs des Repos haben ihn'
         ))
     if posixpath.dirname(dok.pfad) == "":
         for name in WURZEL_ABSCHNITTE:

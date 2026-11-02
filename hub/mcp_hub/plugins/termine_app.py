@@ -1,7 +1,7 @@
 """termine — die App „Termine“: anstehende Termine ansehen und aus einem Vorgang einen Termin machen.
 
 Das Plugin macht aus der Termin-Quelle des Kerns (``mcp_hub.termine``: Termin-Dienst oder Kalender-Plugin, siehe
-``docs/ERWEITERN.md`` §2.14) Werkzeuge und eine App. Ohne Quelle sagt die App das und zeigt keine leere Liste.
+``docs/EXTENDING.md`` §2.14) Werkzeuge und eine App. Ohne Quelle sagt die App das und zeigt keine leere Liste.
 
 Die App nimmt einen **Vorgang** (Typ ``vorgang``) an, der auf ihr Fenster fällt: sie fragt nach dem Zeitpunkt, zeigt den Plan
 von ``termine.anlegen`` und legt den Termin erst nach „Ja“ an (``App.beantragen``). Titel und Verweis kommen aus dem Vorgang.
@@ -28,6 +28,8 @@ _identitaet.registriere_app(
     {
         "titel": "Termine",
         "untertitel": "Anstehende Termine, Termine aus Vorgängen anlegen",
+        "titel_en": "Appointments",
+        "untertitel_en": "Upcoming appointments, create appointments from tickets",
         "symbol": "calendar-days",
         "ton": 150,
         "kategorie": "Arbeit",
@@ -69,8 +71,11 @@ class TerminePlugin(HubPlugin):
             ToolDescriptor(
                 name="zeigen", title="Termine",
                 description=(
-                    "Zeigt die anstehenden Termine der nächsten Tage (Termin-Dienst oder Kalender-Plugin) und öffnet die App "
-                    "„Termine“. Ist kein Kalender eingerichtet, sagt die Antwort das — das ist nicht „keine Termine“. Nur lesend."
+                    (
+                        "Shows the upcoming appointments of the next days (appointment service or "
+                        "calendar plugin) and opens the app \"Appointments\". If no calendar is set up, "
+                        "the answer says so — that is not \"no appointments\". Read-only."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -82,9 +87,12 @@ class TerminePlugin(HubPlugin):
             ToolDescriptor(
                 name="anlegen", title="Termin anlegen",
                 description=(
-                    "Legt einen Termin im Kalender an. start ist ISO 8601 (JJJJ-MM-TT ganztägig, sonst JJJJ-MM-TTThh:mm; ohne Versatz "
-                    "gilt die Zeitzone des Hubs); fehlt ende, dauert er eine Stunde (ganztägig: einen Tag). Mit `__dry_run__: true` kommt "
-                    "nur der Plan; ein echter Lauf braucht bestaetigt: true."
+                    (
+                        "Creates an appointment in the calendar. start is ISO 8601 (YYYY-MM-DD all day, "
+                        "otherwise YYYY-MM-DDThh:mm; without an offset the Hub's time zone applies); if "
+                        "ende is missing it lasts one hour (all day: one day). With `__dry_run__: true` "
+                        "only the plan comes back; a real run needs bestaetigt: true."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -108,7 +116,7 @@ class TerminePlugin(HubPlugin):
     def describe_resources(self) -> list[ResourceDescriptor]:
         return [
             ResourceDescriptor(
-                uri=UI_URI, name="Termine", description="Anstehende Termine und Termine aus Vorgängen",
+                uri=UI_URI, name="Termine", description="Upcoming appointments and appointments from tickets",
                 read=lambda: oberflaeche(UI_DATEI, self._ui_verzeichnis), meta={"ui": {"prefersBorder": True}},
             )
         ]

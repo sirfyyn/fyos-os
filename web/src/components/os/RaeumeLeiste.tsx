@@ -11,6 +11,7 @@ import { agentName } from '~/lib/config';
 import { leiste, type RaeumeZustand, type RaumId, type Verfuegbar } from '~/lib/os/raeume';
 import { mod } from '~/lib/os/menue';
 import { ablageZiel, type Gut } from '~/lib/os/ziehen';
+import { tr } from '~/lib/i18n';
 
 const KNOPF =
   'flex size-11 items-center justify-center rounded-xl transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)';
@@ -49,9 +50,9 @@ export default function RaeumeLeiste(p: {
       <button
         type="button"
         data-raum={r.id}
-        aria-label={r.name}
+        aria-label={tr(r.name)}
         aria-current={an() ? 'page' : undefined}
-        title={`${r.name}${taste}: ${r.zweck}`}
+        title={`${tr(r.name)}${taste}: ${tr(r.zweck)}`}
         class={KNOPF}
         classList={{ [AN]: an(), [AUS]: !an() }}
         onClick={() => p.onRaum(r.id)}
@@ -64,7 +65,7 @@ export default function RaeumeLeiste(p: {
   };
   return (
     <nav
-      aria-label="Räume"
+      aria-label={tr('Räume')}
       data-raeume-leiste
       class="os-glas os-glas-tief z-[7] my-3 ml-3 flex w-16 shrink-0 flex-col items-center gap-1.5 overflow-y-auto py-3"
     >
@@ -83,9 +84,9 @@ export default function RaeumeLeiste(p: {
       <button
         type="button"
         data-raum-apps
-        aria-label="Apps"
+        aria-label={tr('Apps')}
         aria-pressed={!!p.appsOffen}
-        title={`Apps (${mod('K')}): alle Flächen suchen und öffnen — auf eigener Seite`}
+        title={tr('Apps ({0}): alle Flächen suchen und öffnen — auf eigener Seite', mod('K'))}
         class={KNOPF}
         classList={{ [AN]: !!p.appsOffen, [AUS]: !p.appsOffen }}
         onClick={() => p.onApps?.()}
@@ -99,7 +100,7 @@ export default function RaeumeLeiste(p: {
         data-raum-agent
         aria-label={`${agentName()} fragen (${mod('J')})`}
         aria-pressed={p.agentAn}
-        title={`${agentName()} (${mod('J')}): sieht Raum, Auswahl und offene Fenster — Ticket, Fenster oder Fläche hierher ziehen, um dazu zu fragen`}
+        title={tr('{0} ({1}): sieht Raum, Auswahl und offene Fenster — Ticket, Fenster oder Fläche hierher ziehen, um dazu zu fragen', agentName(), mod('J'))}
         class="flex size-10 items-center justify-center rounded-full bg-(--color-accent) text-[15px] font-bold text-(--color-bg) shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-accent)_25%,transparent)] transition-shadow duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
         classList={{ 'shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-accent)_60%,transparent)]': p.agentAn, 'os-ziel-an': agentZiel() }}
         onClick={() => p.onAgent()}

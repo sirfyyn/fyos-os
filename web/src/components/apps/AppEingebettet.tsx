@@ -11,6 +11,7 @@ import { agentFragen } from '~/lib/os/agent-fragen';
 import { aktuellesTheme, appCall, appEinhaengen, apps } from '~/lib/mcp-apps/host';
 import { aufrufbar } from '~/lib/mcp-apps/pins';
 import type { StartZustand } from '~/lib/os/anordnung';
+import { tr } from '~/lib/i18n';
 
 /**
  * `start`: Startzustand aus einem Deeplink (Werkzeug + Eingabe, Vertrag 2). Es zählt nur ein lesendes Werkzeug
@@ -77,7 +78,7 @@ export default function AppEingebettet(props: {
       const liste = await apps(true);
       if (mein !== versuch) return;
       const kopf = liste.find((a) => a.name === props.name);
-      if (!kopf) return setFehler(`App ${props.name} gibt es im Hub nicht (mehr).`);
+      if (!kopf) return setFehler(tr('App {0} gibt es im Hub nicht (mehr).', props.name));
       const s = props.start;
       const mitglied = s
         ? liste.find((a) => a.name === s.werkzeug && a.scope === 'READ' && a._meta?.ui?.resourceUri === kopf._meta?.ui?.resourceUri)
@@ -90,7 +91,7 @@ export default function AppEingebettet(props: {
       // holt ihre Anfangsansicht selbst — das tun alle Apps der Brücke nach 1,5 s (`App.start` → `holen()`).
       const ergebnis = aufrufbar(app, args) ? await appCall(app.name, args) : undefined;
       if (mein !== versuch) return;
-      if (ergebnis?.isError) setFehler(ergebnis.content[0]?.text ?? 'Fehler');
+      if (ergebnis?.isError) setFehler(ergebnis.content[0]?.text ?? tr('Fehler'));
       if (!rahmen) return;
       const ab = await appEinhaengen(rahmen, {
         app,
@@ -114,7 +115,7 @@ export default function AppEingebettet(props: {
       abmelden = ab;
     } catch (e) {
       if (mein !== versuch) return;
-      setFehler(`Hub nicht erreichbar: ${String((e as Error).message || e)}`);
+      setFehler(tr('Hub nicht erreichbar: {0}', String((e as Error).message || e)));
     }
   }
 
@@ -170,21 +171,21 @@ export default function AppEingebettet(props: {
                   <span aria-hidden="true" class="inline-block size-3.5 animate-spin rounded-full border-2 border-(--color-fg-muted)/25 border-t-(--color-accent)" />
                 </Show>
                 {aufgegeben()
-                  ? `${props.titel ?? 'Die App'} konnte nicht geladen werden.`
-                  : `${props.titel ?? 'Die App'} braucht länger als gewohnt …`}
+                  ? tr('{0} konnte nicht geladen werden.', props.titel ?? tr('Die App'))
+                  : tr('{0} braucht länger als gewohnt …', props.titel ?? tr('Die App'))}
               </span>
               <button
                 type="button"
                 class="pointer-events-auto mt-3 inline-flex min-h-8 items-center rounded-full border border-(--color-border) bg-(--color-card) px-3.5 text-(--color-fg) hover:bg-(--color-card-hover) focus-visible:outline-2 focus-visible:outline-(--color-accent)"
                 onClick={() => void laden()}
               >
-                Erneut versuchen
+                {tr('Erneut versuchen')}
               </button>
             </span>
           ) : (
             <>
               <span aria-hidden="true" class="inline-block size-3.5 animate-spin rounded-full border-2 border-(--color-fg-muted)/25 border-t-(--color-accent)" />
-              <span>{props.titel ?? 'App'} wird geladen …</span>
+              <span>{props.titel ?? tr('App')}{' '}{tr('wird geladen …')}</span>
             </>
           )}
         </div>

@@ -72,6 +72,23 @@ def test_katalog_bild_statisch(server):
     assert anfrage(server, "GET", "/static/../katalog.py")[0].status == 404
 
 
+def test_sprachwahl_im_assistenten(server):
+    """POST /api/sprache stellt den Assistenten um; der Katalog kommt danach in der neuen Sprache."""
+    from fyos_installer import sprache as spr
+
+    r, body = anfrage(server, "POST", "/api/sprache", {"sprache": "en"})
+    assert r.status == 200 and json.loads(body) == {"sprache": "en"}
+    k = json.loads(anfrage(server, "GET", "/api/katalog")[1])
+    assert k["sprache"] == "en" and k["bausteine"][0]["titel"] == "FYOS interface and Hub"
+    plan = json.loads(anfrage(server, "POST", "/api/plan", {"auswahl": ["kern"], "ziel": "dateien"})[1])
+    assert any(d["pfad"] == "fyos.config.json" and '"en"' in d["vorschau"] for d in plan["dateien"])
+    assert anfrage(server, "POST", "/api/sprache", {"sprache": "fr"})[0].status == 400
+    assert anfrage(server, "POST", "/api/sprache", {"sprache": "de"}, token=None)[0].status == 403
+    r, body = anfrage(server, "POST", "/api/sprache", {"sprache": "de"})
+    assert json.loads(body) == {"sprache": "de"} and spr.aktiv() == "de"
+    assert json.loads(anfrage(server, "GET", "/api/katalog")[1])["bausteine"][0]["titel"] == "FYOS-Oberfläche und Hub"
+
+
 def test_plan(server):
     r, body = anfrage(server, "POST", "/api/plan", {"auswahl": ["kern"], "ziel": "dateien"})
     plan = json.loads(body)

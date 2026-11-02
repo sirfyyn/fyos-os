@@ -5,12 +5,13 @@
 import type { JSX } from 'solid-js';
 import { type RaumProps, RaumRahmen } from '~/components/os/Raum';
 import { HubApp } from '~/components/raeume/Huelle';
+import { tr } from '~/lib/i18n';
 
 export default function RaumZuhause(p: RaumProps): JSX.Element {
   return (
-    <RaumRahmen titel="Zuhause" schmal={p.schmal} heim={p.heim} fuellen>
+    <RaumRahmen titel={tr('Zuhause')} schmal={p.schmal} heim={p.heim} fuellen>
       <div class="flex min-h-0 flex-1 flex-col" data-raum-zuhause>
-        <HubApp name="haus__geraete" titel="Zuhause" ohneKopf fuellen schluessel="raum-zuhause" />
+        <HubApp name="haus__geraete" titel={tr('Zuhause')} ohneKopf fuellen schluessel="raum-zuhause" />
       </div>
     </RaumRahmen>
   );

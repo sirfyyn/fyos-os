@@ -23,13 +23,17 @@ from . import erzeugen
 from . import stufen as st
 from .katalog import Katalog, aufloesen, bilder_von, textvorschau
 from .reife import MAX_STUFE
+from . import sprache as spr
+from .sprache import _
+
+_k = spr.katalog_text
 
 try:  # optional
     from textual_image.widget import Image as BildWidget
 except Exception:  # noqa: BLE001 - fehlt oder lässt sich im Terminal nicht nutzen
     BildWidget = None
 
-SCHRITTE = ["Willkommen", "Ziel", "Bausteine", "Einrichten", "Zusammenfassung", "Installieren"]
+SCHRITTE = ["Willkommen", "Ziel", "Bausteine", "Einrichten", "Zusammenfassung", "Installieren"]  # Anzeige über _()
 ZIEL_IDS = list(erzeugen.ZIELE)
 BILD_RASTER = {".png", ".jpg", ".jpeg", ".webp"}
 
@@ -48,12 +52,12 @@ Bedienung: **n** weiter, **b** zurück, **q** beenden, Tab wechselt zwischen den
 def abschlusszeile(erg: ausf.Ergebnis) -> str:
     """Letzte Zeile des Protokolls: gescheitert, gestartet aber nicht abgenommen, oder fertig."""
     if not erg.ok:
-        return "FEHLER: " + erg.meldung
-    return ("GESTARTET, ABER NICHT ABGENOMMEN: " if erg.nicht_abgenommen else "FERTIG: ") + erg.meldung
+        return _("FEHLER: ") + erg.meldung
+    return (_("GESTARTET, ABER NICHT ABGENOMMEN: ") if erg.nicht_abgenommen else _("FERTIG: ")) + erg.meldung
 
 
 class InstallerApp(App):
-    TITLE = "FYOS einrichten"
+    TITLE = "FYOS"
     CSS = """
     #inhalt { height: 1fr; padding: 0 1; }
     #links { width: 38; }
@@ -65,8 +69,8 @@ class InstallerApp(App):
     #bildbereich { height: auto; max-height: 16; }
     """
     BINDINGS = [
-        ("n", "weiter", "Weiter"), ("b", "zurueck", "Zurück"), ("q", "quit", "Beenden"),
-        ("ctrl+n", "weiter", "Weiter (auch im Textfeld)"), ("ctrl+b", "zurueck", "Zurück (auch im Textfeld)"),
+        ("n", "weiter", _("Weiter")), ("b", "zurueck", _("Zurück")), ("q", "quit", _("Beenden")),
+        ("ctrl+n", "weiter", _("Weiter (auch im Textfeld)")), ("ctrl+b", "zurueck", _("Zurück (auch im Textfeld)")),
     ]
 
     def __init__(self, katalog: Katalog, verzeichnis: str | Path = "./fyos"):
@@ -86,21 +90,21 @@ class InstallerApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         with ContentSwitcher(initial="s0", id="inhalt"):
-            yield Markdown(WILLKOMMEN, id="s0")
+            yield Markdown(_(WILLKOMMEN), id="s0")
             with Vertical(id="s1"):
-                yield Label("Wohin soll FYOS?")
+                yield Label(_("Wohin soll FYOS?"))
                 with RadioSet(id="ziel"):
                     for i, z in enumerate(ZIEL_IDS):
-                        yield RadioButton(erzeugen.ZIELE[z], value=i == 0, id=f"z-{z}")
+                        yield RadioButton(_(erzeugen.ZIELE[z]), value=i == 0, id=f"z-{z}")
                 yield Static("", id="zielhinweis")
             with Horizontal(id="s2"):
                 with Vertical(id="links"):
-                    yield Label("Bausteine (Leertaste wählt)")
+                    yield Label(_("Bausteine (Leertaste wählt)"))
                     yield SelectionList[str](
-                        *[Selection(f"{b.titel}{' *' if b.pflicht else ''}", b.id, b.pflicht) for b in self.katalog],
+                        *[Selection(f"{_k(b.titel)}{' *' if b.pflicht else ''}", b.id, b.pflicht) for b in self.katalog],
                         id="liste",
                     )
-                    yield Static("* = immer dabei", classes="leise")
+                    yield Static(_("* = immer dabei"), classes="leise")
                 with VerticalScroll(id="rechts"):
                     yield Static("", id="titel")
                     yield Vertical(id="bildbereich")
@@ -111,15 +115,15 @@ class InstallerApp(App):
                 yield Static("", id="fehler")
                 yield Vertical(id="formular")
             with VerticalScroll(id="s4"):
-                yield Label("Zielordner")
+                yield Label(_("Zielordner"))
                 yield Input(value=self.verzeichnis, id="verz")
                 yield Markdown("", id="zusammenfassung")
             with Vertical(id="s5"):
-                yield Button("Installieren", id="los", variant="success")
+                yield Button(_("Installieren"), id="los", variant="success")
                 yield RichLog(id="log", wrap=True, markup=False)
         with Horizontal(id="nav"):
-            yield Button("Zurück", id="zurueck")
-            yield Button("Weiter", id="weiter", variant="primary")
+            yield Button(_("Zurück"), id="zurueck")
+            yield Button(_("Weiter"), id="weiter", variant="primary")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -128,21 +132,21 @@ class InstallerApp(App):
         self._hinweis_ziel()
 
     def _titel(self) -> None:
-        self.sub_title = f"Schritt {self.schritt + 1} von {len(SCHRITTE)}: {SCHRITTE[self.schritt]}"
+        self.sub_title = _("Schritt {0} von {1}: {2}", self.schritt + 1, len(SCHRITTE), _(SCHRITTE[self.schritt]))
         self.query_one("#zurueck", Button).disabled = self.schritt == 0 or self.laeuft
         weiter = self.query_one("#weiter", Button)
         weiter.display = self.schritt < len(SCHRITTE) - 1
-        weiter.label = "Weiter zum Installieren" if self.schritt == 4 else "Weiter"
+        weiter.label = _("Weiter zum Installieren") if self.schritt == 4 else _("Weiter")
 
     def _hinweis_ziel(self) -> None:
         text = ""
         if self.ziel == "compose":
             bereit, meldung = ausf.docker_pruefen()
-            text = meldung + ("" if bereit else " Du kannst trotzdem nur Dateien erzeugen.")
+            text = meldung + ("" if bereit else _(" Du kannst trotzdem nur Dateien erzeugen."))
         elif self.ziel == "k8s":
-            text = "Erzeugt ein Kustomize-Overlay; angewendet wird mit kubectl, von dir."
+            text = _("Erzeugt ein Kustomize-Overlay; angewendet wird mit kubectl, von dir.")
         else:
-            text = "Schreibt Dateien und eine Anleitung; gestartet wird später von dir."
+            text = _("Schreibt Dateien und eine Anleitung; gestartet wird später von dir.")
         self.query_one("#zielhinweis", Static).update(text)
 
     # ---------------------------------------------------------------- Ziel
@@ -183,10 +187,10 @@ class InstallerApp(App):
         if not id_ or id_ not in self.katalog:
             return
         b = self.katalog[id_]
-        self.query_one("#titel", Static).update(f"[b]{b.titel}[/b]\n{b.kurz}")
-        self.query_one("#erklaerung", Markdown).update("#### Was daraus wird\n\n" + b.was_daraus_wird.replace("\n", " "))
+        self.query_one("#titel", Static).update(f"[b]{_k(b.titel)}[/b]\n{_k(b.kurz)}")
+        self.query_one("#erklaerung", Markdown).update("#### " + _("Was daraus wird") + "\n\n" + _k(b.was_daraus_wird).replace("\n", " "))
         self.query_one("#voraus", Static).update(
-            "Voraussetzungen:\n" + "\n".join(f"  - {v}" for v in b.voraussetzungen) if b.voraussetzungen else ""
+            _("Voraussetzungen:") + "\n" + "\n".join(f"  - {_k(v)}" for v in b.voraussetzungen) if b.voraussetzungen else ""
         )
         bereich = self.query_one("#bildbereich", Vertical)
         bereich.remove_children()
@@ -231,19 +235,19 @@ class InstallerApp(App):
         for f in self.katalog.faehigkeiten.values():
             if f.baustein != b.id:
                 continue
-            optionen = [(s.id, f"{st.STUFE_TITEL[s.id]}: {s.titel}" + ("" if s.verfuegbar else " (gibt es noch nicht)"),
+            optionen = [(s.id, f"{st.STUFE_TITEL[s.id]}: {_k(s.titel)}" + ("" if s.verfuegbar else _(" (gibt es noch nicht)")),
                          s.verfuegbar) for s in f.stufen.values()]
             if f.aus:
-                optionen.append((st.AUS, "aus: nicht einrichten", True))
+                optionen.append((st.AUS, _("aus: nicht einrichten"), True))
             ids = [o[0] for o in optionen]
             self.stufen_wahl[f.id] = ids
             vorgabe = f.vorgabe(self.ziel)
-            teile.append(Label(f"[b]{f.titel}[/b]: welche Stufe? (Vorgabe für dieses Ziel: {st.STUFE_TITEL[vorgabe]})"))
+            teile.append(Label(_("[b]{0}[/b]: welche Stufe? (Vorgabe für dieses Ziel: {1})", _k(f.titel), st.STUFE_TITEL[vorgabe])))
             teile.append(RadioSet(
                 *[RadioButton(text, value=i == vorgabe, disabled=not frei) for i, text, frei in optionen],
                 id=f"stufe-{f.id}",
             ))
-            teile.append(Label("; ".join(f"{st.STUFE_TITEL[s.id]}: {s.text}" for s in f.stufen.values()), classes="leise"))
+            teile.append(Label("; ".join(f"{st.STUFE_TITEL[s.id]}: {_k(s.text)}" for s in f.stufen.values()), classes="leise"))
         return teile
 
     def _eingabe(self, gruppe: str, name: str, titel: str, wert: Any, geheim: bool = False, hilfe: str = "") -> list:
@@ -261,45 +265,45 @@ class InstallerApp(App):
         self.eingaben.clear()
         self.stufen_wahl.clear()
         v = erzeugen
-        teile: list = [Label("[b]Dein Agent[/b]")]
-        p = v.VORGABE_PERSONA
-        teile += self._eingabe("persona", "agent_name", "Name des Agenten", p["agent_name"])
-        teile += self._eingabe("persona", "wesen", "Wesen", p["wesen"])
-        teile += self._eingabe("persona", "besitzer_name", "Dein Name", p["besitzer_name"])
-        teile += self._eingabe("persona", "sprache", "Sprache", p["sprache"])
+        teile: list = [Label("[b]" + _("Dein Agent") + "[/b]")]
+        p = {**v.VORGABE_PERSONA, "sprache": spr.persona_sprache()}
+        teile += self._eingabe("persona", "agent_name", _("Name des Agenten"), p["agent_name"])
+        teile += self._eingabe("persona", "wesen", _("Wesen"), p["wesen"])
+        teile += self._eingabe("persona", "besitzer_name", _("Dein Name"), p["besitzer_name"])
+        teile += self._eingabe("persona", "sprache", _("Sprache"), p["sprache"])
         m = v.VORGABE_MODELL
-        teile.append(Label("\n[b]Sprachmodell[/b] (OpenAI-kompatibel)"))
-        teile += self._eingabe("modell", "basis_url", "Basis-Adresse", m["basis_url"])
-        teile += self._eingabe("modell", "name", "Modellname", m["name"])
-        teile += self._eingabe("modell", "schluessel", "Schlüssel (leer, wenn keiner nötig)", m["schluessel"], True)
+        teile.append(Label("\n" + _("[b]Sprachmodell[/b] (OpenAI-kompatibel)")))
+        teile += self._eingabe("modell", "basis_url", _("Basis-Adresse"), m["basis_url"])
+        teile += self._eingabe("modell", "name", _("Modellname"), m["name"])
+        teile += self._eingabe("modell", "schluessel", _("Schlüssel (leer, wenn keiner nötig)"), m["schluessel"], True)
         ids = aufloesen(self.katalog, self.gewaehlt())
         bausteine = [self.katalog[i] for i in ids]
         o = v.vorgaben_optionen(bezug_aufloesen=True)
-        teile.append(Label("\n[b]Bezug der Pakete und Bilder[/b] (Vorgaben aus FYOS_PAKETINDEX, FYOS_PLUGIN_QUELLE, FYOS_REGISTRY, FYOS_BILD_TAG)"))
+        teile.append(Label("\n" + _("[b]Bezug der Pakete und Bilder[/b] (Vorgaben aus FYOS_PAKETINDEX, FYOS_PLUGIN_QUELLE, FYOS_REGISTRY, FYOS_BILD_TAG)")))
         if any(b.paket for b in bausteine):
-            teile += self._eingabe("optionen", "bezug", "Bezug: index oder git", o["bezug"])
-            teile += self._eingabe("optionen", "paketindex", "Index-URL (bei Bezug index)", o["paketindex"],
-                                   hilfe="Zum Beispiel https://git.example.com/api/packages/org/pypi/simple (uv fragt ihn vor PyPI)")
-            teile += self._eingabe("optionen", "plugin_quelle", "Plugin-Quelle (bei Bezug git)", o["plugin_quelle"])
-        teile += self._eingabe("optionen", "bild_web", "Bild der Oberfläche", o["bild_web"])
-        teile += self._eingabe("optionen", "hub_bild", "Basisbild des Hubs", o["hub_bild"])
-        teile += self._eingabe("optionen", "bild_agent", "Bild des Agenten", o["bild_agent"])
+            teile += self._eingabe("optionen", "bezug", _("Bezug: index oder git"), o["bezug"])
+            teile += self._eingabe("optionen", "paketindex", _("Index-URL (bei Bezug index)"), o["paketindex"],
+                                   hilfe=_("Zum Beispiel https://git.example.com/api/packages/org/pypi/simple (uv fragt ihn vor PyPI)"))
+            teile += self._eingabe("optionen", "plugin_quelle", _("Plugin-Quelle (bei Bezug git)"), o["plugin_quelle"])
+        teile += self._eingabe("optionen", "bild_web", _("Bild der Oberfläche"), o["bild_web"])
+        teile += self._eingabe("optionen", "hub_bild", _("Basisbild des Hubs"), o["hub_bild"])
+        teile += self._eingabe("optionen", "bild_agent", _("Bild des Agenten"), o["bild_agent"])
         if self.ziel == "k8s":
             teile.append(Label("\n[b]Kubernetes[/b]"))
-            teile += self._eingabe("optionen", "hub_bild_k8s", "Hub-Bild in deiner Registry", o["hub_bild_k8s"])
+            teile += self._eingabe("optionen", "hub_bild_k8s", _("Hub-Bild in deiner Registry"), o["hub_bild_k8s"])
             teile += self._eingabe("optionen", "namespace", "Namespace", o["namespace"])
         for b in bausteine:
             if not b.konfiguration:
                 continue
-            teile.append(Label(f"\n[b]{b.titel}[/b]"))
+            teile.append(Label(f"\n[b]{_k(b.titel)}[/b]"))
             teile += self._stufen_widgets(b)
             gilt = {}  # Feld -> Stufe, zu der es gehört (nur diese Stufe nutzt den Wert, die anderen Felder bleiben unbeachtet)
             for fk in self.katalog.faehigkeiten.values():
                 if fk.baustein == b.id:
                     gilt.update({n: st.STUFE_TITEL[s.id] for s in fk.stufen.values() for n in s.felder})
             for f in b.konfiguration:
-                titel = f.titel + (" *" if f.pflicht else "")
-                hilfe = f.beschreibung + (f" (gilt nur bei der {gilt[f.name]})" if f.name in gilt else "")
+                titel = _k(f.titel) + (" *" if f.pflicht else "")
+                hilfe = _k(f.beschreibung) + (_(" (gilt nur bei der {0})", gilt[f.name]) if f.name in gilt else "")
                 teile += self._eingabe(b.id, f.name, titel, f.standard, f.typ == "geheim", hilfe)
         await form.mount_all(teile)
 
@@ -314,40 +318,40 @@ class InstallerApp(App):
         if n == 4:
             plan = self._plan()
             if not plan.ok:
-                self.query_one("#fehler", Static).update("Bitte prüfen:\n" + "\n".join(f"  - {f}" for f in plan.fehler))
+                self.query_one("#fehler", Static).update(_("Bitte prüfen:") + "\n" + "\n".join(f"  - {f}" for f in plan.fehler))
                 return
             self.query_one("#fehler", Static).update("")
             self.plan = plan
             await self.query_one("#zusammenfassung", Markdown).update(self._zusammenfassung(plan))
         if n == 5 and self.plan:
-            self.query_one("#los", Button).label = "Installieren" if self.plan.ausfuehrbar else "Dateien erzeugen"
+            self.query_one("#los", Button).label = _("Installieren") if self.plan.ausfuehrbar else _("Dateien erzeugen")
         self.schritt = n
         self.query_one("#inhalt", ContentSwitcher).current = f"s{n}"
         self._titel()
 
     def _zusammenfassung(self, plan: erzeugen.Plan) -> str:
-        zeilen = [f"**Ziel:** {erzeugen.ZIELE[plan.ziel]}", "", "**Bausteine:** " + ", ".join(plan.auswahl), ""]
+        zeilen = [_("**Ziel:** {0}", _(erzeugen.ZIELE[plan.ziel])), "", _("**Bausteine:** ") + ", ".join(plan.auswahl), ""]
         if plan.stufen:
-            zeilen += ["### Stufe je Fähigkeit", "", "Die Grundstufe braucht keinen eigenen Dienst, die Ausbaustufe einen:", ""]
+            zeilen += ["### " + _("Stufe je Fähigkeit"), "", _("Die Grundstufe braucht keinen eigenen Dienst, die Ausbaustufe einen:"), ""]
             for w in plan.stufen:
                 zeilen.append(f"- {w.zeile()}")
                 if w.url_umgebung:
-                    zeilen.append(f"  Adresse in `{w.url_umgebung}`: " + (
-                        "gesetzt." if w.url_gesetzt else "noch leer, trage sie selbst ein; den Dienst liefert der Installer noch nicht mit."))
+                    zeilen.append(_("  Adresse in `{0}`: ", w.url_umgebung) + (
+                        _("gesetzt.") if w.url_gesetzt else _("noch leer, trage sie selbst ein; den Dienst liefert der Installer noch nicht mit.")))
             zeilen.append("")
         if plan.reife:
-            zeilen += ["### Reifegrad", "", "Vier Schichten mit je drei Stufen, aus deiner Auswahl abgeleitet:", ""]
+            zeilen += ["### " + _("Reifegrad"), "", _("Vier Schichten mit je drei Stufen, aus deiner Auswahl abgeleitet:"), ""]
             for r in plan.reife:
-                zeilen.append(f"- **{r.titel}**: Stufe {r.stufe} von {MAX_STUFE} ({r.name}). Erkennbar: {r.erkennbar}")
+                zeilen.append(_("- **{0}**: Stufe {1} von {2} ({3}). Erkennbar: {4}", r.titel, r.stufe, MAX_STUFE, r.name, r.erkennbar))
                 if r.naechste:
-                    zeilen.append(f"  Nächste Stufe: {r.naechste}")
+                    zeilen.append("  " + _("Nächste Stufe: {0}", r.naechste))
             zeilen.append("")
-        zeilen += ["### Dateien", ""]
+        zeilen += ["### " + _("Dateien"), ""]
         for d in plan.dateien:
             zeilen.append(f"- `{d.pfad}` ({oct(d.modus)[2:]}): {d.beschreibung}")
-        zeilen += ["", "### Befehle", ""] + [f"    {b}" for b in plan.befehle]
+        zeilen += ["", "### " + _("Befehle"), ""] + [f"    {b}" for b in plan.befehle]
         if plan.hinweise:
-            zeilen += ["", "### Hinweise", ""] + [f"- {h}" for h in plan.hinweise]
+            zeilen += ["", "### " + _("Hinweise"), ""] + [f"- {h}" for h in plan.hinweise]
         return "\n".join(zeilen)
 
     async def action_weiter(self) -> None:
@@ -384,13 +388,13 @@ class InstallerApp(App):
         assert plan is not None
         try:
             for pfad in erzeugen.schreiben(plan):
-                self._log(f"geschrieben: {pfad}")
+                self._log(_("geschrieben: {0}", pfad))
             if plan.ausfuehrbar:
                 self._log(abschlusszeile(ausf.ausfuehren(plan, self._log)))
             else:
-                self._log("Fertig. Die nächsten Schritte stehen in ANLEITUNG.md im Zielordner.")
+                self._log(_("Fertig. Die nächsten Schritte stehen in ANLEITUNG.md im Zielordner."))
         except Exception as e:  # noqa: BLE001
-            self._log(f"FEHLER: {e}")
+            self._log(_("FEHLER: ") + str(e))
         finally:
             self.call_from_thread(self._fertig)
 

@@ -12,6 +12,7 @@ import { aktivitaet, stromAktiv, stromKlartext } from '~/lib/agent-runner/strom'
 import { uhrzeitKurz, vor } from '~/lib/agent-runner/text';
 import type { StromZeile } from '~/lib/agent-runner/typen';
 import { FOKUS, KNOPF, Punkt } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 const ton = (typ: string): 'ok' | 'warn' | 'fehler' | 'aus' => (typ === 'fehler' ? 'fehler' : typ === 'freigabe' ? 'warn' : typ === 'fertig' ? 'ok' : 'aus');
 const ART: Record<string, string> = {
@@ -39,13 +40,13 @@ function Zeilen(p: { strom: StromZustand; fokus: number | null; waehle: (id: num
     <ol
       ref={liste}
       role="log"
-      aria-label="Autonome Arbeit"
+      aria-label={tr('Autonome Arbeit')}
       class={`m-0 flex min-h-0 list-none flex-col gap-0.5 overflow-y-auto overscroll-contain p-0 ${p.hoehe ?? 'flex-1'}`}
       onScroll={(e) => (unten = e.currentTarget.scrollHeight - e.currentTarget.scrollTop - e.currentTarget.clientHeight < 60)}
     >
       <For
         each={p.strom.zeilen}
-        fallback={<li class="px-2 py-6 text-center text-sm text-(--color-fg-muted)">Gerade ruhig. Neue Arbeit erscheint hier von selbst.</li>}
+        fallback={<li class="px-2 py-6 text-center text-sm text-(--color-fg-muted)">{tr('Gerade ruhig. Neue Arbeit erscheint hier von selbst.')}</li>}
       >
         {(z: StromZeile) => (
           <li>
@@ -54,7 +55,7 @@ function Zeilen(p: { strom: StromZustand; fokus: number | null; waehle: (id: num
               class={`flex min-h-9 w-full items-start gap-2 rounded-lg px-2 py-1 text-left text-[0.8rem] leading-snug hover:bg-[color-mix(in_oklab,var(--color-fg)_7%,transparent)] ${FOKUS}`}
               classList={{ 'bg-[color-mix(in_oklab,var(--color-accent)_14%,transparent)]': z.gespraech === p.fokus }}
               aria-current={z.gespraech === p.fokus ? 'true' : undefined}
-              title={`${z.titel ?? `Gespräch ${z.gespraech}`} · Klick: Fokus hierher`}
+              title={tr('{0} · Klick: Fokus hierher', z.titel ?? tr('Gespräch {0}', z.gespraech))}
               data-typ={z.typ}
               onClick={() => p.waehle(z.gespraech)}
             >
@@ -99,9 +100,9 @@ interface Gemeinsam {
 export function LiveSpalte(p: Gemeinsam): JSX.Element {
   const jetzt = useJetzt();
   return (
-    <section aria-label="Live" class="flex min-h-0 flex-col gap-2 rounded-2xl border border-(--os-glas-rand) bg-[color-mix(in_oklab,var(--color-fg)_3.5%,transparent)] p-2" data-live-spalte>
+    <section aria-label={tr('Live')} class="flex min-h-0 flex-col gap-2 rounded-2xl border border-(--os-glas-rand) bg-[color-mix(in_oklab,var(--color-fg)_3.5%,transparent)] p-2" data-live-spalte>
       <header class="flex flex-wrap items-center justify-between gap-2 px-1">
-        <h2 class="os-titel m-0">Autonome Arbeit</h2>
+        <h2 class="os-titel m-0">{tr('Autonome Arbeit')}</h2>
       </header>
       <Show
         when={p.live}
@@ -111,14 +112,14 @@ export function LiveSpalte(p: Gemeinsam): JSX.Element {
               Ruhe: {p.agentName}s eigenständige Arbeit ist ausgeblendet. Sie arbeitet unverändert weiter.
             </p>
             <button type="button" class={KNOPF} onClick={() => p.setze(true)}>
-              Einblenden
+              {tr('Einblenden')}
             </button>
           </div>
         }
       >
         <Zeilen strom={p.strom} fokus={p.fokus} waehle={p.waehle} />
         <p class="m-0 px-1 text-xs text-(--color-fg-subtle)" role="status">
-          {p.status === 'offen' ? (p.strom.letzte ? `zuletzt ${vor(p.strom.letzte, jetzt())}${stromAktiv(p.strom, jetzt()) ? ' · aktiv' : ''}` : 'verbunden') : p.status === 'aus' ? '' : 'verbinde …'}
+          {p.status === 'offen' ? (p.strom.letzte ? tr('zuletzt {0}', vor(p.strom.letzte, jetzt())) + (stromAktiv(p.strom, jetzt()) ? tr(' · aktiv') : '') : tr('verbunden')) : p.status === 'aus' ? '' : tr('verbinde …')}
         </p>
       </Show>
     </section>
@@ -135,14 +136,14 @@ export function LiveStreifen(p: Gemeinsam): JSX.Element {
       when={p.live}
       fallback={
         <div class="flex items-center gap-2 px-2 text-xs text-(--color-fg-subtle)" data-live-streifen="ruhe">
-          <span class="min-w-0 flex-1 truncate">Ruhe: eigenständige Arbeit ausgeblendet</span>
+          <span class="min-w-0 flex-1 truncate">{tr('Ruhe: eigenständige Arbeit ausgeblendet')}</span>
           <button type="button" class={`rounded-md px-1.5 py-0.5 text-(--color-accent) hover:underline ${FOKUS}`} onClick={() => p.setze(true)}>
-            Einblenden
+            {tr('Einblenden')}
           </button>
         </div>
       }
     >
-      <section aria-label="Live" class="flex flex-col gap-1 rounded-xl border border-(--os-glas-rand) bg-[color-mix(in_oklab,var(--color-fg)_3%,transparent)] p-0.5" data-live-streifen>
+      <section aria-label={tr('Live')} class="flex flex-col gap-1 rounded-xl border border-(--os-glas-rand) bg-[color-mix(in_oklab,var(--color-fg)_3%,transparent)] p-0.5" data-live-streifen>
         <button
           type="button"
           class={`flex min-h-7 min-w-0 items-center gap-2 rounded-lg px-2 text-left text-xs text-(--color-fg-muted) ${FOKUS}`}

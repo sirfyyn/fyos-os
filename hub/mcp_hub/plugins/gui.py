@@ -736,39 +736,44 @@ class GuiPlugin(HubPlugin):
                 name="bauen",
                 title="Ansicht bauen",
                 description=(
-                    "Zeigt eine bedienbare Ansicht als App: Kennzahlen, Balken, Verlauf, Tabelle, Vergleich, Ablauf, "
-                    "Zeitleiste, Status — oder frei gebaut (Rechner, 3D). Nur wenn Bild oder Interaktion mehr hilft als "
-                    "Text — VORHER Skill generative-ui lesen (skills.lesen). Am einfachsten: vorlage + daten (Form aus "
-                    "gui.vorlagen {name}). Live: quelle {werkzeug, argumente, pfad?, takt?} — ein lesendes Hub-Werkzeug "
-                    "liefert die Daten und die Ansicht frischt sie nach; passt dessen Form nicht zur Vorlage, formt "
-                    "umformen (JS-Funktion, z. B. \"d => ({kacheln: …})\") sie um. Frei: html (Body-Fragment, <script> "
-                    "auch type=module mit import aus three, d3, chart.js, gsap), css, js; Daten per GUI.beiDaten. Sandbox "
-                    "ohne Netz; sendPrompt(text) nach Klick schreibt ins Gespräch. Antwort: id und Link „In FYOS öffnen“."
+                    (
+                        "Shows a usable view as an app: key figures, bars, trend, table, comparison, "
+                        "flow, timeline, status — or built freely (calculator, 3D). Only when a picture "
+                        "or interaction helps more than text — read the skill generative-ui FIRST "
+                        "(skills.lesen). Simplest: vorlage + daten (shape from gui.vorlagen {name}). "
+                        "Live: quelle {werkzeug, argumente, pfad?, takt?} — a read-only Hub tool "
+                        "delivers the data and the view refreshes it; if its shape does not fit the "
+                        "template, umformen (a JS function, e.g. \"d => ({kacheln: …})\") reshapes it. "
+                        "Free: html (body fragment, <script> also type=module with import from three, "
+                        "d3, chart.js, gsap), css, js; data via GUI.beiDaten. Sandbox without network; "
+                        "sendPrompt(text) after a click writes into the conversation. Answer: id and the "
+                        "link \"In FYOS öffnen\" (open in FYOS)."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
-                        "titel": {"type": "string", "maxLength": GRENZEN["titel"], "description": "Kurz, Satzanfang groß"},
-                        "beschreibung": {"type": "string", "maxLength": GRENZEN["beschreibung"], "description": "Ein Satz: was die Ansicht zeigt (auch Textersatz)"},
-                        "vorlage": {"type": "string", "description": "Name aus gui.vorlagen (statt html/css/js)"},
-                        "daten": {"description": "Daten für die Vorlage (Form: gui.vorlagen {name}) oder für GUI.daten() im eigenen html"},
+                        "titel": {"type": "string", "maxLength": GRENZEN["titel"], "description": "Short, capitalised"},
+                        "beschreibung": {"type": "string", "maxLength": GRENZEN["beschreibung"], "description": "One sentence: what the view shows (also the text fallback)"},
+                        "vorlage": {"type": "string", "description": "Name from gui.vorlagen (instead of html/css/js)"},
+                        "daten": {"description": "Data for the template (shape: gui.vorlagen {name}) or for GUI.daten() in your own html"},
                         "quelle": {
                             "type": "object",
-                            "description": "Live-Daten aus einem LESENDEN Hub-Werkzeug statt daten",
+                            "description": "Live data from a READ-ONLY Hub tool instead of daten",
                             "properties": {
                                 "werkzeug": {"type": "string", "description": "plugin.werkzeug, z. B. audit.stats"},
                                 "argumente": {"type": "object"},
-                                "pfad": {"type": "string", "description": "Teil des Ergebnisses, z. B. aufrufe oder liste.0"},
+                                "pfad": {"type": "string", "description": "Part of the result, e.g. aufrufe or liste.0"},
                                 "takt": {"type": "integer", "minimum": TAKT_MIN, "maximum": 3600, "description": "Selbst nachladen alle n Sekunden"},
                             },
                             "required": ["werkzeug"],
                             "additionalProperties": False,
                         },
-                        "umformen": {"type": "string", "maxLength": 4000, "description": "JS-Funktion Rohdaten → Vorlagendaten, läuft in der Sandbox"},
+                        "umformen": {"type": "string", "maxLength": 4000, "description": "JS function raw data → template data, runs in the sandbox"},
                         "html": {"type": "string", "description": "Body-Fragment, kein <html>/<head> (ohne vorlage)"},
                         "css": {"type": "string", "description": "Nur ansichtseigene Stile"},
-                        "js": {"type": "string", "description": "Klassisches Skript nach dem html (kein top-level await)"},
-                        "hoehe": {"type": "integer", "minimum": HOEHE_MIN, "maximum": HOEHE_MAX, "description": "Geschätzte Höhe in Pixel"},
+                        "js": {"type": "string", "description": "Classic script after the html (no top-level await)"},
+                        "hoehe": {"type": "integer", "minimum": HOEHE_MIN, "maximum": HOEHE_MAX, "description": "Estimated height in pixels"},
                     },
                     "required": ["titel"],
                     "additionalProperties": False,
@@ -781,14 +786,16 @@ class GuiPlugin(HubPlugin):
                 name="zeigen",
                 title="Gebaute Ansichten",
                 description=(
-                    "Eine früher gebaute Ansicht wieder zeigen (id aus gui.bauen) — Ziel der Links „In FYOS öffnen“. "
-                    "Ohne id: die letzten Ansichten mit Titel. Nur lesend."
+                    (
+                        "Show a view built earlier again (id from gui.bauen) — target of the \"In FYOS "
+                        "öffnen\" links. Without id: the latest views with title. Read-only."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
-                        "id": {"type": "string", "pattern": ID_MUSTER.pattern, "description": "id aus gui.bauen"},
-                        "nur_daten": {"type": "boolean", "description": "Nur frische Daten der Live-Quelle (für die App)"},
+                        "id": {"type": "string", "pattern": ID_MUSTER.pattern, "description": "id from gui.bauen"},
+                        "nur_daten": {"type": "boolean", "description": "Only fresh data of the live source (for the app)"},
                     },
                     "additionalProperties": False,
                 },
@@ -799,8 +806,11 @@ class GuiPlugin(HubPlugin):
                 name="vorlagen",
                 title="Ansichts-Vorlagen",
                 description=(
-                    "Vorlagen für gui.bauen: ohne name die Liste (Kennzahlen, Balken, Verlauf, Tabelle, Vergleich, "
-                    "Ablauf, Zeitleiste, Status …), mit name Zweck, Datenform (schema) und ein Beispiel. Nur lesend."
+                    (
+                        "Templates for gui.bauen: without name the list (kennzahlen, balken, verlauf, "
+                        "tabelle, vergleich, ablauf, zeitleiste, status …), with name the purpose, data "
+                        "shape (schema) and an example. Read-only."
+                    )
                 ),
                 input_schema={
                     "type": "object",

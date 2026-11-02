@@ -8,6 +8,7 @@
  */
 import { For, Show, type JSX } from 'solid-js';
 import { menue, menueOeffnen, menueZu, type MenuePunkt } from '~/lib/os/menue';
+import { tr } from '~/lib/i18n';
 
 export interface LeistenMenue {
   id: string;
@@ -38,14 +39,14 @@ export default function Menueleiste(p: MenueleisteProps): JSX.Element {
   return (
     <header
       class="os-leiste"
-      aria-label="Menüleiste"
+      aria-label={tr('Menüleiste')}
       onDblClick={(e) => {
         if (!(e.target as Element).closest('button, a, input')) p.onDoppelklick?.();
       }}
     >
       {/* Links gibt nach (der Name kürzt sich, Menüs werden abgeschnitten), rechts behält seine Breite:
           sonst liefen die Statussymbole bei schmalen Fenstern über die Menütitel (390 px). */}
-      <nav class="flex min-w-0 flex-1 items-center overflow-hidden" aria-label="Menüs">
+      <nav class="flex min-w-0 flex-1 items-center overflow-hidden" aria-label={tr('Menüs')}>
         <For each={p.menues}>
           {(m, i) => (
             <button
@@ -76,9 +77,9 @@ export default function Menueleiste(p: MenueleisteProps): JSX.Element {
                 }
               }}
             >
-              <Show when={i() === 0} fallback={m.text}>
+              <Show when={i() === 0} fallback={tr(m.text)}>
                 <span class="os-logo" aria-hidden="true" />
-                <span class="sr-only">{m.text}</span>
+                <span class="sr-only">{tr(m.text)}</span>
               </Show>
             </button>
           )}

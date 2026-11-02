@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -121,7 +121,7 @@
 <!--/KOPF-->
 <div id="meldung" class="hinweis fehler" role="alert" hidden></div>
 <nav class="reiter" id="reiter" role="tablist" aria-label="Ansicht" data-ab="kompakt" data-klebt hidden></nav>
-<main id="haupt"><div class="laedt gross">Der Werkzeugkasten wird geladen …</div></main>
+<main id="haupt"><div class="laedt gross" data-t>Der Werkzeugkasten wird geladen …</div></main>
 
 <script>
 /*BRUECKE*/
@@ -129,6 +129,54 @@ const $ = (id) => document.getElementById(id);
 const { esc, symbol, kachel, marke, zustand, satz } = App;
 const rufen = (name, args) => App.rufen("mcp__" + name, args);
 const fehlertext = App.fehlertext;
+const T = App.t;
+App.texte({
+  "Betrieb": "Operations", "Wissen": "Knowledge", "Beispiele": "Examples", "Arbeit": "Work",
+  "Ansicht": "View", "Der Werkzeugkasten wird geladen …": "The toolbox is loading …",
+  "Lesen": "Read", "Schreiben": "Write", "Löschen": "Delete", "Ausführen": "Execute", "Extern": "External", "Scope offen": "Scope open",
+  "Modell": "Model", "Ein Modell sieht und ruft das Werkzeug (über den Hub).": "A model sees and calls the tool (through the Hub).",
+  "nur App": "app only", "Nur die Oberfläche der App ruft es; das Modell sieht es nicht.": "Only the app's interface calls it; the model does not see it.",
+  "Modell + App": "Model + app", "Modell und Oberfläche der App sehen es.": "Model and the app's interface see it.",
+  "gesund": "healthy", "gestört": "faulty", "nicht erreichbar": "unreachable", "abgeschaltet": "switched off", "nicht geladen": "not loaded",
+  "Alle": "All", "Lesend": "Read-only", "Schreibend": "Writing", "Mit App": "With app",
+  "1 weiteres im größeren Fenster": "1 more in a larger window", "{0} weitere im größeren Fenster": "{0} more in a larger window",
+  "Plugin gestört": "plugin faulty", "Plugins gestört": "plugins faulty", "Alle Plugins gesund": "All plugins healthy",
+  "Werkzeug": "tool", "Werkzeuge": "Tools", "werkzeuge": "tools", "App": "app", "Apps": "Apps", "apps": "apps", "nicht aktuell": "not current", "Protokolle": "Logs",
+  "Alle Plugins": "All plugins", "Die Sicherung des Hubs hat dieses Plugin vorübergehend gesperrt": "The Hub's circuit breaker has blocked this plugin for now",
+  "Sicherung {0}": "Breaker {0}", "Werkzeug suchen": "Search tool", "Nichts gefunden": "Nothing found",
+  "Zu Suche und Filter passt kein Werkzeug.": "No tool matches the search and filter.", "Dieses Plugin hat keine Werkzeuge.": "This plugin has no tools.",
+  "Zurücksetzen": "Reset", "Weitere {0} anzeigen": "Show {0} more", "Liste von {0}": "list of {0}", "Standard: {0}": "Default: {0}",
+  "Bitte wählen": "Please choose", "– nicht gesetzt –": "– not set –", "Ja": "Yes", "Nein": "No", " Wertebereich {0} bis {1}.": " Range {0} to {1}.",
+  " Darf leer bleiben.": " May stay empty.", "Pflicht": "Required", "Pflichtfeld": "Required field", "Bitte eine ganze Zahl eingeben": "Please enter a whole number",
+  "Bitte eine Zahl eingeben": "Please enter a number", "Das ist kein gültiges JSON": "That is not valid JSON", "oder als eigenes MCP-Werkzeug": "or as an MCP tool of its own",
+  "Wird aufgerufen …": "Calling …", "Ergebnis": "Result", "{0} Zeichen": "{0} characters", "gekürzt": "shortened", "Über den Hub": "Through the Hub", "mit": "with",
+  "Eigenes MCP-Werkzeug": "MCP tool of its own", "Shell (Flächen-Werkzeug)": "Shell (surface tool)", "Nein, nur der MCP-Weg": "No, only the MCP route",
+  "Öffnet den offiziellen MCP Inspector in einem neuen Tab (Anmeldung wie beim Dienst eingerichtet)": "Opens the official MCP Inspector in a new tab (sign-in as set up for the service)",
+  "Im Inspector öffnen": "Open in Inspector", "Offizieller Inspector": "Official Inspector", "Voreingestellter Server": "Preset server",
+  "Oberfläche": "Interface", " · der Link „In FYOS öffnen“ braucht Eingaben oder ist hier nicht erlaubt": " · the link “Open in FYOS” needs inputs or is not allowed here",
+  "Ergebnisse über dem Budget kommen gekürzt ({0} Zeichen); ": "Results over the budget come shortened ({0} characters); ",
+  " holt den Rest. Ein Feld, nach dem {0}-mal gefragt wurde, steht danach von selbst darin; {1} Tage ohne Nutzung, dann fällt es wieder heraus.": " fetches the rest. A field asked for {0} times is included by itself afterwards; after {1} days without use it drops out again.",
+  "Kurze Ansicht für Modelle": "Short view for models", "Keine eigene Sicht: In Listen stehen die Kernfelder (": "No view of its own: lists show the core fields (",
+  "mitgeliefert": "shipped", "gelernt · {0}× gefragt": "learned · asked {0}×", "{0} von {1} Nachfragen": "{0} of {1} requests", "oberste Ebene": "top level",
+  "Werkzeug wählen": "Choose a tool", "Links ein Plugin, in der Mitte ein Werkzeug: hier stehen dann Beschreibung, Eingabe und der Weg, es zu rufen.": "A plugin on the left, a tool in the middle: then description, input and the way to call it appear here.",
+  "Fläche": "Surface", "Details werden geladen …": "Loading details …", "Die Details lassen sich nicht laden": "The details cannot be loaded", "Erneut versuchen": "Try again",
+  "Dieses Werkzeug braucht keine Eingabe.": "This tool needs no input.", "Hier nicht ausprobierbar.": "Cannot be tried here.", "Ausprobieren": "Try it",
+  "Ruft das lesende Werkzeug wirklich auf; im Audit-Log steht es wie jeder Aufruf.": "Really calls the read-only tool; it shows up in the audit log like every call.",
+  "Beschreibung, Eingabe und Aufruf im größeren Fenster": "Description, input and call in a larger window", "Keine Beschreibung.": "No description.",
+  "Eingabe": "Input", "Aufruf": "Call", "Im Inspector: Tool": "In the Inspector: tool", "Wo erreichbar": "Where reachable", "JSON-Schema der Eingabe": "JSON schema of the input",
+  "Die Antwort ist unvollständig.": "The answer is incomplete.", "Der Aufruf hat nicht geklappt.": "The call did not work.", "Keine Apps": "No apps",
+  "Der Hub liefert gerade keine Werkzeuge mit Oberfläche.": "The Hub delivers no tools with an interface right now.", "Weitere": "More", "Im Werkzeugkasten zeigen": "Show in the toolbox",
+  "keine MCP-Versionen (kein Handshake)": "no MCP versions (no handshake)", " · {0} freigegeben": " · {0} allowed", "{0} Anfragen mit dieser Version": "{0} requests with this version",
+  "Alle Modelle": "All models", "{0} Aufrufe, {1} gekürzt · {2} → {3} Zeichen": "{0} calls, {1} shortened · {2} → {3} characters", " · {0}× nachgeholt ({1})": " · fetched {0}× more ({1})",
+  "{0} % gespart": "{0} % saved", "Kurze Ansicht — Ersparnis {0} Tage": "Short view — savings {0} days", "Noch nichts gemessen": "Nothing measured yet",
+  "Sobald ein Modell ein Werkzeug über den Hub ruft, steht es hier.": "As soon as a model calls a tool through the Hub, it appears here.",
+  "Der Hub spricht beide Zeitalter: den Handshake (initialize) und die zustandslose Fassung 2026-07-28 (server/discover).": "The Hub speaks both eras: the handshake (initialize) and the stateless version 2026-07-28 (server/discover).",
+  "Dieses SDK kennt nur den Handshake; 2026-07-28 spricht erst mcp 2.x.": "This SDK only knows the handshake; 2026-07-28 is spoken only by mcp 2.x.",
+  "Protokollversionen": "Protocol versions", "Version {0}, gestartet {1}": "Version {0}, started {1}", "Zustandslos": "Stateless", "Zugänge": "Access routes",
+  "Zuletzt gesehen": "Last seen", "Noch niemand seit dem Start": "Nobody since the start", "Sobald ein Client den Hub anspricht, steht er hier.": "As soon as a client talks to the Hub, it appears here.",
+  "Oberflächen (ui://)": "Interfaces (ui://)", "Plugin {0}": "plugin {0}", "Keine Oberflächen": "No interfaces", "Kein Plugin liefert eine ui://-Ressource.": "No plugin delivers a ui:// resource.",
+  "Der Werkzeugkasten ist nicht erreichbar": "The toolbox is unreachable", "Keine Verbindung": "No connection", "Das Aktualisieren hat nicht geklappt: {0}": "Refreshing did not work: {0}",
+});
 
 // ── Wörterbücher: Scope, Sichtbarkeit, Zustand der Plugins ─────────────────────────────────────
 const SCOPE = {
@@ -170,7 +218,7 @@ const feldFehler = new Map();// Werkzeug-Kennung → { feld: Text }
 
 function melden(text) {
   clearTimeout(meldungUhr);
-  $("meldung").innerHTML = text ? symbol("circle-alert") + `<span>${esc(text)}</span>` : "";
+  $("meldung").innerHTML = text ? symbol("circle-alert") + `<span>${esc(T(text))}</span>` : "";
   $("meldung").hidden = !text;
   if (text) meldungUhr = setTimeout(() => { $("meldung").hidden = true; }, 15000);
 }
@@ -178,12 +226,15 @@ async function oeffnen(url) {
   if (!/^https?:\/\//i.test(url || "")) return;
   try { await App.anfrage("ui/open-link", { url }); } catch { try { window.open(url, "_blank", "noopener"); } catch {} }
 }
+// Titel und Untertitel einer App in der Sprache der Oberfläche (englische Fassung aus _identitaet.py, falls vorhanden)
+const sprachTitel = (a) => (App.sprache === "en" && a.titel_en ? a.titel_en : a.titel);
+const sprachUntertitel = (a) => (App.sprache === "en" && a.untertitel_en ? a.untertitel_en : a.untertitel);
 const appVon = (uri) => (daten && uri ? daten.apps.find((a) => a.uri === uri) : null) || null;
 const werkzeugVon = (id) => (daten ? daten.werkzeuge.find((w) => w.id === id) : null) || null;
 const pluginVon = (name) => (daten ? daten.plugins.find((p) => p.name === name) : null) || null;
-const zahlWort = (n, eins, viele) => `${n} ${n === 1 ? eins : viele}`;
+const zahlWort = (n, eins, viele) => `${n} ${T(n === 1 ? eins : viele)}`;
 // Eine Ansicht je Größe (Entscheidung 507): Hinweis unter einer gekürzten Liste, und die Liste selbst je Stufe
-const weitereZeile = (n) => `<div class="k-weitere">${n === 1 ? "1 weiteres" : `${n} weitere`} im größeren Fenster</div>`;
+const weitereZeile = (n) => `<div class="k-weitere">${esc(n === 1 ? T("1 weiteres im größeren Fenster") : T("{0} weitere im größeren Fenster", n))}</div>`;
 const kurzeListe = (liste, zeile) => { // im Blick drei, kompakt sechs Zeilen, der Rest als Hinweis
   const n = App.anzahl({ blick: 3, kompakt: 6 }), rest = liste.length - Math.min(liste.length, n);
   return `<ul class="zeilen">${liste.slice(0, n).map(zeile).join("")}</ul>` + (rest > 0 ? weitereZeile(rest) : "");
@@ -195,7 +246,7 @@ function zeichneSatz() {
   const z = daten.zaehler;
   const gestoert = z.krank + z.unerreichbar + z.nicht_geladen;
   const teile = [gestoert ? `${zahlWort(gestoert, "Plugin gestört", "Plugins gestört")}` : "Alle Plugins gesund",
-    zahlWort(z.werkzeuge, "Werkzeug", "Werkzeuge"), zahlWort(z.apps, "App", "Apps"), App.zeit.uhr(standZeit)];
+    zahlWort(z.werkzeuge, "Werkzeug", "werkzeuge"), zahlWort(z.apps, "App", "apps"), App.zeit.uhr(standZeit)];
   if (veraltet) teile.push("nicht aktuell");
   satz(teile.join(" · "), veraltet ? "warn" : gestoert ? "schlecht" : "gut");
 }
@@ -209,7 +260,7 @@ const ANSICHTEN = [
 function zeichneReiter() {
   const r = $("reiter");
   r.hidden = !daten;
-  r.innerHTML = ANSICHTEN.map((a) => `<button type="button" role="tab" id="tab-${a.id}" data-ansicht="${a.id}" aria-selected="${S.ansicht === a.id}">${symbol(a.symbol)}${esc(a.text)}</button>`).join("");
+  r.innerHTML = ANSICHTEN.map((a) => `<button type="button" role="tab" id="tab-${a.id}" data-ansicht="${a.id}" aria-selected="${S.ansicht === a.id}">${symbol(a.symbol)}${esc(T(a.text))}</button>`).join("");
 }
 function zeichnen() {
   if (!daten) return;
@@ -227,16 +278,16 @@ function zeichnen() {
 function pluginReihe(p) {
   const st = STATUS[p.status] || STATUS.krank;
   const an = S.plugin === p.name;
-  return `<button type="button" class="zeile mitte k-pl${an ? " an" : ""}" data-plugin="${esc(p.name)}"${an ? ' aria-current="true"' : ""} title="${esc(p.name)} · ${esc(st.text)}">`
+  return `<button type="button" class="zeile mitte k-pl${an ? " an" : ""}" data-plugin="${esc(p.name)}"${an ? ' aria-current="true"' : ""} title="${esc(p.name)} · ${esc(T(st.text))}">`
     + `<span class="punkt ${st.punkt}" aria-hidden="true"></span>`
     + `<span class="zeile-text"><span class="zeile-titel">${esc(p.name)}</span></span>`
-    + `<span class="zeile-ende"><span class="nur-lesen">${esc(st.text)}, </span>${p.werkzeuge}</span></button>`;
+    + `<span class="zeile-ende"><span class="nur-lesen">${esc(T(st.text))}, </span>${p.werkzeuge}</span></button>`;
 }
 function pluginsHtml() {
   const rang = (p) => (p.status === "ok" ? 1 : p.status === "aus" ? 2 : 0);
   const liste = [...daten.plugins].sort((a, b) => rang(a) - rang(b) || a.name.localeCompare(b.name));
   const alle = `<button type="button" class="zeile mitte k-pl alle${S.plugin === "" ? " an" : ""}" data-plugin=""${S.plugin === "" ? ' aria-current="true"' : ""}>`
-    + `<span class="kachel klein grau">${symbol("boxes")}</span><span class="zeile-text"><span class="zeile-titel">Alle Plugins</span></span><span class="zeile-ende">${daten.zaehler.werkzeuge}</span></button>`;
+    + `<span class="kachel klein grau">${symbol("boxes")}</span><span class="zeile-text"><span class="zeile-titel">${esc(T("Alle Plugins"))}</span></span><span class="zeile-ende">${daten.zaehler.werkzeuge}</span></button>`;
   // Eine Ansicht je Größe (Entscheidung 507): im Blick drei, kompakt sechs Plugins; die gestörten stehen oben
   const n = App.anzahl({ blick: 3, kompakt: 6 }), rest = liste.length - Math.min(liste.length, n);
   return `<h2>${symbol("plug")}Plugins<span class="anzahl">${daten.plugins.length}</span></h2>`
@@ -250,7 +301,7 @@ function scopeMarke(sc) {
 }
 function sichtMarke(sicht) {
   const s = SICHT[sicht] || SICHT.modell;
-  return `<span class="marke" title="${esc(s.hilfe)}">${symbol(s.symbol)}${esc(s.text)}</span>`;
+  return `<span class="marke" title="${esc(T(s.hilfe))}">${symbol(s.symbol)}${esc(T(s.text))}</span>`;
 }
 function werkzeugKachel(w) {
   const app = appVon(w.oberflaeche);
@@ -283,17 +334,17 @@ function pluginKopf() {
   const st = STATUS[p.status] || STATUS.krank;
   const ton = p.status === "ok" ? "gut" : p.status === "aus" ? "" : "schlecht";
   return `<div class="karte k-plugin"><div class="k-plugin-kopf"><span class="k-plugin-name">${esc(p.name)}</span>`
-    + `<span class="marke ${ton}"><span class="punkt ${st.punkt}" aria-hidden="true"></span>${esc(st.text)}</span>`
+    + `<span class="marke ${ton}"><span class="punkt ${st.punkt}" aria-hidden="true"></span>${esc(T(st.text))}</span>`
     + (p.version ? `<span class="marke">v${esc(p.version)}</span>` : "")
-    + (p.sicherung && p.sicherung !== "closed" ? `<span class="marke schlecht" title="Die Sicherung des Hubs hat dieses Plugin vorübergehend gesperrt">${symbol("shield-check")}Sicherung ${esc(p.sicherung)}</span>` : "")
+    + (p.sicherung && p.sicherung !== "closed" ? `<span class="marke schlecht" title="${esc(T("Die Sicherung des Hubs hat dieses Plugin vorübergehend gesperrt"))}">${symbol("shield-check")}${esc(T("Sicherung {0}", p.sicherung))}</span>` : "")
     + `</div>${p.beschreibung ? `<p data-ab="normal">${esc(p.beschreibung)}</p>` : ""}`
     + (p.grund ? `<div class="hinweis ${p.status === "aus" ? "info" : "fehler"}">${symbol(p.status === "aus" ? "info" : "circle-alert")}<span>${esc(p.grund)}</span></div>` : "")
     + `</div>`;
 }
 function werkzeugeHtml() {
-  const filter = FILTER.map((f) => `<button type="button" class="chip${S.filter === f.id ? " an" : ""}" data-filter="${f.id}" aria-pressed="${S.filter === f.id}">${esc(f.text)}</button>`).join("");
+  const filter = FILTER.map((f) => `<button type="button" class="chip${S.filter === f.id ? " an" : ""}" data-filter="${f.id}" aria-pressed="${S.filter === f.id}">${esc(T(f.text))}</button>`).join("");
   return pluginKopf()
-    + `<div class="leiste k-leiste" data-ab="kompakt"><input type="search" id="suche" placeholder="Werkzeug suchen" aria-label="Werkzeug suchen" value="${esc(S.suche)}" autocomplete="off"></div>`
+    + `<div class="leiste k-leiste" data-ab="kompakt"><input type="search" id="suche" placeholder="${esc(T("Werkzeug suchen"))}" aria-label="${esc(T("Werkzeug suchen"))}" value="${esc(S.suche)}" autocomplete="off"></div>`
     + `<div class="knoepfe k-leiste" role="group" aria-label="Filter" data-ab="normal">${filter}</div>`
     + `<div id="liste" class="k-liste"></div>`;
 }
@@ -316,20 +367,20 @@ function zeichneListe() {
   const rest = alle.length - sicht.length;
   const knapp = App.stufe === "blick" || App.stufe === "kompakt";
   ort.innerHTML = `<div class="k-scroll"><div class="gruppe">${sicht.map(werkzeugReihe).join("")}`
-    + (rest > 0 ? (knapp ? weitereZeile(rest) : `<button type="button" class="k-mehr" data-mehr="1">${symbol("chevron-down")}Weitere ${rest} anzeigen</button>`) : "")
+    + (rest > 0 ? (knapp ? weitereZeile(rest) : `<button type="button" class="k-mehr" data-mehr="1">${symbol("chevron-down")}${esc(T("Weitere {0} anzeigen", rest))}</button>`) : "")
     + `</div></div>`;
 }
 function kastenHtml() {
   return `<div class="k-kasten" data-pane="${S.pane}">`
     + `<section class="k-sp k-sp-plugins">${pluginsHtml()}</section>`
-    + `<section class="k-sp k-sp-werkzeuge"><button type="button" class="leise klein k-zurueck" data-zurueck="plugins">${symbol("arrow-left")}Plugins</button><h2>${symbol("wrench")}Werkzeuge<span class="anzahl">${S.plugin ? (pluginVon(S.plugin) || { werkzeuge: 0 }).werkzeuge : daten.zaehler.werkzeuge}</span></h2>${werkzeugeHtml()}</section>`
+    + `<section class="k-sp k-sp-werkzeuge"><button type="button" class="leise klein k-zurueck" data-zurueck="plugins">${symbol("arrow-left")}Plugins</button><h2>${symbol("wrench")}${esc(T("Werkzeuge"))}<span class="anzahl">${S.plugin ? (pluginVon(S.plugin) || { werkzeuge: 0 }).werkzeuge : daten.zaehler.werkzeuge}</span></h2>${werkzeugeHtml()}</section>`
     + `<section class="k-sp k-sp-detail" id="detail"></section></div>`;
 }
 
 // ── Werkzeugkasten: Detail ─────────────────────────────────────────────────────────────────────
 function typMarke(f) {
   let t = f.typ_text;
-  if (f.typ === "array" && f.liste_von) t = `Liste von ${f.liste_von}`;
+  if (f.typ === "array" && f.liste_von) t = T("Liste von {0}", f.liste_von);
   return `<span class="marke">${esc(t)}</span>`;
 }
 function feldHtml(f, id, an) {
@@ -337,13 +388,13 @@ function feldHtml(f, id, an) {
   const fehler = (feldFehler.get(id) || {})[f.name];
   const dis = an ? "" : " disabled";
   const name = esc(f.name);
-  const platz = "standard" in f ? `Standard: ${typeof f.standard === "string" ? f.standard : JSON.stringify(f.standard)}` : "";
+  const platz = "standard" in f ? T("Standard: {0}", typeof f.standard === "string" ? f.standard : JSON.stringify(f.standard)) : "";
   let eingabe;
   if (f.auswahl && f.auswahl.length) {
-    eingabe = `<select data-feld="${name}" id="f-${name}"${dis}><option value="">${f.pflicht ? "Bitte wählen" : "– nicht gesetzt –"}</option>`
+    eingabe = `<select data-feld="${name}" id="f-${name}"${dis}><option value="">${esc(T(f.pflicht ? "Bitte wählen" : "– nicht gesetzt –"))}</option>`
       + f.auswahl.map((o) => `<option value="${esc(String(o))}"${String(o) === wert ? " selected" : ""}>${esc(String(o))}</option>`).join("") + `</select>`;
   } else if (f.typ === "boolean") {
-    eingabe = `<select data-feld="${name}" id="f-${name}"${dis}><option value="">– nicht gesetzt –</option><option value="ja"${wert === "ja" ? " selected" : ""}>Ja</option><option value="nein"${wert === "nein" ? " selected" : ""}>Nein</option></select>`;
+    eingabe = `<select data-feld="${name}" id="f-${name}"${dis}><option value="">${esc(T("– nicht gesetzt –"))}</option><option value="ja"${wert === "ja" ? " selected" : ""}>${esc(T("Ja"))}</option><option value="nein"${wert === "nein" ? " selected" : ""}>${esc(T("Nein"))}</option></select>`;
   } else if (f.typ === "integer" || f.typ === "number") {
     const grenzen = (f.von != null ? ` min="${Number(f.von)}"` : "") + (f.bis != null ? ` max="${Number(f.bis)}"` : "");
     eingabe = `<input type="number" inputmode="decimal" step="${f.typ === "integer" ? "1" : "any"}"${grenzen} data-feld="${name}" id="f-${name}" value="${esc(wert)}" placeholder="${esc(platz)}"${dis}>`;
@@ -352,10 +403,10 @@ function feldHtml(f, id, an) {
   } else {
     eingabe = `<input type="text" data-feld="${name}" id="f-${name}" value="${esc(wert)}" placeholder="${esc(platz)}" autocomplete="off" spellcheck="false"${dis}>`;
   }
-  const grenze = f.von != null || f.bis != null ? ` Wertebereich ${f.von != null ? f.von : "…"} bis ${f.bis != null ? f.bis : "…"}.` : "";
-  const unter = (f.beschreibung || "") + grenze + (f.leer_erlaubt ? " Darf leer bleiben." : "");
+  const grenze = f.von != null || f.bis != null ? T(" Wertebereich {0} bis {1}.", f.von != null ? f.von : "…", f.bis != null ? f.bis : "…") : "";
+  const unter = (f.beschreibung || "") + grenze + (f.leer_erlaubt ? T(" Darf leer bleiben.") : "");
   return `<div class="k-feld${fehler ? " fehler" : ""}"><label class="k-feldkopf" for="f-${name}"><code>${name}</code>${typMarke(f)}`
-    + (f.pflicht ? `<span class="marke gelb">Pflicht</span>` : "") + `</label>${eingabe}`
+    + (f.pflicht ? `<span class="marke gelb">${esc(T("Pflicht"))}</span>` : "") + `</label>${eingabe}`
     + (unter.trim() ? `<span class="zeile-unter">${esc(unter.trim())}</span>` : "")
     + (fehler ? `<span class="zeile-unter schlecht">${esc(fehler)}</span>` : "") + `</div>`;
 }
@@ -365,7 +416,7 @@ function argumente(felder, werte, streng) {
   for (const f of felder) {
     const roh = werte[f.name];
     if (roh == null || String(roh).trim() === "") {
-      if (f.pflicht && streng) fehler[f.name] = "Pflichtfeld";
+      if (f.pflicht && streng) fehler[f.name] = T("Pflichtfeld");
       continue;
     }
     const t = String(roh).trim();
@@ -374,16 +425,16 @@ function argumente(felder, werte, streng) {
         const treffer = f.auswahl.find((o) => String(o) === t);
         args[f.name] = treffer === undefined ? t : treffer;
       } else if (f.typ === "integer") {
-        if (!/^-?\d+$/.test(t)) throw new Error("Bitte eine ganze Zahl eingeben");
+        if (!/^-?\d+$/.test(t)) throw new Error(T("Bitte eine ganze Zahl eingeben"));
         args[f.name] = Number(t);
       } else if (f.typ === "number") {
-        if (isNaN(Number(t))) throw new Error("Bitte eine Zahl eingeben");
+        if (isNaN(Number(t))) throw new Error(T("Bitte eine Zahl eingeben"));
         args[f.name] = Number(t);
       } else if (f.typ === "boolean") args[f.name] = t === "ja";
       else if (f.typ === "array" || f.typ === "object" || f.typ === "any") args[f.name] = JSON.parse(t);
       else args[f.name] = String(roh);
     } catch (e) {
-      fehler[f.name] = e instanceof SyntaxError ? "Das ist kein gültiges JSON" : e.message;
+      fehler[f.name] = e instanceof SyntaxError ? T("Das ist kein gültiges JSON") : e.message;
     }
   }
   return { args, fehler };
@@ -392,23 +443,23 @@ function aufrufText(w, d) {
   const { args } = argumente(d.eingabefelder || [], eingaben.get(w.id) || {}, false);
   const json = (o) => JSON.stringify(o, null, 2);
   let t = `hub__call_tool\n${json({ tool: w.id, arguments: args })}`;
-  if (w.mcp_name) t += `\n\noder als eigenes MCP-Werkzeug\n${w.mcp_name}\n${json(args)}`;
+  if (w.mcp_name) t += `\n\n${T("oder als eigenes MCP-Werkzeug")}\n${w.mcp_name}\n${json(args)}`;
   return t;
 }
 function ergebnisHtml(id) {
   const p = probe.get(id);
   if (!p) return "";
-  if (p.laeuft) return `<div class="k-abschnitt"><div class="laedt">Wird aufgerufen …</div></div>`;
-  if (p.fehler) return `<div class="k-abschnitt"><h2>${symbol("circle-alert")}Ergebnis</h2><div class="hinweis fehler" role="alert">${symbol("circle-alert")}<span>${esc(p.fehler)}</span></div></div>`;
-  return `<div class="k-abschnitt"><h2>${symbol("circle-check")}Ergebnis</h2>`
-    + `<div class="k-meta">${marke(`${App.zahl(p.ms, 0)} ms`, "gut", "clock")}${marke(`${App.zahl(p.zeichen, 0)} Zeichen`, "", "braces")}${p.gekuerzt ? marke("gekürzt", "gelb", "triangle-alert") : ""}</div>`
+  if (p.laeuft) return `<div class="k-abschnitt"><div class="laedt">${esc(T("Wird aufgerufen …"))}</div></div>`;
+  if (p.fehler) return `<div class="k-abschnitt"><h2>${symbol("circle-alert")}${esc(T("Ergebnis"))}</h2><div class="hinweis fehler" role="alert">${symbol("circle-alert")}<span>${esc(p.fehler)}</span></div></div>`;
+  return `<div class="k-abschnitt"><h2>${symbol("circle-check")}${esc(T("Ergebnis"))}</h2>`
+    + `<div class="k-meta">${marke(`${App.zahl(p.ms, 0)} ms`, "gut", "clock")}${marke(T("{0} Zeichen", App.zahl(p.zeichen, 0)), "", "braces")}${p.gekuerzt ? marke("gekürzt", "gelb", "triangle-alert") : ""}</div>`
     + `<pre class="k-pre"><code>${esc(p.text)}</code></pre></div>`;
 }
 function erreichbarHtml(w) {
   return `<dl class="kv k-erreichbar">`
-    + `<dt>Über den Hub</dt><dd><code>hub__call_tool</code> mit <code>${esc(w.id)}</code></dd>`
-    + (w.mcp_name ? `<dt>Eigenes MCP-Werkzeug</dt><dd><code>${esc(w.mcp_name)}</code></dd>` : "")
-    + `<dt>Shell (Flächen-Werkzeug)</dt><dd>${w.flaeche ? "Ja" : "Nein, nur der MCP-Weg"}</dd>`
+    + `<dt>${esc(T("Über den Hub"))}</dt><dd><code>hub__call_tool</code> ${esc(T("mit"))} <code>${esc(w.id)}</code></dd>`
+    + (w.mcp_name ? `<dt>${esc(T("Eigenes MCP-Werkzeug"))}</dt><dd><code>${esc(w.mcp_name)}</code></dd>` : "")
+    + `<dt>${esc(T("Shell (Flächen-Werkzeug)"))}</dt><dd>${esc(T(w.flaeche ? "Ja" : "Nein, nur der MCP-Weg"))}</dd>`
     + `</dl>`;
 }
 // ── Offizieller MCP Inspector (eigener Dienst, optional) ───────────────────────────────────
@@ -417,46 +468,46 @@ function erreichbarHtml(w) {
 function inspectorKnopf() {
   const i = daten && daten.inspector;
   if (!i || !i.url) return "";
-  return `<button type="button" class="zweit klein" data-oeffnen="${esc(i.url)}" title="Öffnet den offiziellen MCP Inspector in einem neuen Tab (Anmeldung wie beim Dienst eingerichtet)">${symbol("square-arrow-out-up-right")}Im Inspector öffnen</button>`;
+  return `<button type="button" class="zweit klein" data-oeffnen="${esc(i.url)}" title="${esc(T("Öffnet den offiziellen MCP Inspector in einem neuen Tab (Anmeldung wie beim Dienst eingerichtet)"))}">${symbol("square-arrow-out-up-right")}${esc(T("Im Inspector öffnen"))}</button>`;
 }
 function inspectorAbschnitt() {
   const i = daten && daten.inspector;
   if (!i || !i.url) return "";
-  return `<section class="abschnitt" data-ab="normal"><h2>${symbol("microscope")}Offizieller Inspector</h2><div class="karte k-zugang">`
+  return `<section class="abschnitt" data-ab="normal"><h2>${symbol("microscope")}${esc(T("Offizieller Inspector"))}</h2><div class="karte k-zugang">`
     + `<p>${esc(i.hinweis)}</p>`
-    + `<dl class="kv" style="margin:0"><dt>Version</dt><dd><code>${esc(i.version)}</code></dd><dt>Voreingestellter Server</dt><dd><code>${esc(i.hub_ziel)}</code> (Streamable HTTP)</dd></dl>`
+    + `<dl class="kv" style="margin:0"><dt>Version</dt><dd><code>${esc(i.version)}</code></dd><dt>${esc(T("Voreingestellter Server"))}</dt><dd><code>${esc(i.hub_ziel)}</code> (Streamable HTTP)</dd></dl>`
     + `<div class="knoepfe">${inspectorKnopf()}</div></div></section>`;
 }
 function appKarte(w, d) {
   const app = appVon(w.oberflaeche);
   if (!app) return "";
   const knopf = d && d.oeffnen
-    ? `<button type="button" class="zweit klein" data-oeffnen="${esc(d.oeffnen)}">${symbol("square-arrow-out-up-right")}In FYOS öffnen</button>` : "";
+    ? `<button type="button" class="zweit klein" data-oeffnen="${esc(d.oeffnen)}">${symbol("square-arrow-out-up-right")}${esc(T("In FYOS öffnen"))}</button>` : "";
   return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("layout-grid")}App</h2><div class="karte k-app">`
     + `<span class="kachel app gross" style="--h:${Number(app.ton) || 230}">${symbol(app.symbol)}</span>`
-    + `<span class="zeile-text"><span class="zeile-titel">${esc(app.titel)}</span><span class="zeile-unter">${esc(app.untertitel)}</span></span>${knopf}</div>`
-    + `<p class="mut" style="margin:8px 2px 0">Oberfläche <code>${esc(app.uri)}</code>${d && !d.oeffnen ? " · der Link „In FYOS öffnen“ braucht Eingaben oder ist hier nicht erlaubt" : ""}</p></div>`;
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(sprachTitel(app))}</span><span class="zeile-unter">${esc(sprachUntertitel(app))}</span></span>${knopf}</div>`
+    + `<p class="mut" style="margin:8px 2px 0">${esc(T("Oberfläche"))} <code>${esc(app.uri)}</code>${d && !d.oeffnen ? esc(T(" · der Link „In FYOS öffnen“ braucht Eingaben oder ist hier nicht erlaubt")) : ""}</p></div>`;
 }
 /** Was Modelle von diesem Werkzeug in der kurzen Ansicht sehen: mitgelieferte und gelernte Felder je Liste (ansicht.sicht_bericht). */
 function kurzeAnsichtHtml(d) {
   const k = d.kurze_ansicht;
   if (!k) return "";
   const b = k.budget || {};
-  const fuss = `<p class="mut" style="margin:8px 2px 0">Ergebnisse über dem Budget kommen gekürzt (${App.zahl(b.standard, 0)} Zeichen); `
-    + `<code>hub__mehr</code> holt den Rest. Ein Feld, nach dem ${k.schwelle}-mal gefragt wurde, steht danach von selbst darin; ${k.verfall_tage} Tage ohne Nutzung, dann fällt es wieder heraus.</p>`;
+  const fuss = `<p class="mut" style="margin:8px 2px 0">${esc(T("Ergebnisse über dem Budget kommen gekürzt ({0} Zeichen); ", App.zahl(b.standard, 0)))}`
+    + `<code>hub__mehr</code>${esc(T(" holt den Rest. Ein Feld, nach dem {0}-mal gefragt wurde, steht danach von selbst darin; {1} Tage ohne Nutzung, dann fällt es wieder heraus.", k.schwelle, k.verfall_tage))}</p>`;
   const felder = k.felder || [];
   if (!felder.length) {
-    return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("filter")}Kurze Ansicht für Modelle</h2><div class="karte"><span class="mut">Keine eigene Sicht: In Listen stehen die Kernfelder (`
+    return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("filter")}${esc(T("Kurze Ansicht für Modelle"))}</h2><div class="karte"><span class="mut">${esc(T("Keine eigene Sicht: In Listen stehen die Kernfelder ("))}`
       + `${(k.kern || []).slice(0, 8).map((f) => `<code>${esc(f)}</code>`).join(", ")} …).</span></div>${fuss}</div>`;
   }
   const herkunft = (e) => e.herkunft === "plugin" ? marke("mitgeliefert", "akz", "package")
-    : e.herkunft === "gelernt" ? marke(`gelernt · ${e.nachfragen}× gefragt`, "gut", "sparkles")
-    : marke(`${e.nachfragen} von ${k.schwelle} Nachfragen`, "", "hourglass");
+    : e.herkunft === "gelernt" ? marke(T("gelernt · {0}× gefragt", e.nachfragen), "gut", "sparkles")
+    : marke(T("{0} von {1} Nachfragen", e.nachfragen, k.schwelle), "", "hourglass");
   const pfade = new Map();
   for (const e of felder) { if (!pfade.has(e.pfad)) pfade.set(e.pfad, []); pfade.get(e.pfad).push(e); }
-  const zeilen = [...pfade].map(([pfad, liste]) => `<dt><code>${esc(pfad || "oberste Ebene")}</code></dt><dd>`
+  const zeilen = [...pfade].map(([pfad, liste]) => `<dt><code>${esc(pfad || T("oberste Ebene"))}</code></dt><dd>`
     + liste.map((e) => `<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 4px 0"><code>${esc(e.feld)}</code>${herkunft(e)}</span>`).join("") + "</dd>").join("");
-  return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("filter")}Kurze Ansicht für Modelle<span class="anzahl">${felder.length}</span></h2>`
+  return `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("filter")}${esc(T("Kurze Ansicht für Modelle"))}<span class="anzahl">${felder.length}</span></h2>`
     + `<div class="karte"><dl class="kv" style="margin:0">${zeilen}</dl></div>${fuss}</div>`;
 }
 function detailHtml() {
@@ -467,11 +518,11 @@ function detailHtml() {
   }
   const d = details.get(w.id);
   const s = SCOPE[w.scope] || SCOPE.UNKNOWN;
-  const kopf = `<button type="button" class="leise klein k-zurueck" data-zurueck="werkzeuge">${symbol("arrow-left")}Werkzeuge</button>`
+  const kopf = `<button type="button" class="leise klein k-zurueck" data-zurueck="werkzeuge">${symbol("arrow-left")}${esc(T("Werkzeuge"))}</button>`
     + `<div class="k-kopf">${werkzeugKachel(w).replace("klein", "gross")}<div class="k-kopf-text">`
     + `<h3 class="k-name"><span class="k-plugin-teil">${esc(w.plugin)}.</span>${esc(w.name)}</h3>${w.titel ? `<p class="k-titel">${esc(w.titel)}</p>` : ""}`
     + `<div class="k-marken">${scopeMarke(w.scope)}${sichtMarke(w.sicht)}${w.flaeche ? marke("Fläche", "", "monitor") : ""}</div></div></div>`;
-  if (!d) return kopf + `<div class="laedt">Details werden geladen …</div>`;
+  if (!d) return kopf + `<div class="laedt">${esc(T("Details werden geladen …"))}</div>`;
   if (d.fehler) return kopf + zustand({ symbol: "circle-alert", ton: "schlecht", klein: true, titel: "Die Details lassen sich nicht laden", text: d.fehler, knopf: { text: "Erneut versuchen", aktion: "detail-neu", symbol: "refresh-cw" } });
 
   const an = w.ausprobierbar;
@@ -479,22 +530,22 @@ function detailHtml() {
   const lang = (d.beschreibung || "").length > 700;
   const formular = felder.length
     ? `<div class="karte k-felder">${felder.map((f) => feldHtml(f, w.id, an)).join("")}</div>`
-    : `<div class="karte"><span class="mut">${symbol("circle-check")} Dieses Werkzeug braucht keine Eingabe.</span></div>`;
-  const hinweis = an ? "" : `<div class="hinweis info" style="margin-top:10px">${symbol("lock")}<span>${esc(w.ausprobier_grund || "Hier nicht ausprobierbar.")}</span></div>`;
+    : `<div class="karte"><span class="mut">${symbol("circle-check")} ${esc(T("Dieses Werkzeug braucht keine Eingabe."))}</span></div>`;
+  const hinweis = an ? "" : `<div class="hinweis info" style="margin-top:10px">${symbol("lock")}<span>${esc(w.ausprobier_grund || T("Hier nicht ausprobierbar."))}</span></div>`;
   const taste = an
-    ? `<div class="k-aktion"><button type="button" class="haupt" data-aktion="probieren" id="probieren"${(probe.get(w.id) || {}).laeuft ? " disabled" : ""}>${symbol("play")}Ausprobieren</button>`
-      + `<span class="mut">Ruft das lesende Werkzeug wirklich auf; im Audit-Log steht es wie jeder Aufruf.</span></div>` : "";
+    ? `<div class="k-aktion"><button type="button" class="haupt" data-aktion="probieren" id="probieren"${(probe.get(w.id) || {}).laeuft ? " disabled" : ""}>${symbol("play")}${esc(T("Ausprobieren"))}</button>`
+      + `<span class="mut">${esc(T("Ruft das lesende Werkzeug wirklich auf; im Audit-Log steht es wie jeder Aufruf."))}</span></div>` : "";
   // Eine Ansicht je Größe (Entscheidung 507): blick nur der Kopf und der Hinweis, kompakt ohne Aufruf, App, Schema und Erreichbarkeit
   return kopf
-    + `<div class="k-weitere" data-bis="blick">Beschreibung, Eingabe und Aufruf im größeren Fenster</div>`
-    + `<p class="k-text${lang ? " lang" : ""}" data-ab="kompakt">${esc(d.beschreibung || "Keine Beschreibung.")}</p>`
-    + `<div class="k-abschnitt" style="margin-top:0" data-ab="kompakt"><h2>${symbol("sliders-horizontal")}Eingabe${felder.length ? `<span class="anzahl">${felder.length}</span>` : ""}</h2>${formular}${hinweis}${taste}</div>`
+    + `<div class="k-weitere" data-bis="blick">${esc(T("Beschreibung, Eingabe und Aufruf im größeren Fenster"))}</div>`
+    + `<p class="k-text${lang ? " lang" : ""}" data-ab="kompakt">${esc(d.beschreibung || T("Keine Beschreibung."))}</p>`
+    + `<div class="k-abschnitt" style="margin-top:0" data-ab="kompakt"><h2>${symbol("sliders-horizontal")}${esc(T("Eingabe"))}${felder.length ? `<span class="anzahl">${felder.length}</span>` : ""}</h2>${formular}${hinweis}${taste}</div>`
     + `<div id="ergebnis" data-ab="kompakt">${ergebnisHtml(w.id)}</div>`
-    + `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("terminal")}Aufruf</h2><pre class="k-pre" id="aufruf"><code>${esc(aufrufText(w, d))}</code></pre>${daten.inspector ? `<div class="k-aktion">${inspectorKnopf()}<span class="mut">Im Inspector: Tool <code>hub__call_tool</code> mit <code>${esc(w.id)}</code>.</span></div>` : ""}</div>`
+    + `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("terminal")}${esc(T("Aufruf"))}</h2><pre class="k-pre" id="aufruf"><code>${esc(aufrufText(w, d))}</code></pre>${daten.inspector ? `<div class="k-aktion">${inspectorKnopf()}<span class="mut">${esc(T("Im Inspector: Tool"))} <code>hub__call_tool</code> ${esc(T("mit"))} <code>${esc(w.id)}</code>.</span></div>` : ""}</div>`
     + appKarte(w, d)
     + kurzeAnsichtHtml(d)
-    + `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("route")}Wo erreichbar</h2><div class="karte">${erreichbarHtml(w)}</div></div>`
-    + `<div class="k-abschnitt k-roh" data-ab="normal"><details${App.stufe === "weit" ? " open" : ""}><summary>JSON-Schema der Eingabe</summary><pre class="k-pre"><code>${esc(JSON.stringify(d.schema, null, 2))}</code></pre></details></div>`;
+    + `<div class="k-abschnitt" data-ab="normal"><h2>${symbol("route")}${esc(T("Wo erreichbar"))}</h2><div class="karte">${erreichbarHtml(w)}</div></div>`
+    + `<div class="k-abschnitt k-roh" data-ab="normal"><details${App.stufe === "weit" ? " open" : ""}><summary>${esc(T("JSON-Schema der Eingabe"))}</summary><pre class="k-pre"><code>${esc(JSON.stringify(d.schema, null, 2))}</code></pre></details></div>`;
 }
 function zeichneDetail() {
   const ort = $("detail");
@@ -506,7 +557,7 @@ async function ladeDetail(id, neu) {
   zeichneDetail();
   try {
     const d = await rufen("werkzeug", { name: id });
-    if (!d || !d.eingabefelder) throw new Error("Die Antwort ist unvollständig.");
+    if (!d || !d.eingabefelder) throw new Error(T("Die Antwort ist unvollständig."));
     details.set(id, d);
   } catch (e) { details.set(id, { fehler: fehlertext(e) }); }
   if (S.werkzeug === id) zeichneDetail();
@@ -528,7 +579,7 @@ async function probieren() {
   probe.set(w.id, { laeuft: true }); zeichneDetail();
   try {
     const r = await rufen("ausprobieren", { werkzeug: w.id, arguments: args });
-    probe.set(w.id, r && r.ok ? r : { fehler: (r && r.error) || "Der Aufruf hat nicht geklappt." });
+    probe.set(w.id, r && r.ok ? r : { fehler: (r && r.error) || T("Der Aufruf hat nicht geklappt.") });
   } catch (e) { probe.set(w.id, { fehler: fehlertext(e) }); }
   if (S.werkzeug === w.id) { zeichneDetail(); const el = $("ergebnis"); if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
 }
@@ -540,32 +591,32 @@ function appsHtml() {
   const n = App.anzahl({ kompakt: 6 }), rest = daten.apps.length - Math.min(daten.apps.length, n);
   const nachKategorie = new Map();
   for (const a of daten.apps.slice(0, n)) { const k = a.kategorie || "Weitere"; if (!nachKategorie.has(k)) nachKategorie.set(k, []); nachKategorie.get(k).push(a); }
-  return [...nachKategorie].map(([k, liste]) => `<section class="abschnitt"><h2>${symbol("layout-grid")}${esc(k)}<span class="anzahl">${liste.length}</span></h2><div class="raster">${liste.map(appKarteHtml).join("")}</div></section>`).join("")
+  return [...nachKategorie].map(([k, liste]) => `<section class="abschnitt"><h2>${symbol("layout-grid")}${esc(T(k))}<span class="anzahl">${liste.length}</span></h2><div class="raster">${liste.map(appKarteHtml).join("")}</div></section>`).join("")
     + (rest > 0 ? weitereZeile(rest) : "");
 }
 function appKarteHtml(a) {
-  const chips = a.werkzeuge.map((id) => `<button type="button" class="chip" data-springe="${esc(id)}" title="Im Werkzeugkasten zeigen">${esc(id.split(".")[1] || id)}</button>`).join("");
+  const chips = a.werkzeuge.map((id) => `<button type="button" class="chip" data-springe="${esc(id)}" title="${esc(T("Im Werkzeugkasten zeigen"))}">${esc(id.split(".")[1] || id)}</button>`).join("");
   return `<article class="karte k-appkarte"><div class="k-appkopf"><span class="kachel app gross" style="--h:${Number(a.ton) || 230}">${symbol(a.symbol)}</span>`
-    + `<span class="zeile-text"><span class="zeile-titel">${esc(a.titel)}</span><span class="zeile-unter">${esc(a.untertitel)}</span></span></div>`
-    + `<dl class="kv"><dt>Oberfläche</dt><dd><code>${esc(a.uri)}</code></dd><dt>Plugin</dt><dd><code>${esc(a.plugin)}</code></dd><dt>Werkzeuge</dt><dd><span class="k-chips">${chips}</span></dd></dl>`
-    + (a.oeffnen ? `<div class="knoepfe"><button type="button" class="zweit klein" data-oeffnen="${esc(a.oeffnen)}">${symbol("square-arrow-out-up-right")}In FYOS öffnen</button></div>` : "")
+    + `<span class="zeile-text"><span class="zeile-titel">${esc(sprachTitel(a))}</span><span class="zeile-unter">${esc(sprachUntertitel(a))}</span></span></div>`
+    + `<dl class="kv"><dt>${esc(T("Oberfläche"))}</dt><dd><code>${esc(a.uri)}</code></dd><dt>Plugin</dt><dd><code>${esc(a.plugin)}</code></dd><dt>${esc(T("Werkzeuge"))}</dt><dd><span class="k-chips">${chips}</span></dd></dl>`
+    + (a.oeffnen ? `<div class="knoepfe"><button type="button" class="zweit klein" data-oeffnen="${esc(a.oeffnen)}">${symbol("square-arrow-out-up-right")}${esc(T("In FYOS öffnen"))}</button></div>` : "")
     + `</article>`;
 }
 
 // ── Protokolle, Zugänge, Aufrufer ──────────────────────────────────────────────────────────────
 function versionen(liste, modern) {
-  if (!liste || !liste.length) return `<span class="mut">keine MCP-Versionen (kein Handshake)</span>`;
+  if (!liste || !liste.length) return `<span class="mut">${esc(T("keine MCP-Versionen (kein Handshake)"))}</span>`;
   return [...liste].sort().reverse().map((v) => `<span class="marke${modern.includes(v) ? " akz" : ""}">${esc(v)}</span>`).join("");
 }
 function zugangHtml(z) {
   const sym = z.name.startsWith("Hub") ? "server" : z.name === "REST" ? "route" : "monitor";
   return `<article class="karte k-zugang"><div class="k-zugang-kopf">${kachel(sym, "akz", "gross")}<span class="zeile-text"><span class="zeile-titel">${esc(z.name)}</span><span class="zeile-unter"><code>${esc(z.pfad)}</code></span></span></div>`
-    + `<p>${esc(z.wer)} · ${esc(z.art)}${z.werkzeuge != null ? ` · ${zahlWort(z.werkzeuge, "Werkzeug", "Werkzeuge")} freigegeben` : ""}</p>`
+    + `<p>${esc(z.wer)} · ${esc(z.art)}${z.werkzeuge != null ? esc(T(" · {0} freigegeben", zahlWort(z.werkzeuge, "Werkzeug", "werkzeuge"))) : ""}</p>`
     + (z.protokolle.length ? `<div class="k-versionen">${versionen(z.protokolle, daten.hub.modern)}</div>` : "") + `</article>`;
 }
 function flaecheReihe(f) {
   const weg = WEG[f.weg] || WEG.mcp;
-  const prot = Object.entries(f.protokolle || {}).map(([v, n]) => `<span class="marke${daten.hub.modern.includes(v) ? " akz" : ""}" title="${n} Anfragen mit dieser Version">${esc(v)}</span>`).join("");
+  const prot = Object.entries(f.protokolle || {}).map(([v, n]) => `<span class="marke${daten.hub.modern.includes(v) ? " akz" : ""}" title="${esc(T("{0} Anfragen mit dieser Version", n))}">${esc(v)}</span>`).join("");
   return `<li class="zeile"><span class="kachel klein grau">${symbol(weg.symbol)}</span><span class="zeile-text"><span class="zeile-titel"><code>${esc(f.aufrufer)}</code></span>`
     + `<span class="zeile-unter">${esc(weg.text)} · ${esc(App.zeit.vor(f.zuletzt))}</span>${prot ? `<span class="k-versionen" style="margin-top:4px">${prot}</span>` : ""}</span>`
     + `<span class="zeile-ende">${App.zahl(f.anzahl, 0)}×</span></li>`;
@@ -579,13 +630,13 @@ function messungAbschnitt() {
     const p = z.gespart_prozent;
     const ton = p == null ? "grau" : p >= 50 ? "gut" : p >= 10 ? "akz" : "grau";
     return `<li class="zeile"><span class="kachel klein ${ton}">${symbol(z.aufrufer === "alle" ? "layers" : "bot")}</span>`
-      + `<span class="zeile-text"><span class="zeile-titel">${esc(z.aufrufer === "alle" ? "Alle Modelle" : z.aufrufer)}</span>`
-      + `<span class="zeile-unter">${App.zahl(z.aufrufe, 0)} Aufrufe, ${App.zahl(z.gekuerzt, 0)} gekürzt · ${zahl(z.zeichen_voll)} → ${zahl(z.zeichen_kurz)} Zeichen`
-      + `${z.mehr ? ` · ${App.zahl(z.mehr, 0)}× nachgeholt (${zahl(z.zeichen_nachgeholt)})` : ""}</span></span>`
-      + `<span class="zeile-ende">${p == null ? "" : marke(`${App.zahl(p, 0)} % gespart`, ton === "grau" ? "" : ton, "trending-down")}</span></li>`;
+      + `<span class="zeile-text"><span class="zeile-titel">${esc(z.aufrufer === "alle" ? T("Alle Modelle") : z.aufrufer)}</span>`
+      + `<span class="zeile-unter">${esc(T("{0} Aufrufe, {1} gekürzt · {2} → {3} Zeichen", App.zahl(z.aufrufe, 0), App.zahl(z.gekuerzt, 0), zahl(z.zeichen_voll), zahl(z.zeichen_kurz)))}`
+      + `${z.mehr ? esc(T(" · {0}× nachgeholt ({1})", App.zahl(z.mehr, 0), zahl(z.zeichen_nachgeholt))) : ""}</span></span>`
+      + `<span class="zeile-ende">${p == null ? "" : marke(T("{0} % gespart", App.zahl(p, 0)), ton === "grau" ? "" : ton, "trending-down")}</span></li>`;
   };
   const zeilen = m.aufrufer || [];
-  return `<section class="abschnitt" data-ab="normal"><h2>${symbol("filter")}Kurze Ansicht — Ersparnis ${m.tage} Tage</h2>`
+  return `<section class="abschnitt" data-ab="normal"><h2>${symbol("filter")}${esc(T("Kurze Ansicht — Ersparnis {0} Tage", m.tage))}</h2>`
     + (zeilen.length
       ? `<div class="gruppe"><ul class="zeilen">${[m.gesamt, ...zeilen].map(reihe).join("")}</ul></div>`
       : `<div class="gruppe">${zustand({ symbol: "filter", ton: "grau", klein: true, titel: "Noch nichts gemessen", text: "Sobald ein Modell ein Werkzeug über den Hub ruft, steht es hier." })}</div>`)
@@ -594,23 +645,23 @@ function messungAbschnitt() {
 function protokolleHtml() {
   const h = daten.hub;
   const modernText = h.modern.length ? "Der Hub spricht beide Zeitalter: den Handshake (initialize) und die zustandslose Fassung 2026-07-28 (server/discover)." : "Dieses SDK kennt nur den Handshake; 2026-07-28 spricht erst mcp 2.x.";
-  return `<section class="abschnitt"><h2>${symbol("waypoints")}Protokollversionen</h2>`
-    + `<div class="hinweis info" data-ab="normal">${symbol("info")}<span>${esc(modernText)}</span></div>`
-    + `<dl class="kv" style="margin:14px 2px 0"><dt>Hub</dt><dd>Version ${esc(h.version)}, gestartet ${esc(App.zeit.vor(h.gestartet))}</dd><dt>SDK</dt><dd><code>${esc(h.sdk)}</code></dd>`
+  return `<section class="abschnitt"><h2>${symbol("waypoints")}${esc(T("Protokollversionen"))}</h2>`
+    + `<div class="hinweis info" data-ab="normal">${symbol("info")}<span>${esc(T(modernText))}</span></div>`
+    + `<dl class="kv" style="margin:14px 2px 0"><dt>Hub</dt><dd>${esc(T("Version {0}, gestartet {1}", h.version, App.zeit.vor(h.gestartet)))}</dd><dt>SDK</dt><dd><code>${esc(h.sdk)}</code></dd>`
     + `<dt>Handshake</dt><dd><span class="k-versionen">${versionen(h.handshake, h.modern)}</span></dd>`
-    + `<dt>Zustandslos</dt><dd><span class="k-versionen">${versionen(h.modern, h.modern)}</span></dd>`
+    + `<dt>${esc(T("Zustandslos"))}</dt><dd><span class="k-versionen">${versionen(h.modern, h.modern)}</span></dd>`
     + `</dl></section>`
     + inspectorAbschnitt()
     + messungAbschnitt()
-    + `<section class="abschnitt"><h2>${symbol("plug")}Zugänge<span class="anzahl">${daten.zugaenge.length}</span></h2><div class="raster">${daten.zugaenge.map(zugangHtml).join("")}</div></section>`
-    + `<section class="abschnitt"><h2>${symbol("history")}Zuletzt gesehen<span class="anzahl">${daten.flaechen.length}</span></h2>`
+    + `<section class="abschnitt"><h2>${symbol("plug")}${esc(T("Zugänge"))}<span class="anzahl">${daten.zugaenge.length}</span></h2><div class="raster">${daten.zugaenge.map(zugangHtml).join("")}</div></section>`
+    + `<section class="abschnitt"><h2>${symbol("history")}${esc(T("Zuletzt gesehen"))}<span class="anzahl">${daten.flaechen.length}</span></h2>`
     + (daten.flaechen.length
       ? `<div class="gruppe">${kurzeListe(daten.flaechen, flaecheReihe)}</div>`
       : `<div class="gruppe">${zustand({ symbol: "unplug", ton: "grau", klein: true, titel: "Noch niemand seit dem Start", text: "Sobald ein Client den Hub anspricht, steht er hier." })}</div>`)
     + `<p class="fuss" style="text-align:left;margin:8px 2px 0" data-ab="normal">${esc(daten.flaechen_hinweis)}</p></section>`
-    + `<section class="abschnitt"><h2>${symbol("app-window")}Oberflächen (ui://)<span class="anzahl">${daten.ressourcen.length}</span></h2>`
+    + `<section class="abschnitt"><h2>${symbol("app-window")}${esc(T("Oberflächen (ui://)"))}<span class="anzahl">${daten.ressourcen.length}</span></h2>`
     + (daten.ressourcen.length
-      ? `<div class="gruppe">${kurzeListe(daten.ressourcen, (r) => `<li class="zeile"><span class="kachel klein grau">${symbol("app-window")}</span><span class="zeile-text"><span class="zeile-titel"><code>${esc(r.uri)}</code></span><span class="zeile-unter">${esc(r.name)} · Plugin ${esc(r.plugin)}</span></span><span class="zeile-ende"><span class="marke">${esc(String(r.mime).replace("text/html;profile=", ""))}</span></span></li>`)}</div>`
+      ? `<div class="gruppe">${kurzeListe(daten.ressourcen, (r) => `<li class="zeile"><span class="kachel klein grau">${symbol("app-window")}</span><span class="zeile-text"><span class="zeile-titel"><code>${esc(r.uri)}</code></span><span class="zeile-unter">${esc(r.name)} · ${esc(T("Plugin {0}", r.plugin))}</span></span><span class="zeile-ende"><span class="marke">${esc(String(r.mime).replace("text/html;profile=", ""))}</span></span></li>`)}</div>`
       : `<div class="gruppe">${zustand({ symbol: "app-window", ton: "grau", klein: true, titel: "Keine Oberflächen", text: "Kein Plugin liefert eine ui://-Ressource." })}</div>`)
     + `</section>`;
 }
@@ -635,12 +686,12 @@ function ladeFehler(text) {
     $("reiter").hidden = true;
     $("haupt").innerHTML = `<div class="gruppe">${zustand({ symbol: "wifi-off", ton: "schlecht", titel: "Der Werkzeugkasten ist nicht erreichbar", text, knopf: { text: "Erneut versuchen", aktion: "neu", symbol: "refresh-cw" } })}</div>`;
     satz("Keine Verbindung", "schlecht");
-  } else { veraltet = true; zeichneSatz(); melden(`Das Aktualisieren hat nicht geklappt: ${text}`); }
+  } else { veraltet = true; zeichneSatz(); melden(T("Das Aktualisieren hat nicht geklappt: {0}", text)); }
 }
 async function neu(frisch) {
   $("neu").disabled = true;
   try {
-    if (!datenUebernehmen(await rufen("uebersicht", frisch ? { frisch: true, voll: true } : { voll: true }))) throw new Error("Die Antwort ist unvollständig.");
+    if (!datenUebernehmen(await rufen("uebersicht", frisch ? { frisch: true, voll: true } : { voll: true }))) throw new Error(T("Die Antwort ist unvollständig."));
     melden("");
   } catch (e) { ladeFehler(fehlertext(e)); }
   $("neu").disabled = false;

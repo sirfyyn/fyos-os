@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 
+from . import sprache as spr
 from .reife import MAX_STUFE, SCHICHTEN
 
 PAKET = Path(__file__).resolve().parent
@@ -92,7 +93,7 @@ class Katalog:
             alt = self.bausteine.get(b.id)
             if alt is not None:
                 if alt.herkunft == b.herkunft:
-                    raise KatalogFehler(f"Baustein '{b.id}' kommt doppelt vor ({b.herkunft})")
+                    raise KatalogFehler(spr._("Baustein '{0}' kommt doppelt vor ({1})", b.id, b.herkunft))
                 self.hinweise.append(f"Baustein '{b.id}' aus {alt.herkunft} wird durch den aus {b.herkunft} ersetzt")
                 if alt.reife and not b.reife:  # nennt der Ersatz keinen Reifegrad, gilt der des Ersetzten weiter
                     b.reife = dict(alt.reife)
@@ -107,7 +108,7 @@ class Katalog:
         try:
             return self.bausteine[id_]
         except KeyError:
-            raise KatalogFehler(f"Unbekannter Baustein: '{id_}'") from None
+            raise KatalogFehler(spr._("Unbekannter Baustein: '{0}'", id_)) from None
 
     def __contains__(self, id_: str) -> bool:
         return id_ in self.bausteine
@@ -119,7 +120,7 @@ class Katalog:
 def _text(d: dict, key: str, ort: str, fehler: list[str], leer_ok: bool = False) -> str:
     wert = d.get(key)
     if not isinstance(wert, str) or (not leer_ok and not wert.strip()):
-        fehler.append(f"{ort}: '{key}' muss ein nichtleerer Text sein")
+        fehler.append(spr._("{0}: '{1}' muss ein nichtleerer Text sein", ort, key))
         return ""
     return wert
 
@@ -129,49 +130,51 @@ def _liste_text(d: dict, key: str, ort: str, fehler: list[str]) -> list[str]:
     if wert is None:
         return []
     if not isinstance(wert, list) or not all(isinstance(x, str) and x.strip() for x in wert):
-        fehler.append(f"{ort}: '{key}' muss eine Liste von Texten sein")
+        fehler.append(spr._("{0}: '{1}' muss eine Liste von Texten sein", ort, key))
         return []
     return list(wert)
 
 
 def _feld(roh: Any, ort: str, fehler: list[str]) -> Feld | None:
     if not isinstance(roh, dict):
-        fehler.append(f"{ort}: Feld muss ein Objekt sein")
+        fehler.append(spr._("{0}: Feld muss ein Objekt sein", ort))
         return None
     name = roh.get("name")
     if not isinstance(name, str) or not _FELDNAME.match(name):
-        fehler.append(f"{ort}: Feldname fehlt oder ist ungültig ({name!r})")
+        fehler.append(spr._("{0}: Feldname fehlt oder ist ungültig ({1})", ort, repr(name)))
         return None
     ort = f"{ort}.{name}"
     typ = roh.get("typ", "text")
     if typ not in FELD_TYPEN:
-        fehler.append(f"{ort}: typ muss einer von {', '.join(FELD_TYPEN)} sein")
+        fehler.append(spr._("{0}: typ muss einer von {1} sein", ort, ', '.join(FELD_TYPEN)))
         return None
     optionen = roh.get("optionen", [])
     if typ == "wahl" and (not isinstance(optionen, list) or not optionen or not all(isinstance(o, str) for o in optionen)):
-        fehler.append(f"{ort}: Typ 'wahl' braucht eine Liste 'optionen'")
+        fehler.append(spr._("{0}: Typ 'wahl' braucht eine Liste 'optionen'", ort))
         optionen = []
     pflicht = roh.get("pflicht", False)
     if not isinstance(pflicht, bool):
-        fehler.append(f"{ort}: 'pflicht' muss wahr oder falsch sein")
+        fehler.append(spr._("{0}: 'pflicht' muss wahr oder falsch sein", ort))
         pflicht = False
     umgebung = roh.get("umgebung", "") or ""
     if umgebung and not _UMGEBUNG.match(str(umgebung)):
-        fehler.append(f"{ort}: 'umgebung' muss ein Umgebungsvariablenname in Großbuchstaben sein")
+        fehler.append(spr._("{0}: 'umgebung' muss ein Umgebungsvariablenname in Großbuchstaben sein", ort))
         umgebung = ""
     standard = roh.get("standard", "")
     if standard is None:
         standard = ""
     if typ == "zahl" and standard != "" and (isinstance(standard, bool) or not isinstance(standard, (int, float))):
-        fehler.append(f"{ort}: 'standard' muss bei Typ 'zahl' eine Zahl sein")
+        fehler.append(spr._("{0}: 'standard' muss bei Typ 'zahl' eine Zahl sein", ort))
     titel = roh.get("titel")
     if not isinstance(titel, str) or not titel.strip():
-        fehler.append(f"{ort}: 'titel' (Beschriftung des Feldes) fehlt")
+        fehler.append(spr._("{0}: 'titel' (Beschriftung des Feldes) fehlt", ort))
         return None
-    return Feld(
+    feld = Feld(
         name=name, typ=typ, titel=titel.strip(), beschreibung=str(roh.get("beschreibung", "") or ""), standard=standard,
         pflicht=pflicht, optionen=[str(o) for o in optionen], umgebung=str(umgebung),
     )
+    spr.lerne_texte(roh.get("en"), {"titel": feld.titel, "beschreibung": feld.beschreibung})
+    return feld
 
 
 def _reife(roh: Any, ort: str, fehler: list[str]) -> dict[str, int]:
@@ -179,14 +182,14 @@ def _reife(roh: Any, ort: str, fehler: list[str]) -> dict[str, int]:
     if roh is None:
         return {}
     if not isinstance(roh, dict):
-        fehler.append(f"{ort}: 'reife' muss ein Objekt aus Schicht und Stufe sein")
+        fehler.append(spr._("{0}: 'reife' muss ein Objekt aus Schicht und Stufe sein", ort))
         return {}
     erg: dict[str, int] = {}
     for schicht, stufe in roh.items():
         if schicht not in SCHICHTEN:
-            fehler.append(f"{ort}: reife.{schicht}: unbekannte Schicht (erlaubt: {', '.join(SCHICHTEN)})")
+            fehler.append(spr._("{0}: reife.{1}: unbekannte Schicht (erlaubt: {2})", ort, schicht, ', '.join(SCHICHTEN)))
         elif isinstance(stufe, bool) or not isinstance(stufe, int) or not 1 <= stufe <= MAX_STUFE:
-            fehler.append(f"{ort}: reife.{schicht} muss eine ganze Zahl von 1 bis {MAX_STUFE} sein")
+            fehler.append(spr._("{0}: reife.{1} muss eine ganze Zahl von 1 bis {2} sein", ort, schicht, MAX_STUFE))
         else:
             erg[schicht] = stufe
     return erg
@@ -198,30 +201,30 @@ def _bildname_ok(name: str) -> bool:
 
 def _baustein(roh: Any, nr: int, herkunft: str, basis: Path | None, fehler: list[str]) -> Baustein | None:
     if not isinstance(roh, dict):
-        fehler.append(f"{herkunft}: Eintrag {nr} muss ein Objekt sein")
+        fehler.append(spr._("{0}: Eintrag {1} muss ein Objekt sein", herkunft, nr))
         return None
     id_ = roh.get("id")
     if not isinstance(id_, str) or not _ID.match(id_):
-        fehler.append(f"{herkunft}: Eintrag {nr}: 'id' fehlt oder ist ungültig ({id_!r})")
+        fehler.append(spr._("{0}: Eintrag {1}: 'id' fehlt oder ist ungültig ({2})", herkunft, nr, repr(id_)))
         return None
     ort = f"{herkunft}: {id_}"
     n0 = len(fehler)
     titel = _text(roh, "titel", ort, fehler)
     kurz = _text(roh, "kurz", ort, fehler)
     if "\n" in kurz.strip():
-        fehler.append(f"{ort}: 'kurz' darf nur eine Zeile sein")
+        fehler.append(spr._("{0}: 'kurz' darf nur eine Zeile sein", ort))
     was = _text(roh, "was_daraus_wird", ort, fehler)
     art = roh.get("art")
     if art not in ARTEN:
-        fehler.append(f"{ort}: 'art' muss einer von {', '.join(ARTEN)} sein")
+        fehler.append(spr._("{0}: 'art' muss einer von {1} sein", ort, ', '.join(ARTEN)))
     pflicht = roh.get("pflicht", False)
     if not isinstance(pflicht, bool):
-        fehler.append(f"{ort}: 'pflicht' muss wahr oder falsch sein")
+        fehler.append(spr._("{0}: 'pflicht' muss wahr oder falsch sein", ort))
         pflicht = False
     bilder = _liste_text(roh, "bilder", ort, fehler)
     for b in bilder:
         if not _bildname_ok(b):
-            fehler.append(f"{ort}: Bildname '{b}' ist ungültig (nur Dateiname mit .svg/.png/.jpg/.webp)")
+            fehler.append(spr._("{0}: Bildname '{1}' ist ungültig (nur Dateiname mit .svg/.png/.jpg/.webp)", ort, b))
     abh = _liste_text(roh, "abhaengig_von", ort, fehler)
     voraus = _liste_text(roh, "voraussetzungen", ort, fehler)
     paket = repo = None
@@ -231,14 +234,14 @@ def _baustein(roh: Any, nr: int, herkunft: str, basis: Path | None, fehler: list
     if quelle is not None:
         if not isinstance(quelle, dict) or not _PAKET.match(str(quelle.get("paket", ""))) \
                 or not _PAKET.match(str(quelle.get("repo", quelle.get("paket", "")))):
-            fehler.append(f"{ort}: 'quelle' braucht paket (Paketname) und optional repo (Git-Repo-Name)")
+            fehler.append(spr._("{0}: 'quelle' braucht paket (Paketname) und optional repo (Git-Repo-Name)", ort))
         else:
             paket = str(quelle["paket"])
             repo = str(quelle.get("repo", paket))
     felder_roh = roh.get("konfiguration", []) or []
     felder: list[Feld] = []
     if not isinstance(felder_roh, list):
-        fehler.append(f"{ort}: 'konfiguration' muss eine Liste sein")
+        fehler.append(spr._("{0}: 'konfiguration' muss eine Liste sein", ort))
         felder_roh = []
     for f in felder_roh:
         feld = _feld(f, ort, fehler)
@@ -246,7 +249,7 @@ def _baustein(roh: Any, nr: int, herkunft: str, basis: Path | None, fehler: list
             felder.append(feld)
     namen = [f.name for f in felder]
     if len(set(namen)) != len(namen):
-        fehler.append(f"{ort}: Feldnamen kommen doppelt vor")
+        fehler.append(spr._("{0}: Feldnamen kommen doppelt vor", ort))
     hub = roh.get("hub_plugins", []) or []
     if not isinstance(hub, list) or not all(
         isinstance(h, dict) and isinstance(h.get("name"), str) and h["name"]
@@ -254,11 +257,17 @@ def _baustein(roh: Any, nr: int, herkunft: str, basis: Path | None, fehler: list
         and isinstance(h.get("enabled", True), bool)
         for h in hub
     ):
-        fehler.append(f"{ort}: 'hub_plugins' braucht je Eintrag name (optional config, secrets, enabled)")
+        fehler.append(spr._("{0}: 'hub_plugins' braucht je Eintrag name (optional config, secrets, enabled)", ort))
         hub = []
     reife = _reife(roh.get("reife"), ort, fehler)
     if len(fehler) > n0:
         return None
+    # Englische Texte (Block `en:`): Titel, Kurztext, Beschreibung, Voraussetzungen und `felder: {name: {titel, …}}`
+    en = roh.get("en")
+    spr.lerne_texte(en, {"titel": titel, "kurz": kurz, "was_daraus_wird": was, "voraussetzungen": voraus})
+    if isinstance(en, dict) and isinstance(en.get("felder"), dict):
+        for f in felder:
+            spr.lerne_texte(en["felder"].get(f.name), {"titel": f.titel, "beschreibung": f.beschreibung})
     return Baustein(
         id=id_, titel=titel.strip(), kurz=kurz.strip(), was_daraus_wird=was.strip(), art=art, pflicht=pflicht,
         bilder=bilder, abhaengig_von=abh, voraussetzungen=voraus, paket=paket, repo=repo,
@@ -271,10 +280,10 @@ def parse(daten: Any, herkunft: str = "katalog", bilder_verzeichnis: Path | None
     """Prüft ein geladenes YAML-Objekt und liefert die Bausteine. Wirft KatalogFehler mit allen Befunden."""
     fehler: list[str] = []
     if not isinstance(daten, dict):
-        raise KatalogFehler(f"{herkunft}: Katalog muss ein Objekt mit 'bausteine' sein")
+        raise KatalogFehler(spr._("{0}: Katalog muss ein Objekt mit 'bausteine' sein", herkunft))
     roh = daten.get("bausteine")
     if not isinstance(roh, list) or not roh:
-        raise KatalogFehler(f"{herkunft}: 'bausteine' muss eine nichtleere Liste sein")
+        raise KatalogFehler(spr._("{0}: 'bausteine' muss eine nichtleere Liste sein", herkunft))
     ergebnis = []
     for nr, eintrag in enumerate(roh, 1):
         b = _baustein(eintrag, nr, herkunft, bilder_verzeichnis, fehler)
@@ -282,7 +291,7 @@ def parse(daten: Any, herkunft: str = "katalog", bilder_verzeichnis: Path | None
             ergebnis.append(b)
     ids = [b.id for b in ergebnis]
     for i in {x for x in ids if ids.count(x) > 1}:
-        fehler.append(f"{herkunft}: id '{i}' kommt doppelt vor")
+        fehler.append(spr._("{0}: id '{1}' kommt doppelt vor", herkunft, i))
     if fehler:
         raise KatalogFehler("\n".join(fehler))
     return ergebnis
@@ -293,9 +302,9 @@ def _pruefe_verweise(katalog: Katalog) -> None:
     for b in katalog:
         for a in b.abhaengig_von:
             if a not in katalog.bausteine:
-                fehler.append(f"{b.id}: abhaengig_von verweist auf unbekannten Baustein '{a}'")
+                fehler.append(spr._("{0}: abhaengig_von verweist auf unbekannten Baustein '{1}'", b.id, a))
             if a == b.id:
-                fehler.append(f"{b.id}: hängt von sich selbst ab")
+                fehler.append(spr._("{0}: hängt von sich selbst ab", b.id))
     if fehler:
         raise KatalogFehler("\n".join(fehler))
     # Zyklen: aufloesen() über alle Bausteine wirft bei einem Kreis.
@@ -309,10 +318,10 @@ def lade_datei(pfad: str | Path, herkunft: str | None = None) -> list[Baustein]:
     pfad = Path(pfad)
     try:
         if pfad.stat().st_size > MAX_KATALOG_BYTES:
-            raise KatalogFehler(f"{pfad}: Katalog ist zu groß")
+            raise KatalogFehler(spr._("{0}: Katalog ist zu groß", pfad))
         daten = yaml.safe_load(pfad.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as e:
-        raise KatalogFehler(f"{pfad}: nicht lesbar ({e})") from e
+        raise KatalogFehler(spr._("{0}: nicht lesbar ({1})", pfad, e)) from e
     ordner = pfad.resolve().parent
     bilder = ordner / "bilder" if (ordner / "bilder").is_dir() else ordner
     return parse(daten, herkunft or str(pfad), bilder)
@@ -320,15 +329,15 @@ def lade_datei(pfad: str | Path, herkunft: str | None = None) -> list[Baustein]:
 
 def lade_url(url: str) -> list[Baustein]:
     if not url.startswith(("https://", "http://")):
-        raise KatalogFehler(f"{url}: nur http(s)-Adressen")
+        raise KatalogFehler(spr._("{0}: nur http(s)-Adressen", url))
     try:
         with urllib.request.urlopen(url, timeout=15) as r:  # noqa: S310 - Schema oben geprüft
             roh = r.read(MAX_KATALOG_BYTES + 1)
         if len(roh) > MAX_KATALOG_BYTES:
-            raise KatalogFehler(f"{url}: Katalog ist zu groß")
+            raise KatalogFehler(spr._("{0}: Katalog ist zu groß", url))
         daten = yaml.safe_load(roh.decode("utf-8"))
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
-        raise KatalogFehler(f"{url}: nicht ladbar ({e})") from e
+        raise KatalogFehler(spr._("{0}: nicht ladbar ({1})", url, e)) from e
     return parse(daten, url, None)  # entfernte Kataloge bringen keine Bilder mit
 
 
@@ -346,7 +355,7 @@ def _ep_inhalt(wert: Any, herkunft: str) -> list[Baustein]:
         return lade_datei(wert, herkunft)
     if isinstance(wert, dict):
         return parse(wert, herkunft, None)
-    raise KatalogFehler(f"{herkunft}: Entry-Point liefert weder Pfad noch Katalog")
+    raise KatalogFehler(spr._("{0}: Entry-Point liefert weder Pfad noch Katalog", herkunft))
 
 
 def plugin_kataloge() -> list[Baustein]:
@@ -401,7 +410,7 @@ def aufloesen(katalog: Katalog, auswahl: list[str], mit_pflicht: bool = True) ->
         if zustand.get(id_) == 2:
             return
         if zustand.get(id_) == 1:
-            raise KatalogFehler("Zyklus in abhaengig_von: " + " -> ".join(pfad + [id_]))
+            raise KatalogFehler(spr._("Zyklus in abhaengig_von: {0}", " -> ".join(pfad + [id_])))
         zustand[id_] = 1
         for a in katalog[id_].abhaengig_von:
             besuche(a, pfad + [id_])
@@ -461,21 +470,22 @@ def textvorschau(baustein: Baustein) -> str:
     """Textersatz für das erste Bild (TUI ohne Bildwidget): Beschreibung der Skizze samt Pfad."""
     bilder = bilder_von(baustein)
     if not bilder:
-        return "(kein Bild vorhanden)"
+        return spr._("(kein Bild vorhanden)")
     bild = bilder[0]
     zeilen = []
+    titel_b = spr.katalog_text(baustein.titel)
     if bild.suffix.lower() == ".svg":
         titel, beschreibung, texte = svg_beschreibung(bild)
-        zeilen.append(titel or f"Skizze zu {baustein.titel}")
+        zeilen.append(titel or spr._("Skizze zu {0}", titel_b))
         if beschreibung:
             zeilen.append(beschreibung)
         if texte:
-            zeilen.append("Beschriftungen: " + " · ".join(texte[:12]))
+            zeilen.append(spr._("Beschriftungen: ") + " · ".join(texte[:12]))
     else:
-        zeilen.append(f"Bild zu {baustein.titel}")
-    zeilen.append(f"Datei: {bild}")
+        zeilen.append(spr._("Bild zu {0}", titel_b))
+    zeilen.append(spr._("Datei: {0}", bild))
     if len(bilder) > 1:
-        zeilen.append(f"(+{len(bilder) - 1} weitere Bilder im selben Ordner)")
+        zeilen.append(spr._("(+{0} weitere Bilder im selben Ordner)", len(bilder) - 1))
     return "\n".join(zeilen)
 
 
@@ -487,16 +497,16 @@ def quelle_aufloesen(baustein: Baustein, bezug: str = "git", plugin_quelle: str 
         return None
     if bezug == "index":
         if not paketindex:
-            raise KatalogFehler(
-                f"Baustein '{baustein.id}' braucht einen Paketindex: Umgebungsvariable FYOS_PAKETINDEX "
-                "setzen oder in den Antworten unter optionen.paketindex eintragen"
-            )
+            raise KatalogFehler(spr._(
+                "Baustein '{0}' braucht einen Paketindex: Umgebungsvariable FYOS_PAKETINDEX "
+                "setzen oder in den Antworten unter optionen.paketindex eintragen", baustein.id,
+            ))
         return baustein.paket
     if bezug != "git":
-        raise KatalogFehler(f"Unbekannter Bezug '{bezug}' (index oder git)")
+        raise KatalogFehler(spr._("Unbekannter Bezug '{0}' (index oder git)", bezug))
     if not plugin_quelle:
-        raise KatalogFehler(
-            f"Baustein '{baustein.id}' braucht eine Plugin-Quelle: Umgebungsvariable FYOS_PLUGIN_QUELLE "
-            "setzen oder in den Antworten unter optionen.plugin_quelle eintragen"
-        )
+        raise KatalogFehler(spr._(
+            "Baustein '{0}' braucht eine Plugin-Quelle: Umgebungsvariable FYOS_PLUGIN_QUELLE "
+            "setzen oder in den Antworten unter optionen.plugin_quelle eintragen", baustein.id,
+        ))
     return f"{baustein.paket} @ git+{plugin_quelle.rstrip('/')}/{baustein.repo}.git"

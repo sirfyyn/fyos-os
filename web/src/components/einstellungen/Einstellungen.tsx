@@ -8,18 +8,19 @@ import { Abschnitt } from './bausteine';
 import Erscheinungsbild from './Erscheinungsbild';
 import MeldungenEinstellen from './MeldungenEinstellen';
 import RaeumeEinstellen from './RaeumeEinstellen';
+import { tr } from '~/lib/i18n';
 
 export default function Einstellungen(_p: NativProps): JSX.Element {
   return (
     <div class="@container" data-einstellungen>
       <div class="mx-auto w-full max-w-3xl space-y-5 px-4 py-5 @2xl:px-8">
-        <Abschnitt id="erscheinungsbild" titel="Erscheinungsbild" geltung="Gilt in diesem Browser">
+        <Abschnitt id="erscheinungsbild" titel={tr('Erscheinungsbild')} geltung={tr('Gilt in diesem Browser')}>
           <Erscheinungsbild kulisseId="kulisse" />
         </Abschnitt>
-        <Abschnitt id="meldungen" titel="Meldungen" geltung="Gilt in diesem Browser">
+        <Abschnitt id="meldungen" titel={tr('Meldungen')} geltung={tr('Gilt in diesem Browser')}>
           <MeldungenEinstellen />
         </Abschnitt>
-        <Abschnitt id="raeume" titel="Räume" geltung="Gilt in diesem Browser">
+        <Abschnitt id="raeume" titel={tr('Räume')} geltung={tr('Gilt in diesem Browser')}>
           <RaeumeEinstellen />
         </Abschnitt>
       </div>

@@ -9,6 +9,7 @@ import { dauerText, hatArbeit, schrittWort, zugDauer, type VerlaufsPunkt, type Z
 import type { Aufklapp } from './aufklappen';
 import { Arbeitszeile } from './Arbeitszeile';
 import { FOKUS, Text } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 export function ZugBlock(p: { z: Zug; jetzt: number; offen: Aufklapp; kompakt?: boolean }): JSX.Element {
   const leer = () => !hatArbeit(p.z) && !p.z.antwort;
@@ -24,7 +25,7 @@ export function ZugBlock(p: { z: Zug; jetzt: number; offen: Aufklapp; kompakt?: 
           <span class="px-1 text-[0.7rem] font-semibold text-(--color-fg-muted)">
             {p.z.name}
             <Show when={p.z.zeit}> · {uhrzeitKurz(p.z.zeit)}</Show>
-            <Show when={p.z.schreibt && p.z.antwort}> · schreibt …</Show>
+            <Show when={p.z.schreibt && p.z.antwort}> · {tr('schreibt …')}</Show>
           </span>
         </Show>
         <Show when={hatArbeit(p.z)}>
@@ -37,7 +38,7 @@ export function ZugBlock(p: { z: Zug; jetzt: number; offen: Aufklapp; kompakt?: 
           >
             <Text text={p.z.antwort} />
             <Show when={p.z.verbrauch && !p.kompakt}>
-              <span class="mt-1.5 block text-[0.68rem] text-(--color-fg-subtle)">Token: {p.z.verbrauch}</span>
+              <span class="mt-1.5 block text-[0.68rem] text-(--color-fg-subtle)">{tr('Token:')}{' '}{p.z.verbrauch}</span>
             </Show>
           </div>
         </Show>
@@ -55,10 +56,10 @@ export function AutonomZeile(p: { a: Autonom; jetzt: number; offen: Aufklapp }):
   const id = createUniqueId();
   const zusammen = () => {
     const z = p.a.zug;
-    if (!z) return 'wartet auf Agent';
+    if (!z) return tr('wartet auf Agent');
     if (z.laeuft) return 'Agent arbeitet …';
     const teile = [z.schrittZahl ? schrittWort(z.schrittZahl) : 'erledigt', dauerText(zugDauer(z, p.jetzt))];
-    if (z.fehlerZahl) teile.push(z.fehlerZahl === 1 ? '1 Fehler' : `${z.fehlerZahl} Fehler`);
+    if (z.fehlerZahl) teile.push(z.fehlerZahl === 1 ? '1 Fehler' : tr('{0} Fehler', z.fehlerZahl));
     return teile.filter(Boolean).join(' · ');
   };
   return (

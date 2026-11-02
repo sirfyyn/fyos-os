@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -24,13 +24,31 @@
 <main>
   <div id="planung"></div>
   <div id="antrag"></div>
-  <div class="t-ziel" data-ab="normal">Zieh einen Vorgang hierher, um daraus einen Termin zu machen. Du wählst den Zeitpunkt; angelegt wird erst nach „Ja“.</div>
-  <div id="liste"><div class="laedt">Lädt …</div></div>
+  <div class="t-ziel" data-ab="normal" data-t>Zieh einen Vorgang hierher, um daraus einen Termin zu machen. Du wählst den Zeitpunkt; angelegt wird erst nach „Ja“.</div>
+  <div id="liste"><div class="laedt" data-t>Lädt …</div></div>
 </main>
 <script>
 /*BRUECKE*/
 const $ = (id) => document.getElementById(id);
 const { esc, symbol, zustand, satz } = App;
+App.texte({
+  "Termine": "Appointments",
+  "Zieh einen Vorgang hierher, um daraus einen Termin zu machen. Du wählst den Zeitpunkt; angelegt wird erst nach „Ja“.":
+    "Drag a ticket here to turn it into an appointment. You choose the time; it is created only after “Yes”.",
+  "{0} (ganztägig)": "{0} (all day)", "heute": "today", "morgen": "tomorrow", "Heute · {0}": "Today · {0}", "Morgen · {0}": "Tomorrow · {0}",
+  "Keine Termine": "No appointments", "ganztägig": "all day", "läuft bis {0}": "runs until {0}", "ganztägig bis {0}": "all day until {0}",
+  "In den nächsten Tagen steht nichts an.": "Nothing is coming up in the next days.", "Nächster Termin": "Next appointment",
+  "heute keine weiteren": "no more today", "heute 1 weiterer": "1 more today", "heute {0} weitere": "{0} more today",
+  "Heute und morgen frei": "Today and tomorrow free", "Heute und morgen steht nichts an.": "Nothing is coming up today and tomorrow.",
+  "{0} heute": "{0} today", "heute frei": "today free", "{0} morgen": "{0} tomorrow", "morgen frei": "tomorrow free", "morgen, {0}": "tomorrow, {0}",
+  "1 weiterer Termin im größeren Fenster": "1 more appointment in a larger window", "{0} weitere Termine im größeren Fenster": "{0} more appointments in a larger window",
+  "1 Termin in den nächsten Tagen": "1 appointment in the next days", "{0} Termine in den nächsten Tagen": "{0} appointments in the next days",
+  "Kein Kalender eingerichtet": "No calendar set up", "Trag einen Termin-Dienst ein oder installiere das Kalender-Plugin.": "Enter an appointment service or install the calendar plugin.",
+  "Der Kalender antwortet nicht": "The calendar does not answer", "Titel": "Title", "Wann": "When", "Plan ansehen": "View plan", "Abbrechen": "Cancel",
+  "Termin anlegen": "Create appointment", "Termin angelegt.": "Appointment created.",
+});
+const tr = App.t;
+const anzahlTermine = (n) => (n === 1 ? tr("1 Termin in den nächsten Tagen") : tr("{0} Termine in den nächsten Tagen", n));
 const rufen = (name, args) => App.rufen("termine__" + name, args);
 
 let termine = [];
@@ -40,17 +58,17 @@ let bekommen = false;
 
 function wann(t) {
   const von = Date.parse(t.start);
-  if (t.ganztaegig) return App.zeit.voll(von).split(",")[0] + " (ganztägig)";
+  if (t.ganztaegig) return tr("{0} (ganztägig)", App.zeit.voll(von).split(",")[0]);
   return App.zeit.voll(von);
 }
 
 // Eine Ansicht je Größe (Entscheidung 507): Tage als „JJJJ-MM-TT“ in Berliner Zeit, wie die Zeitangaben der App
 const tagKey = (ms) => new Date(ms).toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" });
 const tagPlus = (key, n) => { const [j, m, d] = key.split("-").map(Number); return new Date(Date.UTC(j, m - 1, d + n)).toISOString().slice(0, 10); };
-const WOCHENTAG = ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."];
+const WOCHENTAG = () => (App.sprache === "de" ? ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
 function tagName(key) { // „Mi., 21. Okt.“
   const [j, m, d] = key.split("-").map(Number), t = new Date(Date.UTC(j, m - 1, d, 12));
-  return `${WOCHENTAG[t.getUTCDay()]}, ${App.zeit.tag(t)}`;
+  return `${WOCHENTAG()[t.getUTCDay()]}, ${App.zeit.tag(t)}`;
 }
 // Erster und letzter Tag eines Termins (letzter eingeschlossen). Ganztägig: „ende“ ist der Tag danach, nicht eingeschlossen.
 function tagesSpanne(t) {
@@ -70,20 +88,20 @@ function zeichneStufe() {
   const offen = termine.filter((t) => (t.ganztaegig ? tagesSpanne(t)[1] >= heute : Date.parse(t.ende || t.start) > jetzt));
   // Ein Termin zählt zu dem Tag, an dem er beginnt; was schon läuft, zählt zu heute
   const tagVon = (t) => { const a = tagesSpanne(t)[0]; return a < heute ? heute : a; };
-  const tagWort = (k) => (k === heute ? "heute" : k === morgen ? "morgen" : tagName(k));
-  const tagTitel = (k) => (k === heute ? `Heute · ${tagName(k)}` : k === morgen ? `Morgen · ${tagName(k)}` : tagName(k));
+  const tagWort = (k) => (k === heute ? tr("heute") : k === morgen ? tr("morgen") : tagName(k));
+  const tagTitel = (k) => (k === heute ? tr("Heute · {0}", tagName(k)) : k === morgen ? tr("Morgen · {0}", tagName(k)) : tagName(k));
   const leer = (satzText, text) => {
     satz(satzText, "");
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "calendar-days", titel: "Keine Termine", text, klein: true }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "calendar-days", titel: tr("Keine Termine"), text, klein: true }) + "</div>";
   };
   const uhr = (t) => {
-    if (t.ganztaegig) return "ganztägig";
+    if (t.ganztaegig) return tr("ganztägig");
     const von = Date.parse(t.start), bis = Date.parse(t.ende || t.start);
-    if (von <= jetzt && bis > jetzt) return "läuft bis " + (tagesSpanne(t)[1] === heute ? App.zeit.uhr(bis) : App.zeit.tag(bis, true));
+    if (von <= jetzt && bis > jetzt) return tr("läuft bis {0}", tagesSpanne(t)[1] === heute ? App.zeit.uhr(bis) : App.zeit.tag(bis, true));
     return App.zeit.uhr(von);
   };
   const zeitText = (t) => {
-    if (t.ganztaegig) { const [a, b] = tagesSpanne(t); return a === b ? "ganztägig" : `ganztägig bis ${tagName(b)}`; }
+    if (t.ganztaegig) { const [a, b] = tagesSpanne(t); return a === b ? tr("ganztägig") : tr("ganztägig bis {0}", tagName(b)); }
     const von = Date.parse(t.start), bis = Date.parse(t.ende || t.start), [a, b] = tagesSpanne(t);
     if (bis <= von) return App.zeit.uhr(von);
     return a === b ? `${App.zeit.uhr(von)}–${App.zeit.uhr(bis)}` : `${App.zeit.tag(von, true)} – ${App.zeit.tag(bis, true)}`;
@@ -93,18 +111,18 @@ function zeichneStufe() {
   if (stufe === "blick") {
     const heuteOffen = offen.filter((t) => tagVon(t) === heute);
     const naechster = heuteOffen.find((t) => !t.ganztaegig) || offen[0];
-    if (!naechster) return leer("Keine Termine", "In den nächsten Tagen steht nichts an.");
+    if (!naechster) return leer(tr("Keine Termine"), tr("In den nächsten Tagen steht nichts an."));
     const weitere = heuteOffen.filter((t) => t !== naechster).length;
-    satz("Nächster Termin", "gut");
+    satz(tr("Nächster Termin"), "gut");
     $("liste").innerHTML = '<div class="karte zeilen">' + terminZeile(naechster, `${tagWort(tagVon(naechster))}, ${uhr(naechster)}`) + "</div>"
-      + `<div class="mut t-mehr">${weitere === 0 ? "heute keine weiteren" : weitere === 1 ? "heute 1 weiterer" : `heute ${weitere} weitere`}</div>`;
+      + `<div class="mut t-mehr">${esc(weitere === 0 ? tr("heute keine weiteren") : weitere === 1 ? tr("heute 1 weiterer") : tr("heute {0} weitere", weitere))}</div>`;
     return;
   }
 
   if (stufe === "kompakt") {
     const heuteListe = offen.filter((t) => tagVon(t) === heute), morgenListe = offen.filter((t) => tagVon(t) === morgen);
-    if (!heuteListe.length && !morgenListe.length) return leer("Heute und morgen frei", "Heute und morgen steht nichts an.");
-    satz(`${heuteListe.length ? heuteListe.length + " heute" : "heute frei"} · ${morgenListe.length ? morgenListe.length + " morgen" : "morgen frei"}`, "gut");
+    if (!heuteListe.length && !morgenListe.length) return leer(tr("Heute und morgen frei"), tr("Heute und morgen steht nichts an."));
+    satz(`${heuteListe.length ? tr("{0} heute", heuteListe.length) : tr("heute frei")} · ${morgenListe.length ? tr("{0} morgen", morgenListe.length) : tr("morgen frei")}`, "gut");
     // Eine kurze Liste (App.anzahl Zeilen); jeder Tag bekommt die Hälfte, ein Tag ohne Termine gibt den Rest ab
     const max = App.anzahl({ kompakt: 5 });
     let zeigeHeute = Math.min(heuteListe.length, Math.ceil(max / 2));
@@ -112,17 +130,17 @@ function zeichneStufe() {
     zeigeHeute = Math.min(heuteListe.length, max - zeigeMorgen);
     const reihen = [
       ...heuteListe.slice(0, zeigeHeute).map((t) => terminZeile(t, uhr(t))),
-      ...morgenListe.slice(0, zeigeMorgen).map((t) => terminZeile(t, `morgen, ${uhr(t)}`)),
+      ...morgenListe.slice(0, zeigeMorgen).map((t) => terminZeile(t, tr("morgen, {0}", uhr(t)))),
     ];
     const rest = heuteListe.length + morgenListe.length - reihen.length;
     $("liste").innerHTML = '<div class="karte zeilen">' + reihen.join("") + "</div>"
-      + (rest > 0 ? `<div class="mut t-mehr">${rest === 1 ? "1 weiterer Termin" : `${rest} weitere Termine`} im größeren Fenster</div>` : "");
+      + (rest > 0 ? `<div class="mut t-mehr">${esc(rest === 1 ? tr("1 weiterer Termin im größeren Fenster") : tr("{0} weitere Termine im größeren Fenster", rest))}</div>` : "");
     return;
   }
 
   // weit: alle Tage des Fensters, je Tag eine Karte mit Ort und Details (das Werkzeug liefert 14 Tage)
-  if (!offen.length) return leer("Keine Termine", "In den nächsten Tagen steht nichts an.");
-  satz(`${offen.length} Termin${offen.length === 1 ? "" : "e"} in den nächsten Tagen`, "gut");
+  if (!offen.length) return leer(tr("Keine Termine"), tr("In den nächsten Tagen steht nichts an."));
+  satz(anzahlTermine(offen.length), "gut");
   const nachTag = new Map();
   for (const t of offen) nachTag.set(tagVon(t), [...(nachTag.get(tagVon(t)) || []), t]);
   $("liste").innerHTML = '<div class="raster">' + [...nachTag].map(([k, liste]) => `<section class="karte"><h2>${tagTitel(k)}<span class="anzahl">${liste.length}</span></h2>`
@@ -131,18 +149,18 @@ function zeichneStufe() {
 
 function zeichnen() {
   if (zustandText === "nicht eingerichtet") {
-    satz("Kein Kalender eingerichtet", "warn");
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "calendar-days", ton: "warn", titel: "Kein Kalender eingerichtet", text: meldung || "Trag einen Termin-Dienst ein oder installiere das Kalender-Plugin." }) + "</div>";
+    satz(tr("Kein Kalender eingerichtet"), "warn");
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "calendar-days", ton: "warn", titel: tr("Kein Kalender eingerichtet"), text: meldung || tr("Trag einen Termin-Dienst ein oder installiere das Kalender-Plugin.") }) + "</div>";
     return;
   }
   if (zustandText === "fehler") {
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Der Kalender antwortet nicht", text: meldung, klein: true }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: tr("Der Kalender antwortet nicht"), text: meldung, klein: true }) + "</div>";
     return;
   }
   if (App.stufe !== "normal") return zeichneStufe(); // Eine Ansicht je Größe (Entscheidung 507)
-  satz(termine.length ? `${termine.length} Termin${termine.length === 1 ? "" : "e"} in den nächsten Tagen` : "Keine Termine", termine.length ? "gut" : "");
+  satz(termine.length ? anzahlTermine(termine.length) : tr("Keine Termine"), termine.length ? "gut" : "");
   if (!termine.length) {
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "calendar-days", titel: "Keine Termine", text: "In den nächsten Tagen steht nichts an.", klein: true }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "calendar-days", titel: tr("Keine Termine"), text: tr("In den nächsten Tagen steht nichts an."), klein: true }) + "</div>";
     return;
   }
   $("liste").innerHTML = '<div class="karte zeilen">' + termine.map((t) =>
@@ -166,18 +184,18 @@ function annehmen(u) {
   const morgen = new Date(Date.now() + 86400000); morgen.setHours(9, 0, 0, 0);
   const vorgabe = new Date(morgen.getTime() - morgen.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   $("planung").innerHTML = `<form id="termin-form" class="t-form karte" autocomplete="off">`
-    + `<label for="termin-titel">Titel</label><input id="termin-titel" type="text" maxlength="200" value="${esc(u.argumente.titel || u.label)}">`
-    + `<label for="termin-start">Wann</label><div class="t-zeile"><input id="termin-start" type="datetime-local" value="${esc(vorgabe)}" required></div>`
-    + `<div class="aktionen"><button type="submit" class="haupt">${symbol("calendar-plus")}Plan ansehen</button> <button type="button" class="zweit" id="termin-nein">Abbrechen</button></div></form>`;
+    + `<label for="termin-titel">${esc(tr("Titel"))}</label><input id="termin-titel" type="text" maxlength="200" value="${esc(u.argumente.titel || u.label)}">`
+    + `<label for="termin-start">${esc(tr("Wann"))}</label><div class="t-zeile"><input id="termin-start" type="datetime-local" value="${esc(vorgabe)}" required></div>`
+    + `<div class="aktionen"><button type="submit" class="haupt">${symbol("calendar-plus")}${esc(tr("Plan ansehen"))}</button> <button type="button" class="zweit" id="termin-nein">${esc(tr("Abbrechen"))}</button></div></form>`;
   $("termin-nein").addEventListener("click", () => { $("planung").replaceChildren(); });
   $("termin-form").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const args = { ...u.argumente, titel: $("termin-titel").value.trim() || u.argumente.titel, start: $("termin-start").value };
     try {
-      const r = await App.beantragen({ werkzeug: "termine__anlegen", args, ort: $("antrag"), ja: "Termin anlegen", symbol: "check" });
+      const r = await App.beantragen({ werkzeug: "termine__anlegen", args, ort: $("antrag"), ja: tr("Termin anlegen"), symbol: "check" });
       if (r == null) return;
       $("planung").replaceChildren();
-      satz((r && r.satz) || "Termin angelegt.", "gut");
+      satz((r && r.satz) || tr("Termin angelegt."), "gut");
       await laden();
     } catch (e) { satz(App.fehlertext(e), "schlecht"); }
   });

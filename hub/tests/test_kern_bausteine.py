@@ -105,7 +105,7 @@ def test_zettel_werkzeuge_schreibend_nur_fuer_die_oberflaeche(zettel):
 
 
 def test_der_nachtauftrag_liest_ein_werkzeug_das_der_agent_sehen_und_rufen_darf(zettel):
-    """Der Nachtauftrag (docs/NACHTARBEIT.md, Skill nachtarbeit) schickt den Agenten zu `beispiel_app.zeigen`: Es muss das
+    """Der Nachtauftrag (docs/NIGHT-WORK.md, Skill nachtarbeit) schickt den Agenten zu `beispiel_app.zeigen`: Es muss das
     Werkzeug geben, es darf nicht „nur für die Oberfläche“ sein, und es liefert `anzahl` und `notizen` mit Text."""
     plugin, werkzeug = "beispiel_app.zeigen".split(".")
     assert plugin == zettel.name

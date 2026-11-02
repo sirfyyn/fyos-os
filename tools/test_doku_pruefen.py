@@ -18,13 +18,13 @@ README = """# Titel
 
 Was das hier ist.
 
-## Was hier liegt
+## What lives here
 
-## Loslegen
+## Getting started
 
-## Erweitern
+## Extending
 
-## Entwickeln
+## Developing
 
 Tests laufen mit pytest.
 """
@@ -158,7 +158,7 @@ def test_links_in_code_und_kommentaren_zaehlen_nicht(tmp_path):
 def test_anker_nach_github_und_gitea_schreibweise(tmp_path):
     dateien = {
         "README.md": _readme(
-            "[a](#entwickeln) [b](docs/A.md#ueber-uns) [c](docs/A.md#über-uns) [d](docs/A.md#ber-uns) "
+            "[a](#developing) [b](docs/A.md#ueber-uns) [c](docs/A.md#über-uns) [d](docs/A.md#ber-uns) "
             "[e](docs/A.md#die-datei-plan) [f](docs/A.md#doppelt-1) [g](docs/A.md#ENTWICKELN-2)"
         ),
         "docs/A.md": "# A\n\n## Ueber uns\n\n## Über uns\n\n## Die Datei `plan`\n\n## Doppelt\n\n## Doppelt\n\n"
@@ -330,13 +330,13 @@ def test_readme_ohne_feste_abschnitte(tmp_path):
     assert gefunden["a/README.md"].count("\n") == 1 and "gefunden: 2" in gefunden["a/README.md"]
     assert gefunden["b/README.md"].count("\n") == 1 and "erste Ueberschrift" in gefunden["b/README.md"]
     assert gefunden["c/README.md"].count("\n") == 1 and "Einleitungstext" in gefunden["c/README.md"]
-    assert gefunden["d/README.md"].count("\n") == 1 and 'Abschnitt "Tests" oder "Entwickeln"' in gefunden["d/README.md"]
+    assert gefunden["d/README.md"].count("\n") == 1 and 'Abschnitt "Tests" oder "Developing"' in gefunden["d/README.md"]
     assert "gefunden: 0" in gefunden["e/README.md"] and 'Abschnitt "Tests"' in gefunden["e/README.md"]
     assert "Einleitungstext" in gefunden["f/README.md"] and 'Abschnitt "Tests"' in gefunden["f/README.md"]
 
 
 def test_readme_abschnitt_tests_oder_entwickeln_in_jeder_schreibweise(tmp_path):
-    for nr, titel in enumerate(["Tests", "tests", "Tests und Werkzeuge", "Entwickeln", "Entwickeln und prüfen", "`Tests`"]):
+    for nr, titel in enumerate(["Tests", "tests", "Tests und Werkzeuge", "Entwickeln", "Entwickeln und prüfen", "`Tests`", "Developing", "Developing and testing", "Development"]):
         _repo(tmp_path, {f"r{nr}/README.md": f"# T\n\nText.\n\n## {titel}\n"})
     assert d.pruefen(tmp_path) == []
     _repo(tmp_path, {"x/README.md": "# T\n\nText.\n\n### Tests\n\n## Wie testet man?\n"})
@@ -344,12 +344,12 @@ def test_readme_abschnitt_tests_oder_entwickeln_in_jeder_schreibweise(tmp_path):
 
 
 def test_wurzel_readme_braucht_den_wegweiser(tmp_path):
-    text = "# Titel\n\nText.\n\n## Was hier liegt\n\n## Entwickeln\n"
+    text = "# Titel\n\nText.\n\n## What lives here\n\n## Developing\n"
     befunde = d.pruefen(_repo(tmp_path, {"README.md": text}))
     assert sorted(b.text for b in befunde) == [
-        'Abschnitt "Erweitern" (H2) fehlt in der Wurzel-README', 'Abschnitt "Loslegen" (H2) fehlt in der Wurzel-README',
+        'Abschnitt "Extending" (H2) fehlt in der Wurzel-README', 'Abschnitt "Getting started" (H2) fehlt in der Wurzel-README',
     ]
-    voll = "# Titel\n\nText.\n\n## Was hier liegt\n\n## Loslegen\n\n## Erweitern\n\n## Entwickeln\n"
+    voll = "# Titel\n\nText.\n\n## What lives here\n\n## Getting started\n\n## Extending\n\n## Developing\n"
     assert d.pruefen(_repo(tmp_path, {"README.md": voll})) == []
     # in einem Unterordner gilt der Wegweiser nicht
     assert d.pruefen(_repo(tmp_path, {"README.md": voll, "hub/README.md": UNTER})) == []

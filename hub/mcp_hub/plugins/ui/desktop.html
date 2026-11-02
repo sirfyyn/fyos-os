@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,19 +31,42 @@
 <main>
   <div id="antrag"></div>
   <div class="d-ziele" id="ziele" data-ab="kompakt">
-    <button type="button" class="zweit" data-ziel="mensch" aria-pressed="true">Mein Desktop</button>
-    <button type="button" class="zweit" data-ziel="agent" aria-pressed="false">Desktop des Agenten</button>
+    <button type="button" class="zweit" data-ziel="mensch" aria-pressed="true" data-t>Mein Desktop</button>
+    <button type="button" class="zweit" data-ziel="agent" aria-pressed="false" data-t>Desktop des Agenten</button>
   </div>
   <div id="frei"></div>
   <div id="bild" data-ab="normal"></div>
   <div id="starter" data-ab="normal"></div>
-  <div id="fenster"><div class="laedt">Lädt …</div></div>
+  <div id="fenster"><div class="laedt" data-t>Lädt …</div></div>
   <div id="bildschirme" data-ab="weit"></div>
 </main>
 <script>
 /*BRUECKE*/
 const $ = (id) => document.getElementById(id);
 const { esc, symbol, zustand, satz } = App;
+App.texte({
+  "Bildschirm ansehen": "View screen", "Mein Desktop": "My desktop", "Desktop des Agenten": "Agent's desktop",
+  "(ohne Titel)": "(untitled)", "1 weiteres Fenster im größeren Fenster": "1 more window in a larger window",
+  "{0} weitere Fenster im größeren Fenster": "{0} more windows in a larger window", "Der Desktop antwortet nicht": "The desktop does not answer",
+  "Agent: ": "Agent: ", "{0} Fenster · Arbeitsfläche {1} · {2}×{3} · {4}": "{0} windows · workspace {1} · {2}×{3} · {4}",
+  "Du hast übernommen: der Agent ruht": "You have taken over: the agent rests", "Der Agent arbeitet hier frei": "The agent works freely here",
+  "Eingaben des Agenten werden abgewiesen, bis du zurückgibst.": "The agent's input is rejected until you give it back.",
+  "Du siehst zu. Mit „Übernehmen“ hältst du den Agenten an.": "You are watching. “Take over” pauses the agent.",
+  "Zurückgeben": "Give back", "Übernehmen": "Take over",
+  "Computer Use freigegeben, noch {0}:{1} Minuten": "Computer use approved, {0}:{1} minutes left", "Computer Use gesperrt": "Computer use locked",
+  "Der Agent darf klicken und tippen. Sperren: Klick auf „KI“ in der Leiste des Rechners oder Alt+Umschalt+K.":
+    "The agent may click and type. To lock: click “KI” in the computer's bar or Alt+Shift+K.",
+  "Klicken und Tippen für den Agenten gibt nur, wer am Rechner sitzt: Klick auf „KI“ in der Leiste oder Alt+Umschalt+K (10 Minuten).":
+    "Only someone at the computer can allow the agent to click and type: click “KI” in the bar or Alt+Shift+K (10 minutes).",
+  "Starten": "Launch", "Offene Fenster": "Open windows",
+  "Zieh ein Fenster auf eine andere App oder auf den Agenten, um darüber zu sprechen. Nach vorn holen und Schließen fragen vorher nach.":
+    "Drag a window onto another app or onto the agent to talk about it. Bringing to front and closing ask first.",
+  "Arbeitsfläche {0}": "workspace {0}", " · vorn": " · in front", " · Vollbild": " · fullscreen", "Nach vorn holen": "Bring to front", "Schließen": "Close",
+  "Kein Fenster offen": "No window open", "Auf dem Desktop ist gerade nichts offen.": "Nothing is open on the desktop right now.",
+  "Bildschirme": "Screens", "Bildschirm {0}": "Screen {0}", "Bildschirm des Desktops": "Screen of the desktop",
+  "Der Desktop antwortet nicht.": "The desktop does not answer.", "{0} starten": "Start {0}", "Übernommen.": "Taken over.",
+});
+const t = App.t;
 let ziel = "mensch";
 const rufen = (name, args) => App.rufen("desktop__" + name, { ...(ziel === "agent" ? { ziel } : {}), ...(args || {}) });
 
@@ -54,52 +77,52 @@ let bild = "";
 let bildTyp = "image/jpeg";
 let bildLaeuft = false;
 
-function titelVon(f) { return (f.titel || "").trim() || "(ohne Titel)"; }
+function titelVon(f) { return (f.titel || "").trim() || t("(ohne Titel)"); }
 // Eine Ansicht je Größe (Entscheidung 507): was im Blick oder kompakt abgeschnitten wird, steht als eine Zeile da
-const weitere = (n) => (n > 0 ? `<div class="d-weitere">${n === 1 ? "1 weiteres Fenster" : `${n} weitere Fenster`} im größeren Fenster</div>` : "");
+const weitere = (n) => (n > 0 ? `<div class="d-weitere">${esc(n === 1 ? t("1 weiteres Fenster im größeren Fenster") : t("{0} weitere Fenster im größeren Fenster", n))}</div>` : "");
 
 function zeichnen() {
   if (!daten) {
-    $("fenster").innerHTML = '<div class="karte">' + zustand({ symbol: "monitor", ton: "schlecht", titel: "Der Desktop antwortet nicht", text: fehlerText, klein: true }) + "</div>";
+    $("fenster").innerHTML = '<div class="karte">' + zustand({ symbol: "monitor", ton: "schlecht", titel: t("Der Desktop antwortet nicht"), text: fehlerText, klein: true }) + "</div>";
     $("starter").replaceChildren();
     return;
   }
   const l = daten.lage || {}, m = (l.monitore || [{}])[0] || {};
-  satz(`${ziel === "agent" ? "Agent: " : ""}${(daten.fenster || []).length} Fenster · Arbeitsfläche ${l.arbeitsflaeche ?? "?"} · ${m.breite ?? "?"}×${m.hoehe ?? "?"} · ${l.modus || ""}`, "gut");
+  satz((ziel === "agent" ? t("Agent: ") : "") + t("{0} Fenster · Arbeitsfläche {1} · {2}×{3} · {4}", (daten.fenster || []).length, l.arbeitsflaeche ?? "?", m.breite ?? "?", m.hoehe ?? "?", l.modus || ""), "gut");
 
   const e = daten.eingabe || {};
   if (ziel === "agent") {
     const u = !!e.uebernommen;
     $("frei").innerHTML = '<div class="karte"><span class="marke ' + (u ? "schlecht" : "gut") + '">' + symbol(u ? "power" : "eye")
-      + (u ? "Du hast übernommen: der Agent ruht" : "Der Agent arbeitet hier frei") + "</span>"
-      + '<p class="d-hinweis">' + (u ? "Eingaben des Agenten werden abgewiesen, bis du zurückgibst." : "Du siehst zu. Mit „Übernehmen“ hältst du den Agenten an.") + "</p>"
-      + `<button type="button" class="${u ? "" : "zweit"}" data-uebernehmen="${u ? "aus" : "an"}">${symbol(u ? "play" : "power")}${u ? "Zurückgeben" : "Übernehmen"}</button></div>`;
+      + esc(u ? t("Du hast übernommen: der Agent ruht") : t("Der Agent arbeitet hier frei")) + "</span>"
+      + '<p class="d-hinweis">' + esc(u ? t("Eingaben des Agenten werden abgewiesen, bis du zurückgibst.") : t("Du siehst zu. Mit „Übernehmen“ hältst du den Agenten an.")) + "</p>"
+      + `<button type="button" class="${u ? "" : "zweit"}" data-uebernehmen="${u ? "aus" : "an"}">${symbol(u ? "play" : "power")}${esc(u ? t("Zurückgeben") : t("Übernehmen"))}</button></div>`;
   } else $("frei").innerHTML = e.unbekannt ? "" : '<div class="karte"><span class="marke ' + (e.freigabe ? "schlecht" : "grau") + '">' + symbol(e.freigabe ? "eye" : "power")
-    + (e.freigabe ? `Computer Use freigegeben, noch ${Math.floor(e.rest_sekunden / 60)}:${String(e.rest_sekunden % 60).padStart(2, "0")} Minuten` : "Computer Use gesperrt") + "</span>"
-    + '<p class="d-hinweis">' + (e.freigabe ? "Der Agent darf klicken und tippen. Sperren: Klick auf „KI“ in der Leiste des Rechners oder Alt+Umschalt+K."
-      : "Klicken und Tippen für den Agenten gibt nur, wer am Rechner sitzt: Klick auf „KI“ in der Leiste oder Alt+Umschalt+K (10 Minuten).") + "</p></div>";
+    + esc(e.freigabe ? t("Computer Use freigegeben, noch {0}:{1} Minuten", Math.floor(e.rest_sekunden / 60), String(e.rest_sekunden % 60).padStart(2, "0")) : t("Computer Use gesperrt")) + "</span>"
+    + '<p class="d-hinweis">' + esc(e.freigabe ? t("Der Agent darf klicken und tippen. Sperren: Klick auf „KI“ in der Leiste des Rechners oder Alt+Umschalt+K.")
+      : t("Klicken und Tippen für den Agenten gibt nur, wer am Rechner sitzt: Klick auf „KI“ in der Leiste oder Alt+Umschalt+K (10 Minuten).")) + "</p></div>";
 
   const st = daten.starter || [];
   $("starter").innerHTML = st.length
-    ? '<div class="karte"><h2>Starten</h2><div class="d-starter">' + st.map((s) =>
+    ? '<div class="karte"><h2>' + esc(t("Starten")) + '</h2><div class="d-starter">' + st.map((s) =>
         `<button type="button" class="zweit" data-starter="${esc(s.id)}" data-name="${esc(s.name)}">${symbol("play")}${esc(s.name)}</button>`).join("") + "</div></div>"
     : "";
 
   // Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt das Fenster vorn zuerst und nur wenige; sonst alle
   const alle = daten.fenster || [], klein = App.stufe === "blick" || App.stufe === "kompakt";
   const fl = klein ? [...alle].sort((a, b) => Number(!!b.fokus) - Number(!!a.fokus)).slice(0, App.anzahl({ blick: 3, kompakt: 6 })) : alle;
-  $("fenster").innerHTML = '<div class="karte"><h2>Offene Fenster</h2>' + (fl.length
-    ? '<p class="d-hinweis">Zieh ein Fenster auf eine andere App oder auf den Agenten, um darüber zu sprechen. Nach vorn holen und Schließen fragen vorher nach.</p><div class="zeilen">'
+  $("fenster").innerHTML = '<div class="karte"><h2>' + esc(t("Offene Fenster")) + '</h2>' + (fl.length
+    ? '<p class="d-hinweis">' + esc(t("Zieh ein Fenster auf eine andere App oder auf den Agenten, um darüber zu sprechen. Nach vorn holen und Schließen fragen vorher nach.")) + '</p><div class="zeilen">'
       + fl.map((f) =>
         `<div class="zeile mitte" data-adresse="${esc(f.adresse)}" data-label="${esc(f.klasse + ": " + titelVon(f))}">`
         + `<span class="zeile-text"><span class="zeile-titel${f.fokus ? " d-fokus" : ""}">${esc(titelVon(f))}</span>`
-        + `<span class="zeile-unter">${esc(f.klasse)} · Arbeitsfläche ${esc(f.arbeitsflaeche)}${f.fokus ? " · vorn" : ""}${f.vollbild ? " · Vollbild" : ""}</span></span>`
-        + `<span class="d-zeile-knoepfe"><button type="button" class="rund" data-fokus="1" title="Nach vorn holen" aria-label="Nach vorn holen">${symbol("square-arrow-out-up-right")}</button>`
-        + `<button type="button" class="rund" data-zu="1" title="Schließen" aria-label="Schließen">${symbol("x")}</button></span></div>`).join("") + "</div>"
-    : zustand({ symbol: "monitor", titel: "Kein Fenster offen", text: "Auf dem Desktop ist gerade nichts offen.", klein: true })) + weitere(alle.length - fl.length) + "</div>";
+        + `<span class="zeile-unter">${esc(f.klasse)} · ${esc(t("Arbeitsfläche {0}", f.arbeitsflaeche))}${f.fokus ? esc(t(" · vorn")) : ""}${f.vollbild ? esc(t(" · Vollbild")) : ""}</span></span>`
+        + `<span class="d-zeile-knoepfe"><button type="button" class="rund" data-fokus="1" title="${esc(t("Nach vorn holen"))}" aria-label="${esc(t("Nach vorn holen"))}">${symbol("square-arrow-out-up-right")}</button>`
+        + `<button type="button" class="rund" data-zu="1" title="${esc(t("Schließen"))}" aria-label="${esc(t("Schließen"))}">${symbol("x")}</button></span></div>`).join("") + "</div>"
+    : zustand({ symbol: "monitor", titel: t("Kein Fenster offen"), text: t("Auf dem Desktop ist gerade nichts offen."), klein: true })) + weitere(alle.length - fl.length) + "</div>";
   // weit: die Bildschirme einzeln (die Satzzeile nennt nur den ersten)
-  $("bildschirme").innerHTML = App.stufe !== "weit" || !(l.monitore || []).length ? "" : '<div class="karte"><h2>Bildschirme</h2><div class="zeilen">'
-    + l.monitore.map((mon, i) => `<div class="zeile mitte"><span class="zeile-text"><span class="zeile-titel">Bildschirm ${i + 1}</span><span class="zeile-unter">${esc(`${mon.breite ?? "?"} × ${mon.hoehe ?? "?"}`)}</span></span></div>`).join("")
+  $("bildschirme").innerHTML = App.stufe !== "weit" || !(l.monitore || []).length ? "" : '<div class="karte"><h2>' + esc(t("Bildschirme")) + '</h2><div class="zeilen">'
+    + l.monitore.map((mon, i) => `<div class="zeile mitte"><span class="zeile-text"><span class="zeile-titel">${esc(t("Bildschirm {0}", i + 1))}</span><span class="zeile-unter">${esc(`${mon.breite ?? "?"} × ${mon.hoehe ?? "?"}`)}</span></span></div>`).join("")
     + "</div></div>";
 }
 
@@ -109,7 +132,7 @@ function bildZeichnen() {
   const quelle = `data:${bildTyp};base64,${bild}`;
   const da = $("bild").querySelector("img.d-bild");
   if (da) { da.src = quelle; return; }  // Bild an Ort und Stelle tauschen, sonst flackert die Live-Ansicht
-  $("bild").innerHTML = '<div class="karte"><img class="d-bild" alt="Bildschirm des Desktops"></div>';
+  $("bild").innerHTML = '<div class="karte"><img class="d-bild" alt="' + esc(t("Bildschirm des Desktops")) + '"></div>';
   $("bild").querySelector("img.d-bild").src = quelle;
 }
 
@@ -124,9 +147,9 @@ async function bildLaden() {
 async function laden() {
   try {
     const d = await rufen("zeigen");
-    if (d && d.ok === false) throw new Error(d.error || d.satz || "Der Desktop antwortet nicht.");
+    if (d && d.ok === false) throw new Error(d.error || d.satz || t("Der Desktop antwortet nicht."));
     daten = d; fehlerText = "";
-  } catch (e) { daten = null; fehlerText = App.fehlertext(e); satz("Der Desktop antwortet nicht", "schlecht"); }
+  } catch (e) { daten = null; fehlerText = App.fehlertext(e); satz(t("Der Desktop antwortet nicht"), "schlecht"); }
   zeichnen();
 }
 
@@ -134,20 +157,20 @@ async function beantragen(werkzeug, args, ja, sym) {
   try {
     const r = await App.beantragen({ werkzeug: "desktop__" + werkzeug, args: { ...(ziel === "agent" ? { ziel } : {}), ...args }, ort: $("antrag"), ja, symbol: sym });
     if (r == null) return;
-    satz((r && r.satz) || "Erledigt.", "gut");
+    satz((r && r.satz) || t("Erledigt."), "gut");
     setTimeout(laden, 700);
   } catch (e) { satz(App.fehlertext(e), "schlecht"); }
 }
 
 $("starter").addEventListener("click", (e) => {
   const b = e.target.closest("[data-starter]");
-  if (b) beantragen("starten", { starter: b.dataset.starter }, b.dataset.name + " starten", "play");
+  if (b) beantragen("starten", { starter: b.dataset.starter }, t("{0} starten", b.dataset.name), "play");
 });
 $("fenster").addEventListener("click", (e) => {
   const z = e.target.closest(".zeile[data-adresse]");
   if (!z) return;
-  if (e.target.closest("[data-fokus]")) beantragen("fokus", { adresse: z.dataset.adresse }, "Nach vorn holen", "square-arrow-out-up-right");
-  else if (e.target.closest("[data-zu]")) beantragen("schliessen", { adresse: z.dataset.adresse }, "Schließen", "x");
+  if (e.target.closest("[data-fokus]")) beantragen("fokus", { adresse: z.dataset.adresse }, t("Nach vorn holen"), "square-arrow-out-up-right");
+  else if (e.target.closest("[data-zu]")) beantragen("schliessen", { adresse: z.dataset.adresse }, t("Schließen"), "x");
 });
 $("ziele").addEventListener("click", (e) => {
   const b = e.target.closest("[data-ziel]");
@@ -161,8 +184,8 @@ $("frei").addEventListener("click", async (e) => {
   if (!b) return;
   const an = b.dataset.uebernehmen === "an";
   try {
-    if (an) { const r = await rufen("uebernehmen", { an: true }); satz((r && r.satz) || "Übernommen.", "gut"); setTimeout(laden, 300); }
-    else await beantragen("uebernehmen", { an: false }, "Zurückgeben", "play");
+    if (an) { const r = await rufen("uebernehmen", { an: true }); satz((r && r.satz) || t("Übernommen."), "gut"); setTimeout(laden, 300); }
+    else await beantragen("uebernehmen", { an: false }, t("Zurückgeben"), "play");
   } catch (er) { satz(App.fehlertext(er), "schlecht"); }
 });
 $("knopf-neuladen").addEventListener("click", () => { laden(); bildLaden(); });

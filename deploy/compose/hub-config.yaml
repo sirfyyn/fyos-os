@@ -1,5 +1,5 @@
-# Installierte Plugin-Pakete laden ohne Eintrag (Entry-Point-Gruppe mcp_hub.plugins).
-# Einträge nur für Konfiguration, Geheimnisse oder enabled: false (Schema: hub/config.example.yaml).
+# Installed plugin packages load without an entry (entry point group mcp_hub.plugins).
+# Entries only for configuration, secrets or enabled: false (schema: hub/config.example.yaml).
 host: 0.0.0.0
 port: 8080
 path: /mcp

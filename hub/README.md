@@ -1,137 +1,140 @@
-# FYOS-Hub
+# FYOS Hub
 
-Der Hub von FYOS (For Your Own Sake): ein MCP-Server, der viele Plugins unter einer Adresse anbietet.
-Ein Plugin liefert Werkzeuge und, wenn es will, eine Oberfläche (`ui://`-HTML). Die Shell zeigt diese
-Oberflächen als Fenster, jeder MCP-Client mit MCP-Apps-Unterstützung im Gespräch.
+The Hub of FYOS (For Your Own Sake): an MCP server that offers many plugins under one address. A plugin delivers tools
+and, if it wants, an interface (`ui://` HTML). The shell shows these interfaces as windows; every MCP client that
+supports MCP apps shows them in the conversation.
 
-Der Hub spricht dreierlei:
+The Hub speaks three things:
 
-- **MCP** unter `/mcp` (Streamable HTTP) für Agenten und Chat-Clients,
-- **REST** unter `/hub/*` für die Shell und Skripte,
-- **Gesundheit** unter `/health`.
+- **MCP** at `/mcp` (Streamable HTTP) for agents and chat clients,
+- **REST** at `/hub/*` for the shell and scripts,
+- **health** at `/health`.
 
-Die genauen Wege und Formate stehen in [`docs/HUB-VERTRAG.md`](../docs/HUB-VERTRAG.md).
+The exact routes and formats are in [`docs/HUB-CONTRACT.md`](../docs/HUB-CONTRACT.md).
 
-## Installieren und starten
+## Installing and starting
 
 ```
-pip install ".[suche]"          # Kern; [suche] bringt Qdrant-Client und numpy (optional)
-fyos-hub                        # oder: python3 -m mcp_hub.server
+pip install ".[suche]"          # core; [suche] brings the Qdrant client and numpy (optional)
+fyos-hub                        # or: python3 -m mcp_hub.server
 ```
 
-Als Bild: `docker build -t fyos-hub hub/` (Build-Argument `EXTRA_PIP` installiert weitere Plugin-Pakete, z. B.
-`--build-arg EXTRA_PIP="fyos-plugin-finanzen"`). Das Bild lauscht auf Port 8080.
+As an image: `docker build -t fyos-hub hub/` (the build argument `EXTRA_PIP` installs further plugin packages, e.g.
+`--build-arg EXTRA_PIP="fyos-plugin-finanzen"`). The image listens on port 8080.
 
-Das Bild installiert Plugin-Pakete mit `uv` statt mit `pip`. Liegen sie in einem eigenen Paketindex, kommt dessen Adresse als
-`--build-arg FYOS_INDEX_URL=<Index-URL>` und steht damit vor PyPI. `--index-strategy first-index` steht ausdrücklich im Befehl:
-uv nimmt ein Paket nur aus dem ersten Index, der es führt, ein Paket gleichen Namens auf PyPI kann das eigene also nicht
-verdrängen (Dependency Confusion; mit `pip --extra-index-url` wäre das möglich). Die Version von uv ist im Dockerfile fest.
+The image installs plugin packages with `uv` instead of `pip`. If they live in a package index of your own, its address
+comes as `--build-arg FYOS_INDEX_URL=<index URL>` and thereby goes before PyPI. `--index-strategy first-index` is set
+explicitly in the command: uv takes a package only from the first index that carries it, so a package of the same name
+on PyPI cannot displace your own (dependency confusion; with `pip --extra-index-url` it could). The version of uv is
+pinned in the Dockerfile.
 
-Ohne Konfigurationsdatei lädt der Hub jedes installierte Plugin der Entry-Point-Gruppe `mcp_hub.plugins`
-mit seinen Vorgaben. Eine Datei (`MCP_HUB_CONFIG_PATH`, Vorgabe `./config.yaml`) braucht es nur für
-Plugin-Einstellungen, Geheimnisse oder `enabled: false`; siehe `config.example.yaml`.
+Without a configuration file the Hub loads every installed plugin of the entry point group `mcp_hub.plugins` with its
+defaults. A file (`MCP_HUB_CONFIG_PATH`, default `./config.yaml`) is only needed for plugin settings, secrets or
+`enabled: false`; see `config.example.yaml`.
 
-## Mitgelieferte Plugins
+## Bundled plugins
 
-| Plugin | Zweck |
+| Plugin | Purpose |
 |---|---|
-| `skills` | Arbeitsanleitungen (`<quelle>/<name>/SKILL.md`) durchsuchen und lesen |
-| `werkstatt` | angemeldete Skripte (Kopfblock `WERKSTATT`) finden und mit Trockenlauf ausführen |
-| `mcp` | Werkzeugkasten: Plugins, Werkzeuge, Apps und Protokolle des Hubs ansehen |
-| `shell` | Anordnung der offenen Shell (Fenster, Raster) als Werkzeuge |
-| `os` | Verbindung zur Shell: `os.lage`, `os.zeigen`, `os.ausfuehren`, `os.mitteilen`; Mitteilungen ohne Gegenüber warten bis zu 24 h (docs/NACHTARBEIT.md) |
-| `audit` | Protokoll aller Werkzeugaufrufe (Ringpuffer, mit Qdrant Vektorsuche) |
-| `event_bus_publisher` | Ereignisse je Werkzeugaufruf auf Redis-Streams (sonst im Speicher) |
-| `gui` | Ansichten bauen: Kennzahlen, Balken, Verlauf, Tabelle … aus Vorlagen oder frei, als App und als Seite (siehe unten) |
-| `dateien` | gemeinsame Dateiablage mit der App „Dateien“: Ordner, Vorschau, Hochladen per Ziehen, Papierkorb, frühere Fassungen; Ordner per `FYOS_DATEIEN`, „Öffnen mit“ für Programme auf einem Rechner per `oeffnen.gegenstelle` (docs/ERWEITERN.md §2.17) |
-| `beispiel_app` | Notizzettel mit Oberfläche, Vorlage für eigene Apps |
-| `vorgaenge`, `posteingang`, `termine` | Arbeits-Apps „Vorgänge“, „Mail“ (nur lesend) und „Termine“ auf den Quellen des Kerns (§2.13 bis §2.15); Mail und Vorgänge sind Dinge, die man auf andere Fenster zieht (§3.7) |
-| `suche` | Suche über alles (⌘K): Vorgänge, Mail, Dateien, Notizen und Quellen, die Plugins anmelden (§2.18) |
-| `echo`, `math` | Referenz-Plugins, standardmäßig aus |
+| `skills` | search and read work instructions (`<source>/<name>/SKILL.md`) |
+| `werkstatt` | workshop: find registered scripts (header block `WERKSTATT`) and run them with a dry run |
+| `mcp` | toolbox: look at the Hub's plugins, tools, apps and logs |
+| `shell` | layout of the open shell (windows, grid) as tools |
+| `os` | connection to the shell: `os.lage`, `os.zeigen`, `os.ausfuehren`, `os.mitteilen`; notices with no one to receive them wait for up to 24 h (docs/NIGHT-WORK.md) |
+| `audit` | log of all tool calls (ring buffer, with Qdrant vector search) |
+| `event_bus_publisher` | events per tool call on Redis streams (otherwise in memory) |
+| `gui` | build views: metrics, bars, history, table … from templates or free-form, as an app and as a page (see below) |
+| `dateien` | shared file store with the app "Files": folders, preview, upload by dragging, trash, earlier versions; folder through `FYOS_DATEIEN`, "Open with" for programs on a machine through `oeffnen.gegenstelle` (docs/EXTENDING.md §2.17) |
+| `beispiel_app` | notepad with an interface, template for apps of your own |
+| `vorgaenge`, `posteingang`, `termine` | work apps "Tickets", "Mail" (read-only) and "Appointments" on the core's sources (§2.13 to §2.15); mail and tickets are things you can drag onto other windows (§3.7) |
+| `itsm` | the core's ITSM: tickets (INC, CHG, VOR) with status, comments, history and approvals in the Hub's Redis (`fyos:itsm:*`); registers as the store for tickets and so fills the app "Tickets"; the runner reads `itsm.wartend` and `itsm.vorgang` (docs/ITSM.md) |
+| `suche` | search across everything (⌘K): tickets, mail, files, notes and sources that plugins register (§2.18) |
+| `echo`, `math` | reference plugins, off by default |
 
-Alles Weitere (Finanzen, Haus, Betrieb …) sind eigene Pakete, die sich per Entry-Point melden.
+Everything else (finances, home, operations …) comes as packages of their own that register through the entry point.
 
-## Ansichten bauen (`gui`)
+## Building views (`gui`)
 
-Das Plugin `gui` lässt den Agenten für den Moment eine bedienbare Ansicht bauen, statt nur zu antworten. `gui.vorlagen`
-listet neun Vorlagen (Kennzahlen, Balken, Verlauf, Tabelle, Vergleich, Ablauf, Zeitleiste, Status, Diagramm; die
-Vorlage Diagramm bettet SeeCode ein, MIT, siehe `NOTICE`). `gui.bauen` zeigt eine
-mit Daten (`vorlage` und `daten`), auf Wunsch live aus einem lesenden Werkzeug (`quelle`), oder eine frei gebaute
-(`html`, `css`, `js`). Die Ansicht läuft in einer Sandbox ohne Netz; `gui.zeigen` holt eine gebaute wieder.
+The plugin `gui` lets the agent build an interactive view for the moment instead of only answering. `gui.vorlagen`
+lists nine templates (metrics, bars, history, table, comparison, flow, timeline, status, diagram; the diagram template
+embeds SeeCode, MIT, see `NOTICE`). `gui.bauen` shows one with data (`vorlage` and `daten`), on request live from a
+reading tool (`quelle`), or a free-form one (`html`, `css`, `js`). The view runs in a sandbox without network;
+`gui.zeigen` fetches a built one again.
 
-Die Anleitung (Skill `generative-ui`) und die Vorlagen sind Paketdaten des Kerns (`mcp_hub/skills/generative-ui/`).
-Das Plugin `skills` findet den Skill ohne Einstellung über die Entry-Point-Gruppe `fyos.skills` (Quelle `kern`); eigene
-Vorlagen kommen mit `config: {vorlagen: <Ordner>}` dazu. Abgelegt werden höchstens 300 Ansichten in `mcp_hub.kv`: mit
-`REDIS_URL` in Redis (so lange wie dessen Persistenz), sonst im Speicher des Prozesses (dann bis zum Neustart des Hubs).
+The instructions (skill `generative-ui`) and the templates are package data of the core (`mcp_hub/skills/generative-ui/`).
+The plugin `skills` finds the skill without any setting through the entry point group `fyos.skills` (source `kern`);
+templates of your own are added with `config: {vorlagen: <folder>}`. At most 300 views are stored in `mcp_hub.kv`: with
+`REDIS_URL` in Redis (as long as its persistence lasts), otherwise in the process's memory (then until the Hub
+restarts).
 
-Für Flächen ohne MCP-Apps-Host liefert der Hub eine Ansicht als ganze Seite: `GET /hub/gui/<id>`, dazu
-`GET /hub/gui/<id>/daten` für frische Daten einer Live-Quelle (Beschreibung in
-[`docs/HUB-VERTRAG.md`](../docs/HUB-VERTRAG.md)). Der Mod [`fyos-ansicht`](../tools/claude-code/fyos-ansicht/README.md)
-für Claude Code öffnet sie damit im Terminal-Panel.
+For surfaces without an MCP Apps host the Hub delivers a view as a whole page: `GET /hub/gui/<id>`, plus
+`GET /hub/gui/<id>/daten` for fresh data from a live source (description in
+[`docs/HUB-CONTRACT.md`](../docs/HUB-CONTRACT.md)). The mod [`fyos-ansicht`](../tools/claude-code/fyos-ansicht/README.md)
+for Claude Code uses this to open them in the terminal panel.
 
-## Ein eigenes Plugin
+## A plugin of your own
 
 ```
-# pyproject.toml des Plugin-Pakets
+# pyproject.toml of the plugin package
 [project.entry-points."mcp_hub.plugins"]
 meins = "mein_paket.plugin:MeinPlugin"
 ```
 
 ```
-uv pip install ./mein-plugin    # danach lädt der Hub es ohne Eintrag in config.yaml
+uv pip install ./mein-plugin    # afterwards the Hub loads it without an entry in config.yaml
 ```
 
-Die Klasse erbt von `mcp_hub.plugin.HubPlugin` (`register`, `describe_tools`, `call`, optional `health`,
-`describe_resources`). Hat das Plugin eine Oberfläche, liegen die HTML-Dateien in `<paket>/ui/`; das Plugin
-übergibt den Paketnamen an `mcp_hub.plugins._oberflaeche.oberflaeche(datei, "mein_paket")`, und
-`_identitaet.registriere_app(...)` gibt der App Titel, Symbol und Farbton. `plugins/beispiel_app.py` zeigt alles
-in 200 Zeilen.
+The class inherits from `mcp_hub.plugin.HubPlugin` (`register`, `describe_tools`, `call`, optionally `health`,
+`describe_resources`). If the plugin has an interface, the HTML files live in `<package>/ui/`; the plugin passes the
+package name to `mcp_hub.plugins._oberflaeche.oberflaeche(datei, "mein_paket")`, and
+`_identitaet.registriere_app(...)` gives the app its title, symbol and colour tone. `plugins/beispiel_app.py` shows
+everything in 200 lines.
 
-## Umgebungsvariablen
+## Environment variables
 
-| Variable | Wirkung |
+| Variable | Effect |
 |---|---|
-| `MCP_HUB_CONFIG_PATH` | Pfad der YAML-Datei |
-| `MCP_HUB_HOST`, `MCP_HUB_PORT`, `MCP_HUB_PATH` | Adresse, Port (8080), MCP-Pfad (`/mcp`) |
-| `FYOS_OEFFENTLICH_URL` | öffentliche Adresse der Installation (Links, erlaubter Origin, Zielgruppe der Anmeldung) |
-| `FYOS_ERLAUBTE_HOSTS` | weitere erlaubte Hostnamen/Origins, mit Komma getrennt (Vorgabe: `localhost`, `127.0.0.1`) |
-| `FYOS_OS_URL` | Adresse der Shell, falls nicht `<FYOS_OEFFENTLICH_URL>/os` |
-| `TZ` | Zeitzone des Hubs (Tageszähler und Zeitfenster der Takte), z. B. `Europe/Berlin`; ohne Angabe UTC |
-| `REDIS_URL` | Redis für Ansichten, Suchspur, Ereignisse, OS-Brücke; ohne: Speicher im Prozess |
-| `QDRANT_URL` | Vektorsuche im Audit-Protokoll; ohne: Ringpuffer |
-| `FYOS_EMBED_URL`, `FYOS_EMBED_MODEL`, `FYOS_EMBED_KEY` | OpenAI-kompatibler Einbettungsdienst (`/v1/embeddings`) für Audit und Werkzeugsuche |
-| `FYOS_SKILLS_PATH` | Skill-Quellen, mit `:` getrennt (Vorgabe `/opt/fyos/skills`) |
-| `FYOS_REPO_PATH` | Repo der Werkstatt (Vorgabe `/opt/fyos/repo`) |
-| `FYOS_DATEIEN`, `FYOS_DATEIEN_MAX_MB`, `FYOS_DATEIEN_VERSIONEN`, `FYOS_DATEIEN_PAPIERKORB_TAGE` | Ordner der Dateiablage (im Bild `/data/dateien`), größte Datei in MB (25), frühere Fassungen je Datei (10), Tage im Papierkorb (30) |
-| `FYOS_OIDC_ISSUER` | schaltet die Anmeldung ein (siehe unten) |
+| `MCP_HUB_CONFIG_PATH` | path of the YAML file |
+| `MCP_HUB_HOST`, `MCP_HUB_PORT`, `MCP_HUB_PATH` | address, port (8080), MCP path (`/mcp`) |
+| `FYOS_OEFFENTLICH_URL` | public address of the installation (links, allowed origin, audience of the login) |
+| `FYOS_ERLAUBTE_HOSTS` | further allowed host names/origins, comma-separated (default: `localhost`, `127.0.0.1`) |
+| `FYOS_OS_URL` | address of the shell, if not `<FYOS_OEFFENTLICH_URL>/os` |
+| `TZ` | the Hub's time zone (daily counters and time windows of schedules), e.g. `Europe/Berlin`; UTC if unset |
+| `REDIS_URL` | Redis for views, search trail, events, OS bridge; without it: memory in the process |
+| `QDRANT_URL` | vector search in the audit log; without it: ring buffer |
+| `FYOS_EMBED_URL`, `FYOS_EMBED_MODEL`, `FYOS_EMBED_KEY` | OpenAI-compatible embedding service (`/v1/embeddings`) for audit and tool search |
+| `FYOS_SKILLS_PATH` | skill sources, separated by `:` (default `/opt/fyos/skills`) |
+| `FYOS_REPO_PATH` | the workshop's repo (default `/opt/fyos/repo`) |
+| `FYOS_DATEIEN`, `FYOS_DATEIEN_MAX_MB`, `FYOS_DATEIEN_VERSIONEN`, `FYOS_DATEIEN_PAPIERKORB_TAGE` | folder of the file store (in the image `/data/dateien`), largest file in MB (25), earlier versions per file (10), days in the trash (30) |
+| `FYOS_OIDC_ISSUER` | turns on login (see below) |
 
-Die OS-Brücke braucht für mehrere Replikate Redis; ein einzelner Hub funktioniert nur mit `REDIS_URL`.
+The OS bridge needs Redis for several replicas; a single Hub works only with `REDIS_URL`.
 
-## Takte begrenzen
+## Limiting schedules
 
-Wiederkehrende Aufgaben eines Plugins erscheinen in `mcp.zeitplan` und `/metrics`. Fährt das Plugin sie über den
-Wächter `mcp_hub.takt`, können sie zwei Grenzen haben: `max_pro_tag` (Läufe je Tag) und `fenster` (Uhrzeiten wie
-`"07:00-22:00"`, auch über Mitternacht). Außerhalb des Fensters oder über dem Limit läuft die Aufgabe nicht; der Hub
-zählt die übersprungenen Läufe (`fyos_zeitplan_uebersprungen_total{takt, grund}`, dazu `fyos_zeitplan_laeufe_heute{takt}`)
-und führt je Takt ein knappes Laufprotokoll (Start, Dauer, Ergebnis; die letzten 20 Läufe) im Hub-Speicher. Tag und
-Uhrzeit gelten in der Zeitzone des Hubs (`TZ`). Ohne Grenzen läuft alles wie vorher. Plugins binden den
-Wächter nach [`docs/ERWEITERN.md`](../docs/ERWEITERN.md) §2.12 ein.
+A plugin's recurring jobs appear in `mcp.zeitplan` and `/metrics`. If the plugin runs them through the guard
+`mcp_hub.takt`, they can have two limits: `max_pro_tag` (runs per day) and `fenster` (times such as `"07:00-22:00"`,
+also across midnight). Outside the window or above the limit the job does not run; the Hub counts the skipped runs
+(`fyos_zeitplan_uebersprungen_total{takt, grund}`, plus `fyos_zeitplan_laeufe_heute{takt}`) and keeps a short run log
+per schedule (start, duration, result; the last 20 runs) in the Hub's storage. Day and time apply in the Hub's time
+zone (`TZ`). Without limits everything runs as before. Plugins include the guard as described in
+[`docs/EXTENDING.md`](../docs/EXTENDING.md) §2.12.
 
-## Anmeldung (optional)
+## Login (optional)
 
-Innen, im eigenen Netz, ist der Hub offen. Soll er auch aus dem Internet erreichbar sein, genügt ein
-OpenID-Connect-Anbieter: `FYOS_OIDC_ISSUER` und `FYOS_OIDC_CLIENTS` (Client-IDs, mit Komma) setzen, der Reverse-Proxy
-setzt auf Anfragen aus dem Internet den Kopf `X-FYOS-Zugang: extern`. Dann verlangt `/mcp` für diese Anfragen ein
-gültiges Token (RFC 9728, Discovery der Schlüssel, nur RS256/ES256/EdDSA). Weitere Schalter: `FYOS_OIDC_MODUS`
-(`aus`, `an`, `streng`), `FYOS_OIDC_HOSTS`, `FYOS_OIDC_REST`, `FYOS_OIDC_BENUTZER`, `FYOS_OIDC_SCOPES`,
-`FYOS_OIDC_JWKS_URL`. Ohne `FYOS_OIDC_ISSUER` antworten Anfragen von außen mit 403.
+Inside, on your own network, the Hub is open. If it should also be reachable from the internet, an OpenID Connect
+provider is enough: set `FYOS_OIDC_ISSUER` and `FYOS_OIDC_CLIENTS` (client ids, comma-separated); the reverse proxy
+sets the header `X-FYOS-Zugang: extern` on requests from the internet. Then `/mcp` requires a valid token for these
+requests (RFC 9728, key discovery, only RS256/ES256/EdDSA). Further switches: `FYOS_OIDC_MODUS` (`aus`, `an`,
+`streng`), `FYOS_OIDC_HOSTS`, `FYOS_OIDC_REST`, `FYOS_OIDC_BENUTZER`, `FYOS_OIDC_SCOPES`, `FYOS_OIDC_JWKS_URL`. Without
+`FYOS_OIDC_ISSUER`, requests from outside are answered with 403.
 
-## Bewusst nicht enthalten
+## Deliberately not included
 
-Aus dem Ursprung dieses Hubs sind nur die allgemeinen Teile übernommen. Nicht enthalten sind die Plugins
-`wissen` und `gedaechtnis`, die Entwicklungsansicht (`entwicklung`, `lage`), das Chat-Tor (`chat_gateway`:
-der Hub ist selbst ein OIDC-geschützter Ressourcenserver) und alles, was zu einer einzelnen Installation gehört.
-Solche Plugins gehören in eigene Pakete.
+Only the general-purpose parts were taken over from this Hub's origin. Not included are the plugins `wissen` and
+`gedaechtnis`, the development view (`entwicklung`, `lage`), the chat gate (`chat_gateway`: the Hub itself is an
+OIDC-protected resource server) and everything that belongs to a single installation. Such plugins belong in packages
+of their own.
 
 ## Tests
 

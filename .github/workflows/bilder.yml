@@ -1,10 +1,10 @@
-# Bilder bauen und nach ghcr.io schieben: nur auf einen Tag v* oder von Hand (Actions, bilder, "Run workflow"),
-# nicht bei jedem Push. Es sind dieselben Bilder wie in der Gitea-CI (.gitea/workflows/ci.yml, Job bauen):
-#   ghcr.io/<besitzer>/fyos-os/web   aus web/Dockerfile
-#   ghcr.io/<besitzer>/fyos-os/hub   aus hub/Dockerfile
-# Die Namen folgen dem Muster <registry>/fyos-os/<teil>, das der Installer erwartet: FYOS_REGISTRY=ghcr.io/<besitzer>.
-# Tags: der Name des Tags (v0.1.0) oder des Zweigs (main) und die Commit-SHA; auf einen Tag ohne Bindestrich zusätzlich latest.
-# Angemeldet wird mit dem Laufzeit-Token (packages: write), eigene Geheimnisse gibt es nicht. Nur linux/amd64, wie in der Gitea-CI.
+# Build images and push them to ghcr.io: only on a tag v* or by hand (Actions, bilder, "Run workflow"),
+# not on every push. These are the same images as in the Gitea CI (.gitea/workflows/ci.yml, job bauen):
+#   ghcr.io/<owner>/fyos-os/web   from web/Dockerfile
+#   ghcr.io/<owner>/fyos-os/hub   from hub/Dockerfile
+# The names follow the pattern <registry>/fyos-os/<part> that the installer expects: FYOS_REGISTRY=ghcr.io/<owner>.
+# Tags: the name of the tag (v0.1.0) or the branch (main) and the commit SHA; on a tag without a hyphen also latest.
+# Login uses the runtime token (packages: write); there are no secrets of its own. Only linux/amd64, as in the Gitea CI.
 name: bilder
 
 on:
@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Bildname festlegen (ghcr.io verlangt Kleinbuchstaben)
+      - name: Set the image name (ghcr.io requires lower case)
         env:
           TEIL: ${{ matrix.teil }}
         run: echo "BILD=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fyos-os/${TEIL}" >> "$GITHUB_ENV"

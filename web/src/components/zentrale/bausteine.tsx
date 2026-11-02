@@ -6,6 +6,7 @@
  */
 import { Show, createContext, createSignal, onCleanup, onMount, useContext, type Accessor, type JSX } from 'solid-js';
 import type { Ton } from '~/lib/zentrale';
+import { gebietsschema, tr } from '~/lib/i18n';
 
 export const KNOPF =
   'inline-flex min-h-11 md:min-h-10 items-center gap-2 rounded-xl border border-(--color-border) bg-(--color-card-hover)/40 px-3.5 text-sm font-medium text-(--color-fg) transition-colors hover:border-(--color-accent) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent) disabled:cursor-not-allowed disabled:opacity-55';
@@ -30,22 +31,22 @@ export const TON_TEXT: Record<Ton, string> = {
 export const uhrzeit = (iso: string | null | undefined) => {
   if (!iso) return '';
   const d = new Date(iso);
-  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString(gebietsschema(), { hour: '2-digit', minute: '2-digit' });
 };
 export const tagKurz = (iso: string) => {
   const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString(gebietsschema(), { weekday: 'short', day: '2-digit', month: '2-digit' });
 };
 
 /** Kachel ohne Daten: Grund und, wenn möglich, „Erneut versuchen“. */
 export function Nichtabrufbar(p: { fehler: string | null | undefined; erneut?: () => void }) {
   return (
     <div role="status" class="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-(--color-warn)">
-      <span class="min-w-0">nicht abrufbar — {p.fehler || 'keine Daten'}</span>
+      <span class="min-w-0">{tr('nicht abrufbar —')}{' '}{p.fehler || tr('keine Daten')}</span>
       <Show when={p.erneut}>
         {(los) => (
           <button type="button" class={KNOPF} onClick={() => los()()}>
-            Erneut versuchen
+            {tr('Erneut versuchen')}
           </button>
         )}
       </Show>

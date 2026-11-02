@@ -1,7 +1,7 @@
 """Vorgänge für Plugins: eine Quelle, gleich ob Vorgangs-Dienst oder Ablage eines Plugins.
 
 Plugins, die Vorgänge lesen oder beantworten (Leitstand, Zentrale, „Braucht dich“), tragen keine Adresse fest ein,
-sondern fragen hier. Es gilt der Vorgangs-Vertrag (docs/ERWEITERN.md, Vorgänge):
+sondern fragen hier. Es gilt der Vorgangs-Vertrag (docs/EXTENDING.md, Vorgänge):
 ``GET /tickets?status=&limit=``, ``GET /tickets/{id}``, ``POST /tickets``, ``POST /tickets/{id}/comments``
 ``{actor, text}``, ``PATCH /tickets/{id}`` ``{status, expected_status?, actor?, title?, description?, priority?}``.
 
@@ -42,6 +42,13 @@ FRIST_LESEN_S = 8.0
 FRIST_SCHREIBEN_S = 12.0
 GRENZE_MAX = 500
 ANTWORT_MAX = 4 * 1024 * 1024
+
+
+def besitzer_akteur() -> str:
+    """Akteur, unter dem Antworten des Besitzers (Oberfläche) im Vorgang stehen: ``FYOS_BESITZER_AKTEUR``, Vorgabe
+    ``besitzer``. Der Runner erkennt Freigaben und Kommentare des Besitzers an genau diesem Namen (``itsm.besitzer``
+    in seiner Konfiguration)."""
+    return (os.getenv("FYOS_BESITZER_AKTEUR") or "").strip().lower() or "besitzer"
 
 
 class QuelleFehler(RuntimeError):

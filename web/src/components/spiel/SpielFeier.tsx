@@ -7,6 +7,7 @@ import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
 import PixelKatze from '~/components/ui/PixelKatze';
 import { SPIEL_EREIGNIS, type SpielFeierDetail } from '~/lib/spiel';
 import './spiel.css';
+import { tr } from '~/lib/i18n';
 
 const FREI_TEXT: Record<string, string> = {
   halsband: 'ein Halsband',
@@ -53,12 +54,12 @@ export default function SpielFeier(): JSX.Element {
             <div class="spiel-level">
               <PixelKatze taetigkeit="bereit" groesse={6} zubehoer={f.stand.freigeschaltet} />
               <div>
-                <div class="spiel-level-titel">Level {f.stand.level} · {f.stand.name}</div>
+                <div class="spiel-level-titel">{tr('Level')}{' '}{f.stand.level} · {f.stand.name}</div>
                 <div class="spiel-level-text">
-                  +{f.punkte} · {f.freigeschaltet ? `Agent hat jetzt ${FREI_TEXT[f.freigeschaltet] ?? f.freigeschaltet}.` : 'Weiter so.'}
+                  +{f.punkte} · {f.freigeschaltet ? tr('Agent hat jetzt {0}.', FREI_TEXT[f.freigeschaltet] ? tr(FREI_TEXT[f.freigeschaltet]!) : f.freigeschaltet) : tr('Weiter so.')}
                 </div>
                 <Show when={f.abzeichen.length}>
-                  <div class="spiel-level-text">Abzeichen: {f.abzeichen.map((a) => a.text).join(', ')}</div>
+                  <div class="spiel-level-text">{tr('Abzeichen:')}{' '}{f.abzeichen.map((a) => a.text).join(', ')}</div>
                 </Show>
               </div>
             </div>

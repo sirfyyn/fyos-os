@@ -1,6 +1,6 @@
 {
-  "titel": "Vergleich",
-  "zweck": "Optionen gegeneinander abwägen: Karten je Option und eine Matrix der Kriterien; bei Zahlenkriterien mit Richtung (hoch/niedrig besser) wird der beste Wert hervorgehoben, Empfehlung markiert.",
+  "titel": "Comparison",
+  "zweck": "Weigh options against each other: cards per option and a matrix of the criteria; for numeric criteria with a direction (hoch/niedrig = higher/lower is better) the best value is highlighted, the recommendation is marked.",
   "schema": {
     "type": "object",
     "required": ["optionen"],
@@ -21,23 +21,23 @@
           "name": {"type": "string"},
           "text": {"type": "string"},
           "empfohlen": {"type": "boolean"},
-          "merkmale": {"type": "object", "description": "Wert je Kriterium-schluessel (Zahl, Text oder true/false)"},
+          "merkmale": {"type": "object", "description": "Value per criterion schluessel (number, text or true/false)"},
           "frage": {"type": "string"}
         }}
       }
     }
   },
   "beispiel": {
-    "ueberschrift": "Zwei Speicherlösungen",
-    "herkunft": "Beispielwerte",
+    "ueberschrift": "Two storage options",
+    "herkunft": "Example values",
     "kriterien": [
-      {"schluessel": "platz", "name": "Kapazität", "einheit": "TB", "besser": "hoch"},
-      {"schluessel": "kosten", "name": "Kosten im Monat", "einheit": "€", "besser": "niedrig"},
-      {"schluessel": "lokal", "name": "Daten bleiben zu Hause"}
+      {"schluessel": "platz", "name": "Capacity", "einheit": "TB", "besser": "hoch"},
+      {"schluessel": "kosten", "name": "Cost per month", "einheit": "€", "besser": "niedrig"},
+      {"schluessel": "lokal", "name": "Data stays at home"}
     ],
     "optionen": [
-      {"name": "Eigener Server", "empfohlen": true, "text": "günstiger bei gleicher Kapazität", "merkmale": {"platz": 8, "kosten": 6, "lokal": true}},
-      {"name": "Mietspeicher", "merkmale": {"platz": 8, "kosten": 24, "lokal": false}}
+      {"name": "Own server", "empfohlen": true, "text": "cheaper at the same capacity", "merkmale": {"platz": 8, "kosten": 6, "lokal": true}},
+      {"name": "Rented storage", "merkmale": {"platz": 8, "kosten": 24, "lokal": false}}
     ]
   }
 }

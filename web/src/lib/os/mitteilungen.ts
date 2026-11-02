@@ -1,3 +1,4 @@
+import { gebietsschema } from '~/lib/i18n';
 /**
  * mitteilungen.ts — Daten, Stapel und Einstellung der Mitteilungen im OS.
  *
@@ -137,7 +138,7 @@ export function nachholZeit(entstanden: number, jetzt: number): string {
   if (nacht && (tage === 0 || (tage === 1 && stunde >= 22))) return `heute Nacht, ${uhrzeit(e)}`;
   if (tage <= 0) return `heute, ${uhrzeit(e)}`;
   if (tage === 1) return `gestern, ${uhrzeit(e)}`;
-  return `${e.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}, ${uhrzeit(e)}`;
+  return `${e.toLocaleDateString(gebietsschema(), { day: 'numeric', month: 'short' })}, ${uhrzeit(e)}`;
 }
 
 // ── Einstellung: stumm / aus ──────────────────────────────────────────────────────────────────

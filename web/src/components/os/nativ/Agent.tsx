@@ -25,6 +25,8 @@ import { Laeufe } from './agent/Laeufe';
 import { LiveSpalte, LiveStreifen } from './agent/LiveStrom';
 import { Verlauf } from './agent/Verlauf';
 import { Zustand } from './agent/Zustand';
+import { tr } from '~/lib/i18n';
+import { agentName } from '~/lib/config';
 
 type Reiter = 'gespraech' | 'freigaben' | 'laeufe' | 'zustand';
 
@@ -80,6 +82,8 @@ export default function Agent(
     ),
   );
 
+  /** Der Name aus der Einrichtung (fyos.config.json), nicht die Kennung des Runners (`main`); die steht nur im Kopf als Nebeninfo. */
+  const name = () => agentName();
   const offen = () => offeneZahl(stand().freigaben);
   const laufend = () => laufendeZahl(stand().laeufe);
 
@@ -112,7 +116,7 @@ export default function Agent(
     [
       { wert: 'gespraech' as const, text: 'Gespräch' },
       { wert: 'freigaben' as const, text: 'Freigaben', symbol: offen() > 0 ? <Zahl n={offen()} label="offene Freigaben" /> : undefined },
-      { wert: 'laeufe' as const, text: 'Läufe', symbol: laufend() > 0 ? <Zahl n={laufend()} label="laufende Läufe" /> : undefined },
+      { wert: 'laeufe' as const, text: 'Läufe', symbol: laufend() > 0 ? <Zahl n={laufend()} label={tr('laufende Läufe')} /> : undefined },
       { wert: 'zustand' as const, text: 'Zustand' },
     ] as const;
 
@@ -150,14 +154,15 @@ export default function Agent(
     >
       <Switch>
         <Match when={stand().start === 'laedt'}>
-          <Laedt text="Verbinde mit Agent" />
+          <Laedt text={tr('Verbinde mit Agent')} />
         </Match>
         <Match when={stand().start === 'fehler' && stand().fehler}>
           <Zugangsfehler fehler={stand().fehler!} erneut={() => void sitzung.erneut()} anmelden={anmelden} />
         </Match>
         <Match when={stand().start === 'bereit'}>
           <Kopf
-            agentName={stand().agentName}
+            agentName={name()}
+            kennung={stand().agentKennung}
             geraet={stand().geraet}
             schmal={p.schmal}
             busy={stand().gespraech.busy}
@@ -184,7 +189,7 @@ export default function Agent(
                 <Show when={stand().gespraeche.length > 1 || listeOffen()}>
                   <div class="flex items-center gap-2 @2xl:hidden">
                     <button type="button" class={`${KNOPF} min-h-9! min-w-0 flex-1 justify-between`} aria-expanded={listeOffen()} onClick={() => setListeOffen((o) => !o)}>
-                      <span class="min-w-0 truncate">{fokusTitel() || 'Gespräche'}</span>
+                      <span class="min-w-0 truncate">{fokusTitel() || tr('Gespräche')}</span>
                       <span aria-hidden="true">{listeOffen() ? '▴' : '▾'}</span>
                     </button>
                   </div>
@@ -200,14 +205,14 @@ export default function Agent(
                     live={stand().live}
                     status={stand().stromStatus}
                     fokus={stand().fokus}
-                    agentName={stand().agentName}
+                    agentName={name()}
                     setze={(an) => sitzung.setzeLive(an)}
                     waehle={waehle}
                   />
                 </div>
                 <Verlauf
                   z={stand().gespraech}
-                  agentName={stand().agentName}
+                  agentName={name()}
                   fehler={stand().gespraechFehler}
                   verbunden={verbunden()}
                   live={stand().live}
@@ -223,7 +228,7 @@ export default function Agent(
                   abbrechen={() => sitzung.abbrechen()}
                 />
                 <Eingabe
-                  agentName={stand().agentName}
+                  agentName={name()}
                   busy={stand().gespraech.busy}
                   gespraechId={stand().fokus}
                   gesperrt={stand().fokus === null}
@@ -241,7 +246,7 @@ export default function Agent(
                   live={stand().live}
                   status={stand().stromStatus}
                   fokus={stand().fokus}
-                  agentName={stand().agentName}
+                  agentName={name()}
                   setze={(an) => sitzung.setzeLive(an)}
                   waehle={waehle}
                 />

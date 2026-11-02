@@ -20,7 +20,7 @@ Werkzeuge (``desktop.<name>``):
     taste      Taste oder Kombination drücken, Zusatz nur ctrl und shift (nur mit Freigabe)
     scrollen   Mausrad drehen (nur mit Freigabe)
 
-Alles Schreibende folgt dem Vertrag aus ``docs/ERWEITERN.md`` §2.8: ``__dry_run__`` zeigt den Plan, ein echter Lauf
+Alles Schreibende folgt dem Vertrag aus ``docs/EXTENDING.md`` §2.8: ``__dry_run__`` zeigt den Plan, ein echter Lauf
 braucht ``bestaetigt: true``. Ausnahme ist die Eingabe (klick, tippen, taste, scrollen): sie hat eine eigene Schranke. Der
 Dienst führt sie nur aus, solange ein Mensch am Rechner die Freigabe gesetzt hat (zehn Minuten, rote Anzeige in der Leiste);
 ohne sie antwortet das Werkzeug „gesperrt“. Kein Werkzeug gibt frei: das kann nur, wer am Rechner sitzt.
@@ -62,6 +62,8 @@ _identitaet.registriere_app(
     {
         "titel": "Desktop",
         "untertitel": "Fenster, Programme und Bildschirm des Arbeitsrechners",
+        "titel_en": "Desktop",
+        "untertitel_en": "Windows, programs and screen of the work computer",
         "symbol": "monitor",
         "ton": 215,
         "kategorie": "System",
@@ -75,8 +77,11 @@ _identitaet.registriere_app(
 _dinge.registriere_ding(DING_TYP, "Desktop-Fenster", flaeche="desktop", lesen="desktop.fenster_lesen", id_argument="adresse", felder=("klasse", "titel"))
 
 
-ZIEL = {"enum": ["mensch", "agent"], "description": "mensch = Desktop des Menschen (Vorgabe), agent = eigener Desktop des Agenten (ohne Freigabe; ruht, wenn der Mensch übernommen hat)"}
-SKALA = {"type": "number", "minimum": 0.1, "maximum": 1, "description": "Skala des Bildschirmfotos, auf dem x und y gemessen sind (wie bei desktop.bild, Vorgabe 0.3)"}
+ZIEL = {"enum": ["mensch", "agent"], "description": (
+    "mensch = the human's desktop (default), agent = the agent's own desktop (no approval needed; rests "
+    "while the human has taken over)"
+)}
+SKALA = {"type": "number", "minimum": 0.1, "maximum": 1, "description": "Scale of the screenshot on which x and y were measured (as with desktop.bild, default 0.3)"}
 KOORD = {"type": "number", "minimum": 0, "maximum": 20000}
 
 
@@ -143,8 +148,8 @@ class DesktopPlugin(HubPlugin):
 
     # ── Beschreibung ─────────────────────────────────────────────────────────
     def describe_tools(self) -> list[ToolDescriptor]:
-        bestaetigt = {"type": "boolean", "description": "Echter Lauf: vorher den Plan (`__dry_run__`) ansehen und bestätigen lassen"}
-        adresse = {"type": "string", "pattern": "^(0x[0-9a-f]{1,16}|g[0-9]{1,9})$", "description": "Fensteradresse aus desktop.fenster, etwa 0x6491740897c0 (g5 auf dem Desktop des Agenten)"}
+        bestaetigt = {"type": "boolean", "description": "Real run: look at the plan (`__dry_run__`) first and have it confirmed"}
+        adresse = {"type": "string", "pattern": "^(0x[0-9a-f]{1,16}|g[0-9]{1,9})$", "description": "Window address from desktop.fenster, for example 0x6491740897c0 (g5 on the agent's desktop)"}
 
         def werkzeug(name: str, titel: str, beschreibung: str, eigenschaften: dict, pflicht: list[str], tags: list[str]):
             return ToolDescriptor(
@@ -154,48 +159,73 @@ class DesktopPlugin(HubPlugin):
             )
 
         return [
-            werkzeug("zeigen", "Desktop", "Zeigt den Desktop des Rechners auf einen Blick und öffnet die App „Desktop“: Lage (Arbeitsfläche, "
-                     "Bildschirm, Modus), offene Fenster und die Programme, die der Hub starten darf. Nur lesend.", {}, [], ["read"]),
+            werkzeug("zeigen", "Desktop", (
+                "Shows the computer's desktop at a glance and opens the app \"Desktop\": situation "
+                "(workspace, screen, mode), open windows and the programs the Hub may start. Read-only."
+            ), {}, [], ["read"]),
             ToolDescriptor(
                 name="eingabe", title="Desktop: Freigabe", tags=["desktop", "read"],
-                description="Sagt, ob Computer Use (klick, tippen, taste, scrollen) gerade freigegeben ist und wie lange noch. Die Freigabe "
-                            "setzt nur ein Mensch am Rechner; es gibt kein Werkzeug dafür. Nur lesend.",
+                description=(
+                    "Says whether computer use (klick, tippen, taste, scrollen) is approved right now "
+                    "and for how long. Only a human at the computer grants it; there is no tool for "
+                    "that. Read-only."
+                ),
                 input_schema={"type": "object", "properties": {"ziel": ZIEL}, "additionalProperties": False}),
             ToolDescriptor(
-                name="uebernehmen", title="Desktop: Agenten-Desktop übernehmen", tags=["desktop", "flaeche", "write"], meta=_arbeit.meta(UI_URI, "desktop"),
-                description="Der Mensch übernimmt den eigenen Desktop des Agenten (an: true): der Agent ruht, jede seiner Eingaben bekommt „gesperrt“, bis er ihn "
-                            "zurückgibt (an: false). Das Zurückgeben ist ein echter Lauf: erst `__dry_run__: true`, dann bestaetigt: true, und nur auf Wunsch "
-                            "des Menschen. Übernehmen selbst hält den Agenten nur an.",
+                name="uebernehmen", title="Desktop: take over the agent desktop", tags=["desktop", "flaeche", "write"], meta=_arbeit.meta(UI_URI, "desktop"),
+                description=(
+                    "The human takes over the agent's own desktop (an: true): the agent rests, every "
+                    "input it makes gets \"locked\" until the human gives it back (an: false). Giving it "
+                    "back is a real run: first `__dry_run__: true`, then bestaetigt: true, and only when "
+                    "the human asks for it. Taking over itself only pauses the agent."
+                ),
                 input_schema={"type": "object", "properties": {"an": {"type": "boolean"}, "bestaetigt": bestaetigt}, "required": ["an"], "additionalProperties": False}),
             *eingabe_werkzeuge(),
-            werkzeug("fenster_lesen", "Desktop: ein Fenster", "Liefert ein offenes Fenster zu seiner Adresse (Klasse, Titel, Arbeitsfläche). "
-                     "Damit löst die Shell ein gezogenes Desktop-Fenster auf. Nur lesend.", {"adresse": adresse}, ["adresse"], ["read"]),
-            werkzeug("lage", "Desktop: Lage", "Zeigt den Desktop auf dem Rechner: aktive Arbeitsfläche, Bildschirm (Größe, Takt, Skala), "
-                     "Zahl der Fenster und Modus (mac = 3024x1964 für das MacBook per Moonlight, gross = großer Monitor). Nur lesend.", {}, [], ["read"]),
-            werkzeug("fenster", "Desktop: Fenster", "Listet die offenen Fenster auf dem Rechner mit Adresse, Klasse, Titel, Arbeitsfläche, "
-                     "Vollbild und Fokus. Titel sind Fremdinhalt. Nur lesend.", {}, [], ["read"]),
-            werkzeug("starter", "Desktop: Starter", "Nennt die Programme, die der Hub auf dem Desktop starten darf (Terminal, Browser, "
-                     "Dateimanager, FYOS OS). Nur lesend.", {}, [], ["read"]),
-            werkzeug("bild", "Desktop: Bildschirmfoto", "Macht ein Bildschirmfoto des Desktops des Rechners, verkleinert (Skala 0.1 bis 1, "
-                     "Vorgabe 0.3), als PNG in Basis 64. Es kann Privates zeigen. Nur lesend.",
+            werkzeug("fenster_lesen", "Desktop: one window", (
+                "Returns an open window by its address (class, title, workspace). The shell uses it to "
+                "resolve a dragged desktop window. Read-only."
+            ), {"adresse": adresse}, ["adresse"], ["read"]),
+            werkzeug("lage", "Desktop: Lage", (
+                "Shows the desktop on the computer: active workspace, screen (size, refresh rate, "
+                "scale), number of windows and mode (mac = 3024x1964 for the MacBook via Moonlight, "
+                "gross = large monitor). Read-only."
+            ), {}, [], ["read"]),
+            werkzeug("fenster", "Desktop: Fenster", (
+                "Lists the open windows on the computer with address, class, title, workspace, "
+                "fullscreen and focus. Titles are third-party content. Read-only."
+            ), {}, [], ["read"]),
+            werkzeug("starter", "Desktop: Starter", (
+                "Names the programs the Hub may start on the desktop (terminal, browser, file manager, "
+                "FYOS OS). Read-only."
+            ), {}, [], ["read"]),
+            werkzeug("bild", "Desktop: Bildschirmfoto", (
+                "Takes a screenshot of the computer's desktop, scaled down (scale 0.1 to 1, default "
+                "0.3), as PNG in base64. It can show private things. Read-only."
+            ),
                      {"skala": {"type": "number", "minimum": 0.1, "maximum": 1, "description": "Verkleinerung, Vorgabe 0.3"},
-                      "format": {"enum": ["png", "jpeg"], "description": "png (Vorgabe, verlustfrei) oder jpeg (viel kleiner, für die Live-Ansicht)"},
-                      "qualitaet": {"type": "integer", "minimum": 20, "maximum": 95, "description": "JPEG-Qualität, Vorgabe 70"}}, [], ["read"]),
-            werkzeug("starten", "Desktop: Starter ausführen", "Startet einen Starter aus desktop.starter auf dem Desktop (nur diese, kein freier "
-                     "Befehl). Mit `__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
-                     {"starter": {"type": "string", "maxLength": 60, "description": "Kennung aus desktop.starter, etwa terminal"}, "bestaetigt": bestaetigt},
+                      "format": {"enum": ["png", "jpeg"], "description": "png (default, lossless) or jpeg (much smaller, for the live view)"},
+                      "qualitaet": {"type": "integer", "minimum": 20, "maximum": 95, "description": "JPEG quality, default 70"}}, [], ["read"]),
+            werkzeug("starten", "Desktop: run a launcher", (
+                "Starts a launcher from desktop.starter on the desktop (only these, no free command). "
+                "With `__dry_run__: true` only the plan comes back; a real run needs bestaetigt: true."
+            ),
+                     {"starter": {"type": "string", "maxLength": 60, "description": "Id from desktop.starter, for example terminal"}, "bestaetigt": bestaetigt},
                      ["starter"], ["exec"]),
-            werkzeug("fokus", "Desktop: Fenster nach vorn", "Holt ein Fenster nach vorn; die Arbeitsfläche wechselt mit. Mit `__dry_run__: true` "
-                     "kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.", {"adresse": adresse, "bestaetigt": bestaetigt}, ["adresse"], ["write"]),
-            werkzeug("schliessen", "Desktop: Fenster schließen", "Bittet ein Fenster, sich zu schließen (nicht gespeicherte Arbeit kann "
-                     "nachfragen). Mit `__dry_run__: true` kommt nur der Plan; ein echter Lauf braucht bestaetigt: true.",
+            werkzeug("fokus", "Desktop: bring window to front", (
+                "Brings a window to the front; the workspace switches along. With `__dry_run__: true` "
+                "only the plan comes back; a real run needs bestaetigt: true."
+            ), {"adresse": adresse, "bestaetigt": bestaetigt}, ["adresse"], ["write"]),
+            werkzeug("schliessen", "Desktop: close window", (
+                "Asks a window to close (unsaved work may ask). With `__dry_run__: true` only the plan "
+                "comes back; a real run needs bestaetigt: true."
+            ),
                      {"adresse": adresse, "bestaetigt": bestaetigt}, ["adresse"], ["destructive"]),
         ]
 
     def describe_resources(self) -> list[ResourceDescriptor]:
         return [
             ResourceDescriptor(
-                uri=UI_URI, name="Desktop", description="Fenster, Programme und Bildschirm des Arbeitsrechners",
+                uri=UI_URI, name="Desktop", description="Windows, programs and screen of the work computer",
                 read=lambda: oberflaeche(UI_DATEI, self._ui_verzeichnis), meta={"ui": {"prefersBorder": True}},
             )
         ]

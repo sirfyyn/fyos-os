@@ -5,6 +5,7 @@
  * Fortschritt; früher loslassen bricht ab. Ein einfacher Klick löst nie aus.
  */
 import { createSignal, onCleanup, type JSX } from 'solid-js';
+import { tr } from '~/lib/i18n';
 
 export const HALTE_MS = 900;
 
@@ -46,8 +47,8 @@ export function WartetHalten(p: {
       class={`relative overflow-hidden select-none touch-none ${p.class ?? ''}`}
       disabled={p.disabled}
       aria-label={p['aria-label']}
-      aria-description="Gedrückt halten zum Bestätigen"
-      title="Gedrückt halten"
+      aria-description={tr('Gedrückt halten zum Bestätigen')}
+      title={tr('Gedrückt halten')}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture?.(e.pointerId);
         los();

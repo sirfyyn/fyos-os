@@ -78,6 +78,7 @@ import {
   zugEndet, zugHinweis, zustellen, type AppAblage, type Gut, type GutArt,
 } from '~/lib/os/ziehen';
 import { istAngepinnt } from '~/lib/mcp-apps/pins';
+import { gebietsschema, tr } from '~/lib/i18n';
 
 
 type Platz = { name: string; fenster: Fenster[] };
@@ -94,8 +95,8 @@ const AgentRunner = lazy(() => import('./nativ/Agent'));
 const Raum = lazy(() => import('./Raum'));
 
 const UNTAETIG_MS = 60_000;
-const VOLL = `Auf diesem Bildschirm sind schon ${MAX_OFFEN} Flächen offen. Minimiere oder schließe eine, oder nimm einen neuen Bildschirm.`;
-const ZU_VIELE = `Mehr als ${BILDSCHIRME_MAX} Bildschirme gehen nicht.`;
+const VOLL = (): string => tr('Auf diesem Bildschirm sind schon {0} Flächen offen. Minimiere oder schließe eine, oder nimm einen neuen Bildschirm.', MAX_OFFEN);
+const ZU_VIELE = (): string => tr('Mehr als {0} Bildschirme gehen nicht.', BILDSCHIRME_MAX);
 const LANGDRUCK_MS = 520;
 
 /** Kann `el` (oder ein Vorfahr bis `bis`) quer scrollen? Dann gehört die Wischgeste ihm. */
@@ -133,7 +134,8 @@ export default function Shell(): JSX.Element {
   const ziehen = () => groesseZieht() || aktuellerZug() != null;
   const [meldung, setMeldung] = createSignal('');
   /** Meldung, die von selbst wieder geht (vorher blieben Grenz-Meldungen stehen, bis wieder etwas aufging) */
-  const kurzMelden = (t: string, ms = 2600) => {
+  const kurzMelden = (roh: string, ms = 2600) => {
+    const t = tr(roh);
     setMeldung(t);
     setTimeout(() => setMeldung((m) => (m === t ? '' : m)), ms);
   };
@@ -240,7 +242,7 @@ export default function Shell(): JSX.Element {
     raumVerlassen();
     const neu = wo(ap(), id) < 1;
     const r = flaecheOeffnen(ap(), id, { vor, breit: flaeche(id)?.breit, start: startZustand, sonstNeu, gross: grossFuer(fl) });
-    if (r.voll) kurzMelden(VOLL, 6000);
+    if (r.voll) kurzMelden(VOLL(), 6000);
     else setMeldung('');
     setze(r.ap);
     if (!r.voll) setFokus(id);
@@ -282,7 +284,7 @@ export default function Shell(): JSX.Element {
     const vorher = ap();
     const neu = neuerBildschirm(vorher);
     if (neu === vorher) {
-      kurzMelden(ZU_VIELE);
+      kurzMelden(ZU_VIELE());
       return;
     }
     setze(neu);
@@ -301,7 +303,7 @@ export default function Shell(): JSX.Element {
     const gross = grossFuer(flaeche(id));
     const neu = neuerBildschirm(basis, undefined, [{ id, min: false, ...(gross != null ? { spalten: 12, zeilen: gross, fest: true } : {}) }]);
     if (neu === basis) {
-      kurzMelden(ZU_VIELE);
+      kurzMelden(ZU_VIELE());
       return;
     }
     setze(neu);
@@ -340,7 +342,7 @@ export default function Shell(): JSX.Element {
     }
     const neu = vollbildAn(ap(), id);
     if (neu === ap()) {
-      kurzMelden(ZU_VIELE);
+      kurzMelden(ZU_VIELE());
       return;
     }
     setze(neu);
@@ -404,7 +406,7 @@ export default function Shell(): JSX.Element {
   const dingZeigen = (g: Extract<Gut, { art: 'ding' }>, ort: { index?: number | 'neu'; vor?: string | null } = {}) => {
     const f = dingFlaeche(g.typ);
     if (!f) {
-      kurzMelden(`Für ${dingName(g.typ)} gibt es im OS keine Fläche.`);
+      kurzMelden(tr('Für {0} gibt es im OS keine Fläche.', dingName(g.typ)));
       return;
     }
     flaecheAuf(f.id, ort);
@@ -435,7 +437,7 @@ export default function Shell(): JSX.Element {
       void fragenMitInhalt(g, frageUebergabe(g, f.titel));
       return;
     }
-    uebergabeStarten(f.id, a.uebergabe, g).catch((e: unknown) => kurzMelden(e instanceof Error ? e.message : 'Das ging nicht.', 5200));
+    uebergabeStarten(f.id, a.uebergabe, g).catch((e: unknown) => kurzMelden(e instanceof Error ? e.message : tr('Das ging nicht.'), 5200));
   };
   /** Abgelegt auf einem Bildschirm-Punkt, einer Karte der Übersicht oder „+" (neu). */
   const ablegenAuf = (index: number | 'neu', g: Gut) => {
@@ -500,7 +502,7 @@ export default function Shell(): JSX.Element {
     }
     const neu = neuerBildschirm(basis, v.name, ok.map((w) => ({ ...w, min: false })));
     if (neu === basis) {
-      kurzMelden(ZU_VIELE);
+      kurzMelden(ZU_VIELE());
       return;
     }
     setze(neu);
@@ -613,7 +615,7 @@ export default function Shell(): JSX.Element {
     return [
       { text: 'Hell', an: w === 'light', tun: () => themaSetzen('light') },
       { text: 'Dunkel', an: w === 'dark', tun: () => themaSetzen('dark') },
-      { text: 'Automatisch', an: w === 'auto', tun: () => themaSetzen('auto') },
+      { text: 'System', an: w === 'system', tun: () => themaSetzen('system') },
     ];
   };
   const hintergrundPunkte = (): MenuePunkt[] => {
@@ -672,7 +674,7 @@ export default function Shell(): JSX.Element {
       const gegen = g.gegen;
       rueckgaengigAnbieten({ text: g.erfolg, symbol: g.symbol, zurueck: gegen ? () => void griffSchalten(gegen) : undefined });
     } catch (e) {
-      rueckgaengigAnbieten({ text: `${g.titel} ging nicht: ${e instanceof Error ? e.message : String(e)}`, symbol: 'circle-x' });
+      rueckgaengigAnbieten({ text: tr('{0} ging nicht: {1}', g.titel, e instanceof Error ? e.message : String(e)), symbol: 'circle-x' });
     }
   };
   /** Einrasten des Fensters im Fokus (Tastenkürzel); das Raster des Bildschirms kennt die Höhe. */
@@ -702,7 +704,7 @@ export default function Shell(): JSX.Element {
       { text: 'Alle einblenden', aus: i === START || !l.some((w) => w.min), tun: () => {
         const r = alleEinblenden(fensterVon(i));
         setze(fensterAendern(ap(), i, () => r.liste));
-        if (r.rest) kurzMelden(`${MAX_OFFEN} Flächen sind offen, ${r.rest} ${r.rest === 1 ? 'bleibt' : 'bleiben'} im Dock.`, 4000);
+        if (r.rest) kurzMelden(tr(r.rest === 1 ? '{0} Flächen sind offen, {1} bleibt im Dock.' : '{0} Flächen sind offen, {1} bleiben im Dock.', MAX_OFFEN, r.rest), 4000);
       } },
       { art: 'trenner' },
       ...(i === START ? [] : bildschirmEigenePunkte(i)),
@@ -722,7 +724,7 @@ export default function Shell(): JSX.Element {
   /** Rechtsklick auf einen Bildschirm-Punkt oder den Namen eines Bildschirms. */
   const bildschirmPunkte = (i: number): MenuePunkt[] => [
     // Überschrift = welcher Bildschirm (statt eines ausgegrauten „Angezeigt“); „Anzeigen“ nur für die anderen
-    { art: 'titel', text: (i === START ? 'Start' : bildschirmNamen().find((b) => b.index === i)?.name ?? 'Bildschirm') + (i === aktiv() ? ' · hier' : '') },
+    { art: 'titel', text: (i === START ? tr('Start') : bildschirmNamen().find((b) => b.index === i)?.name ?? tr('Bildschirm')) + (i === aktiv() ? tr(' · hier') : '') },
     ...(i === aktiv() ? [] : [{ text: 'Anzeigen', tun: () => gehe(i) }]),
     { text: 'Übersicht', kuerzel: modAlt('↑'), tun: () => setUebersicht(true) },
     { art: 'trenner' },
@@ -759,12 +761,12 @@ export default function Shell(): JSX.Element {
     const offen = wo(ap(), id) >= 1;
     const geheftet = !!f.appName && istAngepinnt(f.appName);
     return [
-      { text: offen ? 'Zeigen' : 'Öffnen', symbol: 'app-window', tun: () => oeffne(id) },
+      { text: offen ? tr('Zeigen') : tr('Öffnen'), symbol: 'app-window', tun: () => oeffne(id) },
       { text: 'Auf neuem Bildschirm öffnen', symbol: 'monitor-up', tun: () => aufNeuemBildschirmOeffnen(id) },
       { text: 'In neuem Tab öffnen', symbol: 'external-link', tun: () => inNeuemTab(f) },
       { text: 'Link kopieren', symbol: 'link', tun: () => void navigator.clipboard?.writeText(deeplink(id)).catch(() => {}) },
       ...(kannHeften(f)
-        ? [{ art: 'trenner' as const }, { text: geheftet ? 'Vom Start lösen' : 'An den Start heften', symbol: geheftet ? 'pin-off' : 'pin', tun: () => void heften(f) }]
+        ? [{ art: 'trenner' as const }, { text: geheftet ? tr('Vom Start lösen') : tr('An den Start heften'), symbol: geheftet ? 'pin-off' : 'pin', tun: () => void heften(f) }]
         : []),
     ];
   };
@@ -855,9 +857,9 @@ export default function Shell(): JSX.Element {
           const liste = b.fenster.filter((w) => flaeche(w.id));
           if (!liste.length) return [];
           return [
-            ...(mehrere ? [{ art: 'titel' as const, text: j + 1 === aktiv() ? `${nameVon(b)} · hier` : nameVon(b) }] : []),
+            ...(mehrere ? [{ art: 'titel' as const, text: j + 1 === aktiv() ? `${nameVon(b)}${tr(' · hier')}` : nameVon(b) }] : []),
             ...liste.map((w) => ({
-              text: w.min ? `${flaeche(w.id)!.titel} (minimiert)` : flaeche(w.id)!.titel,
+              text: w.min ? tr('{0} (minimiert)', flaeche(w.id)!.titel) : flaeche(w.id)!.titel,
               an: w.id === id && j + 1 === aktiv(),
               tun: () => {
                 if (w.min) setze(fensterAendern(ap(), j + 1, (l) => l.map((x) => (x.id === w.id ? { ...x, min: false } : x))));
@@ -1072,7 +1074,7 @@ export default function Shell(): JSX.Element {
     return war;
   };
   const ansichtRueckenWunsch = () => {
-    kurzMelden(ansichtRuecken(true) ? 'Ansicht gerade gerückt.' : 'Die Ansicht sitzt gerade.', 1800);
+    kurzMelden(ansichtRuecken(true) ? tr('Ansicht gerade gerückt.') : tr('Die Ansicht sitzt gerade.'), 1800);
   };
   // Nach jedem Bildschirmwechsel, wenn das Band angekommen ist (480 ms Gleiten), und bei Größenänderung
   createEffect(() => {
@@ -1097,8 +1099,8 @@ export default function Shell(): JSX.Element {
     onCleanup(() => clearTimeout(vorladen));
     const tick = () => {
       const d = new Date();
-      setUhr(d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
-      setDatum(d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' }));
+      setUhr(d.toLocaleTimeString(gebietsschema(), { hour: '2-digit', minute: '2-digit' }));
+      setDatum(d.toLocaleDateString(gebietsschema(), { weekday: 'short', day: 'numeric', month: 'short' }));
     };
     tick();
     let letzte = Date.now();
@@ -1378,7 +1380,7 @@ export default function Shell(): JSX.Element {
         if (dockSichtbar.sichtbar()) dockSichtbar.verbergen();
         else {
           dockSichtbar.pfeil();
-          queueMicrotask(() => wurzel?.querySelector<HTMLElement>('nav[aria-label="Bodenleiste"] .os-dock-symbol')?.focus());
+          queueMicrotask(() => wurzel?.querySelector<HTMLElement>('nav[data-kontext="dock"] .os-dock-symbol')?.focus());
         }
       } else if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -1515,7 +1517,7 @@ export default function Shell(): JSX.Element {
     const f = fokus();
     if (f && wo(ap(), f) === aktiv() && aktiv() !== START) return flaeche(f)?.titel ?? '';
     const b = bildschirmBei(ap(), aktiv());
-    return aktiv() === START ? 'Start' : b ? nameVon(b) : '';
+    return aktiv() === START ? tr('Start') : b ? nameVon(b) : '';
   };
 
   // Übersicht: Größe der Karten aus der Fläche und der Zahl der Bildschirme.
@@ -1602,7 +1604,7 @@ export default function Shell(): JSX.Element {
       <TapeteEbene tapete={tapeteVon(ap(), index())} />
       <section
         class="os-bildschirm"
-        aria-label={index() === START ? name() : `Bildschirm: ${name()}`}
+        aria-label={index() === START ? name() : tr('Bildschirm: {0}', name())}
         aria-hidden={verborgen()}
         ref={(el) => createEffect(() => { el.inert = verborgen(); })}
       >
@@ -1647,14 +1649,14 @@ export default function Shell(): JSX.Element {
                 type="button"
                 data-privat="privat"
                 class="os-leiste-punkt os-leiste-wartet"
-                aria-label={`Wartet auf dich: ${wartet()}`}
+                aria-label={tr('Wartet auf dich: {0}', wartet())}
                 aria-haspopup="dialog"
                 aria-expanded={schublade()}
-                title="Was auf dich wartet"
+                title={tr('Was auf dich wartet')}
                 classList={{ 'os-leiste-an': schublade() }}
                 onClick={() => setSchublade((x) => !x)}
               >
-                <span class="max-sm:hidden">Wartet auf dich</span> <span class="os-zahl">{wartet()}</span>
+                <span class="max-sm:hidden">{tr('Wartet auf dich')}</span> <span class="os-zahl">{wartet()}</span>
               </button>
             </Show>
             <button
@@ -1662,9 +1664,9 @@ export default function Shell(): JSX.Element {
               data-kz-knopf
               class="os-leiste-punkt"
               classList={{ 'os-leiste-an': kz() != null }}
-              aria-label="Kontrollzentrum"
+              aria-label={tr('Kontrollzentrum')}
               aria-expanded={kz() != null}
-              title="Kontrollzentrum"
+              title={tr('Kontrollzentrum')}
               onClick={(e) => {
                 if (kz() != null) setKz(null);
                 else setKz(Math.max(8, window.innerWidth - e.currentTarget.getBoundingClientRect().right - 4));
@@ -1753,24 +1755,24 @@ export default function Shell(): JSX.Element {
               <For each={ap().bildschirme.map((b) => b.id)}>
                 {(id) => {
                   const index = () => ap().bildschirme.findIndex((b) => b.id === id) + 1;
-                  return platz(index, () => { const b = bildschirmBei(ap(), index()); return b ? nameVon(b) : 'Bildschirm'; }, () => (
+                  return platz(index, () => { const b = bildschirmBei(ap(), index()); return b ? nameVon(b) : tr('Bildschirm'); }, () => (
                     <Show when={besucht().has(id)}>{arbeitsInhalt(index)}</Show>
                   ));
                 }}
               </For>
               <Show when={uebersicht() && ap().bildschirme.length < 9}>
                 <div class="os-platz os-platz-neu">
-                  <button type="button" aria-label="Neuer Bildschirm" onClick={(e) => { e.stopPropagation(); neuerBildschirmAn(); }}>
+                  <button type="button" aria-label={tr('Neuer Bildschirm')} onClick={(e) => { e.stopPropagation(); neuerBildschirmAn(); }}>
                     <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 6v16M6 14h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
                   </button>
                 </div>
               </Show>
             </div>
             <Show when={!uebersicht() && aktiv() > START}>
-              <button type="button" class="os-pfeil left-2" aria-label="Bildschirm links" onClick={() => setze(nachLinks(ap()))}>‹</button>
+              <button type="button" class="os-pfeil left-2" aria-label={tr('Bildschirm links')} onClick={() => setze(nachLinks(ap()))}>‹</button>
             </Show>
             <Show when={!uebersicht() && aktiv() < ap().bildschirme.length}>
-              <button type="button" class="os-pfeil right-2" aria-label="Bildschirm rechts" onClick={() => setze(nachRechts(ap()))}>›</button>
+              <button type="button" class="os-pfeil right-2" aria-label={tr('Bildschirm rechts')} onClick={() => setze(nachRechts(ap()))}>›</button>
             </Show>
           </Show>
         </div>
@@ -1784,8 +1786,8 @@ export default function Shell(): JSX.Element {
         >
           <header class="os-kopf">
             <h2 class="os-fenstertitel text-left">{agentName()}</h2>
-            <button type="button" class="os-knopf" aria-label={`${agentName()} als Fläche lösen`} title="Als Fläche lösen" onClick={() => { oeffne(AGENT_APP_ID); setAgent(false); }}>⧉</button>
-            <button type="button" class="os-knopf" aria-label={`${agentName()} schließen`} onClick={() => setAgent(false)}>✕</button>
+            <button type="button" class="os-knopf" aria-label={tr('{0} als Fläche lösen', agentName())} title={tr('Als Fläche lösen')} onClick={() => { oeffne(AGENT_APP_ID); setAgent(false); }}>⧉</button>
+            <button type="button" class="os-knopf" aria-label={tr('{0} schließen', agentName())} onClick={() => setAgent(false)}>✕</button>
           </header>
           <Show when={agentGeladen()}>
             {/* Die native Agent-App gegen den Runner (/api/agent) */}

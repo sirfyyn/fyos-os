@@ -5,9 +5,12 @@
 import { Show, type JSX } from 'solid-js';
 import { KOPF_TON, kopfStatus, kopfText } from '~/lib/agent-runner/status';
 import { Punkt } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 export function Kopf(p: {
   agentName: string;
+  /** Kennung beim Runner (z. B. „main“): nur als Nebeninfo im Tooltip, der Name steht vorn. */
+  kennung?: string;
   geraet: string;
   schmal?: boolean;
   busy: boolean;
@@ -22,23 +25,27 @@ export function Kopf(p: {
 }): JSX.Element {
   const status = () => kopfStatus({ busy: p.busy, offeneFreigaben: p.offeneFreigaben, spielmodus: p.spielmodus });
   const getrennt = () => p.getrennt;
+  const kennung = () => {
+    const k = (p.kennung ?? '').trim();
+    return k && k.toLowerCase() !== p.agentName.trim().toLowerCase() ? k : '';
+  };
   return (
     <header class="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1" data-agent-kopf data-status={status()}>
       <div class="flex min-w-0 items-center gap-2">
         <Punkt ton={getrennt() ? 'fehler' : KOPF_TON[status()]} />
-        <h1 class="m-0 min-w-0 truncate text-[0.98rem] font-semibold">
+        <h1 class="m-0 min-w-0 truncate text-[0.98rem] font-semibold" title={kennung() ? tr('Kennung: {0}', kennung()) : undefined} data-kennung={kennung() || undefined}>
           {p.agentName}
           <Show when={p.geraet && !p.schmal}>
             <span class="font-normal text-(--color-fg-muted)"> · {p.geraet}</span>
           </Show>
         </h1>
         <span class="shrink-0 text-xs text-(--color-fg-muted)" role="status" data-kopf-status>
-          {getrennt() ? 'Verbindung verloren' : kopfText(status(), p.spielmodus)}
+          {getrennt() ? tr('Verbindung verloren') : kopfText(status(), p.spielmodus)}
         </span>
       </div>
       <div class="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
         <Show when={p.modell}>
-          <span class="max-w-[12rem] truncate rounded-full bg-[color-mix(in_oklab,var(--color-fg)_8%,transparent)] px-2.5 py-0.5 font-mono text-[0.7rem] text-(--color-fg-muted)" title={`Modell: ${p.modell}`} data-modell>
+          <span class="max-w-[12rem] truncate rounded-full bg-[color-mix(in_oklab,var(--color-fg)_8%,transparent)] px-2.5 py-0.5 font-mono text-[0.7rem] text-(--color-fg-muted)" title={tr('Modell: {0}', p.modell)} data-modell>
             {p.modell}
           </span>
         </Show>
@@ -47,23 +54,23 @@ export function Kopf(p: {
             type="button"
             class="os-chip os-chip-fokus"
             onClick={() => p.zurFreigabenListe()}
-            aria-label={`${p.offeneFreigaben} ${p.offeneFreigaben === 1 ? 'Freigabe' : 'Freigaben'} von Agent offen. Liste öffnen`}
+            aria-label={tr('{0} {1} von {2} offen. Liste öffnen', p.offeneFreigaben, p.offeneFreigaben === 1 ? tr('Freigabe') : tr('Freigaben'), p.agentName)}
             data-freigaben-badge
           >
             {/* Nur des Agenten eigene Freigaben; „wartet auf dich“ zählt allein die Menüleiste (wartet.eingang, OS-Neubau P2). */}
-            <span aria-hidden="true">⚑</span> {p.offeneFreigaben} {p.offeneFreigaben === 1 ? 'Freigabe' : 'Freigaben'}
+            <span aria-hidden="true">⚑</span> {p.offeneFreigaben} {p.offeneFreigaben === 1 ? tr('Freigabe') : tr('Freigaben')}
           </button>
         </Show>
         <button
           type="button"
           class={`os-chip ${p.live ? '' : 'os-chip-fokus'}`}
           aria-pressed={!p.live}
-          title="Ruhe blendet die eigenständige Arbeit des Agenten (Takt, Eingänge, Läufe) aus. Sie arbeitet unverändert weiter (/live blendet wieder ein)."
+          title={tr('Ruhe blendet die eigenständige Arbeit des Agenten (Takt, Eingänge, Läufe) aus. Sie arbeitet unverändert weiter (/live blendet wieder ein).')}
           onClick={() => p.setzeLive(!p.live)}
           data-ruhe
         >
           <Punkt ton={p.live ? 'aus' : 'ok'} />
-          Ruhe
+          {tr('Ruhe')}
         </button>
       </div>
     </header>

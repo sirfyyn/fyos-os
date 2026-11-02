@@ -1,6 +1,6 @@
 {
-  "titel": "Balken",
-  "zweck": "Mengen vergleichen: waagerechte Balken je Eintrag, einfach (wert) oder gestapelt nach Teilen (werte), sortierbar, Teile ein- und ausblendbar.",
+  "titel": "Bars",
+  "zweck": "Compare amounts: horizontal bars per entry, simple (wert) or stacked by parts (werte), sortable, parts can be shown and hidden.",
   "schema": {
     "type": "object",
     "required": ["reihen"],
@@ -11,11 +11,11 @@
       "einheit": {"type": "string"},
       "teile": {
         "type": "array", "maxItems": 8,
-        "description": "Nur für gestapelte Balken: Reihenfolge, Name und Ton je Teil",
+        "description": "Only for stacked bars: order, name and tone per part",
         "items": {"type": "object", "required": ["schluessel"], "properties": {
           "schluessel": {"type": "string"}, "name": {"type": "string"},
           "ton": {"type": "string", "enum": ["gut", "warn", "schlecht", "info", "aus"]},
-          "aus": {"type": "boolean", "description": "Anfangs ausgeblendet"}
+          "aus": {"type": "boolean", "description": "Hidden at first"}
         }}
       },
       "reihen": {
@@ -32,15 +32,15 @@
     }
   },
   "beispiel": {
-    "ueberschrift": "Aufrufe je Plugin",
-    "herkunft": "Beispielwerte",
+    "ueberschrift": "Calls per plugin",
+    "herkunft": "Example values",
     "teile": [
-      {"schluessel": "ok", "name": "erfolgreich", "ton": "gut"},
-      {"schluessel": "fehler", "name": "fehlgeschlagen", "ton": "schlecht"},
-      {"schluessel": "abgebrochen", "name": "abgebrochen", "ton": "aus", "aus": true}
+      {"schluessel": "ok", "name": "succeeded", "ton": "gut"},
+      {"schluessel": "fehler", "name": "failed", "ton": "schlecht"},
+      {"schluessel": "abgebrochen", "name": "cancelled", "ton": "aus", "aus": true}
     ],
     "reihen": [
-      {"name": "skills", "werte": {"ok": 74, "fehler": 6, "abgebrochen": 12}, "frage": "Was ist bei den Skills fehlgeschlagen?"},
+      {"name": "skills", "werte": {"ok": 74, "fehler": 6, "abgebrochen": 12}, "frage": "What failed with the skills?"},
       {"name": "werkstatt", "werte": {"ok": 17}},
       {"name": "gui", "werte": {"ok": 10, "abgebrochen": 2}}
     ]

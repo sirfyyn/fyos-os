@@ -1,7 +1,7 @@
-# Doku-Vollabgleich: jede Nacht und auf Knopfdruck (Gitea: Actions, doku-nachts, "Run workflow").
-# tools/doku_pruefen.py gleicht alle Markdown-Dateien mit dem Dateibaum ab: tote Links und Anker, genannte Pfade,
-# feste Abschnitte der READMEs. Was die Doku nennt und nicht in diesem Repo liegt, steht mit Grund in .doku/ausserhalb.txt.
-# Repo-Variable: FYOS_RUNNER (Runner-Etikett), wie in ci.yml. Die Uhrzeit ist die des Git-Servers.
+# Full docs check: every night and on demand (Gitea: Actions, doku-nachts, "Run workflow").
+# tools/doku_pruefen.py checks all Markdown files against the file tree: dead links and anchors, named paths,
+# fixed sections of the READMEs. What the docs name but is not in this repo is listed with a reason in .doku/ausserhalb.txt.
+# Repo variable: FYOS_RUNNER (CI runner label), as in ci.yml. The time is the Git server's.
 name: doku-nachts
 
 on:
@@ -15,5 +15,5 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Doku gegen den Dateibaum prüfen
+      - name: Check the docs against the file tree
         run: python3 tools/doku_pruefen.py

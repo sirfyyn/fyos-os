@@ -10,6 +10,7 @@
  */
 import { listePruefen, oeffnen as fensterOeffnen, ohneMax, type Fenster, type StartZustand } from './anordnung';
 import { tapetePruefen, type Tapete } from './tapete';
+import { tr } from '~/lib/i18n';
 
 export interface Bildschirm {
   id: string;
@@ -103,7 +104,7 @@ export function anzeigeName(b: Bildschirm, i: number, titel: (id: string) => str
     .map((w) => titel(w.id))
     .filter((t): t is string => !!t);
   // Leer: nach der Stelle in der Punktreihe (der Start ist der erste Punkt), damit zwei leere unterscheidbar bleiben
-  if (offen.length === 0) return `Bildschirm ${i + 1}`;
+  if (offen.length === 0) return tr('Bildschirm {0}', i + 1);
   const [erster, zweiter] = offen;
   if (offen.length === 1) return erster!;
   if (offen.length === 2) return `${erster} & ${zweiter}`;

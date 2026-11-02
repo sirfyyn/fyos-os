@@ -19,6 +19,16 @@ def _ohne_plugin_quelle(monkeypatch):
     monkeypatch.delenv("FYOS_PLUGIN_QUELLE", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _deutsch():
+    """Die bestehenden Tests prüfen deutsche Ausgaben: Deutsch fest einstellen. Englisch als Vorgabe prüft test_sprache.py."""
+    from fyos_installer import sprache as spr
+
+    spr.setze("de")
+    yield
+    spr.setze(spr.VORGABE)
+
+
 # Antworten einer richtig eingerichteten Installation auf die Anfragen der Abnahme (abnahme.py), je Probe.
 GUTE_ANTWORTEN = {
     "gegenprobe": abn.Antwort(200, {"ok": True, "result": {"treffer": []}}),

@@ -7,7 +7,9 @@
  *
  *   fyos-theme       'light' | 'dark' — liest das Inline-Skript in BaseLayout vor dem ersten Bild
  *   fyos-theme-mode  'manual:light' | 'manual:dark' | 'system'
- *                    (früher auch 'auto' nach Uhrzeit; das setzt nichts mehr, es gilt dann fyos-theme)
+ *                    (früher auch 'auto' nach Uhrzeit; das setzt nichts mehr und gilt jetzt als 'system')
+ *
+ * Ohne gespeicherte Wahl gilt „System“ (seit 0.3.0; vorher dunkel).
  *
  * „System" folgt dem Gerät (prefers-color-scheme). BaseLayout löst es vor dem ersten Bild auf und
  * zieht bei einem Wechsel des Geräts nach; `fyos-theme` hält dabei den zuletzt aufgelösten Wert für
@@ -22,8 +24,8 @@ export const FARBSCHEMATA: readonly Farbschema[] = ['hell', 'dunkel', 'system'];
 export const THEME_SCHLUESSEL = 'fyos-theme';
 export const THEME_MODUS_SCHLUESSEL = 'fyos-theme-mode';
 export const FARBSCHEMA_EREIGNIS = 'fyos:farbschema';
-/** Ohne gespeicherte Wahl: dunkel (BaseLayout rendert data-theme="dark"). */
-export const FARBSCHEMA_STANDARD: Farbschema = 'dunkel';
+/** Ohne gespeicherte Wahl: wie das Gerät. Dieselbe Regel steht im Inline-Skript von BaseLayout (vor dem ersten Bild). */
+export const FARBSCHEMA_STANDARD: Farbschema = 'system';
 
 const GERAET_HELL = '(prefers-color-scheme: light)';
 
@@ -35,9 +37,9 @@ function lesen(k: string): string | null {
   }
 }
 
-/** Die Wahl aus beiden Schlüsseln (Zusammenführung der Altstände). „system" im Modus gewinnt. */
+/** Die Wahl aus beiden Schlüsseln (Zusammenführung der Altstände). „system" (oder das alte „auto") im Modus gewinnt. */
 export function farbschemaAus(theme: string | null, modus: string | null): Farbschema {
-  if (modus === 'system') return 'system';
+  if (modus === 'system' || modus === 'auto') return 'system';
   if (theme === 'light') return 'hell';
   if (theme === 'dark') return 'dunkel';
   if (modus === 'manual:light') return 'hell';

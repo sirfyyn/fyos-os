@@ -16,6 +16,7 @@
  * ohne Nutzergeste ab (`schreibenErlaubt`). Was die App von sich aus tut, wenn der Benutzer klickt, bleibt wie bisher.
  */
 import { ergebnis, liste, registriereWerkzeuge, type Werkzeug, type WerkzeugErgebnis } from '~/lib/werkzeuge';
+import { tr } from '~/lib/i18n';
 
 /** Höchstens so viele Werkzeuge je Fenster */
 export const APP_WERKZEUGE_MAX = 16;
@@ -50,22 +51,22 @@ export function angebotPruefen(plugin: string, p: unknown): { ok: true; angebot:
   const x = (p && typeof p === 'object' && !Array.isArray(p) ? p : {}) as Record<string, unknown>;
   const roh = typeof x.name === 'string' ? x.name : '';
   const name = appWerkzeugName(plugin, roh);
-  if (!name) return nein(`Ungültiger Werkzeugname „${roh.slice(0, 60)}“: a–z, 0–9 und _, ein Buchstabe vorn, höchstens 40 Zeichen.`);
+  if (!name) return nein(tr('Ungültiger Werkzeugname „{0}“: a–z, 0–9 und _, ein Buchstabe vorn, höchstens 40 Zeichen.', roh.slice(0, 60)));
   const beschreibung = typeof x.beschreibung === 'string' ? x.beschreibung.replace(/\s+/g, ' ').trim() : '';
-  if (!beschreibung) return nein(`${name}: Ein Werkzeug braucht eine Beschreibung (ein Satz, was es tut).`);
+  if (!beschreibung) return nein(tr('{0}: Ein Werkzeug braucht eine Beschreibung (ein Satz, was es tut).', name));
   let eingabe: Record<string, unknown> = { type: 'object', properties: {} };
   if (x.eingabe != null) {
-    if (typeof x.eingabe !== 'object' || Array.isArray(x.eingabe)) return nein(`${name}: Das Schema muss ein JSON-Schema-Objekt sein.`);
+    if (typeof x.eingabe !== 'object' || Array.isArray(x.eingabe)) return nein(tr('{0}: Das Schema muss ein JSON-Schema-Objekt sein.', name));
     const s = x.eingabe as Record<string, unknown>;
-    if (s.type !== undefined && s.type !== 'object') return nein(`${name}: Das Schema beschreibt ein Objekt (type: "object").`);
+    if (s.type !== undefined && s.type !== 'object') return nein(tr('{0}: Das Schema beschreibt ein Objekt (type: "object").', name));
     eingabe = { type: 'object', properties: {}, ...s };
     let bytes: number;
     try {
       bytes = new TextEncoder().encode(JSON.stringify(eingabe)).length;
     } catch {
-      return nein(`${name}: Das Schema ist kein JSON.`);
+      return nein(tr('{0}: Das Schema ist kein JSON.', name));
     }
-    if (bytes > SCHEMA_MAX_BYTES) return nein(`${name}: Das Schema ist größer als ${SCHEMA_MAX_BYTES} Bytes.`);
+    if (bytes > SCHEMA_MAX_BYTES) return nein(tr('{0}: Das Schema ist größer als {1} Bytes.', name, SCHEMA_MAX_BYTES));
   }
   return {
     ok: true,
@@ -132,9 +133,9 @@ export function appWerkzeugeFuer(ort: AppWerkzeugOrt): AppWerkzeuge {
       if (!g.ok) return g;
       const a = g.angebot;
       const vorher = eigene.get(a.name);
-      if (!vorher && eigene.size >= APP_WERKZEUGE_MAX) return nein(`Höchstens ${APP_WERKZEUGE_MAX} Werkzeuge je Fenster.`);
+      if (!vorher && eigene.size >= APP_WERKZEUGE_MAX) return nein(tr('Höchstens {0} Werkzeuge je Fenster.', APP_WERKZEUGE_MAX));
       if (!vorher && liste().some((w) => w.name === a.name)) {
-        return nein(`Den Namen ${a.name} trägt schon ein anderes Werkzeug (dieselbe App in einem zweiten Fenster?).`);
+        return nein(tr('Den Namen {0} trägt schon ein anderes Werkzeug (dieselbe App in einem zweiten Fenster?).', a.name));
       }
       const w: Werkzeug = {
         name: a.name,

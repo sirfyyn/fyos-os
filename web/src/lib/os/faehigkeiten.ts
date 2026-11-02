@@ -10,6 +10,7 @@
  */
 import { agentName } from '~/lib/config';
 import { hub } from '~/lib/hub';
+import { tr } from '~/lib/i18n';
 
 export type FaehigkeitId = 'agent' | 'stimme' | 'augen';
 
@@ -84,7 +85,7 @@ export const stimmeAus = (s: StimmeStand): Faehigkeit => ({
   id: 'stimme',
   name: name('stimme'),
   aktiv: s.erreichbar ? (s.lauscher ?? []).some((l) => l.an) : null,
-  satz: s.satz ?? (s.erreichbar ? '' : 'Die Stimme ist nicht erreichbar.'),
+  satz: s.satz ?? (s.erreichbar ? '' : tr('Die Stimme ist nicht erreichbar.')),
   schalter: (s.lauscher ?? []).map((l) => ({ id: l.raum, text: raumName(l.raum), an: l.an })),
 });
 
@@ -92,7 +93,7 @@ export const augenAus = (s: AugenStand): Faehigkeit => ({
   id: 'augen',
   name: name('augen'),
   aktiv: s.erreichbar ? (s.kameras ?? []).some((k) => k.erkennung) : null,
-  satz: s.satz ?? (s.erreichbar ? '' : 'Die Kameras sind nicht erreichbar.'),
+  satz: s.satz ?? (s.erreichbar ? '' : tr('Die Kameras sind nicht erreichbar.')),
   schalter: (s.kameras ?? []).map((k) => ({ id: k.name, text: raumName(k.name), an: k.erkennung })),
 });
 
@@ -124,7 +125,7 @@ export async function laden(id: FaehigkeitId): Promise<Faehigkeit> {
 /** Eine Schleife des Agenten sofort einen Durchgang machen lassen (schleifen.anstossen). Liefert den neuen Stand. */
 export async function anstossen(schleife: string): Promise<Faehigkeit> {
   const r = await hub<{ ok?: boolean; warum?: string }>('schleifen.anstossen', { schleife, von: VON });
-  if (r?.ok === false) throw new Error(r.warum || 'Anstoßen ging nicht.');
+  if (r?.ok === false) throw new Error(r.warum || tr('Anstoßen ging nicht.'));
   return laden('agent');
 }
 

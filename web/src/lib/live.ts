@@ -1,3 +1,4 @@
+import { tr } from '~/lib/i18n';
 /**
  * Live-Weg: ein EventSource auf den Bus (/api/smarthome/live), geteilt von allen Flaechen.
  *
@@ -232,11 +233,11 @@ export function beschreibe(e: BusEreignis): { titel: string; detail?: string } {
   const d = e.daten ?? {};
   if (e.thema === 'haus.zustand') {
     const nach = String(d.nach ?? '');
-    return { titel: text(d.name) ?? String(d.entity_id ?? ''), detail: ZUSTAND_DE[nach] ?? nach };
+    return { titel: text(d.name) ?? String(d.entity_id ?? ''), detail: ZUSTAND_DE[nach] ? tr(ZUSTAND_DE[nach]) : nach };
   }
   if (e.thema === 'camera.detection') {
     return {
-      titel: 'Kamera',
+      titel: tr('Kamera'),
       detail: [text(d.label), text(d.camera)].filter(Boolean).join(' · ') || undefined,
     };
   }
@@ -244,21 +245,22 @@ export function beschreibe(e: BusEreignis): { titel: string; detail?: string } {
     const wer = text(d.wer);
     const rc = typeof d.rc === 'number' ? `rc ${d.rc}` : undefined;
     return {
-      titel: `Werkstatt: ${text(d.id) ?? 'Skript'}${wer ? ` (${wer})` : ''}`,
-      detail: [d.trocken ? 'Trockenlauf' : undefined, rc].filter(Boolean).join(' · ') || undefined,
+      titel: tr('Werkstatt: {0}', text(d.id) ?? tr('Skript')) + (wer ? ` (${wer})` : ''),
+      detail: [d.trocken ? tr('Trockenlauf') : undefined, rc].filter(Boolean).join(' · ') || undefined,
     };
   }
   if (e.thema.startsWith('llm.availability.')) {
-    return { titel: THEMA_DE[e.thema]!, detail: text(d.primary) };
+    return { titel: tr(THEMA_DE[e.thema]!), detail: text(d.primary) };
   }
   if (e.thema === 'finance.transactions_ingested' && typeof d.transactions === 'number') {
-    return { titel: THEMA_DE[e.thema]!, detail: `${d.transactions} Buchungen` };
+    return { titel: tr(THEMA_DE[e.thema]!), detail: tr('{0} Buchungen', d.transactions) };
   }
   if (e.thema === 'decision.resolved') {
     const opt = text(d.resolved_option);
-    return { titel: THEMA_DE[e.thema]!, detail: [text(d.title), opt ? `→ ${opt}` : undefined].filter(Boolean).join(' ') || undefined };
+    return { titel: tr(THEMA_DE[e.thema]!), detail: [text(d.title), opt ? `→ ${opt}` : undefined].filter(Boolean).join(' ') || undefined };
   }
-  const titel = THEMA_DE[e.thema] ?? e.thema;
+  const de = THEMA_DE[e.thema];
+  const titel = de ? tr(de) : e.thema;
   const inhalt =
     text(d.title) ??
     text(d.titel) ??

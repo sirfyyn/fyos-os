@@ -10,6 +10,7 @@ import { NichtEingerichtet } from '~/components/raeume/Huelle';
 import { gesperrt } from '~/components/raeume/freigabe';
 import { agentName } from '~/lib/config';
 import { hub } from '~/lib/hub';
+import { gebietsschema, tr } from '~/lib/i18n';
 
 export interface MatrixNachricht {
   sender: string;
@@ -30,7 +31,7 @@ export function ordne(n: MatrixNachricht[] | undefined): MatrixNachricht[] {
 }
 
 const zeit = (ts: number) =>
-  new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  new Date(ts).toLocaleString(gebietsschema(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 export default function MatrixVerlauf(): JSX.Element {
   const [daten, { refetch }] = createResource(() => hub<Antwort>('chat.matrix_lesen', { limit: 50 }));
@@ -42,16 +43,16 @@ export default function MatrixVerlauf(): JSX.Element {
   return (
     <div class="flex min-h-0 flex-1 flex-col" data-matrix-verlauf>
       <div class="flex shrink-0 items-center gap-3 border-b border-(--color-border) px-4 py-3">
-        <h1 class="m-0 flex-1 text-base font-semibold text-(--color-fg)">Matrix{wert()?.raum ? ` · ${wert()?.raum}` : ''}</h1>
-        <button type="button" class="os-knopf" aria-label="Neu laden" title="Neu laden" onClick={() => void refetch()}>
+        <h1 class="m-0 flex-1 text-base font-semibold text-(--color-fg)">{tr('Matrix')}{wert()?.raum ? ` · ${wert()?.raum}` : ''}</h1>
+        <button type="button" class="os-knopf" aria-label={tr('Neu laden')} title={tr('Neu laden')} onClick={() => void refetch()}>
           ↻
         </button>
       </div>
       <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3">
-        <Show when={!zu()} fallback={<NichtEingerichtet detail="Das Werkzeug chat.matrix_lesen fehlt im Hub oder ist für den Browser nicht freigegeben." data-matrix-gesperrt />}>
-          <Show when={!daten.error} fallback={<p role="status" class="text-sm text-(--color-warn)">Matrix ist gerade nicht erreichbar.</p>}>
-            <Show when={wert()} fallback={<p role="status" class="text-sm text-(--color-fg-muted)">Lade …</p>}>
-              <Show when={liste().length} fallback={<p class="text-sm text-(--color-fg-muted)">Noch keine Nachrichten.</p>}>
+        <Show when={!zu()} fallback={<NichtEingerichtet detail={tr('Das Werkzeug chat.matrix_lesen fehlt im Hub oder ist für den Browser nicht freigegeben.')} data-matrix-gesperrt />}>
+          <Show when={!daten.error} fallback={<p role="status" class="text-sm text-(--color-warn)">{tr('Matrix ist gerade nicht erreichbar.')}</p>}>
+            <Show when={wert()} fallback={<p role="status" class="text-sm text-(--color-fg-muted)">{tr('Lade …')}</p>}>
+              <Show when={liste().length} fallback={<p class="text-sm text-(--color-fg-muted)">{tr('Noch keine Nachrichten.')}</p>}>
                 <ol class="m-0 flex list-none flex-col gap-3 p-0">
                   <For each={liste()}>
                     {(n) => (

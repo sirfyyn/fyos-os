@@ -11,6 +11,7 @@
  */
 import { START, bildschirmBei, type Arbeitsplatz } from './bildschirme';
 import type { Flaeche, FlaechenArt } from './flaechen';
+import { tr } from '~/lib/i18n';
 
 /** Der Agent als Fläche (flaechen.ts: AGENT_ID) — hier als Wert, damit dieses Modul leicht bleibt. */
 const AGENT = 'agent';
@@ -131,7 +132,7 @@ function mitgliedFlaeche(flaechen: Flaeche[], name: string): Flaeche | undefined
  */
 export function loeseAuf(ziel: unknown, flaechen: Flaeche[]): Aufloesung {
   const roh = typeof ziel === 'string' ? ziel.trim() : '';
-  if (!roh) return { ok: false, fehler: 'ziel fehlt: eine Fläche wie „seite:berichte“, „app:notizen__liste“ oder ein Name wie „Berichte“.' };
+  if (!roh) return { ok: false, fehler: tr('ziel fehlt: eine Fläche wie „seite:berichte“, „app:notizen__liste“ oder ein Name wie „Berichte“.') };
 
   const exakt = flaechen.find((f) => f.id === roh);
   if (exakt) return { ok: true, id: exakt.id, flaeche: exakt };
@@ -141,7 +142,7 @@ export function loeseAuf(ziel: unknown, flaechen: Flaeche[]): Aufloesung {
     const f = flaechen.find((x) => x.id === klein) ?? mitgliedFlaeche(flaechen, klein);
     if (f) return { ok: true, id: f.id, flaeche: f };
     const k = bekannte(flaechen, 8);
-    return { ok: false, fehler: `Die Fläche „${roh}“ gibt es hier nicht (oder sie ist noch nicht geladen).${beispiele(k)}`, kandidaten: k };
+    return { ok: false, fehler: tr('Die Fläche „{0}“ gibt es hier nicht (oder sie ist noch nicht geladen).', roh) + beispiele(k), kandidaten: k };
   }
   for (const vorsatz of ['seite:', 'app:', 'nativ:']) {
     const f = flaechen.find((x) => x.id === vorsatz + klein);
@@ -152,20 +153,21 @@ export function loeseAuf(ziel: unknown, flaechen: Flaeche[]): Aufloesung {
 
   const q = falte(roh);
   const stufen: ((f: Flaeche) => boolean)[] = [
-    (f) => falte(f.titel) === q,
-    (f) => falte(f.titel).startsWith(q),
-    (f) => falte(f.titel).includes(q),
+    // der gespeicherte (deutsche) Titel und der angezeigte in der Sprache der Oberfläche
+    (f) => falte(f.titel) === q || falte(tr(f.titel)) === q,
+    (f) => falte(f.titel).startsWith(q) || falte(tr(f.titel)).startsWith(q),
+    (f) => falte(f.titel).includes(q) || falte(tr(f.titel)).includes(q),
   ];
   for (const passt of stufen) {
     const treffer = flaechen.filter(passt);
     if (treffer.length === 1) return { ok: true, id: treffer[0]!.id, flaeche: treffer[0]! };
     if (treffer.length > 1) {
       const namen = treffer.slice(0, 6).map(nenne);
-      return { ok: false, fehler: `„${roh}“ passt auf mehrere Flächen: ${namen.join(', ')}. Nimm die ID.`, kandidaten: namen };
+      return { ok: false, fehler: tr('„{0}“ passt auf mehrere Flächen: {1}. Nimm die ID.', roh, namen.join(', ')), kandidaten: namen };
     }
   }
   const k = bekannte(flaechen, 12);
-  return { ok: false, fehler: `Keine Fläche passt zu „${roh}“.${beispiele(k)}`, kandidaten: k };
+  return { ok: false, fehler: tr('Keine Fläche passt zu „{0}“.', roh) + beispiele(k), kandidaten: k };
 }
 
 function bekannte(flaechen: Flaeche[], n: number): string[] {
@@ -173,12 +175,12 @@ function bekannte(flaechen: Flaeche[], n: number): string[] {
 }
 
 /** Was nach „gibt es nicht“ hilft: ein paar Flächen, die es gibt. */
-const beispiele = (k: string[]): string => (k.length ? ` Es gibt zum Beispiel: ${k.join(', ')}.` : ' Es sind noch keine Flächen geladen.');
+const beispiele = (k: string[]): string => (k.length ? tr(' Es gibt zum Beispiel: {0}.', k.join(', ')) : tr(' Es sind noch keine Flächen geladen.'));
 
 /** Wie `loeseAuf`, aber nur unter den offenen Fenstern (zum Schließen und Lesen). */
 export function loeseFensterAuf(ziel: unknown, fenster: LageFenster[]): { ok: true; fenster: LageFenster } | { ok: false; fehler: string } {
   const roh = typeof ziel === 'string' ? ziel.trim() : '';
-  if (!roh) return { ok: false, fehler: 'ziel fehlt: die ID oder der Name eines offenen Fensters.' };
+  if (!roh) return { ok: false, fehler: tr('ziel fehlt: die ID oder der Name eines offenen Fensters.') };
   const stufen: ((w: LageFenster) => boolean)[] = [
     (w) => w.id === roh || w.id === roh.toLowerCase(),
     (w) => falte(w.titel) === falte(roh),
@@ -189,9 +191,9 @@ export function loeseFensterAuf(ziel: unknown, fenster: LageFenster[]): { ok: tr
     const treffer = fenster.filter(passt);
     if (treffer.length === 1) return { ok: true, fenster: treffer[0]! };
     if (treffer.length > 1) {
-      return { ok: false, fehler: `„${roh}“ passt auf mehrere offene Fenster: ${treffer.map((w) => `${w.titel} (${w.id})`).join(', ')}. Nimm die ID.` };
+      return { ok: false, fehler: tr('„{0}“ passt auf mehrere offene Fenster: {1}. Nimm die ID.', roh, treffer.map((w) => `${w.titel} (${w.id})`).join(', ')) };
     }
   }
-  const offen = fenster.length ? fenster.map((w) => `${w.titel} (${w.id})`).join(', ') : 'keines';
-  return { ok: false, fehler: `Kein offenes Fenster passt zu „${roh}“. Offen: ${offen}.` };
+  const offen = fenster.length ? fenster.map((w) => `${w.titel} (${w.id})`).join(', ') : tr('keines');
+  return { ok: false, fehler: tr('Kein offenes Fenster passt zu „{0}“. Offen: {1}.', roh, offen) };
 }

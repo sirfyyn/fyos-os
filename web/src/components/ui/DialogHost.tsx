@@ -9,6 +9,7 @@ import { For, Show, createSignal, onCleanup, onMount, type Component } from 'sol
 import { Portal } from 'solid-js/web';
 import { Button } from './Button';
 import { aktiverDialog, type DialogAnfrage, type MeldungsArt } from '~/lib/ui/dialoge';
+import { tr } from '~/lib/i18n';
 
 const FOKUSBAR = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
@@ -148,11 +149,11 @@ const DialogKarte: Component<{ a: DialogAnfrage }> = (props) => {
           <div class="mt-3 flex justify-end gap-2">
             <Show when={a.typ !== 'meldung'}>
               <Button ref={abbrechenKnopf} variant="ghost" onClick={abbrechen}>
-                {(a.typ === 'bestaetigen' || a.typ === 'eingabe') ? (a.opt.abbrechen ?? 'Abbrechen') : ''}
+                {(a.typ === 'bestaetigen' || a.typ === 'eingabe') ? (a.opt.abbrechen ?? tr('Abbrechen')) : ''}
               </Button>
             </Show>
             <Button ref={okKnopf} variant={gefaehrlich ? 'destructive' : 'default'} onClick={ok}>
-              {opt.ok ?? (gefaehrlich ? 'Löschen' : a.typ === 'bestaetigen' ? 'Bestätigen' : 'OK')}
+              {opt.ok ?? (gefaehrlich ? tr('Löschen') : a.typ === 'bestaetigen' ? tr('Bestätigen') : 'OK')}
             </Button>
           </div>
         </div>

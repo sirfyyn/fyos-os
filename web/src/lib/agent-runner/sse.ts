@@ -1,3 +1,4 @@
+import { tr } from '~/lib/i18n';
 /**
  * sse.ts — Server-Sent Events per fetch gelesen.
  *
@@ -53,7 +54,7 @@ export class SseParser {
 /** Liest eine SSE-Antwort bis zum Ende oder bis `signal` abbricht. */
 export async function liesSse(antwort: Response, beiNachricht: (n: SseNachricht) => void, signal?: AbortSignal): Promise<void> {
   const leser = antwort.body?.getReader();
-  if (!leser) throw new Error('Die Antwort hat keinen lesbaren Strom.');
+  if (!leser) throw new Error(tr('Die Antwort hat keinen lesbaren Strom.'));
   const dekoder = new TextDecoder('utf-8');
   const parser = new SseParser();
   const abbrechen = () => void leser.cancel().catch(() => {});

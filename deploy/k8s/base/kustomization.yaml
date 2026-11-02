@@ -1,14 +1,14 @@
-# FYOS-Grundinstallation fuer Kubernetes. Ein Overlay setzt Namespace, Bilder und die
-# Agenten-Konfiguration (ConfigMap `fyos-agent-config`). Die Vorgaben unten zeigen auf eine
-# Beispieladresse, die sich nie aufloesen laesst: ohne Overlay schlaegt das Ziehen sichtbar fehl.
+# FYOS base installation for Kubernetes. An overlay sets namespace, images and the
+# agent configuration (ConfigMap `fyos-agent-config`). The defaults below point to an
+# example address that can never be resolved: without an overlay, pulling fails visibly.
 #
-# Bilder im Overlay: kustomize ersetzt hier zuerst, das Overlay danach. Ein Overlay nennt die
-# Bilder deshalb so, wie diese Basis sie ausgibt, also mit vollem Beispielnamen:
+# Images in the overlay: kustomize replaces here first, the overlay afterwards. An overlay therefore
+# names the images the way this base outputs them, i.e. with the full example name:
 #   images:
 #     - name: registry.example.com/fyos/fyos-os/web
 #       newName: registry.meine.example/fyos-os/web
-# Ein kurzer Name (fyos-os/web) greift im Overlay nicht mehr. Flux (`spec.images` der
-# Kustomization) ersetzt dagegen die Eintraege unten gleichen Namens und nimmt beide Formen.
+# A short name (fyos-os/web) no longer takes effect in the overlay. Flux (`spec.images` of the
+# Kustomization), by contrast, replaces the entries below of the same name and accepts both forms.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 labels:

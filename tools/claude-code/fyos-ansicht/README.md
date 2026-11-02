@@ -1,64 +1,63 @@
-# fyos-ansicht — gebaute FYOS-Ansichten im Terminal
+# fyos-ansicht — built FYOS views in the terminal
 
-Ein Mod für Claude Code. Baut der Agent mit dem Hub-Plugin `gui` eine Ansicht (Kennzahlen, Diagramm, Tabelle, Rechner …),
-öffnet der Mod sie rechts im Panel des Terminals, ohne dir den Fokus zu nehmen. Claude Code im Terminal ist kein
-MCP-Apps-Host und kann die App deshalb nicht selbst zeigen. Der Hub liefert die Ansicht darum als ganze Seite
-(`GET /hub/gui/<id>`; Live-Quellen laden über `/hub/gui/<id>/daten` nach), und der Mod terminal-browser zeichnet sie als
-Bild in sein Panel.
+A mod for Claude Code. When the agent builds a view with the Hub plugin `gui` (metrics, diagram, table, calculator …),
+the mod opens it on the right in the terminal's panel without taking the focus away from you. Claude Code in the
+terminal is not an MCP Apps host and therefore cannot show the app itself. So the Hub delivers the view as a whole page
+(`GET /hub/gui/<id>`; live sources reload through `/hub/gui/<id>/daten`), and the mod terminal-browser draws it as a
+picture into its panel.
 
-## Voraussetzungen
+## Requirements
 
-- Ein laufender FYOS-Hub mit dem Plugin `gui` (es gehört zum Kern) und Claude Code, das den Hub als MCP-Server nutzt,
-  zum Beispiel `claude mcp add --transport http fyos http://localhost:8080/mcp`.
-- Der Hub muss für Claude Code selbst erreichbar sein, nicht nur die Shell (Abschnitt „Hub-Adresse“).
-- Der Mod terminal-browser (Projekt [zenbu-labs/terminal-browser](https://github.com/zenbu-labs/terminal-browser)) samt
-  App und ein Terminal mit kitty-Grafikprotokoll, etwa kitty oder Ghostty. Einrichtung und Einstellungen der App
-  (auch zur Telemetrie) regelt dieses Projekt. Ohne ihn tut fyos-ansicht nichts.
-- Mods nutzen die Schnittstelle „Function Hooks“ von Claude Code. Sie kann sich zwischen Versionen ändern. Wo deine
-  Version sie nicht von selbst anbietet, setzt du `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` unter `env` in der
-  Einstellungsdatei von Claude Code, so verlangt es auch terminal-browser. Dieser Mod besteht `claude plugin validate`
-  und `claude plugin test` mit Claude Code 2.1.295.
+- A running FYOS Hub with the plugin `gui` (it belongs to the core) and Claude Code using the Hub as an MCP server, for
+  example `claude mcp add --transport http fyos http://localhost:8080/mcp`.
+- Claude Code itself must be able to reach the Hub, not just the shell (section "Hub address").
+- The mod terminal-browser (project [zenbu-labs/terminal-browser](https://github.com/zenbu-labs/terminal-browser)) with
+  its app, and a terminal with the kitty graphics protocol, such as kitty or Ghostty. That project covers setup and the
+  app's settings (including telemetry). Without it, fyos-ansicht does nothing.
+- Mods use Claude Code's "function hooks" interface. It may change between versions. Where your version does not offer
+  it by itself, set `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` under `env` in Claude Code's settings file; terminal-browser
+  requires the same. This mod passes `claude plugin validate` and `claude plugin test` with Claude Code 2.1.295.
 
-## Einrichten
+## Setting up
 
-Im Checkout dieses Repos, in Claude Code:
+In a checkout of this repo, in Claude Code:
 
 ```text
 /plugin marketplace add ./tools/claude-code
 /plugin install fyos-ansicht@fyos-tools
 ```
 
-Danach Claude Code neu starten. Nur für eine Sitzung und ohne Installation:
+Then restart Claude Code. For one session only and without installing:
 
 ```sh
 claude --plugin-dir tools/claude-code/fyos-ansicht
 ```
 
-## Benutzen
+## Using it
 
-- Ruft Claude `gui.bauen` oder `gui.zeigen` mit einer `id` auf, auch über `hub__call_tool`, öffnet der Mod die Ansicht
-  rechts im Panel. Der Fokus bleibt im Eingabefeld; ein Klick ins Panel gibt ihm die Tastatur. Die Liste aller
-  Ansichten und reine Datenabfragen öffnen nichts.
-- `/ansicht` öffnet die zuletzt gezeigte Ansicht dieser Sitzung noch einmal, `/ansicht g-…` eine bestimmte (die Id
-  steht in der Antwort von `gui.bauen`), `/ansicht zu` schließt das Panel.
-- `FYOS_ANSICHT_AUTO=0` schaltet das automatische Öffnen ab. `/ansicht` geht weiter.
-- Eine Live-Ansicht (`gui.bauen` mit `quelle`) lädt im Panel selbst nach.
+- When Claude calls `gui.bauen` or `gui.zeigen` with an `id`, also through `hub__call_tool`, the mod opens the view on
+  the right in the panel. The focus stays in the input field; a click into the panel gives it the keyboard. The list of
+  all views and plain data queries open nothing.
+- `/ansicht` opens the last view shown in this session again, `/ansicht g-…` a particular one (the id is in the answer
+  of `gui.bauen`), `/ansicht zu` closes the panel.
+- `FYOS_ANSICHT_AUTO=0` turns off automatic opening. `/ansicht` still works.
+- A live view (`gui.bauen` with `quelle`) reloads in the panel by itself.
 
-## Hub-Adresse
+## Hub address
 
-`FYOS_HUB_URL` nennt den Hub; Vorgabe ist `http://localhost:8080`, der Standardport des Hubs. Es ist dieselbe Adresse,
-die FYOS dem Agenten gibt, mit `/mcp` am Ende (`http://localhost:8080/mcp`). Der Mod schneidet das `/mcp` ab, denn die
-Seite liegt unter `/hub/gui/<id>` am Hub selbst. Setze die Variable, bevor du Claude Code startest, oder unter `env` in
-der Einstellungsdatei von Claude Code.
+`FYOS_HUB_URL` names the Hub; the default is `http://localhost:8080`, the Hub's standard port. It is the same address
+FYOS gives the agent, with `/mcp` at the end (`http://localhost:8080/mcp`). The mod cuts off the `/mcp`, because the
+page lives at `/hub/gui/<id>` on the Hub itself. Set the variable before you start Claude Code, or under `env` in
+Claude Code's settings file.
 
-Seit 0.1.1 reicht auch die Shell `/hub/gui/…` durch, nur lesend (siehe `docs/HUB-VERTRAG.md`, Abschnitt „nginx der
-Shell“). Dem Mod genügt also eine Adresse, unter der die Shell oder der Hub antwortet. Claude Code selbst braucht für die
-MCP-Verbindung den Hub, denn `/mcp` geht nicht durch die Shell. Am einfachsten zeigt `FYOS_HUB_URL` deshalb auf dieselbe
-Adresse wie die MCP-Verbindung:
+Since 0.1.1 the shell also passes `/hub/gui/…` through, read-only (see `docs/HUB-CONTRACT.md`, section "The shell's
+nginx"). So the mod only needs an address at which the shell or the Hub answers. Claude Code itself needs the Hub for
+the MCP connection, because `/mcp` does not go through the shell. The simplest is therefore to point `FYOS_HUB_URL` at
+the same address as the MCP connection:
 
-- **`fyos-hub` direkt gestartet:** `http://localhost:8080`, die Vorgabe.
-- **Docker Compose:** Der Hub veröffentlicht keinen Port. Eine Override-Datei neben `docker-compose.yml` öffnet einen,
-  nur für diesen Rechner, denn innen ist der Hub offen: `FYOS_HUB_URL=http://127.0.0.1:8081/mcp`.
+- **`fyos-hub` started directly:** `http://localhost:8080`, the default.
+- **Docker Compose:** the Hub publishes no port. An override file next to `docker-compose.yml` opens one, only for this
+  machine, because the Hub is open inside: `FYOS_HUB_URL=http://127.0.0.1:8081/mcp`.
 
   ```yaml
   # deploy/compose/docker-compose.override.yml
@@ -68,37 +67,37 @@ Adresse wie die MCP-Verbindung:
         - "127.0.0.1:8081:8080"
   ```
 
-  Ohne `FYOS_HUB_URL` trifft die Vorgabe die Shell auf `http://localhost:8080` (oder dem Port aus `FYOS_PORT`); auch
-  dort gehen die Ansichten auf.
-- **Kubernetes:** `kubectl port-forward svc/hub 8081:8080` (mit `-n <Namespace>`), dann
-  `FYOS_HUB_URL=http://127.0.0.1:8081/mcp`. Die Adresse der Shell geht auch, wenn terminal-browser deren Anmeldung hat.
+  Without `FYOS_HUB_URL` the default hits the shell at `http://localhost:8080` (or the port from `FYOS_PORT`); the
+  views open there too.
+- **Kubernetes:** `kubectl port-forward svc/hub 8081:8080` (with `-n <namespace>`), then
+  `FYOS_HUB_URL=http://127.0.0.1:8081/mcp`. The shell's address works too, if terminal-browser has its login.
 
-## Was der Mod tut
+## What the mod does
 
-- Er liest nur die Ergebnisse von `gui__bauen`, `gui__zeigen` und `hub__call_tool` und reicht sie unverändert weiter.
-  Er schickt nichts ins Modell, liest keine Dateien, startet keine Prozesse und hat kein eigenes Netz. Laden tut
-  terminal-browser.
-- Er liest die Umgebungsvariablen `FYOS_HUB_URL`, `FYOS_ANSICHT_AUTO` und `CLAUDE_JOB_DIR` und schreibt keine.
-- Die Ansicht läuft wie in der Shell in einer Sandbox ohne Netz: das vom Agenten erzeugte Skript erreicht weder den Hub
-  noch das Internet.
+- It reads only the results of `gui__bauen`, `gui__zeigen` and `hub__call_tool` and passes them on unchanged. It sends
+  nothing to the model, reads no files, starts no processes and has no network of its own. terminal-browser does the
+  loading.
+- It reads the environment variables `FYOS_HUB_URL`, `FYOS_ANSICHT_AUTO` and `CLAUDE_JOB_DIR` and writes none.
+- As in the shell, the view runs in a sandbox without network: the script the agent generated reaches neither the Hub
+  nor the internet.
 
-## Grenzen
+## Limits
 
-- Nur in der Terminal-Oberfläche von Claude Code. Desktop-App, claude.ai und Handy sind MCP-Apps-Hosts und zeigen die
-  App selbst.
-- In angehängten Hintergrund-Sitzungen (der Mod erkennt sie an `CLAUDE_JOB_DIR`) zeichnet kitty das Panel, aber nicht
-  das Bild darin: es bleibt grau. Der Mod öffnet dort nichts und zeigt einen Hinweis. In einer normalen Sitzung öffnet
-  `/ansicht <id>` die Ansicht.
-- Ist der Hub nicht erreichbar, zeigt das Panel nur die Fehlerseite des Browsers. Der Mod prüft das nicht vorher.
-- Ohne den Mod macht `tools/gui_datei.py` aus einer Ansicht eine HTML-Datei, die `--oeffnen` im Standardbrowser zeigt.
+- Only in Claude Code's terminal interface. The desktop app, claude.ai and the phone are MCP Apps hosts and show the
+  app themselves.
+- In attached background sessions (the mod recognises them by `CLAUDE_JOB_DIR`) kitty draws the panel, but not the
+  picture in it: it stays grey. The mod opens nothing there and shows a hint. In a normal session `/ansicht <id>` opens
+  the view.
+- If the Hub cannot be reached, the panel shows only the browser's error page. The mod does not check this beforehand.
+- Without the mod, `tools/gui_datei.py` turns a view into an HTML file that `--oeffnen` shows in the default browser.
 
 ## Tests
 
 ```sh
-claude plugin validate tools/claude-code/fyos-ansicht     # statische Prüfung der Hooks und Aufrufe
-claude plugin test tools/claude-code/fyos-ansicht         # 6 Tests, ohne Sitzung und ohne Netz
+claude plugin validate tools/claude-code/fyos-ansicht     # static check of the hooks and calls
+claude plugin test tools/claude-code/fyos-ansicht         # 6 tests, without a session and without network
 ```
 
-`claude plugin test` ist der Läufer von Claude Code: Die Tests holen ihr Werkzeug aus dem Testkit, das Claude Code
-selbst mitbringt (Modul „claude-code/testing“). Mit einem anderen Läufer laufen sie nicht, und die CI dieses Repos
-führt sie darum nicht aus.
+`claude plugin test` is Claude Code's runner: the tests take their tools from the test kit that Claude Code itself
+ships (module "claude-code/testing"). They do not run with another runner, and the CI of this repo therefore does not
+run them.

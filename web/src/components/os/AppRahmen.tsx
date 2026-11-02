@@ -18,6 +18,7 @@ import { agentName } from '~/lib/config';
 import { appFragen, heften, kannHeften, linkKopieren, rueckmeldung } from '~/lib/os/app-aktionen';
 import type { Flaeche } from '~/lib/os/flaechen';
 import Symbol, { Glyphe } from './Symbol';
+import { tr } from '~/lib/i18n';
 
 /** Symbol und Titel der App; die Zeile darunter (Untertitel) erscheint beim Darüberfahren. */
 export function AppTitel(p: { f: Flaeche }): JSX.Element {
@@ -48,7 +49,7 @@ export function AppAktionen(p: { f: Flaeche; start?: StartZustand }): JSX.Elemen
       <button
         type="button"
         class="os-knopf os-app-aktion os-app-agent"
-        aria-label={`${p.f.titel}: ${agentName()} fragen`}
+        aria-label={tr('{0}: {1} fragen', p.f.titel, agentName())}
         title={`${agentName()} fragen`}
         onClick={() => void appFragen(p.f, p.start)}
       >
@@ -58,8 +59,8 @@ export function AppAktionen(p: { f: Flaeche; start?: StartZustand }): JSX.Elemen
         type="button"
         class="os-knopf os-app-aktion os-app-zweit"
         classList={{ 'os-app-gut': kopiert() }}
-        aria-label={`${p.f.titel}: Link kopieren`}
-        title="Link kopieren"
+        aria-label={tr('{0}: Link kopieren', p.f.titel)}
+        title={tr('Link kopieren')}
         onClick={() => void linkKopieren(p.f, p.start)}
       >
         <Glyphe name={kopiert() ? 'check' : 'link'} class="os-app-glyphe" />
@@ -70,8 +71,8 @@ export function AppAktionen(p: { f: Flaeche; start?: StartZustand }): JSX.Elemen
           class="os-knopf os-app-aktion os-app-zweit"
           classList={{ 'os-app-an': geheftet() }}
           aria-pressed={geheftet()}
-          aria-label={`${p.f.titel}: ${geheftet() ? 'vom Start lösen' : 'an den Start heften'}`}
-          title={geheftet() ? 'Vom Start lösen' : 'An den Start heften'}
+          aria-label={tr(geheftet() ? '{0}: vom Start lösen' : '{0}: an den Start heften', p.f.titel)}
+          title={geheftet() ? tr('Vom Start lösen') : tr('An den Start heften')}
           onClick={() => void heften(p.f)}
         >
           <Glyphe name={geheftet() ? 'pin-off' : 'pin'} class="os-app-glyphe" />

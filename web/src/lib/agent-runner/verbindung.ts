@@ -7,6 +7,7 @@
  * (`opaqueredirect`); die Fläche bietet dann „Anmelden“ an (neu laden).
  */
 import { fehlerText } from './text';
+import { tr } from '~/lib/i18n';
 
 export const AGENT_BASIS = '/api/agent';
 export const AGENT_KOPF = 'X-FYOS-Agent';
@@ -36,14 +37,14 @@ export class RunnerFehler extends Error {
   /** Lohnt sich ein neuer Versuch von selbst (Strom verbindet dann wieder)? */
   readonly wiederholbar: boolean;
   constructor(art: FehlerArt, status: number, nachricht?: string) {
-    super(nachricht || TITEL[art]);
+    super(nachricht || tr(TITEL[art]));
     this.name = 'RunnerFehler';
     this.art = art;
     this.status = status;
     this.wiederholbar = art === 'nicht-erreichbar' || art === 'netz' || art === 'server';
   }
   get titel(): string {
-    return TITEL[this.art];
+    return tr(TITEL[this.art]);
   }
 }
 
@@ -122,7 +123,7 @@ export class AgentVerbindung {
       const res = await this.rohAnfrage(pfad, { ...opt, signal: steuerung.signal }, false).catch((f) => {
         if ((f as { name?: string } | null)?.name === 'AbortError') {
           if (aussen?.aborted) throw f;
-          throw new RunnerFehler('nicht-erreichbar', 0, 'Der Runner antwortet nicht rechtzeitig.');
+          throw new RunnerFehler('nicht-erreichbar', 0, tr('Der Runner antwortet nicht rechtzeitig.'));
         }
         throw f;
       });
@@ -134,7 +135,7 @@ export class AgentVerbindung {
         daten = null;
       }
       if (!res.ok || (daten && daten.ok === false)) throw klassifiziere(res, daten, text);
-      if (daten === null) throw new RunnerFehler('server', res.status, 'Die Antwort des Runners ist kein JSON.');
+      if (daten === null) throw new RunnerFehler('server', res.status, tr('Die Antwort des Runners ist kein JSON.'));
       return daten as T;
     } finally {
       clearTimeout(timer);

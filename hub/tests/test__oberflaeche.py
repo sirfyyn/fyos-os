@@ -93,7 +93,8 @@ def test_oberflaeche_ist_vollstaendig_und_ohne_rest(datei):
     assert STIL not in html and BRUECKE not in html
     assert "--color-background-primary" in html and "const App" in html
     assert html.count("ui/initialize") == 1, "die Bruecke steht einmal, nicht kopiert"
-    assert '<html lang="de" data-theme="dark">' in html and 'name="viewport"' in html
+    # Seit 0.3.0 englisch als Vorgabe (Nr. 739); noch nicht übersetzte Apps stehen weiter auf de
+    assert re.search(r'<html lang="(en|de)" data-theme="dark">', html) and 'name="viewport"' in html
 
 
 @pytest.mark.parametrize("datei", APPS)

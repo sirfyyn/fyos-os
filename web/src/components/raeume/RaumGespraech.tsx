@@ -11,6 +11,7 @@ import { type RaumProps, RaumRahmen } from '~/components/os/Raum';
 import { EintragLeiste, Geplant, HubApp, gemerkteWahl, wahlMerken } from '~/components/raeume/Huelle';
 import MatrixVerlauf from '~/components/raeume/MatrixVerlauf';
 import { agentName } from '~/lib/config';
+import { tr } from '~/lib/i18n';
 
 const AgentRunner = lazy(() => import('~/components/os/nativ/Agent'));
 
@@ -47,9 +48,9 @@ export default function RaumGespraech(p: RaumProps): JSX.Element {
 
   return (
     <RaumRahmen
-      titel="Gespräch"
+      titel={tr('Gespräch')}
       leiste={<EintragLeiste eintraege={leistenEintraege()} gruppen={GRUPPEN} gewaehlt={gewaehlt()} waehle={waehle} schmal={p.schmal} kennung="gespraech" />}
-      leisteName="Gespräche und Kanäle"
+      leisteName={tr('Gespräche und Kanäle')}
       schmal={p.schmal}
       heim={p.heim}
       fuellen={aktuell().inhalt.art !== 'geplant'}

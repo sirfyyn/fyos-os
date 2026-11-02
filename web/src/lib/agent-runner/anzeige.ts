@@ -5,6 +5,7 @@
 import { nachrichten } from './gespraech';
 import { ergebnisText, eintragZeit, inhaltText, wertText } from './text';
 import type { Block, Eintrag, GespraechsZustand, Nachricht, WerkzeugSlot } from './typen';
+import { tr } from '~/lib/i18n';
 
 export type KartenStatus = 'laeuft' | 'fertig' | 'fehler' | 'offen';
 
@@ -134,7 +135,7 @@ export function baueAnzeige(z: GespraechsZustand, opt: AnzeigeOptionen = {}): An
     }
     if (kind === 'fyos.lauf.auftrag') {
       const d = (e.data ?? {}) as { lauf?: string | number; titel?: string };
-      aus.push({ art: 'system', schluessel: schl, titel: 'Lauf', text: `Auftrag für Lauf ${d.lauf ?? ''}: ${d.titel ?? ''}`, zeit, lauf: true });
+      aus.push({ art: 'system', schluessel: schl, titel: tr('Lauf'), text: tr('Auftrag für Lauf {0}: {1}', d.lauf ?? '', d.titel ?? ''), zeit, lauf: true });
       return;
     }
     if (kind === 'fyos.eingang') {
@@ -142,7 +143,7 @@ export function baueAnzeige(z: GespraechsZustand, opt: AnzeigeOptionen = {}): An
       aus.push({
         art: 'system',
         schluessel: schl,
-        titel: `Eingang · ${d.quelle ?? '?'}${d.von && d.von !== d.quelle ? ` · ${d.von}` : ''}`,
+        titel: `${tr('Eingang')} · ${d.quelle ?? '?'}${d.von && d.von !== d.quelle ? ` · ${d.von}` : ''}`,
         text: String(d.text ?? ''),
         zeit,
         eingang: { quelle: String(d.quelle ?? '?'), von: String(d.von ?? ''), klasse: String(d.klasse ?? '') },

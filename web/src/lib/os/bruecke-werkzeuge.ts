@@ -25,6 +25,7 @@ import { zielAufloesen } from './allein';
 import { bildschirmBei, wo } from './bildschirme';
 import { istSichtbarOffen, lageBauen, loeseAuf, loeseFensterAuf, type LageFenster, type LageQuelle } from './bruecke-lage';
 import { einstellungLesen, einstellungSchreiben, istStumm, type ZeigtEinstellung } from './agent-zeigt';
+import { tr } from '~/lib/i18n';
 
 /** Das Ereignis, mit dem das OS „öffne diese Fläche (mit dieser Eingabe)“ weitergibt. Siehe `oeffnenMitPruefung`. */
 export const OEFFNEN_EREIGNIS = 'fyos:oeffnen';
@@ -60,7 +61,7 @@ async function warteBis(f: () => boolean, maxMs: number, schritt = 40): Promise<
 
 export type OeffnenErgebnis = { ok: true; ergebnis: Record<string, unknown> } | { ok: false; fehler: string };
 
-const VOLL = `Auf dem Bildschirm sind schon ${MAX_OFFEN} Flächen offen. Schließ eines oder öffne einen neuen Bildschirm.`;
+const VOLL = () => tr('Auf dem Bildschirm sind schon {0} Flächen offen. Schließ eines oder öffne einen neuen Bildschirm.', MAX_OFFEN);
 
 /**
  * Eine Fläche öffnen. `ziel` ist eine ID oder ein Name; unbekannt ist ein Fehler mit den Kandidaten.
@@ -90,7 +91,7 @@ export async function oeffnenMitPruefung(k: OsKontext, ziel: unknown, eingabe: R
     const q = k.quelle();
     const zielBildschirm = bildschirmBei(q.ap, q.ap.aktiv >= 1 ? q.ap.aktiv : q.ap.zuletzt);
     const voll = !!zielBildschirm && zielBildschirm.fenster.filter((w) => !w.min).length >= MAX_OFFEN;
-    return { ok: false, fehler: voll ? VOLL : `„${a.flaeche.titel}“ ließ sich nicht öffnen.` };
+    return { ok: false, fehler: voll ? VOLL() : tr('„{0}“ ließ sich nicht öffnen.', a.flaeche.titel) };
   }
 
   const q = k.quelle();
@@ -111,8 +112,8 @@ export async function oeffnenMitPruefung(k: OsKontext, ziel: unknown, eingabe: R
     r.eingabe_uebernommen = uebernommen;
     if (!uebernommen) {
       r.hinweis = unbehandelt
-        ? 'Die Fläche ist offen, aber dieses OS konnte ihr die Eingabe nicht übergeben.'
-        : 'Die Fläche ist offen, aber ohne die Eingabe: sie war zu groß, ungültig oder die Fläche nimmt keine Eingabe an (nur Apps tun das).';
+        ? tr('Die Fläche ist offen, aber dieses OS konnte ihr die Eingabe nicht übergeben.')
+        : tr('Die Fläche ist offen, aber ohne die Eingabe: sie war zu groß, ungültig oder die Fläche nimmt keine Eingabe an (nur Apps tun das).');
     }
   }
   return { ok: true, ergebnis: r };
@@ -124,13 +125,13 @@ export async function schliessenMitPruefung(k: OsKontext, ziel: unknown): Promis
   const t = loeseFensterAuf(ziel, lage.fenster);
   if (!t.ok) {
     const meintAgent = typeof ziel === 'string' && /^agent(\b|-)/i.test(ziel.trim());
-    if (meintAgent && q.agent) return { ok: false, fehler: 'Der Agent ist als Dock offen, nicht als Fenster — den schließt der Benutzer über die Menüleiste oder ⌘J.' };
+    if (meintAgent && q.agent) return { ok: false, fehler: tr('Der Agent ist als Dock offen, nicht als Fenster — den schließt der Benutzer über die Menüleiste oder ⌘J.') };
     return { ok: false, fehler: t.fehler };
   }
   const w = t.fenster;
-  if (!k.schliesse(w.id)) return { ok: false, fehler: `„${w.titel}“ ließ sich nicht schließen (nicht mehr offen?).` };
+  if (!k.schliesse(w.id)) return { ok: false, fehler: tr('„{0}“ ließ sich nicht schließen (nicht mehr offen?).', w.titel) };
   const noch = wo(k.quelle().ap, w.id) >= 1;
-  if (noch) return { ok: false, fehler: `„${w.titel}“ ist noch offen.` };
+  if (noch) return { ok: false, fehler: tr('„{0}“ ist noch offen.', w.titel) };
   return { ok: true, ergebnis: { geschlossen: true, id: w.id, titel: w.titel, bildschirm: w.bildschirm } };
 }
 
@@ -147,7 +148,7 @@ export function fensterUebersicht(q: LageQuelle) {
     agent_offen: q.agent,
     anruf_offen: lage.anruf,
     agent_vorne: lage.agent_vorne,
-    hinweis: lage.fenster.length ? undefined : 'Es ist kein Fenster offen.',
+    hinweis: lage.fenster.length ? undefined : tr('Es ist kein Fenster offen.'),
   };
 }
 
@@ -171,20 +172,20 @@ export function zentraleKompakt(z: unknown): Record<string, unknown> {
     lage_satz: typeof r.lage_satz === 'string' ? r.lage_satz : '',
     ampel: typeof r.ampel === 'string' ? r.ampel : null,
     kacheln,
-    ...(kacheln.length ? {} : { leer: true, hinweis: 'Die Zentrale hat gerade keine Kacheln geliefert.' }),
+    ...(kacheln.length ? {} : { leer: true, hinweis: tr('Die Zentrale hat gerade keine Kacheln geliefert.') }),
   };
 }
 
 function hubFehler(e: unknown): WerkzeugErgebnis {
   if (e instanceof ApiError) {
     // 403/404: das Werkzeug gibt es nicht oder ist nicht freigegeben — kein Plugin eingerichtet
-    if (e.status === 403 || e.status === 404) return fehler('Noch nicht eingerichtet.');
-    if (e.status === 401) return fehler('Sitzung abgelaufen — neu anmelden.');
-    if (e.status === 0) return fehler(`Der Hub ist nicht erreichbar (${e.message}).`);
-    if (e.status === 408) return fehler('Der Hub hat nicht rechtzeitig geantwortet.');
-    return fehler(`Der Hub meldet einen Fehler: ${e.message}`);
+    if (e.status === 403 || e.status === 404) return fehler(tr('Noch nicht eingerichtet.'));
+    if (e.status === 401) return fehler(tr('Sitzung abgelaufen — neu anmelden.'));
+    if (e.status === 0) return fehler(tr('Der Hub ist nicht erreichbar ({0}).', e.message));
+    if (e.status === 408) return fehler(tr('Der Hub hat nicht rechtzeitig geantwortet.'));
+    return fehler(tr('Der Hub meldet einen Fehler: {0}', e.message));
   }
-  return fehler(`Der Hub ist nicht erreichbar (${e instanceof Error ? e.message : String(e)}).`);
+  return fehler(tr('Der Hub ist nicht erreichbar ({0}).', e instanceof Error ? e.message : String(e)));
 }
 
 const zeichenLimit = (x: unknown): number => {
@@ -226,31 +227,31 @@ export async function seiteLesen(k: OsKontext, args: Record<string, unknown>): P
       bildschirm: lage.bildschirm,
       hinweis:
         lage.bildschirm === 0
-          ? 'Auf dem Start ist kein Fenster offen. Die Zentrale zeigt die Lage — lies sie mit os_zentrale.'
-          : 'Auf diesem Bildschirm ist kein Fenster offen. Öffne eines mit os_oeffnen.',
+          ? tr('Auf dem Start ist kein Fenster offen. Die Zentrale zeigt die Lage — lies sie mit os_zentrale.')
+          : tr('Auf diesem Bildschirm ist kein Fenster offen. Öffne eines mit os_oeffnen.'),
     });
   }
   const info = { id: ziel.id, titel: ziel.titel, art: ziel.art };
-  if (ziel.min) return fehler(`„${ziel.titel}“ ist minimiert und zeigt nichts. Hol es mit os_oeffnen nach vorn.`);
+  if (ziel.min) return fehler(tr('„{0}“ ist minimiert und zeigt nichts. Hol es mit os_oeffnen nach vorn.', ziel.titel));
   if (ziel.art === 'hubapp') {
     return ergebnis({
       fenster: info,
       text: null,
-      hinweis: `Hub-Apps zeigen ihren Inhalt in einer abgeschirmten Fläche, die sich hier nicht lesen lässt. Lies „${ziel.titel}“ über ihr Hub-Werkzeug (z. B. ${ziel.id.replace(/^app:/, '')}).`,
+      hinweis: tr('Hub-Apps zeigen ihren Inhalt in einer abgeschirmten Fläche, die sich hier nicht lesen lässt. Lies „{0}“ über ihr Hub-Werkzeug (z. B. {1}).', ziel.titel, ziel.id.replace(/^app:/, '')),
     });
   }
   const el = fensterElement(k.wurzel ?? document, ziel.id);
-  if (!el) return fehler(`„${ziel.titel}“ ist offen, aber noch nicht geladen (anderer Bildschirm, der noch nie gezeigt wurde?). Wechsle dorthin und versuch es nochmal.`);
+  if (!el) return fehler(tr('„{0}“ ist offen, aber noch nicht geladen (anderer Bildschirm, der noch nie gezeigt wurde?). Wechsle dorthin und versuch es nochmal.', ziel.titel));
 
   if (ziel.art === 'nativ') {
     const inhalt = el.querySelector('[data-kontext="inhalt"]') ?? el;
     const t = kuerzen(sichtText(inhalt), zeichen);
-    return ergebnis({ fenster: info, ...t, ...(t.text ? {} : { hinweis: 'Das Fenster zeigt gerade keinen Text (lädt noch oder ist leer).' }) });
+    return ergebnis({ fenster: info, ...t, ...(t.text ? {} : { hinweis: tr('Das Fenster zeigt gerade keinen Text (lädt noch oder ist leer).') }) });
   }
 
   // Seite oder Agent: same-origin iframe
   const rahmen = el.querySelector('iframe');
-  if (!rahmen) return fehler(`„${ziel.titel}“ hat noch keinen Inhalt geladen.`);
+  if (!rahmen) return fehler(tr('„{0}“ hat noch keinen Inhalt geladen.', ziel.titel));
   let fenster: Window | null = null;
   let dok: Document | null = null;
   try {
@@ -259,8 +260,8 @@ export async function seiteLesen(k: OsKontext, args: Record<string, unknown>): P
   } catch {
     /* anderer Ursprung */
   }
-  if (!fenster || !dok) return fehler(`Der Inhalt von „${ziel.titel}“ liegt nicht auf diesem Ursprung und lässt sich nicht lesen.`);
-  if (dok.readyState === 'loading' || dok.location?.href === 'about:blank') return fehler(`„${ziel.titel}“ lädt noch — gleich nochmal versuchen.`);
+  if (!fenster || !dok) return fehler(tr('Der Inhalt von „{0}“ liegt nicht auf diesem Ursprung und lässt sich nicht lesen.', ziel.titel));
+  if (dok.readyState === 'loading' || dok.location?.href === 'about:blank') return fehler(tr('„{0}“ lädt noch — gleich nochmal versuchen.', ziel.titel));
 
   const eigenes = fenster.fyos?.werkzeuge;
   if (eigenes?.rufen) {
@@ -275,7 +276,7 @@ export async function seiteLesen(k: OsKontext, args: Record<string, unknown>): P
           ...(j.zustaende && Object.keys(j.zustaende).length ? { zustaende: j.zustaende } : {}),
           ...(j.sitzung_abgelaufen ? { sitzung_abgelaufen: true } : {}),
           ...t,
-          ...(t.text ? {} : { hinweis: 'Die Seite zeigt gerade keinen Text (lädt noch oder ist leer).' }),
+          ...(t.text ? {} : { hinweis: tr('Die Seite zeigt gerade keinen Text (lädt noch oder ist leer).') }),
         });
       } catch {
         /* kein JSON: Rückfall unten */
@@ -283,13 +284,13 @@ export async function seiteLesen(k: OsKontext, args: Record<string, unknown>): P
     }
   }
   const haupt = dok.querySelector('main') ?? dok.body;
-  if (!haupt) return fehler(`„${ziel.titel}“ lädt noch — gleich nochmal versuchen.`);
+  if (!haupt) return fehler(tr('„{0}“ lädt noch — gleich nochmal versuchen.', ziel.titel));
   const t = kuerzen(sichtText(haupt), zeichen);
   return ergebnis({
     fenster: info,
     seite: { titel: dok.title || null, pfad: fenster.location?.pathname ?? null },
     ...t,
-    ...(t.text ? {} : { hinweis: 'Die Seite zeigt gerade keinen Text (lädt noch oder ist leer).' }),
+    ...(t.text ? {} : { hinweis: tr('Die Seite zeigt gerade keinen Text (lädt noch oder ist leer).') }),
   });
 }
 
@@ -302,11 +303,11 @@ export function osWerkzeuge(k: OsKontext): Werkzeug[] {
     {
       name: 'os_oeffnen',
       beschreibung:
-        'Öffnet eine Fläche im OS (Seite, Hub-App, Anruf, Agent) in einem Fenster und holt sie nach vorn — für „zeig mir …“ und „mach … auf“. ziel: ID wie seite:berichte oder app:notizen__liste, oder der Name (Berichte, Notizen).',
+        tr('Öffnet eine Fläche im OS (Seite, Hub-App, Anruf, Agent) in einem Fenster und holt sie nach vorn — für „zeig mir …“ und „mach … auf“. ziel: ID wie seite:berichte oder app:notizen__liste, oder der Name (Berichte, Notizen).'),
       eingabe: {
         properties: {
-          ziel: { type: 'string', description: 'Fläche: ID („seite:berichte“, „app:notizen__liste“, „nativ:anruf“, „agent“) oder Name („Berichte“, „Notizen“)' },
-          eingabe: { type: 'object', additionalProperties: true, description: 'Eingabe für die Fläche, bei Hub-Apps die Argumente ihres Werkzeugs; nur wirksam, wenn die Fläche sie annimmt (die Antwort sagt es: eingabe_uebernommen)' },
+          ziel: { type: 'string', description: tr('Fläche: ID („seite:berichte“, „app:notizen__liste“, „nativ:anruf“, „agent“) oder Name („Berichte“, „Notizen“)') },
+          eingabe: { type: 'object', additionalProperties: true, description: tr('Eingabe für die Fläche, bei Hub-Apps die Argumente ihres Werkzeugs; nur wirksam, wenn die Fläche sie annimmt (die Antwort sagt es: eingabe_uebernommen)') },
         },
         required: ['ziel'],
         additionalProperties: false,
@@ -320,16 +321,16 @@ export function osWerkzeuge(k: OsKontext): Werkzeug[] {
     {
       name: 'os_fenster',
       beschreibung:
-        'Liest, was im OS offen ist: aktiver Bildschirm, alle Bildschirme, jedes Fenster (Titel, Art, Bildschirm, vorn, minimiert), ob Agent-Dock und Anruf offen sind. Zum Nachsehen, bevor du etwas öffnest oder schließt.',
+        tr('Liest, was im OS offen ist: aktiver Bildschirm, alle Bildschirme, jedes Fenster (Titel, Art, Bildschirm, vorn, minimiert), ob Agent-Dock und Anruf offen sind. Zum Nachsehen, bevor du etwas öffnest oder schließt.'),
       lesend: true,
       eingabe: { properties: {}, additionalProperties: false },
       ausfuehren: async () => ergebnis(fensterUebersicht(k.quelle())),
     },
     {
       name: 'os_schliessen',
-      beschreibung: 'Schließt ein offenes Fenster im OS. ziel: ID oder Name wie in os_fenster. Der Agent-Dock ist kein Fenster und bleibt.',
+      beschreibung: tr('Schließt ein offenes Fenster im OS. ziel: ID oder Name wie in os_fenster. Der Agent-Dock ist kein Fenster und bleibt.'),
       eingabe: {
-        properties: { ziel: { type: 'string', description: 'ID („seite:berichte“) oder Name („Berichte“) eines offenen Fensters' } },
+        properties: { ziel: { type: 'string', description: tr('ID („seite:berichte“) oder Name („Berichte“) eines offenen Fensters') } },
         required: ['ziel'],
         additionalProperties: false,
       },
@@ -340,7 +341,7 @@ export function osWerkzeuge(k: OsKontext): Werkzeug[] {
     },
     {
       name: 'os_zentrale',
-      beschreibung: 'Liest die Zentrale des Startbildschirms, wenn ein Plugin sie liefert: Lage-Satz, Ampel und die Kacheln nach Dringlichkeit, je mit Kurzwert. Sonst: „Noch nicht eingerichtet.“',
+      beschreibung: tr('Liest die Zentrale des Startbildschirms, wenn ein Plugin sie liefert: Lage-Satz, Ampel und die Kacheln nach Dringlichkeit, je mit Kurzwert. Sonst: „Noch nicht eingerichtet.“'),
       lesend: true,
       eingabe: { properties: {}, additionalProperties: false },
       ausfuehren: async () => {
@@ -354,12 +355,12 @@ export function osWerkzeuge(k: OsKontext): Werkzeug[] {
     {
       name: 'seite_lesen',
       beschreibung:
-        'Liest den sichtbaren Text des vordersten Fensters (oder des mit fenster benannten): Titel, Pfad, Zustände (laden/leer/fehler) und Text, gekürzt auf zeichen. Hub-Apps lassen sich so nicht lesen, dafür gibt es ihr Hub-Werkzeug.',
+        tr('Liest den sichtbaren Text des vordersten Fensters (oder des mit fenster benannten): Titel, Pfad, Zustände (laden/leer/fehler) und Text, gekürzt auf zeichen. Hub-Apps lassen sich so nicht lesen, dafür gibt es ihr Hub-Werkzeug.'),
       lesend: true,
       eingabe: {
         properties: {
-          fenster: { type: 'string', description: 'ID oder Name eines offenen Fensters; weglassen = das vorderste' },
-          zeichen: { type: 'integer', minimum: 500, maximum: 20000, description: 'Höchstens so viele Zeichen Text (Vorgabe 6000)' },
+          fenster: { type: 'string', description: tr('ID oder Name eines offenen Fensters; weglassen = das vorderste') },
+          zeichen: { type: 'integer', minimum: 500, maximum: 20000, description: tr('Höchstens so viele Zeichen Text (Vorgabe 6000)') },
         },
         additionalProperties: false,
       },
@@ -368,24 +369,24 @@ export function osWerkzeuge(k: OsKontext): Werkzeug[] {
     {
       name: 'os_mitteilungen',
       beschreibung:
-        '„Der Agent zeigt dir …“-Mitteilungen im OS: lesen, ein- oder ausschalten (an) oder für stumm_minuten still stellen (0 hebt auf). Ohne Angaben nur lesen. Einschalten (an: true) nur auf ausdrücklichen Wunsch des Benutzers.',
+        tr('„Der Agent zeigt dir …“-Mitteilungen im OS: lesen, ein- oder ausschalten (an) oder für stumm_minuten still stellen (0 hebt auf). Ohne Angaben nur lesen. Einschalten (an: true) nur auf ausdrücklichen Wunsch des Benutzers.'),
       eingabe: {
         properties: {
-          an: { type: 'boolean', description: 'true = Mitteilungen des Agenten an, false = aus, bis sie wieder eingeschaltet werden' },
-          stumm_minuten: { type: 'integer', minimum: 0, maximum: 1440, description: 'Stumm für so viele Minuten; 0 hebt auf' },
+          an: { type: 'boolean', description: tr('true = Mitteilungen des Agenten an, false = aus, bis sie wieder eingeschaltet werden') },
+          stumm_minuten: { type: 'integer', minimum: 0, maximum: 1440, description: tr('Stumm für so viele Minuten; 0 hebt auf') },
         },
         additionalProperties: false,
       },
       ausfuehren: async (args) => {
         const e = { ...einst.lesen() };
         if (args.an !== undefined) {
-          if (typeof args.an !== 'boolean') return fehler('an muss true oder false sein.');
+          if (typeof args.an !== 'boolean') return fehler(tr('an muss true oder false sein.'));
           e.aus = !args.an;
           if (args.an) e.stumm_bis = 0;
         }
         if (args.stumm_minuten !== undefined) {
           const m = Number(args.stumm_minuten);
-          if (!Number.isFinite(m) || m < 0) return fehler('stumm_minuten muss eine Zahl von 0 bis 1440 sein.');
+          if (!Number.isFinite(m) || m < 0) return fehler(tr('stumm_minuten muss eine Zahl von 0 bis 1440 sein.'));
           e.stumm_bis = m === 0 ? 0 : jetzt() + Math.min(m, 1440) * 60_000;
         }
         if (args.an !== undefined || args.stumm_minuten !== undefined) einst.schreiben(e);
@@ -394,7 +395,7 @@ export function osWerkzeuge(k: OsKontext): Werkzeug[] {
           an: !e.aus,
           stumm: !e.aus && stumm,
           stumm_bis: e.stumm_bis > jetzt() ? new Date(e.stumm_bis).toISOString() : null,
-          satz: e.aus ? 'Mitteilungen des Agenten sind aus.' : stumm ? 'Mitteilungen des Agenten sind stumm.' : 'Mitteilungen des Agenten sind an.',
+          satz: e.aus ? tr('Mitteilungen des Agenten sind aus.') : stumm ? tr('Mitteilungen des Agenten sind stumm.') : tr('Mitteilungen des Agenten sind an.'),
         });
       },
     },

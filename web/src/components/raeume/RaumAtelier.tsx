@@ -8,6 +8,7 @@ import { Match, Switch, createSignal, type JSX } from 'solid-js';
 import { type RaumProps, RaumRahmen } from '~/components/os/Raum';
 import BildWerkstatt from '~/components/raeume/BildWerkstatt';
 import { EintragLeiste, Geplant, HubApp, gemerkteWahl, wahlMerken } from '~/components/raeume/Huelle';
+import { tr } from '~/lib/i18n';
 
 type Inhalt =
   | { art: 'bild' }
@@ -51,9 +52,9 @@ export default function RaumAtelier(p: RaumProps): JSX.Element {
 
   return (
     <RaumRahmen
-      titel="Atelier"
+      titel={tr('Atelier')}
       leiste={<EintragLeiste eintraege={leistenEintraege()} gruppen={GRUPPEN} gewaehlt={gewaehlt()} waehle={waehle} schmal={p.schmal} kennung="atelier" />}
-      leisteName="Bereiche des Ateliers"
+      leisteName={tr('Bereiche des Ateliers')}
       schmal={p.schmal}
       heim={p.heim}
       fuellen={aktuell().inhalt.art === 'app'}

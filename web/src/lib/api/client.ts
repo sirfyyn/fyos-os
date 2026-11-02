@@ -8,6 +8,7 @@
  * Auth: die Anmeldung übernimmt ein vorgeschalteter Proxy; Cookies gehen über `credentials: 'include'`.
  */
 import { strecke } from './transport';
+import { tr } from '~/lib/i18n';
 
 export { API_BASE } from './transport';
 
@@ -59,6 +60,6 @@ export async function fetchJson<T>(path: string, init?: RequestInit & { zeitMs?:
     case 'kein_json':
       throw new ApiError(502, undefined, s.grund);
     case 'netz':
-      throw new ApiError(0, undefined, `nicht erreichbar: ${s.grund}`);
+      throw new ApiError(0, undefined, tr('nicht erreichbar: {0}', s.grund));
   }
 }

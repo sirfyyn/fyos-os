@@ -21,6 +21,7 @@ import { aufloesen, farbschemaLaden, farbschemaSetzen, hoereFarbschema, type Auf
 import { FOKUS, KNOPF_LEISE, Regler, SchalterZeile, Wahl, Zeile, radioTaste } from './bausteine';
 import KulisseVorschau from './KulisseVorschau';
 import { TAPETE_EREIGNIS } from '~/lib/os/tapete';
+import { SPRACHE_NAMEN, SPRACHEN, sprache, spracheWaehlen, tr, type Sprache } from '~/lib/i18n';
 
 // ── Farbschema ──────────────────────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ export function FarbschemaWahl(p: { beschriftetVon: string }): JSX.Element {
                 </Show>
               </span>
               <span class="text-sm transition-colors duration-200" classList={{ 'font-semibold text-(--color-fg)': an(), 'text-(--color-fg-muted)': !an() }}>
-                {s.text}
+                {tr(s.text)}
               </span>
             </button>
           );
@@ -141,10 +142,10 @@ function FarbschemaZeile(): JSX.Element {
   });
   const unter = () =>
     wahl() === 'system'
-      ? `Folgt deinem Gerät — gerade ${aufgeloest() === 'light' ? 'hell' : 'dunkel'}.`
-      : 'Gilt für alle Fenster, auch eingebettete Seiten.';
+      ? tr('Folgt deinem Gerät — gerade {0}.', aufgeloest() === 'light' ? tr('hell') : tr('dunkel'))
+      : tr('Gilt für alle Fenster, auch eingebettete Seiten.');
   return (
-    <Zeile id={`${id}-schema`} titel="Farbschema" unter={unter()} darunter>
+    <Zeile id={`${id}-schema`} titel={tr('Farbschema')} unter={unter()} darunter>
       <FarbschemaWahl beschriftetVon={`${id}-schema`} />
     </Zeile>
   );
@@ -245,7 +246,7 @@ function KulisseRegler(p: { titelId: string }): JSX.Element {
   };
   const aus = () => k().stil === 'aus';
   const still = () => k().stil !== 'lava';
-  const stilSatz = createMemo(() => STILE.find((s) => s.wert === k().stil)?.satz ?? '');
+  const stilSatz = createMemo(() => tr(STILE.find((s) => s.wert === k().stil)?.satz ?? ''));
   const prozent = (w: number) => `${Math.round(w)} %`;
 
   return (
@@ -253,33 +254,33 @@ function KulisseRegler(p: { titelId: string }): JSX.Element {
       <div class="mb-1 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-t border-(--color-border) pt-5">
         <div>
           <h3 id={p.titelId} class="m-0 text-[1.05rem] font-semibold tracking-tight text-(--color-fg)">
-            Kulisse
+            {tr('Kulisse')}
           </h3>
-          <p class="m-0 mt-0.5 text-sm text-(--color-fg-muted)">Der Hintergrund hinter den Fenstern.</p>
+          <p class="m-0 mt-0.5 text-sm text-(--color-fg-muted)">{tr('Der Hintergrund hinter den Fenstern.')}</p>
         </div>
         <button type="button" class={KNOPF_LEISE} disabled={gleich(k(), KULISSE_STANDARD)} onClick={() => aendern({ ...KULISSE_STANDARD })}>
-          Zurücksetzen
+          {tr('Zurücksetzen')}
         </button>
       </div>
       <div class="py-4">
         <KulisseVorschau />
       </div>
-      <Zeile id={`${id}-stil`} titel="Stil" unter={stilSatz()}>
+      <Zeile id={`${id}-stil`} titel={tr('Stil')} unter={stilSatz()}>
         <Wahl beschriftetVon={`${id}-stil`} optionen={STILE} wert={k().stil} onWahl={(stil) => aendern({ stil })} />
       </Zeile>
-      <Zeile id={`${id}-farben`} titel="Farben" unter="Färben Kulisse und Leuchtkanten." darunter>
+      <Zeile id={`${id}-farben`} titel={tr('Farben')} unter={tr('Färben Kulisse und Leuchtkanten.')} darunter>
         <FarbenWahl beschriftetVon={`${id}-farben`} wert={k().farben} onWahl={(farben) => aendern({ farben })} />
       </Zeile>
-      <Zeile id={`${id}-lava`} titel="Farbflecken" unter="Wie kräftig die Farben leuchten." gesperrt={aus()}>
+      <Zeile id={`${id}-lava`} titel={tr('Farbflecken')} unter={tr('Wie kräftig die Farben leuchten.')} gesperrt={aus()}>
         <Regler beschriftetVon={`${id}-lava`} wert={k().lava} min={0} max={100} onWert={(lava) => aendern({ lava })} anzeige={prozent} gesperrt={aus()} />
       </Zeile>
-      <Zeile id={`${id}-raster`} titel="Neon-Raster" unter="Boden aus Neonlinien mit Horizont." gesperrt={aus()}>
+      <Zeile id={`${id}-raster`} titel="Neon-Raster" unter={tr('Boden aus Neonlinien mit Horizont.')} gesperrt={aus()}>
         <Regler beschriftetVon={`${id}-raster`} wert={k().raster} min={0} max={100} onWert={(raster) => aendern({ raster })} anzeige={prozent} gesperrt={aus()} />
       </Zeile>
       <div class="border-t border-(--color-border)">
         <SchalterZeile
           name="Scanlines"
-          unter="Feine Zeilen wie auf einem alten Bildschirm."
+          unter={tr('Feine Zeilen wie auf einem alten Bildschirm.')}
           an={k().scan}
           gesperrt={aus()}
           onKlick={() => aendern({ scan: !k().scan })}
@@ -287,8 +288,8 @@ function KulisseRegler(p: { titelId: string }): JSX.Element {
       </div>
       <Zeile
         id={`${id}-tempo`}
-        titel="Tempo"
-        unter={wenigBewegung() ? 'Dein Gerät wünscht weniger Bewegung — die Kulisse steht still.' : still() ? 'Nur beim Stil „Lavalampe".' : 'Wie schnell die Farben treiben.'}
+        titel={tr('Tempo')}
+        unter={wenigBewegung() ? tr('Dein Gerät wünscht weniger Bewegung — die Kulisse steht still.') : still() ? tr('Nur beim Stil „Lavalampe".') : tr('Wie schnell die Farben treiben.')}
         gesperrt={still() || wenigBewegung()}
       >
         <Wahl
@@ -299,21 +300,36 @@ function KulisseRegler(p: { titelId: string }): JSX.Element {
           onWahl={(w) => aendern({ tempo: TEMPI.find((t) => t.wert === w)?.tempo ?? 1 })}
         />
       </Zeile>
-      <Zeile id={`${id}-tapete`} titel="Tapete je Bildschirm" unter="Eigenes Bild oder Verlauf statt der Kulisse, für jeden Bildschirm einzeln (auch den Start).">
+      <Zeile id={`${id}-tapete`} titel={tr('Tapete je Bildschirm')} unter={tr('Eigenes Bild oder Verlauf statt der Kulisse, für jeden Bildschirm einzeln (auch den Start).')}>
         <button type="button" class="os-chip" onClick={() => window.dispatchEvent(new CustomEvent(TAPETE_EREIGNIS))}>
-          Tapete wählen …
+          {tr('Tapete wählen …')}
         </button>
       </Zeile>
-      <Zeile id={`${id}-glas`} titel="Glas" unter="Unschärfe hinter Fenstern und Leisten.">
+      <Zeile id={`${id}-glas`} titel={tr('Glas')} unter={tr('Unschärfe hinter Fenstern und Leisten.')}>
         <Regler beschriftetVon={`${id}-glas`} wert={k().glas} min={0} max={40} onWert={(glas) => aendern({ glas })} anzeige={(w) => `${Math.round(w)} px`} links="klar" rechts="milchig" />
       </Zeile>
     </div>
   );
 }
 
+// ── Sprache ─────────────────────────────────────────────────────────────────
+
+const SPRACH_OPTIONEN = SPRACHEN.map((s) => ({ wert: s, text: SPRACHE_NAMEN[s] }));
+
+/** Sprache der Oberfläche: gemerkt in diesem Browser, Vorgabe aus der Laufzeit-Konfiguration (sonst Englisch). */
+export function SpracheZeile(): JSX.Element {
+  const id = createUniqueId();
+  return (
+    <Zeile id={`${id}-sprache`} titel={tr('Sprache')} unter={tr('Sprache der Oberfläche. Gilt in diesem Browser.')} darunter>
+      <Wahl beschriftetVon={`${id}-sprache`} optionen={SPRACH_OPTIONEN} wert={sprache()} onWahl={(s: Sprache) => spracheWaehlen(s)} />
+    </Zeile>
+  );
+}
+
 export default function Erscheinungsbild(p: { kulisseId: string }): JSX.Element {
   return (
     <>
+      <SpracheZeile />
       <FarbschemaZeile />
       <div id={p.kulisseId} class="scroll-mt-24 pt-2">
         <KulisseRegler titelId={`${p.kulisseId}-titel`} />

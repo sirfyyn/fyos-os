@@ -11,6 +11,7 @@ import { Match, Switch, createSignal, type JSX } from 'solid-js';
 import { type RaumProps, RaumRahmen } from '~/components/os/Raum';
 import { Bestellungen, Post, Tagesbrief } from '~/components/raeume/BueroAnsichten';
 import { EintragLeiste, Geplant, HubApp, SeitenFlaeche, gemerkteWahl, wahlMerken } from '~/components/raeume/Huelle';
+import { tr } from '~/lib/i18n';
 
 type Art =
   | { art: 'app'; name: string }
@@ -51,9 +52,9 @@ export default function RaumBuero(p: RaumProps): JSX.Element {
 
   return (
     <RaumRahmen
-      titel="Büro"
+      titel={tr('Büro')}
       leiste={<EintragLeiste eintraege={leistenEintraege()} gruppen={GRUPPEN} gewaehlt={gewaehlt()} waehle={waehle} schmal={p.schmal} kennung="buero" />}
-      leisteName="Bereiche des Büros"
+      leisteName={tr('Bereiche des Büros')}
       schmal={p.schmal}
       heim={p.heim}
       fuellen={aktuell().inhalt.art === 'app' || aktuell().inhalt.art === 'seite'}

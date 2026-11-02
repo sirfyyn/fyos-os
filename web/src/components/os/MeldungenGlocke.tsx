@@ -12,6 +12,7 @@ import { QUELLEN_NAME, nichtStoerenAktiv } from '~/lib/os/meldungen-einstellunge
 import { aendereEinstellungen, dienst, einstellungen, meldungOeffnen, zustand } from '~/lib/os/meldungen-produktiv';
 import type { Meldung } from '~/lib/os/meldungen';
 import { Glyphe } from './Symbol';
+import { tr } from '~/lib/i18n';
 
 export function zeitKurz(zeit: number, jetzt: number): string {
   const s = Math.max(0, Math.round((jetzt - zeit) / 1000));
@@ -62,10 +63,10 @@ export default function MeldungenGlocke(p: { onEinstellungen?: () => void }): JS
         type="button"
         class="os-leiste-punkt"
         classList={{ 'os-leiste-an': offen() }}
-        aria-label={`Meldungen${zustand().ungelesen ? `, ${zustand().ungelesen} ungelesen` : ''}${stumm() ? ', Nicht stören ist an' : ''}`}
+        aria-label={`Meldungen${zustand().ungelesen ? `, ${zustand().ungelesen} ungelesen` : ''}${stumm() ? tr(', Nicht stören ist an') : ''}`}
         aria-haspopup="dialog"
         aria-expanded={offen()}
-        title="Meldungen"
+        title={tr('Meldungen')}
         onClick={umschalten}
       >
         <Glyphe name={stumm() ? 'bell-off' : 'bell'} class="size-4" />
@@ -79,7 +80,7 @@ export default function MeldungenGlocke(p: { onEinstellungen?: () => void }): JS
           ref={tafel}
           class="os-verlauf"
           role="dialog"
-          aria-label="Verlauf der Meldungen"
+          aria-label={tr('Verlauf der Meldungen')}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
@@ -89,29 +90,29 @@ export default function MeldungenGlocke(p: { onEinstellungen?: () => void }): JS
           }}
         >
           <div class="os-verlauf-kopf">
-            <h2>Meldungen</h2>
+            <h2>{tr('Meldungen')}</h2>
             <button
               type="button"
               class="os-verlauf-knopf"
               aria-pressed={einstellungen().nichtStoeren.manuell}
               onClick={() => aendereEinstellungen((e) => ({ ...e, nichtStoeren: { ...e.nichtStoeren, manuell: !e.nichtStoeren.manuell } }))}
             >
-              Nicht stören
+              {tr('Nicht stören')}
             </button>
             <button type="button" class="os-verlauf-knopf" disabled={zustand().ungelesen === 0} onClick={() => dienst.alleGelesen()}>
-              Alle gelesen
+              {tr('Alle gelesen')}
             </button>
           </div>
           <Show
             when={zustand().verlauf.length > 0}
-            fallback={<p class="os-verlauf-leer" role="status">Keine Meldungen. Agent, Freigaben, Störungen, Termine und Mail erscheinen hier.</p>}
+            fallback={<p class="os-verlauf-leer" role="status">{tr('Keine Meldungen. Agent, Freigaben, Störungen, Termine und Mail erscheinen hier.')}</p>}
           >
             <ul class="os-verlauf-liste">
               <For each={zustand().verlauf}>
                 {(m) => (
                   <li>
                     <button type="button" class="os-verlauf-eintrag" data-stufe={m.stufe} data-gelesen={m.gelesen ? 'ja' : 'nein'} onClick={() => eintrag(m)}>
-                      <strong>{m.gelesen ? '' : '● '}{m.titel}</strong>
+                      <strong>{m.gelesen ? '' : '● '}{tr(m.titel)}</strong>
                       <Show when={m.text}>
                         <span data-privat={m.quelle === 'mail' || m.quelle === 'agent' ? 'privat' : undefined}>{m.text}</span>
                       </Show>
@@ -122,9 +123,9 @@ export default function MeldungenGlocke(p: { onEinstellungen?: () => void }): JS
               </For>
             </ul>
             <div class="os-verlauf-kopf">
-              <button type="button" class="os-verlauf-knopf" onClick={() => dienst.verlaufLeeren()}>Leeren</button>
+              <button type="button" class="os-verlauf-knopf" onClick={() => dienst.verlaufLeeren()}>{tr('Leeren')}</button>
               <Show when={p.onEinstellungen}>
-                <button type="button" class="os-verlauf-knopf" onClick={() => { zu(false); p.onEinstellungen?.(); }}>Einstellungen</button>
+                <button type="button" class="os-verlauf-knopf" onClick={() => { zu(false); p.onEinstellungen?.(); }}>{tr('Einstellungen')}</button>
               </Show>
             </div>
           </Show>

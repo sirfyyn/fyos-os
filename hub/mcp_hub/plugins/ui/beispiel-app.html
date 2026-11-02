@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,29 +20,36 @@
 <main>
   <form class="notiz-neu" id="formular" autocomplete="off">
     <input id="text" type="text" maxlength="500" placeholder="Neue Notiz" aria-label="Neue Notiz" enterkeyhint="send">
-    <button type="submit" class="haupt"><svg class="ico" data-symbol="plus"></svg>Hinzufügen</button>
+    <button type="submit" class="haupt" data-t><svg class="ico" data-symbol="plus"></svg>Hinzufügen</button>
   </form>
   <div id="antrag"></div>
-  <div id="liste"><div class="laedt">Lädt …</div></div>
+  <div id="liste"><div class="laedt" data-t>Lädt …</div></div>
 </main>
 <script>
 /*BRUECKE*/
 const $ = (id) => document.getElementById(id);
 const { esc, symbol, zustand, satz } = App;
+App.texte({
+  "Notizzettel": "Sticky notes", "Neue Notiz": "New note", "Hinzufügen": "Add",
+  "1 Notiz auf dem Zettel": "1 note on the board", "{0} Notizen auf dem Zettel": "{0} notes on the board",
+  "Der Zettel ist leer": "The board is empty", "Keine Notizen": "No notes", "Schreib oben eine Notiz auf.": "Write a note above.",
+  "Notiz löschen": "Delete note", "Notiz anlegen": "Create note",
+});
+const t = App.t;
 const rufen = (name, args) => App.rufen("beispiel_app__" + name, args);
 
 let notizen = [];
 let bekommen = false;
 
 function zeichnen() {
-  satz(notizen.length ? `${notizen.length} Notiz${notizen.length === 1 ? "" : "en"} auf dem Zettel` : "Der Zettel ist leer", notizen.length ? "gut" : "");
+  satz(notizen.length ? (notizen.length === 1 ? t("1 Notiz auf dem Zettel") : t("{0} Notizen auf dem Zettel", notizen.length)) : t("Der Zettel ist leer"), notizen.length ? "gut" : "");
   if (!notizen.length) {
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "package", titel: "Keine Notizen", text: "Schreib oben eine Notiz auf.", klein: true }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "package", titel: t("Keine Notizen"), text: t("Schreib oben eine Notiz auf."), klein: true }) + "</div>";
     return;
   }
   $("liste").innerHTML = notizen.map((n) =>
     `<div class="karte notiz" data-typ="notiz" data-id="${esc(n.id)}" data-label="${esc(n.text.split("\n")[0].slice(0, 60))}"><span class="notiz-text">${esc(n.text)}<br><span class="notiz-zeit">${esc(App.zeit.vor(n.zeit * 1000))}</span></span>`
-    + `<button type="button" class="rund" data-aktion="loeschen" data-id="${esc(n.id)}" aria-label="Notiz löschen">${symbol("trash-2")}</button></div>`
+    + `<button type="button" class="rund" data-aktion="loeschen" data-id="${esc(n.id)}" aria-label="${esc(t("Notiz löschen"))}">${symbol("trash-2")}</button></div>`
   ).join("");
 }
 
@@ -52,7 +59,7 @@ function uebernehmen(d) {
 
 async function laden() {
   try { uebernehmen(await rufen("zeigen")); bekommen = true; }
-  catch (e) { $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Fehler", text: App.fehlertext(e), klein: true }) + "</div>"; }
+  catch (e) { $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: t("Fehler"), text: App.fehlertext(e), klein: true }) + "</div>"; }
 }
 
 $("formular").addEventListener("submit", async (ev) => {
@@ -72,7 +79,7 @@ $("neu").addEventListener("click", laden);
 // Jede Notiz ist ein ziehbares Ding (Typ „notiz“) und der Zettel nimmt Dateien an: sie werden ein Verweis auf dem Zettel.
 // Plan und Rückfrage erscheinen oben, angelegt wird erst nach „Ja“.
 App.ziehbar(document.body, { selektor: "[data-typ]" });
-App.ablage($("antrag"), { nimmt: ["datei"], ja: "Notiz anlegen", danach: (r) => uebernehmen(r), fehler: (e) => satz(App.fehlertext(e), "schlecht") });
+App.ablage($("antrag"), { nimmt: ["datei"], ja: t("Notiz anlegen"), danach: (r) => uebernehmen(r), fehler: (e) => satz(App.fehlertext(e), "schlecht") });
 
 App.auf("ui/notifications/tool-result", (r) => { const d = App.daten(r); if (d && d.notizen) { bekommen = true; uebernehmen(d); } });
 App.start("fyos-beispiel-app").then(() => setTimeout(() => { if (!bekommen) laden(); }, 1500)).catch(() => {});

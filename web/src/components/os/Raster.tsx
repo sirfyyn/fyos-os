@@ -23,6 +23,7 @@ import type { Flaeche } from '~/lib/os/flaechen';
 import { altUmschalt, ctrlMod, modAltUmschalt, type MenuePunkt } from '~/lib/os/menue';
 import { ausklingen, insDock } from '~/lib/os/uebergang';
 import { ablageAufApp, aktuellerZug, gutArt, gutLesen, hinweisWeg, hinweisZeigen, wasPassiert, zugEndet, type AppAblage, type Gut } from '~/lib/os/ziehen';
+import { tr } from '~/lib/i18n';
 
 /** Breite der Randzone (px), in der ein gezogenes Fenster einrastet. */
 const RAND_PX = 56;
@@ -271,9 +272,9 @@ export default function Raster(p: RasterProps): JSX.Element {
       { text: 'Minimieren', symbol: 'minus', aus: vollbild, tun: () => insDock(id, () => aendern(minimieren(p.b.fenster, id))) },
       ...(anwendung
         ? [
-            { text: vollbild ? 'Vollbild verlassen' : 'Vollbild-Bildschirm', symbol: 'monitor', kuerzel: ctrlMod('F'), tun: () => p.onVollbild?.(id) },
+            { text: vollbild ? tr('Vollbild verlassen') : 'Vollbild-Bildschirm', symbol: 'monitor', kuerzel: ctrlMod('F'), tun: () => p.onVollbild?.(id) },
             {
-              text: w.max ? 'Maximierung beenden' : 'Maximieren',
+              text: w.max ? tr('Maximierung beenden') : tr('Maximieren'),
               symbol: w.max ? 'minimize-2' : 'maximize-2',
               aus: vollbild,
               tun: () => aendern(maximieren(p.b.fenster, id, !w.max)),
@@ -281,7 +282,7 @@ export default function Raster(p: RasterProps): JSX.Element {
           ]
         : [
             {
-              text: g.spalten >= SPALTEN ? 'Halbe Breite' : 'Volle Breite',
+              text: g.spalten >= SPALTEN ? tr('Halbe Breite') : tr('Volle Breite'),
               symbol: g.spalten >= SPALTEN ? 'minimize-2' : 'maximize-2',
               aus: p.schmal,
               tun: () => groesse({ spalten: g.spalten >= SPALTEN ? 6 : SPALTEN }),
@@ -444,7 +445,7 @@ export default function Raster(p: RasterProps): JSX.Element {
               aria-hidden="true"
               style={{ left: `${z.rechteck.left}px`, top: `${z.rechteck.top}px`, width: `${z.rechteck.width}px`, height: `${z.rechteck.height}px` }}
             >
-              <span>{RAST_TEXT[z.ziel]}</span>
+              <span>{tr(RAST_TEXT[z.ziel])}</span>
             </div>
           </Portal>
         )}
@@ -454,12 +455,12 @@ export default function Raster(p: RasterProps): JSX.Element {
           type="button"
           class="os-hoch"
           classList={{ 'os-hoch-da': nahOben() }}
-          aria-label="Zum Startbildschirm"
-          title="Zum Startbildschirm (⌥⌘1)"
+          aria-label={tr('Zum Startbildschirm')}
+          title={tr('Zum Startbildschirm (⌥⌘1)')}
           onClick={() => p.onStart?.()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
-          <span>Start</span>
+          <span>{tr('Start')}</span>
         </button>
       </Show>
       {/* Kopf des Bildschirms: Name links, Lage rechts — eine ruhige Zeile. Die Fenster bekommen seitlich mehr Platz
@@ -472,7 +473,7 @@ export default function Raster(p: RasterProps): JSX.Element {
               type="button"
               data-kontext={`bildschirm:${p.index}`}
               class="os-bildschirmname"
-              title={automatischBenannt(p.b.name) ? 'Heißt nach seinen Fenstern. Klicken, um einen eigenen Namen zu geben' : 'Umbenennen'}
+              title={automatischBenannt(p.b.name) ? tr('Heißt nach seinen Fenstern. Klicken, um einen eigenen Namen zu geben') : tr('Umbenennen')}
               onClick={() => setUmbenennen(true)}
             >
               {p.name}
@@ -483,9 +484,9 @@ export default function Raster(p: RasterProps): JSX.Element {
             <input
               value={automatischBenannt(p.b.name) ? '' : p.b.name}
               placeholder={p.name}
-              title="Leer lassen: der Bildschirm heißt nach seinen Fenstern"
+              title={tr('Leer lassen: der Bildschirm heißt nach seinen Fenstern')}
               maxLength={30}
-              aria-label="Name des Bildschirms"
+              aria-label={tr('Name des Bildschirms')}
               class="os-titel w-48 rounded-md border border-(--os-glas-rand) bg-transparent px-2 py-1 outline-none focus:border-(--os-neon-1)"
               ref={(el) => { verworfen = false; queueMicrotask(() => el.select()); }}
               // Esc verwirft: das Blur, das beim Ausblenden folgt, darf den Text nicht mehr übernehmen
@@ -498,8 +499,8 @@ export default function Raster(p: RasterProps): JSX.Element {
           </form>
         </Show>
         <Show when={!p.schmal && hand() && sichtbar().length > 1}>
-          <button type="button" class="os-knopf px-2 text-xs" title="Alle Fenster wieder gleichmäßig verteilen" onClick={() => aendern(automatisch(p.b.fenster))}>
-            Gleichmäßig verteilen
+          <button type="button" class="os-knopf px-2 text-xs" title={tr('Alle Fenster wieder gleichmäßig verteilen')} onClick={() => aendern(automatisch(p.b.fenster))}>
+            {tr('Gleichmäßig verteilen')}
           </button>
         </Show>
       </div>
@@ -513,8 +514,8 @@ export default function Raster(p: RasterProps): JSX.Element {
             onDragLeave={(e) => hinweisWeg(e.currentTarget)}
             onDrop={ablage}
           >
-            <p class="m-0 text-base text-(--color-fg)">Dieser Bildschirm ist leer.</p>
-            <p class="m-0 text-sm">Öffne eine Fläche über <b>{systemName()}</b> oder ziehe eine Fläche, ein Fenster oder ein Objekt hierher.</p>
+            <p class="m-0 text-base text-(--color-fg)">{tr('Dieser Bildschirm ist leer.')}</p>
+            <p class="m-0 text-sm">{tr('Öffne eine Fläche über')}{' '}<b>{systemName()}</b>{' '}{tr('oder ziehe eine Fläche, ein Fenster oder ein Objekt hierher.')}</p>
           </div>
         }
       >

@@ -1,64 +1,63 @@
-# Eine Version veröffentlichen
+# Publishing a version
 
-Anleitung für Maintainer. Eine FYOS-Version besteht aus zwei Repos mit demselben Tag: `fyos-agent` (Bild `runner`) und
-`fyos-os` (Bilder `web` und `hub`, PyPI-Pakete `fyos-hub` und `fyos-installer`). Der Installer zieht das Agent-Bild mit
-dem Tag seiner eigenen Version (`AGENT_TAG` in `installer/fyos_installer/erzeugen.py`). Deshalb bekommt `fyos-agent`
-den Tag zuerst. Die Beispiele nennen Version 0.1.1; setze deine Version ein.
+A guide for maintainers. A FYOS version consists of two repos with the same tag: `fyos-agent` (image `runner`) and
+`fyos-os` (images `web` and `hub`, PyPI packages `fyos-hub` and `fyos-installer`). The installer pulls the agent image
+with the tag of its own version (`AGENT_TAG` in `installer/fyos_installer/erzeugen.py`). That is why `fyos-agent` gets
+the tag first. The examples name version 0.1.1; put in your version.
 
-Halte die Reihenfolge ein und gehe erst weiter, wenn der Schritt davor stimmt. Ein veröffentlichter PyPI-Eintrag
-und ein Tag auf GitHub lassen sich nicht zurücknehmen.
+Keep to the order and only move on when the step before is right. A published PyPI entry and a tag on GitHub cannot be
+taken back.
 
-## Vorher: die Version steht überall
+## Before: the version is everywhere
 
-Ein Pull Request im Git-Server bereitet die Version vor und ist gemergt, bevor es losgeht:
+A pull request on the Git server prepares the version and is merged before you start:
 
 - `fyos-hub` (`hub/pyproject.toml`, `hub/mcp_hub/__init__.py`), `fyos-installer` (`installer/pyproject.toml`,
-  `installer/fyos_installer/__init__.py`) und `web/package.json` samt `web/package-lock.json` tragen die Version.
-- `AGENT_TAG` im Installer zeigt auf den Tag der Version (`v0.1.1`); der Test `installer/tests/test_erzeugen.py` prüft das.
-- `CHANGELOG.md` hat einen Abschnitt für die Version (in beiden Repos). Setze beim Veröffentlichen „unveröffentlicht“
-  durch das Datum.
+  `installer/fyos_installer/__init__.py`) and `web/package.json` together with `web/package-lock.json` carry the
+  version.
+- `AGENT_TAG` in the installer points to the version's tag (`v0.1.1`); the test `installer/tests/test_erzeugen.py`
+  checks this.
+- `CHANGELOG.md` has a section for the version (in both repos). When publishing, replace "unreleased" with the date.
 
-## Ablauf
+## Steps
 
-1. **Hauptzweig des Git-Servers ist grün.** In beiden Repos ist der letzte Lauf auf `main` fehlerfrei, auch der
-   Zeitplan-Lauf. Ein roter Lauf wird behoben, nicht übergangen.
-2. **Sauberkeit der Historie prüfen**, zuerst in `fyos-agent`, dann in `fyos-os`:
+1. **The Git server's main branch is green.** In both repos the last run on `main` is free of errors, including the
+   scheduled run. A red run gets fixed, not skipped.
+2. **Check the cleanliness of the history**, first in `fyos-agent`, then in `fyos-os`:
 
    ```sh
    python3 tools/sauber.py --historie
    ```
 
-   Der Befehl muss still bleiben und mit Exitcode 0 enden. Er prüft Namen und Adressen von Autor und Committer sowie
-   alle Commit-Texte. Ein Befund heißt: nichts veröffentlichen, erst die Ursache beseitigen.
-3. **Abzug nach GitHub**, zuerst `fyos-agent`, dann `fyos-os`. Der Abzug ist ein sauberer Stand des Hauptzweigs ohne
-   die Historie des Git-Servers, der Commit trägt den Stempel „FYOS 0.1.1“. Prüfe nach dem Schieben, dass der
-   Hauptzweig auf GitHub den erwarteten Stand hat und die Dateien aus diesem Repo übereinstimmen.
-4. **Tag `v0.1.1` setzen**, zuerst in `fyos-agent`, dann in `fyos-os`, jeweils auf den Abzug auf GitHub. Der Tag löst die
-   Läufe aus: in `fyos-agent` das Bild `runner`, in `fyos-os` die Läufe `tests`, `pypi` und `bilder`. Warte nach dem
-   ersten Tag, bis das Agent-Bild liegt, bevor du den zweiten setzt.
-5. **Prüfen**, dass alles angekommen ist:
-   - Die Läufe `tests`, `pypi` und `bilder` (und in `fyos-agent` `tests` und `bilder`) sind grün.
-   - Auf PyPI liegen `fyos-hub` und `fyos-installer` in Version 0.1.1.
-   - In der Registry `ghcr.io/sirfyyn` liegen die Tags `v0.1.1` und `latest` für `fyos-os/web`, `fyos-os/hub` <!-- sauber: ok -->
-     und `fyos-agent/runner`.
-   - Der Installer läuft im Trockenlauf mit der veröffentlichten Version durch und nennt die Bilder mit dem Tag
-     `v0.1.1`:
+   The command must stay silent and end with exit code 0. It checks names and addresses of author and committer and
+   all commit messages. A finding means: publish nothing, remove the cause first.
+3. **Export to GitHub**, first `fyos-agent`, then `fyos-os`. The export is a clean state of the main branch without the
+   Git server's history; the commit carries the stamp "FYOS 0.1.1". After pushing, check that the main branch on GitHub
+   has the expected state and that the files match this repo.
+4. **Set the tag `v0.1.1`**, first in `fyos-agent`, then in `fyos-os`, each on the export on GitHub. The tag triggers
+   the runs: in `fyos-agent` the image `runner`, in `fyos-os` the runs `tests`, `pypi` and `bilder`. After the first
+   tag, wait until the agent image is there before you set the second.
+5. **Check** that everything arrived:
+   - The runs `tests`, `pypi` and `bilder` (and in `fyos-agent` `tests` and `bilder`) are green.
+   - PyPI has `fyos-hub` and `fyos-installer` in version 0.1.1.
+   - The registry `ghcr.io/sirfyyn` has the tags `v0.1.1` and `latest` for `fyos-os/web`, `fyos-os/hub` <!-- sauber: ok -->
+     and `fyos-agent/runner`.
+   - The installer runs through a dry run with the published version and names the images with the tag `v0.1.1`:
 
      ```sh
      pipx run --spec fyos-installer==0.1.1 fyos-install --auswahl kern,agent --ziel compose --trocken
      ```
 
-     Der Plan muss die Bilder `web`, `hub` und `runner` mit dem Tag `v0.1.1` nennen, für Compose wie für Kubernetes
-     (`--ziel k8s`). Statt `pipx` taugt auch eine
-     frische virtuelle Umgebung mit `pip install fyos-installer==0.1.1`.
-6. **Erst dann der Release-Text auf GitHub**, je Repo aus dem Abschnitt der Version in `CHANGELOG.md`. Den Text nimmst
-   du wörtlich aus dem Abschnitt und ergänzt höchstens die Links auf die Pakete und Bilder.
+     The plan must name the images `web`, `hub` and `runner` with the tag `v0.1.1`, for Compose as for Kubernetes
+     (`--ziel k8s`). Instead of `pipx`, a fresh virtual environment with `pip install fyos-installer==0.1.1` works too.
+6. **Only then the release text on GitHub**, per repo from the version's section in `CHANGELOG.md`. Take the text
+   word for word from the section and add at most the links to the packages and images.
 
-## Wenn etwas schiefgeht
+## If something goes wrong
 
-- **Ein Lauf ist rot, bevor etwas veröffentlicht wurde** (PyPI-Prüfung, Bildbau): Ursache beheben, in beiden Repos einen
-  neuen Stand über einen Pull Request nachziehen, den Abzug wiederholen und den Tag neu setzen. Einen Tag, der keinen
-  veröffentlichten Stand trägt, darfst du löschen und neu setzen.
-- **PyPI hat die Pakete schon:** Eine Version lässt sich dort nicht überschreiben. Behebe den Fehler in einer neuen
-  Patch-Version (zum Beispiel 0.1.2) und markiere 0.1.1 bei Bedarf auf PyPI als „yanked“.
-- **Ein Bild-Tag fehlt:** Den Lauf `bilder` von Hand für den Tag starten (Actions, `bilder`, „Run workflow“).
+- **A run is red before anything was published** (PyPI check, image build): fix the cause, bring a new state into both
+  repos through a pull request, repeat the export and set the tag again. You may delete and re-set a tag that carries
+  no published state.
+- **PyPI already has the packages:** a version cannot be overwritten there. Fix the error in a new patch version (for
+  example 0.1.2) and, if needed, mark 0.1.1 as "yanked" on PyPI.
+- **An image tag is missing:** start the run `bilder` by hand for the tag (Actions, `bilder`, "Run workflow").

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,10 +37,10 @@
   <form id="neu-form" class="v-form karte" hidden autocomplete="off">
     <input id="neu-titel" type="text" maxlength="180" placeholder="Titel des Vorgangs" aria-label="Titel des Vorgangs">
     <textarea id="neu-text" maxlength="4000" placeholder="Beschreibung (optional)" aria-label="Beschreibung"></textarea>
-    <div class="aktionen"><button type="submit" class="haupt"><svg class="ico" data-symbol="plus"></svg>Anlegen</button></div>
+    <div class="aktionen"><button type="submit" class="haupt" data-t><svg class="ico" data-symbol="plus"></svg>Anlegen</button></div>
   </form>
   <div class="v-raster">
-    <div id="liste"><div class="laedt">Lädt …</div></div>
+    <div id="liste"><div class="laedt" data-t>Lädt …</div></div>
     <div id="detail"></div>
   </div>
 </main>
@@ -48,6 +48,33 @@
 /*BRUECKE*/
 const $ = (id) => document.getElementById(id);
 const { esc, symbol, zustand, satz } = App;
+App.texte({
+  "Vorgänge": "Tickets", "Neuer Vorgang": "New ticket", "Aktualisieren": "Refresh",
+  "Titel des Vorgangs": "Title of the ticket", "Beschreibung (optional)": "Description (optional)", "Beschreibung": "Description",
+  "Anlegen": "Create", "Lädt …": "Loading …",
+  "neu": "new", "Triage": "triage", "in Arbeit": "in progress", "wartet auf Freigabe": "waiting for approval",
+  "gelöst": "resolved", "geschlossen": "closed",
+  "1 weiterer Vorgang im größeren Fenster": "1 more ticket in a larger window",
+  "{0} weitere Vorgänge im größeren Fenster": "{0} more tickets in a larger window",
+  "Das hat nicht geklappt": "That did not work",
+  "Keine Ablage für Vorgänge eingerichtet": "No store for tickets set up", "Keine Ablage für Vorgänge": "No store for tickets",
+  "Trag einen Vorgangs-Dienst ein (FYOS_VORGAENGE_URL) oder installiere ein Plugin, das Vorgänge ablegt.":
+    "Enter a ticket service (FYOS_VORGAENGE_URL) or install a plugin that stores tickets.",
+  "1 Vorgang": "1 ticket", "{0} Vorgänge": "{0} tickets", "Keine offenen Vorgänge": "No open tickets",
+  "Leg oben mit + einen an, oder zieh eine Mail auf dieses Fenster.": "Create one above with +, or drag a mail onto this window.",
+  "geändert {0}": "changed {0}", "Zurück": "Back", "Erteilen": "Approve", "Ablehnen": "Reject",
+  "Freigabe beantworten": "Answer approval", "Status setzen": "Set status", "zuständig {0}": "assignee {0}",
+  "wartet auf {0}": "waiting for {0}", "Verlauf": "History", "Kommentar": "Comment", "Kommentieren": "Comment",
+  "Zieh einen anderen Vorgang hierher, um seine Info als Kommentar an diesen Vorgang zu hängen.":
+    "Drag another ticket here to attach its info as a comment to this ticket.",
+  "Kommentar anhängen": "Add comment", "Die Vorgänge lassen sich gerade nicht abrufen.": "The tickets cannot be fetched right now.",
+  "Vorgang nicht lesbar": "Ticket not readable", "Erledigt.": "Done.", "Vorgang anlegen": "Create ticket",
+  "Öffne zuerst den Vorgang, der die Info bekommen soll.": "First open the ticket that should get the info.",
+  "Ein Vorgang braucht seine eigene Info nicht.": "A ticket does not need its own info.",
+  "Info anhängen": "Attach info", "Freigabe erteilen": "Grant approval", "Freigabe ablehnen": "Reject approval",
+  "Auf „{0}“ setzen": "Set to “{0}”",
+});
+const t = App.t;
 const rufen = (name, args) => App.rufen("vorgaenge__" + name, args);
 
 let vorgaenge = [];
@@ -58,31 +85,31 @@ let offen = "";           // Kennung des geöffneten Vorgangs
 let bekommen = false;
 
 const STATUS = { new: "neu", triage: "Triage", in_progress: "in Arbeit", waiting_approval: "wartet auf Freigabe", resolved: "gelöst", closed: "geschlossen" };
-const statusText = (s) => STATUS[s] || s || "";
+const statusText = (s) => (STATUS[s] ? t(STATUS[s]) : s || "");
 // Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt ein Fenster zur Zeit, Liste oder Vorgang
 const klein = () => App.stufe === "blick" || App.stufe === "kompakt";
-const weitere = (n) => (n > 0 ? `<div class="v-weitere">${n === 1 ? "1 weiterer Vorgang" : `${n} weitere Vorgänge`} im größeren Fenster</div>` : "");
+const weitere = (n) => (n > 0 ? `<div class="v-weitere">${n === 1 ? t("1 weiterer Vorgang im größeren Fenster") : t("{0} weitere Vorgänge im größeren Fenster", n)}</div>` : "");
 // Zeitangaben wie im Verlauf: Sekunden als Zahl oder Text
 const zeitMs = (x) => (typeof x === "number" ? x * 1000 : Date.parse(x));
 
 function zeichnen() {
   $("liste").hidden = klein() && !!offen && !fehlerText && quelleDa;  // im Blick und kompakt: die Liste oder der Vorgang, nicht beides
   $("detail").hidden = klein() && !offen;
-  if (fehlerText) { $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Das hat nicht geklappt", text: fehlerText, klein: true }) + "</div>"; return; }
+  if (fehlerText) { $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: t("Das hat nicht geklappt"), text: fehlerText, klein: true }) + "</div>"; return; }
   if (!quelleDa) {
-    satz("Keine Ablage für Vorgänge eingerichtet", "warn");
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "ticket", ton: "warn", titel: "Keine Ablage für Vorgänge", text: hinweis || "Trag einen Vorgangs-Dienst ein (FYOS_VORGAENGE_URL) oder installiere ein Plugin, das Vorgänge ablegt." }) + "</div>";
+    satz(t("Keine Ablage für Vorgänge eingerichtet"), "warn");
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "ticket", ton: "warn", titel: t("Keine Ablage für Vorgänge"), text: hinweis || t("Trag einen Vorgangs-Dienst ein (FYOS_VORGAENGE_URL) oder installiere ein Plugin, das Vorgänge ablegt.") }) + "</div>";
     $("detail").innerHTML = "";
     return;
   }
-  satz(vorgaenge.length ? `${vorgaenge.length} Vorgang${vorgaenge.length === 1 ? "" : "e"}` : "Keine offenen Vorgänge", vorgaenge.length ? "gut" : "");
+  satz(vorgaenge.length ? (vorgaenge.length === 1 ? t("1 Vorgang") : t("{0} Vorgänge", vorgaenge.length)) : t("Keine offenen Vorgänge"), vorgaenge.length ? "gut" : "");
   if (!vorgaenge.length) {
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "ticket", titel: "Keine offenen Vorgänge", text: "Leg oben mit + einen an, oder zieh eine Mail auf dieses Fenster.", klein: true }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "ticket", titel: t("Keine offenen Vorgänge"), text: t("Leg oben mit + einen an, oder zieh eine Mail auf dieses Fenster."), klein: true }) + "</div>";
   } else {
     const sicht = klein() ? vorgaenge.slice(0, App.anzahl({ blick: 3, kompakt: 6 })) : vorgaenge;
     $("liste").innerHTML = '<div class="karte zeilen">' + sicht.map((v) => {
       // weit: Priorität und letzte Änderung stehen mit in der Zeile
-      const weit = App.stufe === "weit" ? [v.prioritaet, Number.isFinite(zeitMs(v.aktualisiert)) ? "geändert " + App.zeit.vor(zeitMs(v.aktualisiert)) : ""].filter(Boolean).map((x) => esc(x)).join(" · ") : "";
+      const weit = App.stufe === "weit" ? [v.prioritaet, Number.isFinite(zeitMs(v.aktualisiert)) ? t("geändert {0}", App.zeit.vor(zeitMs(v.aktualisiert))) : ""].filter(Boolean).map((x) => esc(x)).join(" · ") : "";
       return `<button type="button" class="zeile mitte${v.id === offen ? " an" : ""}" data-aktion="oeffne" data-id="${esc(v.id)}" data-typ="vorgang" data-label="${esc(v.titel)}">`
       + `<span class="zeile-text"><span class="zeile-titel">${esc(v.titel)}</span><span class="zeile-unter">${esc(v.id)} · ${esc(statusText(v.status))}${weit ? " · " + weit : ""}</span></span></button>`;
     }).join("") + "</div>" + weitere(vorgaenge.length - sicht.length);
@@ -92,22 +119,34 @@ function zeichnen() {
 function detailZeichnen(d) {
   // Im Blick und kompakt: oben „Zurück“, die Beschreibung gekürzt, im Verlauf nur die neuesten (Blick keiner), ohne Kommentarfeld
   const knapp = klein();
-  const zurueck = knapp ? App.knoepfe([{ text: "Zurück", symbol: "arrow-left", klasse: "leise", aktion: "zurueck" }], { klasse: "v-aktionen" }) : "";
+  const zurueck = knapp ? App.knoepfe([{ text: t("Zurück"), symbol: "arrow-left", klasse: "leise", aktion: "zurueck" }], { klasse: "v-aktionen" }) : "";
   const verlauf = (d.verlauf || []).slice(0, App.anzahl({ blick: 0, kompakt: 2 })).map((e) =>
     `<div class="v-eintrag"><div class="v-meta">${esc(e.von || "")}${e.ts ? " · " + esc(App.zeit.vor(typeof e.ts === "number" ? e.ts * 1000 : Date.parse(e.ts))) : ""}</div><div class="v-text">${esc(e.text)}</div></div>`).join("");
+  // Freigabe: Erteilen und Ablehnen; sonst die Status, die ein Knopf setzen darf (beides geht erst nach „Ja“)
+  const attr = { "data-id": d.id, "data-stand": d.status };
+  const handeln = d.antwort === "freigabe"
+    ? App.knoepfe([
+        { text: t("Erteilen"), symbol: "check", klasse: "haupt", aktion: "erteilen", attr },
+        { text: t("Ablehnen"), symbol: "x", klasse: "zweit", aktion: "ablehnen", attr },
+      ], { klasse: "v-aktionen", label: t("Freigabe beantworten") })
+    : (!knapp && Array.isArray(d.folge_status) && d.folge_status.length
+      ? App.knoepfe(d.folge_status.map((s) => ({ text: statusText(s), klasse: "leise", aktion: "status", attr: { ...attr, "data-ziel": s } })), { klasse: "v-aktionen", label: t("Status setzen") })
+      : "");
+  const wer = [d.art, d.zustaendig ? t("zuständig {0}", d.zustaendig) : "", d.wartet_auf ? t("wartet auf {0}", d.wartet_auf) : ""].filter(Boolean).map((x) => esc(x)).join(" · ");
   $("detail").innerHTML = `<div class="karte">${zurueck}<h2 class="v-kopf">${esc(d.titel)}</h2>`
-    + `<p class="v-meta">${esc(d.id)} · ${esc(statusText(d.status))}${d.prioritaet ? " · " + esc(d.prioritaet) : ""}</p>`
+    + `<p class="v-meta">${esc(d.id)} · ${esc(statusText(d.status))}${d.prioritaet ? " · " + esc(d.prioritaet) : ""}${wer ? " · " + wer : ""}</p>`
+    + handeln
     + (d.beschreibung && App.stufe !== "blick" ? `<div class="v-text${knapp ? " v-beschreibung" : ""}">${esc(d.beschreibung)}</div>` : "")
-    + (verlauf ? `<h3 class="augenbraue">Verlauf</h3>${verlauf}` : "")
-    + (knapp ? "" : `<form id="kommentar-form" class="v-form" autocomplete="off"><textarea id="kommentar-text" maxlength="4000" placeholder="Kommentar" aria-label="Kommentar"></textarea>`
-    + `<div class="aktionen"><button type="submit" class="zweit">${symbol("message-square")}Kommentieren</button></div></form>`
-    + `<div class="v-ziel an" id="ziel">Zieh einen anderen Vorgang hierher, um seine Info als Kommentar an diesen Vorgang zu hängen.</div>`)
+    + (verlauf ? `<h3 class="augenbraue">${esc(t("Verlauf"))}</h3>${verlauf}` : "")
+    + (knapp ? "" : `<form id="kommentar-form" class="v-form" autocomplete="off"><textarea id="kommentar-text" maxlength="4000" placeholder="${esc(t("Kommentar"))}" aria-label="${esc(t("Kommentar"))}"></textarea>`
+    + `<div class="aktionen"><button type="submit" class="zweit">${symbol("message-square")}${esc(t("Kommentieren"))}</button></div></form>`
+    + `<div class="v-ziel an" id="ziel">${esc(t("Zieh einen anderen Vorgang hierher, um seine Info als Kommentar an diesen Vorgang zu hängen."))}</div>`)
     + `</div>`;
   const formular = $("kommentar-form");
   if (formular) formular.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const text = $("kommentar-text").value.trim();
-    if (text) ausfuehren("kommentieren", { id: d.id, text }, "Kommentar anhängen", () => $("kommentar-text") && ($("kommentar-text").value = ""));
+    if (text) ausfuehren("kommentieren", { id: d.id, text }, t("Kommentar anhängen"), () => $("kommentar-text") && ($("kommentar-text").value = ""));
   });
 }
 
@@ -116,7 +155,7 @@ async function laden() {
     const d = await rufen("zeigen");
     quelleDa = d.zustand !== "nicht eingerichtet";
     hinweis = d.hinweis || "";
-    fehlerText = d.zustand === "fehler" ? (d.error || d.satz || "Die Vorgänge lassen sich gerade nicht abrufen.") : "";
+    fehlerText = d.zustand === "fehler" ? (d.error || d.satz || t("Die Vorgänge lassen sich gerade nicht abrufen.")) : "";
     vorgaenge = Array.isArray(d.vorgaenge) ? d.vorgaenge : [];
     bekommen = true;
   } catch (e) { fehlerText = App.fehlertext(e); }
@@ -127,9 +166,9 @@ async function laden() {
 async function oeffnen(id) {
   offen = id;
   zeichnen();
-  if (klein()) $("detail").innerHTML = '<div class="karte"><div class="laedt">Lädt …</div></div>';
+  if (klein()) $("detail").innerHTML = '<div class="karte"><div class="laedt">' + esc(t("Lädt …")) + '</div></div>';
   try { detailZeichnen(await rufen("lesen", { id })); }
-  catch (e) { $("detail").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Vorgang nicht lesbar", text: App.fehlertext(e), klein: true }) + "</div>"; }
+  catch (e) { $("detail").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: t("Vorgang nicht lesbar"), text: App.fehlertext(e), klein: true }) + "</div>"; }
 }
 
 // Alles Schreibende läuft über App.beantragen: erst der Plan, erst „Ja“ führt aus.
@@ -137,7 +176,7 @@ async function ausfuehren(werkzeug, args, ja, danach) {
   try {
     const r = await App.beantragen({ werkzeug: "vorgaenge__" + werkzeug, args, ort: $("antrag"), ja, symbol: "check" });
     if (r == null) return;
-    satz((r && r.satz) || "Erledigt.", "gut");
+    satz((r && r.satz) || t("Erledigt."), "gut");
     if (danach) danach(r);
     await laden();
   } catch (e) { satz(App.fehlertext(e), "schlecht"); }
@@ -145,23 +184,26 @@ async function ausfuehren(werkzeug, args, ja, danach) {
 
 // Was auf dieses Fenster fällt: eine Mail wird ein Vorgang, ein Vorgang hängt seine Info an den geöffneten Vorgang.
 function annehmen(u) {
-  if (u.typ === "mail") return ausfuehren("anlegen", u.argumente, "Vorgang anlegen", (r) => { if (r && r.vorgang && r.vorgang.id) offen = r.vorgang.id; });
+  if (u.typ === "mail") return ausfuehren("anlegen", u.argumente, t("Vorgang anlegen"), (r) => { if (r && r.vorgang && r.vorgang.id) offen = r.vorgang.id; });
   if (u.typ === "vorgang") {
-    if (!offen) return satz("Öffne zuerst den Vorgang, der die Info bekommen soll.", "warn");
-    if (offen === u.id) return satz("Ein Vorgang braucht seine eigene Info nicht.", "warn");
-    return ausfuehren("kommentieren", { ...u.argumente, id: offen }, "Info anhängen");
+    if (!offen) return satz(t("Öffne zuerst den Vorgang, der die Info bekommen soll."), "warn");
+    if (offen === u.id) return satz(t("Ein Vorgang braucht seine eigene Info nicht."), "warn");
+    return ausfuehren("kommentieren", { ...u.argumente, id: offen }, t("Info anhängen"));
   }
 }
 
 App.bei("oeffne", (el) => oeffnen(el.dataset.id));
 App.bei("zurueck", () => { offen = ""; zeichnen(); });
+App.bei("erteilen", (el) => ausfuehren("entscheiden", { id: el.dataset.id, entscheidung: "erteilt" }, t("Freigabe erteilen")));
+App.bei("ablehnen", (el) => ausfuehren("entscheiden", { id: el.dataset.id, entscheidung: "abgelehnt" }, t("Freigabe ablehnen")));
+App.bei("status", (el) => ausfuehren("status", { id: el.dataset.id, status: el.dataset.ziel, expected_status: el.dataset.stand }, t("Auf „{0}“ setzen", statusText(el.dataset.ziel))));
 $("knopf-neu").addEventListener("click", () => { const f = $("neu-form"); f.hidden = !f.hidden; if (!f.hidden) $("neu-titel").focus(); });
 $("knopf-neuladen").addEventListener("click", laden);
 $("neu-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
   const titel = $("neu-titel").value.trim();
   if (!titel) return;
-  ausfuehren("anlegen", { titel, beschreibung: $("neu-text").value.trim() }, "Vorgang anlegen", () => { $("neu-titel").value = ""; $("neu-text").value = ""; $("neu-form").hidden = true; });
+  ausfuehren("anlegen", { titel, beschreibung: $("neu-text").value.trim() }, t("Vorgang anlegen"), () => { $("neu-titel").value = ""; $("neu-text").value = ""; $("neu-form").hidden = true; });
 });
 
 // Jeder Vorgang ist ein ziehbares Ding (Typ „vorgang“); das Fenster nimmt Mails und Vorgänge an.

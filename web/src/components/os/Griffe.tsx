@@ -6,6 +6,7 @@ import { For, createEffect, createMemo, createResource, createSignal, on, type J
 import '~/styles/os-griffe.css';
 import { griffeFinden, griffeHolen, type Griff } from '~/lib/griffe';
 import { Glyphe } from './Symbol';
+import { tr } from '~/lib/i18n';
 
 /**
  * Passende Griffe zur Eingabe. Geholt wird erst, wenn jemand mindestens zwei Zeichen tippt (danach 60 s aus dem
@@ -34,7 +35,7 @@ export function GriffListe(p: {
   class?: string;
 }): JSX.Element {
   return (
-    <ul role="listbox" aria-label="Schalten" class={`griff-liste ${p.class ?? ''}`}>
+    <ul role="listbox" aria-label={tr('Schalten')} class={`griff-liste ${p.class ?? ''}`}>
       <For each={p.griffe}>
         {(g, i) => (
           <li role="option" aria-selected={i() === p.aktiv}>
@@ -48,7 +49,7 @@ export function GriffListe(p: {
             >
               <Glyphe name={g.symbol} class="griff-symbol" />
               <span class="griff-titel">{g.titel}</span>
-              <span class="griff-art">{g.istSchon ? 'steht schon so' : g.nachfragen ? `${g.gruppe} · fragt nach` : g.gruppe}</span>
+              <span class="griff-art">{g.istSchon ? tr('steht schon so') : g.nachfragen ? tr('{0} · fragt nach', g.gruppe) : g.gruppe}</span>
             </button>
           </li>
         )}
@@ -60,12 +61,12 @@ export function GriffListe(p: {
 /** Nachfrage vor einem Griff, der etwas für Minuten unterbricht. */
 export function GriffFrage(p: { g: Griff; onJa: () => void; onNein: () => void; class?: string }): JSX.Element {
   return (
-    <div role="group" aria-label="Bestätigung" class={`griff-frage ${p.class ?? ''}`}>
+    <div role="group" aria-label={tr('Bestätigung')} class={`griff-frage ${p.class ?? ''}`}>
       <span class="min-w-0 flex-1">
         {p.g.titel}?
       </span>
-      <button type="button" class="griff-ja" onClick={() => p.onJa()}>Ja</button>
-      <button type="button" class="griff-nein" onClick={() => p.onNein()}>Abbrechen</button>
+      <button type="button" class="griff-ja" onClick={() => p.onJa()}>{tr('Ja')}</button>
+      <button type="button" class="griff-nein" onClick={() => p.onNein()}>{tr('Abbrechen')}</button>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
-  "titel": "Artikel",
-  "zweck": "Einen Artikel lesen, ohne FYOS zu verlassen: Titel, Quelle, Datum, Lesezeit, Absätze in ruhiger Lesespalte, „Im Browser öffnen“. Daten am einfachsten live aus lesen.artikel {url}.",
+  "titel": "Article",
+  "zweck": "Read an article without leaving FYOS: title, source, date, reading time, paragraphs in a calm reading column, \"Open in browser\". Data is easiest live from lesen.artikel {url}.",
   "schema": {
     "type": "object",
     "required": ["titel", "absaetze"],
@@ -16,22 +16,22 @@
       "absaetze": {
         "type": "array", "maxItems": 300,
         "items": {"type": "object", "required": ["text"], "properties": {
-          "art": {"type": "string", "description": "p (Absatz), h (Zwischenüberschrift), li (Aufzählung), zitat"},
+          "art": {"type": "string", "description": "p (paragraph), h (subheading), li (list item), zitat (quote)"},
           "text": {"type": "string"}
         }}
       }
     }
   },
   "beispiel": {
-    "titel": "Neue Batterien halten doppelt so lange",
-    "quelle": "Beispielzeitung",
+    "titel": "New batteries last twice as long",
+    "quelle": "Example Times",
     "url": "https://example.org/artikel",
     "datum": "2026-10-20T08:00:00+02:00",
     "lesezeit": 2,
     "absaetze": [
-      {"art": "p", "text": "Forschende haben eine Zelle vorgestellt, die nach tausend Ladezyklen noch neunzig Prozent ihrer Kapazität hält."},
-      {"art": "h", "text": "Was anders ist"},
-      {"art": "p", "text": "Statt Graphit nutzt die Anode eine dünne Siliziumschicht, die beim Laden weniger aufquillt."}
+      {"art": "p", "text": "Researchers have presented a cell that still holds ninety percent of its capacity after a thousand charge cycles."},
+      {"art": "h", "text": "What is different"},
+      {"art": "p", "text": "Instead of graphite, the anode uses a thin silicon layer that swells less while charging."}
     ]
   }
 }

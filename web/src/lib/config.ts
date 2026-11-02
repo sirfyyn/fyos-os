@@ -16,6 +16,7 @@ import { oeffentlicherUrsprungSetzen } from './os/oeffnen';
 import { registriereFlaechen } from './os/register';
 import { kuerzelVon } from './os/kuerzel';
 import type { Flaeche } from './os/flaechen';
+import { spracheKonfigurieren } from './i18n';
 
 export const EXTERN_GRUPPE = 'Extern';
 
@@ -36,6 +37,10 @@ export interface FyosKonfiguration {
     name?: string;
   };
   extern?: ExternerDienst[];
+  /** Sprache der Oberfläche: `en` (Vorgabe) oder `de`; die Auswahl in den Einstellungen geht vor */
+  sprache?: string;
+  /** Gleichbedeutend mit `sprache` (englischer Feldname) */
+  language?: string;
 }
 
 const VORGABE_NAME = 'FYOS';
@@ -84,6 +89,7 @@ export function externeFlaechen(liste: ExternerDienst[] | undefined): Flaeche[] 
 /** Konfiguration übernehmen: Name, Agent und externe Dienste (als Flächen registriert). */
 export function konfigurationSetzen(k: FyosKonfiguration): void {
   setKonfig(k ?? {});
+  spracheKonfigurieren(k?.sprache ?? k?.language);
   oeffentlicherUrsprungSetzen(k?.oeffentlicheUrl);
   registriereFlaechen({ flaechen: externeFlaechen(k?.extern), quelle: 'konfiguration' });
 }
@@ -91,6 +97,7 @@ export function konfigurationSetzen(k: FyosKonfiguration): void {
 /** Nur für Tests. */
 export function konfigurationZuruecksetzen(): void {
   setKonfig({});
+  spracheKonfigurieren(undefined);
 }
 
 let lauf: Promise<FyosKonfiguration> | undefined;

@@ -43,9 +43,10 @@ def test_compose(katalog, tmp_path):
     runner = json.loads((out / "agent-runner.json").read_text())
     assert runner["hub"] == "http://hub:8080" and runner["pi_durable"]["device"]["name"] == "Fy"
     assert runner["takt"] == {"an": False}
+    assert runner["itsm"] == {"besitzer": "besitzer", "agent": "agent"}  # dieselben Akteure wie das ITSM des Hubs
     assert runner["pi_durable"]["security"]["allowedOrigins"] == ["http://localhost:8080"]
     agent = compose["services"]["agent"]
-    assert agent["image"] == "${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}"
+    assert agent["image"] == "${FYOS_BILD_AGENT:?FYOS_BILD_AGENT is missing in .env}"
     assert agent["environment"]["FYOS_RUNNER_TOKEN"] == "${FYOS_AGENT_TOKEN}"
     assert agent["environment"]["FYOS_MODELL_NAME"] == "${FYOS_MODELL_NAME}"
     assert compose["services"]["web"]["environment"]["FYOS_AGENT_UPSTREAM"] == "http://agent:18438"
@@ -54,6 +55,7 @@ def test_compose(katalog, tmp_path):
     assert namen["audit"] and namen["echo"]["enabled"] is False
     assert "module" not in namen["audit"]
     assert namen["beispiel_app"]["enabled"] is False  # nicht gewählt: ausdrücklich aus
+    assert namen["itsm"].get("enabled", True) is True  # seit 0.3.0: ITSM gehört zum Kern und ist an
     assert plan.ausfuehrbar and plan.url == "http://localhost:8080"
 
 
@@ -144,7 +146,7 @@ def test_ohne_plugin_pakete_kein_uv(katalog, tmp_path):
     plan = _plan(katalog, [], "compose", tmp_path)
     assert plan.ok, plan.fehler
     df = next(d for d in plan.dateien if d.pfad == "hub/Dockerfile").inhalt
-    assert "Keine Plugin-Pakete gewählt" in df and "uv" not in df and "USER root" not in df
+    assert "No plugin packages chosen" in df and "uv" not in df and "USER root" not in df
 
 
 def test_uv_version_wie_im_hub_dockerfile():
@@ -169,7 +171,7 @@ def test_registry_vorgaben(katalog, tmp_path):
     # Ohne Registry die veröffentlichten Bilder im Stand der Installer-Version; nur hub-eigen braucht eine eigene.
     v = e.vorgaben_optionen({})
     assert e.BILD_TAG == f"v{e.__version__}"
-    assert e.AGENT_TAG == "v0.2.1"  # fyos-agent trägt für 0.2.1 denselben Tag (RELEASE.md)
+    assert e.AGENT_TAG == "v0.3.0"  # fyos-agent trägt für 0.2.1 denselben Tag (RELEASE.md)
     assert v["bild_web"] == f"ghcr.io/sirfyyn/fyos-os/web:{e.BILD_TAG}"  # sauber: ok
     assert v["hub_bild"] == f"ghcr.io/sirfyyn/fyos-os/hub:{e.BILD_TAG}"  # sauber: ok
     assert v["bild_agent"] == f"ghcr.io/sirfyyn/fyos-agent/runner:{e.AGENT_TAG}"  # sauber: ok

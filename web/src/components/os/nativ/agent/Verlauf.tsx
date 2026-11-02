@@ -18,6 +18,7 @@ import { aufklappen } from './aufklappen';
 import { FreigabeKarte } from './FreigabeKarte';
 import { FOKUS, Fehler, KNOPF, Laedt, Leer, Punkt, Text } from './gemeinsam';
 import { AutonomZeile, ZugBlock } from './Zug';
+import { tr } from '~/lib/i18n';
 
 type Mensch = Extract<VerlaufsPunkt, { art: 'mensch' }>;
 
@@ -26,7 +27,7 @@ function MenschBlase(p: { m: Mensch }): JSX.Element {
     <div class="flex max-w-full flex-col items-end gap-0.5 self-end" data-art="mensch">
       <span class="px-1 text-[0.7rem] font-semibold text-(--color-fg-muted)">
         Du{p.m.steuern ? ' · Steuerung' : ''}
-        <Show when={p.m.quelle}> · über {p.m.quelle}</Show>
+        <Show when={p.m.quelle}>{' '}{tr('· über')}{' '}{p.m.quelle}</Show>
         <Show when={p.m.zeit}> · {uhrzeitKurz(p.m.zeit)}</Show>
       </span>
       <div class="max-w-[min(36rem,92%)] rounded-[18px] rounded-br-md bg-(--color-accent) px-4 py-2.5 text-(--color-accent-text) select-text">
@@ -150,18 +151,18 @@ export function Verlauf(p: {
       <div
         ref={liste}
         role="log"
-        aria-label="Verlauf"
+        aria-label={tr('Verlauf')}
         tabindex="0"
         class={`flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain rounded-2xl px-1 py-1 ${FOKUS}`}
         onScroll={(e) => setUnten(e.currentTarget.scrollHeight - e.currentTarget.scrollTop - e.currentTarget.clientHeight < 120)}
       >
-        <Show when={p.z.geladen || p.fehler} fallback={<Laedt text="Gespräch wird geladen" />}>
+        <Show when={p.z.geladen || p.fehler} fallback={<Laedt text={tr('Gespräch wird geladen')} />}>
           <Show when={seite().rest > 0}>
             <button type="button" class={`${KNOPF} self-center`} onClick={aelteres} data-aelteres>
               Ältere anzeigen ({seite().rest})
             </button>
           </Show>
-          <Show when={hatInhalt()} fallback={<Leer>Noch nichts gesagt. Schreib unten los.</Leer>}>
+          <Show when={hatInhalt()} fallback={<Leer>{tr('Noch nichts gesagt. Schreib unten los.')}</Leer>}>
             <Index each={seite().sichtbar}>
               {(punkt) => (
                 <Switch>
@@ -199,16 +200,16 @@ export function Verlauf(p: {
 
           <Show when={gefiltert().ausgeblendet > 0}>
             <p class="m-0 self-center text-xs text-(--color-fg-subtle)" data-ausgeblendet>
-              {gefiltert().ausgeblendet} eigenständige {gefiltert().ausgeblendet === 1 ? 'Arbeit' : 'Arbeiten'} ausgeblendet (Ruhe). /live blendet sie ein.
+              {gefiltert().ausgeblendet} eigenständige {gefiltert().ausgeblendet === 1 ? tr('Arbeit') : tr('Arbeiten')} ausgeblendet (Ruhe). /live blendet sie ein.
             </p>
           </Show>
 
           <Show when={p.freigaben.length > 0 || p.weitere > 0}>
-            <section aria-label="Wartet auf dich" class="flex max-h-[min(22rem,60vh)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain" data-freigaben-im-verlauf>
+            <section aria-label={tr('Wartet auf dich')} class="flex max-h-[min(22rem,60vh)] shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain" data-freigaben-im-verlauf>
               <Index each={p.freigaben}>{(f) => <FreigabeKarte f={f()} entscheide={p.entscheide} spaeter={p.spaeter} kompakt />}</Index>
               <Show when={p.weitere > 0}>
                 <button type="button" class={`${KNOPF} self-start`} onClick={() => p.zurFreigabenListe()} data-zur-liste>
-                  {p.weitere === 1 ? '1 weitere Freigabe wartet' : `${p.weitere} weitere Freigaben warten`} · Liste öffnen
+                  {p.weitere === 1 ? tr('1 weitere Freigabe wartet') : tr('{0} weitere Freigaben warten', p.weitere)} · Liste öffnen
                 </button>
               </Show>
             </section>
@@ -223,10 +224,10 @@ export function Verlauf(p: {
               <Punkt ton="warn" />
               <span class="min-w-0 flex-1">{flauteText({ letzteRegung: p.letzteRegung, jetzt: jetzt() })}</span>
               <button type="button" class={KNOPF} disabled={aktion() !== null} aria-busy={aktion() === 'nachfassen'} onClick={() => void tue('nachfassen')}>
-                Nachfassen
+                {tr('Nachfassen')}
               </button>
               <button type="button" class={KNOPF} disabled={aktion() !== null} aria-busy={aktion() === 'abbrechen'} onClick={() => void tue('abbrechen')}>
-                Abbrechen
+                {tr('Abbrechen')}
               </button>
               <Show when={aktionFehler()}>
                 <span class="basis-full text-xs text-(--color-error)">{aktionFehler()}</span>
@@ -244,13 +245,13 @@ export function Verlauf(p: {
             nachUnten(true);
           }}
         >
-          Nach unten
+          {tr('Nach unten')}
         </button>
       </Show>
       <Show when={!p.verbunden && p.z.geladen}>
         <p role="status" class="m-0 mt-1 flex items-center gap-2 text-xs text-(--color-warn)" data-statuszeile="verbindung">
           <Punkt ton="warn" />
-          Verbindung verloren – versuche erneut …
+          {tr('Verbindung verloren – versuche erneut …')}
         </p>
       </Show>
     </div>

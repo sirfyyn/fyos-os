@@ -1,5 +1,5 @@
 /**
- * bruecke.ts — die Shell als Sitzung der OS-Brücke (Protokoll v1, docs/HUB-VERTRAG.md).
+ * bruecke.ts — die Shell als Sitzung der OS-Brücke (Protokoll v1, docs/HUB-CONTRACT.md).
  *
  * Damit weiß der Hub, dass jemand vor der Shell sitzt, und der Agent erreicht ihn mit `os.mitteilen`:
  * Die Shell meldet sich (`POST /hub-api/os/melden`), sagt, ob der Tab sichtbar ist und wann zuletzt etwas getan

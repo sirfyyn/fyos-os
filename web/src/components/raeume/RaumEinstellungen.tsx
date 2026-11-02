@@ -11,6 +11,7 @@ import Erscheinungsbild from '~/components/einstellungen/Erscheinungsbild';
 import RaeumeEinstellen from '~/components/einstellungen/RaeumeEinstellen';
 import { type RaumProps, RaumRahmen } from '~/components/os/Raum';
 import { Geplant, HubApp, gemerkteWahl, wahlMerken } from '~/components/raeume/Huelle';
+import { tr } from '~/lib/i18n';
 
 type Art = { art: 'nativ' } | { art: 'app'; name: string } | { art: 'geplant'; quelle: string };
 interface Bereich {
@@ -55,8 +56,8 @@ export default function RaumEinstellungen(p: RaumProps): JSX.Element {
     <>
       <input
         type="search"
-        aria-label="In allen Einstellungen suchen"
-        placeholder="In allen Einstellungen suchen"
+        aria-label={tr('In allen Einstellungen suchen')}
+        placeholder={tr('In allen Einstellungen suchen')}
         value={suche()}
         onInput={(e) => setSuche(e.currentTarget.value)}
         onKeyDown={(e) => {
@@ -66,10 +67,10 @@ export default function RaumEinstellungen(p: RaumProps): JSX.Element {
         classList={{ 'max-w-xs': p.schmal }}
       />
       <Show when={!p.schmal}>
-        <span class="px-2.5 pt-1 pb-2 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">Bereiche</span>
+        <span class="px-2.5 pt-1 pb-2 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">{tr('Bereiche')}</span>
       </Show>
       <ul class="m-0 flex list-none gap-0.5 p-0" classList={{ 'flex-col': !p.schmal, 'flex-row whitespace-nowrap': p.schmal }}>
-        <For each={treffer()} fallback={<li class="px-2.5 py-2 text-sm text-(--color-fg-muted)">Kein Bereich passt.</li>}>
+        <For each={treffer()} fallback={<li class="px-2.5 py-2 text-sm text-(--color-fg-muted)">{tr('Kein Bereich passt.')}</li>}>
           {(b) => (
             <li>
               <button
@@ -96,17 +97,17 @@ export default function RaumEinstellungen(p: RaumProps): JSX.Element {
   );
 
   return (
-    <RaumRahmen titel="Einstellungen" leiste={leiste} leisteName="Bereiche der Einstellungen" schmal={p.schmal} heim={p.heim} fuellen={aktuell().inhalt.art === 'app'}>
+    <RaumRahmen titel={tr('Einstellungen')} leiste={leiste} leisteName={tr('Bereiche der Einstellungen')} schmal={p.schmal} heim={p.heim} fuellen={aktuell().inhalt.art === 'app'}>
       <div class="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 px-4 py-5" data-einstellungen-bereich={aktuell().id}>
         <h1 class="m-0 text-2xl font-bold text-(--color-fg)">{aktuell().titel}</h1>
         <Switch>
           <Match when={aktuell().id === 'erscheinungsbild'}>
-            <Abschnitt id="raum-erscheinungsbild" titel="Erscheinungsbild" geltung="Gilt in diesem Browser">
+            <Abschnitt id="raum-erscheinungsbild" titel={tr('Erscheinungsbild')} geltung={tr('Gilt in diesem Browser')}>
               <Erscheinungsbild kulisseId="raum-kulisse" />
             </Abschnitt>
           </Match>
           <Match when={aktuell().id === 'raeume'}>
-            <Abschnitt id="raum-raeume" titel="Räume" geltung="Gilt in diesem Browser">
+            <Abschnitt id="raum-raeume" titel={tr('Räume')} geltung={tr('Gilt in diesem Browser')}>
               <RaeumeEinstellen />
             </Abschnitt>
           </Match>

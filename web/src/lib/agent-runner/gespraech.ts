@@ -8,6 +8,7 @@
  */
 import type { Block, Eintrag, GespraechsEreignis, GespraechsZustand, Hinweis, Nachricht, WerkzeugSlot } from './typen';
 import { ergebnisText, inhaltText } from './text';
+import { tr } from '~/lib/i18n';
 
 /** Mehr Einträge hält der Client nicht im Speicher (app.js: 5000). */
 export const EINTRAEGE_MAX = 5000;
@@ -311,7 +312,7 @@ export function mitEreignissen(alt: GespraechsZustand, ereignisse: GespraechsEre
         hinweise.push({ text: `Aufgabe fehlgeschlagen: ${(ev.message as string | undefined) ?? (ev.kind as string | undefined) ?? ''}`.trim(), fehler: true });
         break;
       case 'auto_retry_start':
-        hinweise.push({ text: `Modell antwortet nicht; neuer Versuch ${(ev.attempt as number | undefined) ?? ''}.`.trim() });
+        hinweise.push({ text: tr('Modell antwortet nicht; neuer Versuch {0}.', (ev.attempt as number | undefined) ?? '').trim() });
         break;
       case 'compaction_start':
         hinweise.push({ text: 'Verdichte Verlauf …' });

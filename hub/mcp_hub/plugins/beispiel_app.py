@@ -122,7 +122,7 @@ class BeispielAppPlugin(HubPlugin):
             ToolDescriptor(
                 name="zeigen",
                 title="Notizzettel",
-                description="Zeigt die Notizen des Notizzettels (Beispiel-App) und öffnet ihre Oberfläche.",
+                description="Shows the notes of the sticky-note board (example app) and opens its interface.",
                 input_schema={"type": "object", "properties": {}, "additionalProperties": False},
                 tags=["beispiel_app", "flaeche", "read"],
                 meta=self._meta(),
@@ -130,7 +130,7 @@ class BeispielAppPlugin(HubPlugin):
             ToolDescriptor(
                 name="lesen",
                 title="Notiz lesen",
-                description="Liefert eine Notiz zu ihrer Kennung (id aus beispiel_app.zeigen) samt Titel und Dateiname.",
+                description="Returns a note by its id (id from beispiel_app.zeigen) with title and file name.",
                 input_schema={
                     "type": "object",
                     "properties": {"id": {"type": "string"}},
@@ -144,14 +144,17 @@ class BeispielAppPlugin(HubPlugin):
                 name="hinzufuegen",
                 title="Notiz hinzufügen",
                 description=(
-                    "Hängt eine Notiz an den Notizzettel (höchstens 50 Notizen, je 500 Zeichen). Mit __dry_run__ zeigt es nur, "
-                    "was geschähe. bestaetigt: true bestätigt eine Rückfrage der Oberfläche (der Zettel verlangt es nicht)."
+                    (
+                        "Adds a note to the board (at most 50 notes, 500 characters each). With "
+                        "__dry_run__ it only shows what would happen. bestaetigt: true confirms a "
+                        "question from the interface (the board does not require it)."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "text": {"type": "string", "minLength": 1, "maxLength": TEXT_MAX},
-                        "bestaetigt": {"type": "boolean", "description": "die Oberfläche hat nachgefragt und der Mensch hat zugestimmt"},
+                        "bestaetigt": {"type": "boolean", "description": "the interface asked and the human agreed"},
                     },
                     "required": ["text"],
                     "additionalProperties": False,
@@ -162,7 +165,7 @@ class BeispielAppPlugin(HubPlugin):
             ToolDescriptor(
                 name="loeschen",
                 title="Notiz löschen",
-                description="Entfernt eine Notiz vom Notizzettel (id aus beispiel_app.zeigen).",
+                description="Removes a note from the board (id from beispiel_app.zeigen).",
                 input_schema={
                     "type": "object",
                     "properties": {"id": {"type": "string"}},
@@ -179,7 +182,7 @@ class BeispielAppPlugin(HubPlugin):
             ResourceDescriptor(
                 uri=UI_URI,
                 name="Notizzettel",
-                description="Beispiel-App: Notizen anzeigen, hinzufügen und löschen",
+                description="Example app: show, add and delete notes",
                 read=lambda: oberflaeche(UI_DATEI, self._ui_verzeichnis),
                 meta={"ui": {"prefersBorder": True}},
             )

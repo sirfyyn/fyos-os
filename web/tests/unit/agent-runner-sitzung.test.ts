@@ -66,7 +66,7 @@ describe('AgentSitzung', () => {
     await s.starte();
     const st = s.stand;
     expect(st.start).toBe('bereit');
-    expect(st.agentName).toBe('Agent');
+    expect(st.agentKennung).toBe('agent');
     expect(st.geraet).toBe('Werkbank');
     expect(st.fokus).toBe(1);
     expect(st.live).toBe(true);

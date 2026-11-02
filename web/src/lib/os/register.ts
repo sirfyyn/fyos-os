@@ -20,7 +20,7 @@
  *   standardPlaetze   Vorlagen, die der Start anbietet (Name → Flächen). Fehlende Flächen werden übergangen.
  *   alias             alte Kennungen → heutige Fläche (gespeicherte Anordnungen, Lesezeichen, `?offen=`).
  *   dinge             (optional) Typen ziehbarer Dinge zwischen Flächen (lib/os/ziehen.ts). Hub-Apps melden ihre Dinge und
- *                     Übergaben im Hub an (`registriere_ding`, `registriere_uebergabe`, docs/ERWEITERN.md); die Shell nimmt sie
+ *                     Übergaben im Hub an (`registriere_ding`, `registriere_uebergabe`, docs/EXTENDING.md); die Shell nimmt sie
  *                     mit der Liste der Apps selbst auf.
  *
  * Eine Registrierung mit `quelle` ersetzt alle früheren derselben Quelle (die Konfiguration lädt so ihre externen

@@ -16,6 +16,7 @@ import { dockSicht, type DockSicht } from '~/lib/os/dock-sichtbar';
 import { agentName, systemName } from '~/lib/config';
 import { ablageZiel, gutSetzen, zugBeginnt, zugBild, zugEndet, type Gut } from '~/lib/os/ziehen';
 import Symbol from './Symbol';
+import { tr } from '~/lib/i18n';
 
 export interface DockProps {
   bildschirme: { index: number; name: string }[];
@@ -70,7 +71,7 @@ function fensterSymbole(p: DockProps): JSX.Element {
           data-privat={f.privat}
           data-kontext={`dock-fenster:${f.id}`}
           aria-label={f.titel}
-          title={f.min ? `${f.titel} — minimiert` : f.titel}
+          title={f.min ? tr('{0} — minimiert', f.titel) : f.titel}
           class="os-dock-symbol"
           classList={{ 'os-dock-min': f.min, 'os-dock-fokus': !f.min && p.fokus === f.id, 'os-dock-huepf': p.huepf === f.id }}
           onClick={() => p.onFenster(f.id)}
@@ -130,9 +131,9 @@ function offeneLeiste(p: DockProps, sicht: DockSicht): JSX.Element {
           class="os-dock-pfeil"
           classList={{ 'os-dock-pfeil-weg': sicht.sichtbar() }}
           tabIndex={sicht.sichtbar() ? -1 : 0}
-          aria-label="Dock einblenden"
+          aria-label={tr('Dock einblenden')}
           aria-expanded={sicht.sichtbar()}
-          title="Offene Anwendungen zeigen (30 Sekunden)"
+          title={tr('Offene Anwendungen zeigen (30 Sekunden)')}
           onPointerEnter={() => sicht.zone(true)}
           onPointerLeave={() => sicht.zone(false)}
           onClick={(e) => {
@@ -145,7 +146,7 @@ function offeneLeiste(p: DockProps, sicht: DockSicht): JSX.Element {
         </button>
         <nav
           ref={nav}
-          aria-label="Bodenleiste"
+          aria-label={tr('Bodenleiste')}
           class="os-dock-bereich os-dock-offene"
           data-kontext="dock"
           onKeyDown={schliesst}
@@ -157,7 +158,7 @@ function offeneLeiste(p: DockProps, sicht: DockSicht): JSX.Element {
             onPointerEnter={() => sicht.dock(true)}
             onPointerLeave={() => sicht.dock(false)}
           >
-            <div class="os-dock-fenster" aria-label="Offene Anwendungen">
+            <div class="os-dock-fenster" aria-label={tr('Offene Anwendungen')}>
               {fensterSymbole(p)}
             </div>
           </div>
@@ -198,9 +199,9 @@ function klassischeLeiste(p: DockProps): JSX.Element {
   };
 
   return (
-    <nav aria-label="Bodenleiste" class="os-dock-bereich" data-kontext="dock">
+    <nav aria-label={tr('Bodenleiste')} class="os-dock-bereich" data-kontext="dock">
       {/* Bildschirme */}
-      <div class="os-punkte" role="tablist" aria-label="Bildschirme" ref={punkte} onKeyDown={taste}>
+      <div class="os-punkte" role="tablist" aria-label={tr('Bildschirme')} ref={punkte} onKeyDown={taste}>
         {/* Index statt For: die Namen folgen den Fenstern und ändern sich oft; die Knöpfe bleiben dabei dieselben (Fokus, Hover) */}
         <Index each={alle()}>
           {(b) => {
@@ -220,7 +221,7 @@ function klassischeLeiste(p: DockProps): JSX.Element {
                 tabIndex={p.aktiv === b().index ? 0 : -1}
                 aria-label={b().name}
                 data-kontext={`bildschirm:${b().index}`}
-                title={b().index === 0 ? 'Startbildschirm' : b().name}
+                title={b().index === 0 ? tr('Startbildschirm') : b().name}
                 class="os-punkt no-touch"
                 classList={{
                   'os-punkt-an': p.aktiv === b().index,
@@ -248,8 +249,8 @@ function klassischeLeiste(p: DockProps): JSX.Element {
             type="button"
             class="os-punkt-neu no-touch"
             classList={{ 'os-ziel-an': zielNeu() }}
-            aria-label="Neuer Bildschirm"
-            title="Neuer Bildschirm — oder etwas hierher ziehen"
+            aria-label={tr('Neuer Bildschirm')}
+            title={tr('Neuer Bildschirm — oder etwas hierher ziehen')}
             onClick={() => p.onNeuerBildschirm()}
             {...neuZiel}
           >
@@ -259,14 +260,14 @@ function klassischeLeiste(p: DockProps): JSX.Element {
       </div>
 
       <div class="os-glas os-dock">
-        <button type="button" aria-expanded={p.startOffen} aria-label={systemName()} title={`${systemName()} — alle Flächen (⌘K)`} class="os-dock-symbol os-dock-fyos" onClick={() => p.onStart()}>
+        <button type="button" aria-expanded={p.startOffen} aria-label={systemName()} title={tr('{0} — alle Flächen (⌘K)', systemName())} class="os-dock-symbol os-dock-fyos" onClick={() => p.onStart()}>
           <span class="os-logo os-logo-gross" aria-hidden="true" />
         </button>
 
         <Show when={p.fenster.length}>
           <span class="os-dock-trenner" aria-hidden="true" />
         </Show>
-        <div class="os-dock-fenster" aria-label="Offene Flächen">
+        <div class="os-dock-fenster" aria-label={tr('Offene Flächen')}>
           {fensterSymbole(p)}
         </div>
 
@@ -275,7 +276,7 @@ function klassischeLeiste(p: DockProps): JSX.Element {
           type="button"
           aria-pressed={p.agent}
           aria-label={agentName()}
-          title={`${agentName()} (⌘J) — Objekt, Fenster oder Fläche hierher ziehen, um dazu zu fragen`}
+          title={tr('{0} (⌘J) — Objekt, Fenster oder Fläche hierher ziehen, um dazu zu fragen', agentName())}
           class="os-dock-symbol"
           classList={{ 'os-dock-fokus': p.agent, 'os-ziel-an': zielAgent() }}
           onClick={() => p.onAgent()}

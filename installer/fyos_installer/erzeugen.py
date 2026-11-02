@@ -22,6 +22,9 @@ from . import __version__, abnahme
 from . import stufen as st
 from .katalog import Baustein, Katalog, KatalogFehler, aufloesen, quelle_aufloesen
 from .reife import Reife, bestimme as bestimme_reife
+from . import sprache as spr
+
+_k = spr.katalog_text
 
 PAKET = Path(__file__).resolve().parent
 VORLAGEN = PAKET / "vorlagen"
@@ -39,12 +42,12 @@ VORGABE_PERSONA = {
     "sprache": "Deutsch",
 }
 VORGABE_MODELL = {"basis_url": "http://host.docker.internal:11434/v1", "name": "qwen3:8b", "schluessel": ""}
-# Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.2.1
-# zieht Oberfläche und Hub mit dem Tag v0.2.1. Das Bild des Agenten (Runner) baut fyos-agent mit eigenen Tags; für
-# 0.2.1 trägt es denselben Tag wie die FYOS-Version (RELEASE.md: fyos-agent wird vor fyos-os getaggt).
+# Ohne eigene Registry nimmt der Installer die veröffentlichten Bilder im Stand seiner eigenen Version: Installer 0.3.0
+# zieht Oberfläche und Hub mit dem Tag v0.3.0. Das Bild des Agenten (Runner) baut fyos-agent mit eigenen Tags; es
+# trägt denselben Tag wie die FYOS-Version (RELEASE.md: fyos-agent wird vor fyos-os getaggt).
 OFFIZIELLE_REGISTRY = "ghcr.io/sirfyyn"  # sauber: ok
 BILD_TAG = f"v{__version__}"
-AGENT_TAG = "v0.2.1"
+AGENT_TAG = "v0.3.0"
 # Das selbst gebaute Hub-Bild (Kubernetes, mit den gewählten Plugins) gehört in die eigene Registry. Ohne sie zeigt es
 # auf eine Beispieladresse, die sich nie auflösen lässt: Schieben und Ziehen schlagen sichtbar fehl, statt still ein
 # fremdes Bild gleichen Namens zu holen.
@@ -65,8 +68,8 @@ UV_BILD = "ghcr.io/astral-sh/uv:0.12.8"
 
 def _runner_dienst() -> str:
     return """  agent:
-    # Der Agent: dauerhafter Runner auf pi-durable (fyos-agent/runner). Zustand im Volume, Modell aus .env.
-    image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT fehlt in .env}
+    # The agent: durable runner (fyos-agent/runner). State in the volume, model from .env.
+    image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT is missing in .env}
     environment:
       FYOS_RUNNER_TOKEN: ${FYOS_AGENT_TOKEN}
       FYOS_HUB_URL: http://hub:8080
@@ -91,6 +94,9 @@ def runner_konfig(agent_name: str, oeffentlich_url: str) -> str:
         "agent": "main",
         # Der eingebaute Tagesrhythmus des Runners ist für einen bestimmten Alltag gebaut: aus, bis man eigene Takte einträgt
         "takt": {"an": False},
+        # ITSM-Wache: dieselben Akteure wie das ITSM des Hubs (FYOS_BESITZER_AKTEUR, FYOS_AGENT_ID; docs/ITSM.md),
+        # sonst sieht sie Kommentare und Freigaben des Besitzers, weckt aber niemanden
+        "itsm": {"besitzer": "besitzer", "agent": "agent"},
         "pi_durable": {
             "port": 18438,
             "device": {"id": "server", "name": agent_name, "kind": "linux"},
@@ -189,6 +195,7 @@ class Plan:
     hub_quellen: list[str] = field(default_factory=list)
     reife: list[Reife] = field(default_factory=list)  # je Schicht die Stufe, aus der Auswahl abgeleitet (reife.py)
     stufen: list[st.Wahl] = field(default_factory=list)  # Stufe je Fähigkeit der gewählten Bausteine (stufen.py)
+    sprache: str = "en"  # Sprache der erzeugten Oberfläche (fyos.config.json, ANLEITUNG.md)
 
     @property
     def ok(self) -> bool:
@@ -288,13 +295,13 @@ def lade_antworten(pfad: str | Path) -> dict[str, Any]:
 def _abschnitt(antworten: Mapping, name: str, vorgabe: Mapping, fehler: list[str]) -> dict[str, str]:
     roh = antworten.get(name) or {}
     if not isinstance(roh, dict):
-        fehler.append(f"Antworten: '{name}' muss ein Objekt sein")
+        fehler.append(spr._("Antworten: '{0}' muss ein Objekt sein", name))
         roh = {}
     erg = {}
     for k, v in {**vorgabe, **{k: v for k, v in roh.items() if v is not None}}.items():
         s = str(v).strip() if not isinstance(v, (dict, list)) else ""
         if _STEUER.search(s):
-            fehler.append(f"Antworten: {name}.{k} enthält Steuerzeichen oder Zeilenumbrüche")
+            fehler.append(spr._("Antworten: {0}.{1} enthält Steuerzeichen oder Zeilenumbrüche", name, k))
             s = ""
         erg[k] = s
     return erg
@@ -303,22 +310,22 @@ def _abschnitt(antworten: Mapping, name: str, vorgabe: Mapping, fehler: list[str
 def _feldwert(b: Baustein, f, roh: Any, fehler: list[str]) -> str:
     wert = f.standard if roh is None else roh
     s = "" if wert is None or isinstance(wert, (dict, list)) else str(wert).strip()
-    ort = f"{b.titel}: Feld '{f.name}'"
+    ort = spr._("{0}: Feld '{1}'", _k(b.titel), f.name)
     if _STEUER.search(s):
-        fehler.append(f"{ort} enthält Steuerzeichen oder Zeilenumbrüche")
+        fehler.append(spr._("{0} enthält Steuerzeichen oder Zeilenumbrüche", ort))
         return ""
     if not s:
         if f.pflicht:
-            fehler.append(f"{ort} fehlt ({f.beschreibung})")
+            fehler.append(spr._("{0} fehlt ({1})", ort, _k(f.beschreibung)))
         return ""
     if f.typ == "zahl":
         if not re.fullmatch(r"\d{1,6}", s):
-            fehler.append(f"{ort} muss eine ganze Zahl sein")
+            fehler.append(spr._("{0} muss eine ganze Zahl sein", ort))
     elif f.typ == "url":
         if not re.match(r"^https?://[^\s/]+", s):
-            fehler.append(f"{ort} muss eine Adresse mit http:// oder https:// sein")
+            fehler.append(spr._("{0} muss eine Adresse mit http:// oder https:// sein", ort))
     elif f.typ == "wahl" and s not in f.optionen:
-        fehler.append(f"{ort} muss einer von {', '.join(f.optionen)} sein")
+        fehler.append(spr._("{0} muss einer von {1} sein", ort, ", ".join(f.optionen)))
     return s
 
 
@@ -335,13 +342,30 @@ def erstelle_plan(
     umgebung: Mapping[str, str] | None = None,
     zufall: Callable[[int], str] = secrets.token_hex,
 ) -> Plan:
+    """Der Plan spricht die Sprache der erzeugten Oberfläche (Antwort `sprache`, sonst die des Installers): Hinweise,
+    Schritte und Dateibeschreibungen landen in ANLEITUNG.md."""
+    sprache = spr.normalisiere((antworten or {}).get("sprache")) or spr.aktiv()
+    with spr.sprache_von(sprache):
+        return _erstelle_plan(katalog, auswahl, ziel, antworten, verzeichnis, umgebung=umgebung, zufall=zufall)
+
+
+def _erstelle_plan(
+    katalog: Katalog,
+    auswahl: list[str],
+    ziel: str,
+    antworten: Mapping[str, Any] | None,
+    verzeichnis: str | Path,
+    *,
+    umgebung: Mapping[str, str] | None,
+    zufall: Callable[[int], str],
+) -> Plan:
     umgebung = os.environ if umgebung is None else umgebung
     antworten = antworten or {}
     verz = Path(verzeichnis)
     plan = Plan(ziel=ziel, verzeichnis=verz)
     fehler = plan.fehler
     if ziel not in ZIELE:
-        fehler.append(f"Unbekanntes Ziel '{ziel}' (erlaubt: {', '.join(ZIELE)})")
+        fehler.append(spr._("Unbekanntes Ziel '{0}' (erlaubt: {1})", ziel, ", ".join(ZIELE)))
         return plan
     try:
         plan.auswahl = aufloesen(katalog, list(auswahl))
@@ -351,30 +375,32 @@ def erstelle_plan(
     bausteine = [katalog[i] for i in plan.auswahl]
     plan.reife = bestimme_reife(bausteine)
 
-    persona = _abschnitt(antworten, "persona", VORGABE_PERSONA, fehler)
+    persona = _abschnitt(antworten, "persona", {**VORGABE_PERSONA, "sprache": spr.persona_sprache()}, fehler)
+    # Sprache der erzeugten Oberfläche (fyos.config.json): Antwort `sprache`, sonst die Sprache des Installers
+    plan.sprache = spr.normalisiere(antworten.get("sprache")) or spr.aktiv()
     modell = _abschnitt(antworten, "modell", VORGABE_MODELL, fehler)
     optionen = _abschnitt(antworten, "optionen", vorgaben_optionen(umgebung), fehler)
     optionen["bezug"] = _auto_bezug(optionen)
     geheimnisse = _abschnitt(antworten, "geheimnisse", {"agent_token": ""}, fehler)
     for k in ("agent_name", "besitzer_name", "sprache"):
         if not persona[k]:
-            fehler.append(f"Persona: '{k}' darf nicht leer sein")
+            fehler.append(spr._("Persona: '{0}' darf nicht leer sein", k))
     if not modell["basis_url"] or not re.match(r"^https?://", modell["basis_url"]):
-        fehler.append("Modell: basis_url muss mit http:// oder https:// beginnen")
+        fehler.append(spr._("Modell: basis_url muss mit http:// oder https:// beginnen"))
     if not modell["name"]:
-        fehler.append("Modell: name darf nicht leer sein")
+        fehler.append(spr._("Modell: name darf nicht leer sein"))
     if "agent" in optionen:
-        plan.hinweise.append("Optionen: 'agent' gibt es seit 0.2.1 nicht mehr; der Agent ist immer der Runner.")
+        plan.hinweise.append(spr._("Optionen: 'agent' gibt es seit 0.2.1 nicht mehr; der Agent ist immer der Runner."))
     for k in ("hub_bild", "bild_web", "bild_agent"):
         if not _BILD.match(optionen[k]):
-            fehler.append(f"Optionen: {k} ist kein gültiger Bildname")
+            fehler.append(spr._("Optionen: {0} ist kein gültiger Bildname", k))
     if optionen["paketindex"] and not _INDEX.match(optionen["paketindex"]):
-        fehler.append("Optionen: paketindex muss eine http(s)-Adresse ohne Leer- und Sonderzeichen sein")
+        fehler.append(spr._("Optionen: paketindex muss eine http(s)-Adresse ohne Leer- und Sonderzeichen sein"))
     if ziel == "k8s":
         if not _BILD.match(optionen["hub_bild_k8s"]):
-            fehler.append("Optionen: hub_bild_k8s ist kein gültiger Bildname")
+            fehler.append(spr._("Optionen: {0} ist kein gültiger Bildname", "hub_bild_k8s"))
         if not _NAMESPACE.match(optionen["namespace"]):
-            fehler.append("Optionen: namespace ist kein gültiger Kubernetes-Name")
+            fehler.append(spr._("Optionen: namespace ist kein gültiger Kubernetes-Name"))
 
     # Plugin-Pakete für das Hub-Bild
     for b in bausteine:
@@ -386,32 +412,32 @@ def erstelle_plan(
             continue
         if spec:
             if not _SPEC.match(spec):
-                fehler.append(f"{b.titel}: Paketquelle enthält unzulässige Zeichen")
+                fehler.append(spr._("{0}: Paketquelle enthält unzulässige Zeichen", _k(b.titel)))
             else:
                 plan.hub_quellen.append(spec)
 
     # Felder der Bausteine: ENV-Name -> (Wert, geheim, Baustein)
     felder_roh = antworten.get("felder") or {}
     if not isinstance(felder_roh, dict):
-        fehler.append("Antworten: 'felder' muss ein Objekt sein")
+        fehler.append(spr._("Antworten: '{0}' muss ein Objekt sein", "felder"))
         felder_roh = {}
     for bid in felder_roh:
         if bid not in plan.auswahl:
-            plan.hinweise.append(f"Antworten für nicht gewählten Baustein '{bid}' werden ignoriert.")
+            plan.hinweise.append(spr._("Antworten für nicht gewählten Baustein '{0}' werden ignoriert.", bid))
     werte: dict[str, tuple[str, bool, Baustein]] = {}
     for b in bausteine:
         mein = felder_roh.get(b.id) or {}
         if not isinstance(mein, dict):
-            fehler.append(f"Antworten: felder.{b.id} muss ein Objekt sein")
+            fehler.append(spr._("Antworten: felder.{0} muss ein Objekt sein", b.id))
             mein = {}
         for name in mein:
             if name not in {f.name for f in b.konfiguration}:
-                plan.hinweise.append(f"Unbekanntes Feld '{name}' bei '{b.id}' wird ignoriert.")
+                plan.hinweise.append(spr._("Unbekanntes Feld '{0}' bei '{1}' wird ignoriert.", name, b.id))
         for f in b.konfiguration:
             wert = _feldwert(b, f, mein.get(f.name), fehler)
             env = b.umgebungsname(f)
             if env in werte:
-                fehler.append(f"Umgebungsvariable {env} wird von mehreren Feldern belegt")
+                fehler.append(spr._("Umgebungsvariable {0} wird von mehreren Feldern belegt", env))
             werte[env] = (wert, f.typ == "geheim", b)
 
     # Stufe je Fähigkeit: wählt (Vorgabe nach Bauart) und streicht die Felder der Stufen, die nicht gelten
@@ -427,7 +453,7 @@ def erstelle_plan(
     if port.isdigit():
         plan.port = int(port)
         if not 1 <= plan.port <= 65535:
-            fehler.append("Kern: port muss zwischen 1 und 65535 liegen")
+            fehler.append(spr._("Kern: port muss zwischen 1 und 65535 liegen"))
     werte["FYOS_PORT"] = (port, False, werte.get("FYOS_PORT", (0, 0, None))[2])
     werte["FYOS_OEFFENTLICH_URL"] = (oeff, False, werte.get("FYOS_OEFFENTLICH_URL", (0, 0, None))[2])
 
@@ -445,6 +471,18 @@ def erstelle_plan(
 
 def _ziel_text(ziel: str) -> str:
     return ZIELE[ziel]
+
+
+def _oberflaeche_konfig(sprache: str, agent_name: str = "") -> str:
+    """`/fyos.config.json` der Oberfläche (web/src/lib/config.ts): Compose hängt sie ein, Kubernetes als ConfigMap.
+
+    Sie nennt die Sprache und den Namen des Agenten aus der Persona (`agent.name`): den zeigt die Oberfläche im Dock und
+    im Kopf der Agent-App, nicht die Kennung des Runners (`agent: "main"` in agent-runner.json).
+    """
+    konfig: dict = {"sprache": sprache}
+    if agent_name.strip():
+        konfig["agent"] = {"name": agent_name.strip()}
+    return json.dumps(konfig, indent=2, ensure_ascii=False) + "\n"
 
 
 def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, verz) -> None:
@@ -467,36 +505,36 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             plugins += [{"name": p["name"], "enabled": False} for p in b.hub_plugins]
     hub_text = _yaml(
         {"plugins": plugins},
-        "# Hub-Plugins (Format: hub/config.example.yaml). Installierte Plugin-Pakete laden auch ohne Eintrag.\n"
-        "# Vom Installer erzeugt.\n",
+        "# Hub plugins (format: hub/config.example.yaml). Installed plugin packages load even without an entry.\n"
+        "# Generated by the installer.\n",
     )
 
     paket_zeilen = ""
     if plan.hub_quellen:
-        paket_zeilen += "# Das Hub-Bild läuft als Benutzer fyos; zum Installieren kurz root.\nUSER root\n"
+        paket_zeilen += "# The Hub image runs as user fyos; root only while installing.\nUSER root\n"
         paket_zeilen += (
-            "# uv statt pip: Es fragt die Indizes der Reihe nach und nimmt ein Paket nur aus dem ersten Index, der es führt.\n"
+            "# uv instead of pip: it asks the indexes in order and takes a package only from the first index that has it.\n"
             f"COPY --from={UV_BILD} /uv /uvx /bin/\n"
         )
         if any("git+" in s for s in plan.hub_quellen):
             paket_zeilen += (
-                "# Pakete aus Git-Adressen brauchen git im Bild.\n"
+                "# Packages from Git addresses need git in the image.\n"
                 "RUN command -v git >/dev/null 2>&1 || (apt-get update && "
                 "apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*)\n"
             )
         paket_zeilen += (
-            "# Der eigene Paketindex kommt als Bau-Argument und steht vor PyPI: --build-arg FYOS_INDEX_URL=<Index-URL>\n"
+            "# Your own package index comes as a build argument and goes before PyPI: --build-arg FYOS_INDEX_URL=<index URL>\n"
             "RUN uv pip install --system --no-cache --index-strategy first-index "
             '${FYOS_INDEX_URL:+--index "$FYOS_INDEX_URL"} '
             + " ".join(f'"{s}"' for s in plan.hub_quellen) + "\nUSER fyos\n"
         )
     else:
-        paket_zeilen = "# Keine Plugin-Pakete gewählt: das Bild entspricht dem Hub der Distribution.\n"
+        paket_zeilen = "# No plugin packages chosen: the image is the distribution's Hub.\n"
     dockerfile = render(
         _vorlage("Dockerfile.hub"), {"hub_bild": optionen["hub_bild"], "paket_zeilen": paket_zeilen.rstrip("\n")}
     )
 
-    gitignore = "# Geheimnisse und Sicherungen nie einchecken\n.env\nsecrets.yaml\n*.vorher\n"
+    gitignore = "# Never commit secrets and backups\n.env\nsecrets.yaml\n*.vorher\n"
 
     if ziel in ("compose", "dateien"):
         abschnitte: list[tuple[str, list[tuple[str, str, bool]]]] = [
@@ -513,14 +551,15 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             ]),
             ("Agent", [("FYOS_AGENT_TOKEN", token, True)]),
         ]
+        abschnitte = [(spr._(t), p) for t, p in abschnitte]
         for b in bausteine:
             felder = [(e, w, g) for e, w, g, bb in hub_paare if bb is b]
             if felder:
-                abschnitte.append((b.titel, felder))
+                abschnitte.append((_k(b.titel), felder))
 
         def env_text(maskiert: bool) -> str:
             zeilen = [
-                "# Vom FYOS-Installer erzeugt. Enthält Geheimnisse: nicht weitergeben, nicht ins Git.",
+                spr._("# Vom FYOS-Installer erzeugt. Enthält Geheimnisse: nicht weitergeben, nicht ins Git."),
             ]
             for titel, paare in abschnitte:
                 zeilen += ["", f"# {titel}"]
@@ -536,22 +575,24 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
             {"oeffentliche_url": oeff, "hub_umgebung": hub_umgebung, "agent_dienst": _runner_dienst()},
         )
         plan.dateien += [
-            Datei("docker-compose.yml", compose, beschreibung="Dienste web, hub (eigenes Bild), agent, redis"),
-            Datei(".env", env_text(False), 0o600, "Port, Modell, Agent-Token und Plugin-Felder (Geheimnisse nur hier)", env_text(True)),
-            Datei("agent-runner.json", runner_text, beschreibung="Konfiguration des Runners (ohne Geheimnisse)"),
-            Datei("hub-config.yaml", hub_text, beschreibung="Kern-Plugins des Hubs"),
-            Datei("hub/Dockerfile", dockerfile, beschreibung="Hub-Bild plus gewählte Plugin-Pakete"),
-            Datei(".gitignore", gitignore, beschreibung="hält .env aus dem Git"),
+            Datei("docker-compose.yml", compose, beschreibung=spr._("Dienste web, hub (eigenes Bild), agent, redis")),
+            Datei("fyos.config.json", _oberflaeche_konfig(plan.sprache, persona["agent_name"]),
+                  beschreibung=spr._("Laufzeit-Konfiguration der Oberfläche (Sprache, Name des Agenten)")),
+            Datei(".env", env_text(False), 0o600, spr._("Port, Modell, Agent-Token und Plugin-Felder (Geheimnisse nur hier)"), env_text(True)),
+            Datei("agent-runner.json", runner_text, beschreibung=spr._("Konfiguration des Runners (ohne Geheimnisse)")),
+            Datei("hub-config.yaml", hub_text, beschreibung=spr._("Kern-Plugins des Hubs")),
+            Datei("hub/Dockerfile", dockerfile, beschreibung=spr._("Hub-Bild plus gewählte Plugin-Pakete")),
+            Datei(".gitignore", gitignore, beschreibung=spr._("hält .env aus dem Git")),
         ]
         plan.url = oeff
         d = shlex.quote(str(plan.verzeichnis))
         plan.befehle = [f"cd {d}", "docker compose build", "docker compose up -d"]
         schritte = [
             f"1. `cd {d}`",
-            "2. `docker compose build` baut das Hub-Bild mit den gewählten Plugin-Paketen.",
-            "3. `docker compose up -d` startet FYOS.",
-            f"4. {oeff} im Browser öffnen.",
-            "5. Beenden mit `docker compose down`.",
+            spr._("2. `docker compose build` baut das Hub-Bild mit den gewählten Plugin-Paketen."),
+            spr._("3. `docker compose up -d` startet FYOS."),
+            spr._("4. {0} im Browser öffnen.", oeff),
+            spr._("5. Beenden mit `docker compose down`."),
         ]
         geheimdatei, protokoll = ".env", "docker compose logs"
     else:  # k8s
@@ -580,7 +621,7 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
 
         def secrets_text(echt: bool) -> str:
             def wert(v: str) -> str:
-                return v if echt else "<ausfüllen>"
+                return v if echt else "<fill in>"
 
             dokumente = [
                 {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "fyos-modell", "namespace": ns},
@@ -595,21 +636,23 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
                 dokumente.append({"apiVersion": "v1", "kind": "Secret",
                                   "metadata": {"name": "fyos-plugin", "namespace": ns},
                                   "type": "Opaque", "stringData": geheim})
-            kopf = ("# Vom FYOS-Installer erzeugt.\n" + (
-                "# ENTHÄLT GEHEIMNISSE: nicht ins Git, nicht weitergeben.\n" if echt else
-                "# Vorlage ohne Werte. Als secrets.yaml kopieren und ausfüllen.\n"))
+            kopf = ("# Generated by the FYOS installer.\n" + (
+                "# CONTAINS SECRETS: do not commit to Git, do not share.\n" if echt else
+                "# Template without values. Copy it to secrets.yaml and fill it in.\n"))
             return kopf + "---\n".join(_yaml(d) for d in dokumente)
 
         echt = secrets_text(True)
         plan.dateien += [
-            Datei("kustomization.yaml", kust, beschreibung="Overlay: Basis, ConfigMaps, Bilder"),
-            Datei("agent-runner.json", runner_text, beschreibung="Konfiguration des Runners (ConfigMap fyos-agent-config)"),
-            Datei("hub-config.yaml", hub_text, beschreibung="Kern-Plugins (ConfigMap fyos-hub-config)"),
-            Datei("secrets.yaml", echt, 0o600, "Secrets mit Modellzugang, Agent-Token, Plugin-Geheimnissen", secrets_text(False).replace(
-                "Vorlage ohne Werte. Als secrets.yaml kopieren und ausfüllen.", "Anzeige ohne Geheimnisse.")),
-            Datei("secrets.example.yaml", secrets_text(False), beschreibung="dieselben Secrets als Vorlage ohne Werte"),
-            Datei("hub/Dockerfile", dockerfile, beschreibung="Hub-Bild plus gewählte Plugin-Pakete"),
-            Datei(".gitignore", gitignore, beschreibung="hält secrets.yaml aus dem Git"),
+            Datei("kustomization.yaml", kust, beschreibung=spr._("Overlay: Basis, ConfigMaps, Bilder")),
+            Datei("fyos.config.json", _oberflaeche_konfig(plan.sprache, persona["agent_name"]),
+                  beschreibung=spr._("Laufzeit-Konfiguration der Oberfläche (Sprache, Name des Agenten, ConfigMap fyos-web-config)")),
+            Datei("agent-runner.json", runner_text, beschreibung=spr._("Konfiguration des Runners (ConfigMap fyos-agent-config)")),
+            Datei("hub-config.yaml", hub_text, beschreibung=spr._("Kern-Plugins (ConfigMap fyos-hub-config)")),
+            Datei("secrets.yaml", echt, 0o600, spr._("Secrets mit Modellzugang, Agent-Token, Plugin-Geheimnissen"), secrets_text(False).replace(
+                "Template without values. Copy it to secrets.yaml and fill it in.", "Shown without secrets.")),
+            Datei("secrets.example.yaml", secrets_text(False), beschreibung=spr._("dieselben Secrets als Vorlage ohne Werte")),
+            Datei("hub/Dockerfile", dockerfile, beschreibung=spr._("Hub-Bild plus gewählte Plugin-Pakete")),
+            Datei(".gitignore", gitignore, beschreibung=spr._("hält secrets.yaml aus dem Git")),
         ]
         d = shlex.quote(str(plan.verzeichnis))
         arg = ""
@@ -626,47 +669,47 @@ def _dateien(katalog, plan, bausteine, persona, modell, optionen, werte, token, 
         ]
         schritte = [
             f"1. `cd {d}`",
-            f"2. Hub-Bild bauen und in deine Registry schieben: `{bau}` und `docker push {optionen['hub_bild_k8s']}`.",
-            f"3. `kubectl create namespace {ns}`, dann `kubectl apply -f secrets.yaml`.",
-            "4. `kubectl apply -k .` legt FYOS an (zur Kontrolle vorher `kubectl kustomize .`).",
-            f"5. Zugriff zum Ausprobieren: `kubectl -n {ns} port-forward svc/web {port}:80`, dann {oeff} öffnen.",
+            spr._("2. Hub-Bild bauen und in deine Registry schieben: `{0}` und `docker push {1}`.", bau, optionen["hub_bild_k8s"]),
+            spr._("3. `kubectl create namespace {0}`, dann `kubectl apply -f secrets.yaml`.", ns),
+            spr._("4. `kubectl apply -k .` legt FYOS an (zur Kontrolle vorher `kubectl kustomize .`)."),
+            spr._("5. Zugriff zum Ausprobieren: `kubectl -n {0} port-forward svc/web {1}:80`, dann {2} öffnen.", ns, port, oeff),
         ]
         plan.url = None
         geheimdatei, protokoll = "secrets.yaml", f"kubectl -n {ns} logs deploy/hub"
-        plan.hinweise.append(
-            f"Kustomize-Basis: {basis} (mit `k8s_basis` in den Antworten änderbar). Der Pfad ist relativ zum Zielordner."
-        )
+        plan.hinweise.append(spr._(
+            "Kustomize-Basis: {0} (mit `k8s_basis` in den Antworten änderbar). Der Pfad ist relativ zum Zielordner.", basis
+        ))
         if "host.docker.internal" in modell["basis_url"]:
-            plan.hinweise.append("Die Modell-Adresse zeigt auf host.docker.internal; im Cluster ist sie so nicht erreichbar.")
+            plan.hinweise.append(spr._("Die Modell-Adresse zeigt auf host.docker.internal; im Cluster ist sie so nicht erreichbar."))
 
     if ziel == "dateien":
-        plan.hinweise.append("Ziel »nur Dateien«: nichts wird gestartet; die Befehle stehen in ANLEITUNG.md.")
+        plan.hinweise.append(spr._("Ziel »nur Dateien«: nichts wird gestartet; die Befehle stehen in ANLEITUNG.md."))
     bild_felder = ("hub_bild", "bild_web", "bild_agent") + (("hub_bild_k8s",) if ziel == "k8s" else ())
     beispiel = [k for k in bild_felder if optionen[k].startswith(BEISPIEL_REGISTRY + "/")]
     if beispiel:
-        plan.hinweise.append(
-            f"Bilder ({', '.join(beispiel)}) zeigen noch auf die Beispieladresse {BEISPIEL_REGISTRY}: "
+        plan.hinweise.append(spr._(
+            "Bilder ({0}) zeigen noch auf die Beispieladresse {1}: "
             "FYOS_REGISTRY auf die eigene Registry setzen (Form host/besitzer) oder die Bilder unter Optionen "
-            "eintragen, sonst lässt sich nichts schieben oder ziehen."
-        )
+            "eintragen, sonst lässt sich nichts schieben oder ziehen.", ", ".join(beispiel), BEISPIEL_REGISTRY,
+        ))
     for b in bausteine:
         for v in b.voraussetzungen:
-            plan.hinweise.append(f"Voraussetzung ({b.titel}): {v}")
+            plan.hinweise.append(spr._("Voraussetzung ({0}): {1}", _k(b.titel), _k(v)))
     plan.hinweise.append(abnahme.hinweis(plan.port, ziel))
 
-    anleitung = render(_vorlage("ANLEITUNG.md"), {
-        "ziel_text": _ziel_text(ziel),
+    anleitung = render(_vorlage("ANLEITUNG.md" if plan.sprache == "de" else "ANLEITUNG.en.md"), {
+        "ziel_text": spr._(_ziel_text(ziel)),
         "agent_name": persona["agent_name"], "besitzer_name": persona["besitzer_name"], "sprache": persona["sprache"],
         "bausteine": "\n".join(
             z for b in bausteine
-            for z in [f"- **{b.titel}**: {b.kurz}"] + [f"  - {w.zeile()}" for w in plan.stufen if w.faehigkeit.baustein == b.id]
+            for z in [f"- **{_k(b.titel)}**: {_k(b.kurz)}"] + [f"  - {w.zeile()}" for w in plan.stufen if w.faehigkeit.baustein == b.id]
         ),
         "schritte": "\n".join(schritte),
-        "dateien": "\n".join(f"- `{x.pfad}`: {x.beschreibung}" for x in plan.dateien + [Datei("ANLEITUNG.md", "", beschreibung="diese Datei")]),
+        "dateien": "\n".join(f"- `{x.pfad}`: {x.beschreibung}" for x in plan.dateien + [Datei("ANLEITUNG.md", "", beschreibung=spr._("diese Datei"))]),
         "geheimdatei": geheimdatei, "protokoll_befehl": f"`{protokoll}`",
         "hinweise": "\n".join(f"- {h}" for h in plan.hinweise),
     })
-    plan.dateien.append(Datei("ANLEITUNG.md", anleitung, beschreibung="nächste Schritte"))
+    plan.dateien.append(Datei("ANLEITUNG.md", anleitung, beschreibung=spr._("nächste Schritte")))
 
 
 # ---------------------------------------------------------------- Schreiben

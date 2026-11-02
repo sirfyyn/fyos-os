@@ -32,10 +32,13 @@ OS_ADRESSE = (os.getenv("FYOS_OS_URL") or (f"{OEFFENTLICHE_URL}/os" if OEFFENTLI
 KATEGORIEN = ("System", "Betrieb", "Wissen", "Beispiele")
 
 #: Eine Zeile je App. Schlüssel = Kurzname; `symbol` (Glyphe aus _symbole.json) und `ton` (Farbton 0–359).
+#: `titel_en` und `untertitel_en` (optional) sind die englischen Fassungen für den Kopf der Oberfläche (Brücke, Sprache en).
 APPS: dict[str, dict[str, Any]] = {
     "werkstatt": {
         "titel": "Werkstatt",
         "untertitel": "Skripte starten, Ergebnisse ansehen",
+        "titel_en": "Workshop",
+        "untertitel_en": "Run scripts, look at results",
         "symbol": "square-terminal",
         "ton": 250,
         "kategorie": "System",
@@ -43,6 +46,8 @@ APPS: dict[str, dict[str, Any]] = {
     "mcp": {
         "titel": "MCP",
         "untertitel": "Plugins, Werkzeuge, Apps und Protokolle des Hubs",
+        "titel_en": "MCP",
+        "untertitel_en": "Plugins, tools, apps and logs of the Hub",
         "symbol": "toolbox",
         "ton": 190,
         "kategorie": "System",
@@ -52,6 +57,8 @@ APPS: dict[str, dict[str, Any]] = {
     "gui": {
         "titel": "Gebaute Ansicht",
         "untertitel": "Diagramme, Rechner und Vergleiche, vom Agenten gebaut",
+        "titel_en": "Built view",
+        "untertitel_en": "Diagrams, calculators and comparisons, built by the agent",
         "symbol": "wand-sparkles",
         "ton": 300,
         "kategorie": "System",
@@ -59,6 +66,8 @@ APPS: dict[str, dict[str, Any]] = {
     "beispiel_app": {
         "titel": "Notizzettel",
         "untertitel": "Kleine Beispiel-App: Notizen merken",
+        "titel_en": "Sticky notes",
+        "untertitel_en": "Small example app: keep notes",
         "symbol": "package",
         "ton": 36,
         "kategorie": "Beispiele",
@@ -137,6 +146,9 @@ def bruecken_konfig(datei: str) -> dict[str, Any]:
     return {
         "app": schluessel,
         "titel": app["titel"],
+        "untertitel": app.get("untertitel", ""),
+        "titel_en": app.get("titel_en", ""),
+        "untertitel_en": app.get("untertitel_en", ""),
         "symbol": app["symbol"],
         "ton": app["ton"],
         "werkzeug": HAUPTWERKZEUG.get(schluessel, ""),

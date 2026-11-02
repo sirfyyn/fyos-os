@@ -376,6 +376,8 @@ class McpPlugin(HubPlugin):
                     "uri": uri,
                     "titel": (app or {}).get("titel") if isinstance(app, dict) else rt.plugin_name,
                     "untertitel": (app or {}).get("untertitel", "") if isinstance(app, dict) else "",
+                    "titel_en": (app or {}).get("titel_en", "") if isinstance(app, dict) else "",
+                    "untertitel_en": (app or {}).get("untertitel_en", "") if isinstance(app, dict) else "",
                     "symbol": (app or {}).get("symbol", "app-window") if isinstance(app, dict) else "app-window",
                     "ton": (app or {}).get("ton", 250) if isinstance(app, dict) else 250,
                     "kategorie": (app or {}).get("kategorie", "") if isinstance(app, dict) else "",
@@ -650,7 +652,7 @@ class McpPlugin(HubPlugin):
             ResourceDescriptor(
                 uri=UI_MCP,
                 name="MCP",
-                description="Plugins, Werkzeuge, Apps und Protokolle des Hubs — ein Werkzeugkasten im Stil des MCP Inspectors",
+                description="Plugins, tools, apps and logs of the Hub — a toolbox in the style of the MCP Inspector",
                 read=lambda: oberflaeche("mcp.html"),
                 meta={"ui": {"prefersBorder": True}},
             )
@@ -663,26 +665,33 @@ class McpPlugin(HubPlugin):
                 name="uebersicht",
                 title="MCP",
                 description=(
-                    "(App) Der Werkzeugkasten des Hubs, lesend. Knapp (Standard, für Modelle): `satz`, Zähler, alle Plugins mit "
-                    "Gesundheit in einer Zeile, Zugänge und Protokollversionen; mit `plugin` zusätzlich dessen Werkzeuge. Mit "
-                    "`voll: true` (die Oberfläche nutzt das): alle Werkzeuge mit Scope, Sichtbarkeit und App, ui://-Ressourcen "
-                    "und die Aufrufer, die zuletzt kamen (rund 160 KB). Zeigt keine Geheimnisse. Werkzeug suchen: hub__search_tools."
+                    (
+                        "(App) The Hub's toolbox, read-only. Short (default, for models): `satz`, "
+                        "counters, all plugins with health in one line, access routes and protocol "
+                        "versions; with `plugin` also its tools. With `voll: true` (the interface uses "
+                        "it): all tools with scope, visibility and app, ui:// resources and the most "
+                        "recent callers (about 160 KB). Shows no secrets. To search for a tool: "
+                        "hub__search_tools."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "voll": {
                             "type": "boolean",
-                            "description": "Alles inklusive Werkzeugkatalog (gross; die Oberfläche nutzt das). Ohne: knappe Ansicht",
+                            "description": (
+                                "Everything including the tool catalog (large; the interface uses it). "
+                                "Without: short view"
+                            ),
                             "default": False,
                         },
                         "plugin": {
                             "type": "string",
-                            "description": "Nur knapp: zusätzlich die Werkzeuge dieses Plugins auflisten (z. B. shell)",
+                            "description": "Short view only: also list the tools of this plugin (e.g. shell)",
                         },
                         "frisch": {
                             "type": "boolean",
-                            "description": "Gesundheit neu prüfen statt der Prüfung der letzten 20 Sekunden",
+                            "description": "Check health again instead of using the check from the last 20 seconds",
                             "default": False,
                         }
                     },
@@ -693,14 +702,16 @@ class McpPlugin(HubPlugin):
             ),
             ToolDescriptor(
                 name="werkzeug",
-                title="MCP — Werkzeug",
+                title="MCP — tool",
                 description=(
-                    "(App) Ein Hub-Werkzeug im Detail: Beschreibung, Eingabeschema als lesbare Felder, Beispielaufruf, "
-                    "Scope, Sichtbarkeit und die zugehörige App mit Link."
+                    (
+                        "(App) A Hub tool in detail: description, input schema as readable fields, "
+                        "example call, scope, visibility and the related app with a link."
+                    )
                 ),
                 input_schema={
                     "type": "object",
-                    "properties": {"name": {"type": "string", "description": "Werkzeug-Kennung, z. B. werkstatt.suchen"}},
+                    "properties": {"name": {"type": "string", "description": "Tool id, e.g. werkstatt.suchen"}},
                     "required": ["name"],
                     "additionalProperties": False,
                 },
@@ -711,13 +722,16 @@ class McpPlugin(HubPlugin):
                 name="ausprobieren",
                 title="MCP — Ausprobieren",
                 description=(
-                    "(App) Ein lesendes, für das Modell sichtbares Flächen-Werkzeug wirklich aufrufen und das Ergebnis "
-                    "zeigen (gekürzt, ohne Felder, die nach Geheimnis heißen). Nichts Schreibendes, keine privaten Inhalte."
+                    (
+                        "(App) Really call a read-only surface tool that the model can see and show the "
+                        "result (shortened, without fields named like secrets). Nothing that writes, no "
+                        "private content."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
-                        "werkzeug": {"type": "string", "description": "Werkzeug-Kennung, z. B. lage.ampel"},
+                        "werkzeug": {"type": "string", "description": "Tool id, e.g. lage.ampel"},
                         "arguments": {"type": "object", "description": "Argumente des Werkzeugs", "default": {}},
                     },
                     "required": ["werkzeug"],
@@ -730,16 +744,19 @@ class McpPlugin(HubPlugin):
                 name="zeitplan",
                 title="Zeitplan",
                 description=(
-                    "Was wann läuft: die Takte der Hub-Plugins und, die Aufträge angebundener Dienste des "
-                    "Agenten — je Aufgabe Takt, nächster und letzter Lauf und ob er gelang. Takte mit Grenzen zeigen "
-                    "zusätzlich `fenster` (Uhrzeiten), `max_pro_tag`, `laeufe_heute`, `uebersprungen` (heute, nach Grund "
-                    "fenster/limit), `ruht` (läuft jetzt nicht) und `protokoll` (letzte Läufe mit Start, Dauer, Ergebnis). "
-                    "`quelle` filtert (z. B. agent). Aufgaben mit Modell gehören in die Takte des Agenten, Aufgaben "
-                    "ohne Modell in ein Plugin."
+                    (
+                        "What runs when: the schedules of the Hub plugins and the jobs of the agent's "
+                        "connected services — per task the schedule, next and last run and whether it "
+                        "succeeded. Schedules with limits also show `fenster` (times of day), "
+                        "`max_pro_tag`, `laeufe_heute`, `uebersprungen` (today, by reason "
+                        "fenster/limit), `ruht` (not running now) and `protokoll` (last runs with start, "
+                        "duration, result). `quelle` filters (e.g. agent). Tasks with a model belong in "
+                        "the agent's schedules, tasks without a model in a plugin."
+                    )
                 ),
                 input_schema={
                     "type": "object",
-                    "properties": {"quelle": {"type": "string", "description": "Nur diese Quelle oder dieses Plugin"}},
+                    "properties": {"quelle": {"type": "string", "description": "Only this source or this plugin"}},
                     "additionalProperties": False,
                 },
                 tags=_TAGS,

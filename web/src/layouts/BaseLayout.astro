@@ -20,11 +20,11 @@ interface Props {
 }
 
 const systemName = (import.meta.env.PUBLIC_FYOS_NAME as string | undefined)?.trim() || 'FYOS';
-const { title = systemName, description = `${systemName} — das eigene System im Browser`, bare = false } = Astro.props;
+const { title = systemName, description = `${systemName} — your own system in the browser`, bare = false } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="de" data-theme="dark" class:list={[{ 'fyos-bare': bare }]}>
+<html lang="en" data-theme="dark" class:list={[{ 'fyos-bare': bare }]}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -32,7 +32,8 @@ const { title = systemName, description = `${systemName} — das eigene System i
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
-    <meta name="theme-color" content="#1c1815" />
+    <meta name="theme-color" content="#1c1815" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f7f7fa" media="(prefers-color-scheme: light)" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -41,11 +42,30 @@ const { title = systemName, description = `${systemName} — das eigene System i
     <meta name="application-name" content={systemName} />
     <title>{title}</title>
     <script is:inline>
-      // Gespeichertes Thema vor der Darstellung setzen (kein Aufblitzen).
-      try {
-        const t = localStorage.getItem('fyos-theme');
-        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-      } catch (_) { /* Vorgaben gelten */ }
+      // Farbschema vor der Darstellung setzen (kein Aufblitzen). Dieselbe Regel wie farbschemaAus() in
+      // lib/einstellungen/farbschema.ts: Modus „system“ (oder altes „auto“) folgt dem Gerät, sonst die gespeicherte
+      // Wahl; ohne Wahl ebenfalls das Gerät. Bei „System“ zieht die Seite nach, wenn das Gerät umschaltet.
+      (function () {
+        var w = document.documentElement;
+        var mq = null;
+        try { mq = window.matchMedia('(prefers-color-scheme: light)'); } catch (_) {}
+        var wahl = function () {
+          var m = null, t = null;
+          try { m = localStorage.getItem('fyos-theme-mode'); t = localStorage.getItem('fyos-theme'); } catch (_) {}
+          if (m === 'system' || m === 'auto') return 'system';
+          if (t === 'light' || t === 'dark') return t;
+          if (m === 'manual:light') return 'light';
+          if (m === 'manual:dark') return 'dark';
+          return 'system';
+        };
+        var setzen = function () {
+          var s = wahl();
+          w.dataset.theme = s === 'system' ? (mq && mq.matches ? 'light' : 'dark') : s;
+        };
+        setzen();
+        try { if (mq) mq.addEventListener('change', function () { if (wahl() === 'system') setzen(); }); } catch (_) {}
+        try { if (localStorage.getItem('fyos.sprache') === 'de') w.lang = 'de'; } catch (_) {}
+      })();
     </script>
   </head>
   <body class="flex h-dvh flex-col">

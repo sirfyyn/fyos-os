@@ -7,6 +7,7 @@ import { Index, Match, Show, Switch, createUniqueId, type JSX } from 'solid-js';
 import { arbeitsZeile, aktuellerSchritt, dauerText, kuerzeAusgabe, type Schritt, type Zug } from '~/lib/agent-runner/verlauf';
 import type { Aufklapp } from './aufklappen';
 import { FOKUS, Text } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 const PRE =
   'm-0 overflow-auto rounded-lg bg-[color-mix(in_oklab,var(--color-fg)_8%,transparent)] p-2 font-mono text-xs leading-snug whitespace-pre-wrap break-words';
@@ -86,15 +87,15 @@ function WerkzeugSchritt(p: { s: Extract<Schritt, { art: 'werkzeug' }>; jetzt: n
         <div id={id} class="mb-1 ml-6 flex flex-col gap-2 border-l border-(--color-border) pl-3">
           <Show when={p.s.eingabe}>
             <div>
-              <p class="m-0 mb-1 text-[0.7rem] font-semibold text-(--color-fg-muted)">Eingabe</p>
+              <p class="m-0 mb-1 text-[0.7rem] font-semibold text-(--color-fg-muted)">{tr('Eingabe')}</p>
               <Eingabe text={p.s.eingabe} />
             </div>
           </Show>
-          <Show when={p.s.ausgabe} fallback={<p class="m-0 text-xs text-(--color-fg-muted)">{p.s.status === 'laeuft' ? 'Noch keine Ausgabe.' : 'Keine Ausgabe.'}</p>}>
+          <Show when={p.s.ausgabe} fallback={<p class="m-0 text-xs text-(--color-fg-muted)">{p.s.status === 'laeuft' ? tr('Noch keine Ausgabe.') : tr('Keine Ausgabe.')}</p>}>
             <div>
               <p class="m-0 mb-1 text-[0.7rem] font-semibold text-(--color-fg-muted)">
-                {p.s.status === 'fehler' ? 'Fehlermeldung' : 'Ausgabe'}
-                <Show when={p.s.gekuerzt}> (gekürzt)</Show>
+                {p.s.status === 'fehler' ? tr('Fehlermeldung') : tr('Ausgabe')}
+                <Show when={p.s.gekuerzt}>{' '}{tr('(gekürzt)')}</Show>
               </p>
               <pre class={`${PRE} max-h-64`} classList={{ 'bg-(--color-error-soft)': p.s.status === 'fehler' }}>
                 {p.s.ausgabe}
@@ -126,7 +127,7 @@ function GedankenSchritt(p: { s: Extract<Schritt, { art: 'gedanken' }>; offen: A
         <span aria-hidden="true" class="inline-flex size-4 shrink-0 items-center justify-center">
           <span class="size-1.5 rounded-full border border-(--color-fg-subtle)" />
         </span>
-        <span class="min-w-0 flex-1 truncate">Gedanken · {p.s.woerter} {p.s.woerter === 1 ? 'Wort' : 'Wörter'}</span>
+        <span class="min-w-0 flex-1 truncate">{tr('Gedanken ·')}{' '}{p.s.woerter} {p.s.woerter === 1 ? tr('Wort') : tr('Wörter')}</span>
         <Pfeil offen={auf()} />
       </button>
       <Show when={auf()}>
@@ -173,7 +174,7 @@ export function Arbeitszeile(p: { z: Zug; jetzt: number; offen: Aufklapp }): JSX
       </button>
       <Show when={auf()}>
         <ol id={id} class="m-0 mt-1.5 flex list-none flex-col gap-0.5 p-0" data-schritte>
-          <Index each={p.z.schritte} fallback={<li class="px-2 py-1 text-xs text-(--color-fg-muted)">{p.z.laeuft ? 'Noch kein Schritt.' : 'Keine Schritte.'}</li>}>
+          <Index each={p.z.schritte} fallback={<li class="px-2 py-1 text-xs text-(--color-fg-muted)">{p.z.laeuft ? tr('Noch kein Schritt.') : tr('Keine Schritte.')}</li>}>
             {(s) => (
               <Switch>
                 <Match when={s().art === 'werkzeug' && (s() as Extract<Schritt, { art: 'werkzeug' }>)}>

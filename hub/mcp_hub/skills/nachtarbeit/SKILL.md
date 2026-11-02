@@ -1,62 +1,63 @@
 ---
 name: nachtarbeit
-description: Wenn Arbeit nachts oder sonst ohne den Benutzer laufen soll und er das Ergebnis später in der Shell sehen will (Takt des Runners, Nachtlauf, "mach das über Nacht", "melde dich, wenn du fertig bist"). Wie ein Nachtauftrag entsteht, wie du in einem Lauf ohne Benutzer arbeitest und wie du mit os.mitteilen meldest, auch wenn niemand da ist.
-ausloeser: nachts, über nacht, nachtauftrag, nachtlauf, cron, zeitplan, morgens melden, erledigt melden, os.mitteilen, mitteilung, vorgemerkt, notizen ordnen
+description: When work should run at night or otherwise without the user and they want to see the result later in the shell (runner schedule, night run, "do this overnight", "let me know when you're done"). How a night job comes about, how you work in a run without the user and how you report with os.mitteilen, even when no one is there.
+ausloeser: at night, overnight, night job, night run, cron, schedule, report in the morning, report done, os.mitteilen, notice, queued, sort notes, night work
 fuer: [agent]
 ---
 
-# Nachtarbeit: nachts erledigen, morgens melden
+# Night work: done at night, reported in the morning
 
-Ein Nachtauftrag ist Arbeit, die ohne den Benutzer läuft und deren Ergebnis er später sieht. Er besteht aus zwei Teilen:
-dem **Takt** (wann und was) und der **Mitteilung** am Ende (os.mitteilen).
+A night job is work that runs without the user and whose result they see later. It has two parts: the **schedule**
+(when and what) and the **notice** at the end (os.mitteilen).
 
-## 1. Wie ein Nachtauftrag entsteht
+## 1. How a night job comes about
 
-Nichts erfindet Arbeit: Der eingebaute Tagesrhythmus ist aus, und du legst **keinen Zeitplan für dich selbst** an. Ein
-Nachtauftrag ist die Entscheidung des Besitzers. Er trägt ihn als Takt in `agent-runner.json` ein (`takt.eintraege`, etwa
-`{"id": "nacht-notizen", "um": "03:00", "fenster_min": 120, "schleife": "arbeit", "art": "melden", "text": "…"}`, dazu
-`"takt": {"an": true}`) und startet den Agenten neu. Sag dem Benutzer den Eintrag und frag, wann er laufen soll; trag ihn
-nicht selbst ein. Anleitung: `docs/NACHTARBEIT.md` der Distribution.
+Nothing invents work: the built-in daily rhythm is off, and you create **no schedule for yourself**. A night job is the
+owner's decision. The owner enters it as a schedule in `agent-runner.json` (`takt.eintraege`, for example
+`{"id": "nacht-notizen", "um": "03:00", "fenster_min": 120, "schleife": "arbeit", "art": "melden", "text": "…"}`, plus
+`"takt": {"an": true}`) and restarts the agent. Tell the user the entry and ask when it should run; do not enter it
+yourself. Guide: `docs/NIGHT-WORK.md` of the distribution.
 
-## 2. Wie du im Nachtlauf arbeitest
+## 2. How you work in a night run
 
-- **Niemand antwortet.** Frag nichts zurück. Fehlt etwas, entscheide das Kleine selbst (Kleines selbst, Schweres fragt der
-  Mensch) und tu das Schwere nicht; schreib stattdessen in die Mitteilung, was liegen blieb.
-- **Kein Chat, kein Kanal.** Die Ruhezeit gilt (22:00 bis 07:00): nachts geht keine proaktive Chatnachricht hinaus. Gemeldet
-  wird nur über `os.mitteilen`.
-- **Daten aus dem Hub, nicht aus Ordnern.** Wer Dateinamen rät, bekommt „nicht gefunden“ und hält einen vollen Ordner für leer. Hol die Daten über ein
-  Hub-Werkzeug (die Notizen: `beispiel_app.zeigen`) und melde „leer“ nur, wenn das Werkzeug „leer“ sagt; scheitert der
-  Aufruf, melde den Fehler.
-- **Genau eine Mitteilung am Ende** (bei vielen Teilaufgaben eine je Ergebnis, nie eine je Zwischenschritt).
+- **No one answers.** Do not ask back. If something is missing, decide the small things yourself (small things
+  yourself, heavy things the person decides) and do not do the heavy things; instead, write in the notice what was
+  left undone.
+- **No chat, no channel.** Quiet hours apply (22:00 to 07:00): no proactive chat message goes out at night. Report only
+  through `os.mitteilen`.
+- **Data from the Hub, not from folders.** Whoever guesses file names gets "not found" and takes a full folder for an
+  empty one. Fetch the data through a Hub tool (the notes: `beispiel_app.zeigen`) and report "empty" only when the
+  tool says "empty"; if the call fails, report the error.
+- **Exactly one notice at the end** (with many sub-tasks one per result, never one per intermediate step).
 
-## 3. Die Mitteilung
+## 3. The notice
 
 ```
 os.mitteilen {titel, text?, ziel?, eingabe?, dringlichkeit?, quelle?}
 ```
 
-- `titel` (≤ 80 Zeichen) und `text` (≤ 300) müssen **Stunden später ohne Kontext** verständlich sein: nicht „Fertig“,
-  sondern „Notizen geordnet: 12 Notizen, 3 Themen, 2 offen“.
-- `quelle: "Nacht"`, `dringlichkeit: "niedrig"` (nachts nie Ton, auch später nicht). `hoch` nur, wenn der Benutzer
-  geweckt werden darf; die Ruhezeit schützt ihn nicht, wenn du es setzt.
-- `ziel` öffnet beim Klick eine Fläche, z. B. die App mit dem Ergebnis (`app:meine_app__zeigen`, `eingabe` dazu).
-  Ohne `ziel` öffnet die Karte den Chat mit dir.
+- `titel` (≤ 80 characters) and `text` (≤ 300) must make sense **hours later without context**: not "Done", but
+  "Notes sorted: 12 notes, 3 topics, 2 open".
+- `quelle: "Nacht"`, `dringlichkeit: "niedrig"` (never a sound at night, not later either). `hoch` only if the user may
+  be woken; quiet hours do not protect them if you set it.
+- `ziel` opens a surface on click, e.g. the app with the result (`app:meine_app__zeigen`, with `eingabe`). Without
+  `ziel` the card opens the chat with you.
 
-Die Antwort sagt, was geschah:
+The answer says what happened:
 
-| Antwort | Bedeutung | Was du tust |
+| Answer | Meaning | What you do |
 |---|---|---|
-| `zugestellt: true` | jemand sitzt vor der Shell, die Karte steht da | nichts |
-| `zugestellt: false`, `vorgemerkt: true` | niemand da; die Mitteilung **wartet bis zu 24 h** und erscheint ohne Ton mit der Uhrzeit der Entstehung („heute Nacht, 03:12“), sobald die Shell geöffnet wird | nichts, das ist der Normalfall nachts |
-| `zugestellt: true`, `weg: kanal` | niemand an der Shell, aber `dringlichkeit: hoch`: ging sofort in den Chat des Benutzers | nichts; `hoch` nur für Dringendes (etwas ist kaputt, eine Frist läuft ab) |
-| `kanal_fehler` | dringend, der Chat-Weg ging nicht; die Mitteilung ist vorgemerkt | nichts |
-| `grund: doppelt` | dieselbe Mitteilung steht schon da | nichts |
-| `rueckfall: gebuendelt` | zu viele in kurzer Zeit | Ergebnisse in eine Mitteilung fassen |
-| `rueckfall: kanal` | niemand da und nichts wird vorgemerkt (Nachholen ist aus) | Ergebnis in einem Vorgang oder einer Notiz hinterlassen |
+| `zugestellt: true` | someone sits in front of the shell, the card is shown | nothing |
+| `zugestellt: false`, `vorgemerkt: true` | no one there; the notice **waits up to 24 h** and appears without sound with the time it was created ("last night, 03:12") as soon as the shell is opened | nothing, this is the normal case at night |
+| `zugestellt: true`, `weg: kanal` | no one at the shell, but `dringlichkeit: hoch`: went straight into the user's chat | nothing; `hoch` only for urgent things (something is broken, a deadline is running out) |
+| `kanal_fehler` | urgent, the chat route failed; the notice is queued | nothing |
+| `grund: doppelt` | the same notice is already shown | nothing |
+| `rueckfall: gebuendelt` | too many in a short time | combine results into one notice |
+| `rueckfall: kanal` | no one there and nothing is queued (queuing is off) | leave the result in a ticket or a note |
 
-Es kommen höchstens 20 vorgemerkte Mitteilungen zusammen; die ältesten fallen heraus. Fasse also zusammen.
+At most 20 queued notices accumulate; the oldest drop out. So summarise.
 
-## 4. Prüfen
+## 4. Checking
 
-- `os.lage` zeigt, ob eine Shell offen ist. `os.mitteilen` bei offener Shell erscheint sofort; ohne sie wartet es.
-- Ein Probelauf: den Takt für die nächste Minute eintragen, den Agenten neu starten, danach die Shell öffnen.
+- `os.lage` shows whether a shell is open. `os.mitteilen` appears at once with an open shell; without one it waits.
+- A test run: enter the schedule for the next minute, restart the agent, then open the shell.

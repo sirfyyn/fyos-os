@@ -12,11 +12,12 @@ import { Laedt } from '~/components/einstellungen/bausteine';
 import { Inhalt as SeitenInhalt } from '~/components/os/Fenster';
 import { apps } from '~/lib/mcp-apps/host';
 import { registrierteFlaechen } from '~/lib/os/register';
+import { tr } from '~/lib/i18n';
 
 export const NICHT_EINGERICHTET = 'Noch nicht eingerichtet.';
 /** Wo man ein Plugin baut: die Vorlage auf PyPI; die Anleitung liegt im Repo (ohne Link: der Quelltext nennt keine Konten) */
 export const VORLAGE_ADRESSE = 'https://pypi.org/project/fyos-plugin-vorlage/';
-export const ERWEITERN_DATEI = 'docs/ERWEITERN.md';
+export const ERWEITERN_DATEI = 'docs/EXTENDING.md';
 
 /** Der Satz für alles, was kein eingerichtetes Plugin liefert; `detail` sagt, was fehlt. */
 export function NichtEingerichtet(p: { detail?: string } & JSX.HTMLAttributes<HTMLDivElement>): JSX.Element {
@@ -45,7 +46,7 @@ export function Geplant(p: { titel?: string; quelle: string }): JSX.Element {
       <Show when={p.titel}>
         <h1 class="m-0 text-2xl font-bold text-(--color-fg)">{p.titel}</h1>
       </Show>
-      <p class="m-0 max-w-prose text-sm leading-relaxed text-(--color-fg-muted)">Noch nicht gebaut. Hier kommt zusammen: {p.quelle}.</p>
+      <p class="m-0 max-w-prose text-sm leading-relaxed text-(--color-fg-muted)">{tr('Noch nicht gebaut. Hier kommt zusammen:')}{' '}{p.quelle}.</p>
     </div>
   );
 }
@@ -83,8 +84,8 @@ export function HubApp(p: {
           <NichtEingerichtet
             detail={
               liste.latest === null
-                ? 'Der Hub antwortet gerade nicht.'
-                : `${p.titel}: Im Hub fehlt das Werkzeug ${p.name}${p.oder ? ` (oder ${p.oder})` : ''}.`
+                ? tr('Der Hub antwortet gerade nicht.')
+                : tr('{0}: Im Hub fehlt das Werkzeug {1}', p.titel, p.name) + (p.oder ? tr(' (oder {0})', p.oder) : '') + '.'
             }
           />
         }
@@ -99,7 +100,7 @@ export function HubApp(p: {
 export function SeitenFlaeche(p: { id: string; oeffne: (id: string) => void; schmal: boolean }): JSX.Element {
   const flaeche = () => registrierteFlaechen().find((f) => f.id === p.id && f.art === 'seite' && !!f.pfad);
   return (
-    <Show when={flaeche()} keyed fallback={<NichtEingerichtet detail={`Die Seite ${p.id} bringt ein Plugin mit (registriereFlaechen).`} />}>
+    <Show when={flaeche()} keyed fallback={<NichtEingerichtet detail={tr('Die Seite {0} bringt ein Plugin mit (registriereFlaechen).', p.id)} />}>
       {(f) => (
         <div class="relative min-h-0 flex-1">
           <SeitenInhalt f={f} ziehen={false} oeffne={p.oeffne} schmal={p.schmal} fest />

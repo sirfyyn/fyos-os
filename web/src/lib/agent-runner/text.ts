@@ -3,6 +3,7 @@
  * Reine Logik (der Runner-Client app.js nutzt dieselben Wege). Nichts hier erzeugt HTML: die Oberfläche setzt Text.
  */
 import type { Eintrag } from './typen';
+import { gebietsschema, tr } from '~/lib/i18n';
 
 export function wertText(wert: unknown): string {
   if (wert === undefined || wert === null) return '';
@@ -24,8 +25,8 @@ export function inhaltText(inhalt: unknown): string {
       const b = block as { type?: string; text?: string; name?: string };
       if (b.type === 'text') return b.text ?? '';
       if (b.type === 'thinking') return '';
-      if (b.type === 'image') return '[Bild]';
-      if (b.type === 'toolCall') return `[Werkzeug ${b.name ?? '?'}]`;
+      if (b.type === 'image') return tr('[Bild]');
+      if (b.type === 'toolCall') return tr('[Werkzeug {0}]', b.name ?? '?');
       return wertText(block);
     })
     .filter(Boolean)
@@ -60,13 +61,13 @@ export function firstModel(e: Eintrag): { timestamp?: number } | undefined {
 /** Uhrzeit hh:mm:ss (24 h). */
 export function uhrzeit(ts: number | null | undefined): string {
   if (typeof ts !== 'number' || !Number.isFinite(ts)) return '';
-  return new Date(ts).toLocaleTimeString('de-DE', { hour12: false });
+  return new Date(ts).toLocaleTimeString(gebietsschema(), { hour12: false });
 }
 
 /** hh:mm. */
 export function uhrzeitKurz(ts: number | null | undefined): string {
   if (typeof ts !== 'number' || !Number.isFinite(ts)) return '';
-  return new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleTimeString(gebietsschema(), { hour: '2-digit', minute: '2-digit' });
 }
 
 /** „vor 3 min“, „gerade eben“. */
@@ -83,7 +84,7 @@ export function vor(ts: number | null | undefined, jetzt: number = Date.now()): 
 }
 
 export function fehlerText(fehler: unknown): string {
-  if (!fehler) return 'Unbekannter Fehler';
+  if (!fehler) return tr('Unbekannter Fehler');
   const text = String((fehler as { message?: unknown }).message ?? fehler);
   return text.length > 500 ? `${text.slice(0, 499)}…` : text;
 }

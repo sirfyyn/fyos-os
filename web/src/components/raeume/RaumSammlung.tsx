@@ -12,6 +12,7 @@ import { Geplant, HubApp, NICHT_EINGERICHTET } from '~/components/raeume/Huelle'
 import { gesperrt } from '~/components/raeume/freigabe';
 import { hub } from '~/lib/hub';
 import { imOsOeffnen } from '~/lib/os/oeffnen';
+import { gebietsschema, tr, zahlFormat } from '~/lib/i18n';
 
 type Art = { art: 'liste'; typ: StueckTyp | null } | { art: 'app'; name: string } | { art: 'geplant'; quelle: string };
 interface Typ {
@@ -53,11 +54,11 @@ interface Geschichten {
 export function stueckeAus(a: Ansichten | undefined, g: Geschichten | undefined): Stueck[] {
   const aus: Stueck[] = [];
   for (const v of a?.ansichten ?? []) {
-    aus.push({ typ: 'ansicht', id: v.id, titel: v.titel || 'Ansicht ohne Titel', text: v.beschreibung ?? '', zeit: v.angelegt ?? '' });
+    aus.push({ typ: 'ansicht', id: v.id, titel: v.titel || tr('Ansicht ohne Titel'), text: v.beschreibung ?? '', zeit: v.angelegt ?? '' });
   }
   for (const s of g?.geschichten ?? []) {
-    const teile = [s.kapitel ? `${s.kapitel} Kapitel` : '', s.woerter ? `${s.woerter.toLocaleString('de-DE')} Wörter` : '', s.status ?? ''].filter(Boolean);
-    aus.push({ typ: 'geschichte', id: s.id, titel: s.titel || 'Geschichte ohne Titel', text: teile.join(' · '), zeit: s.geaendert ?? '' });
+    const teile = [s.kapitel ? tr('{0} Kapitel', s.kapitel) : '', s.woerter ? tr('{0} Wörter', zahlFormat(s.woerter)) : '', s.status ?? ''].filter(Boolean);
+    aus.push({ typ: 'geschichte', id: s.id, titel: s.titel || tr('Geschichte ohne Titel'), text: teile.join(' · '), zeit: s.geaendert ?? '' });
   }
   return aus.sort((x, y) => (y.zeit || '').localeCompare(x.zeit || ''));
 }
@@ -73,7 +74,7 @@ const TYP_NAME: Record<StueckTyp, string> = { ansicht: 'Ansicht', geschichte: 'G
 function zeitText(iso: string): string {
   const d = new Date(iso);
   if (!iso || Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  return d.toLocaleDateString(gebietsschema(), { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
 }
 
 const SCHLUESSEL = 'fyos.raum.sammlung';
@@ -123,7 +124,7 @@ export default function RaumSammlung(p: RaumProps): JSX.Element {
   const alle = createMemo(() => stueckeAus(daten(ansichten()), daten(geschichten())));
   const fehler = (q: Quelle<unknown> | undefined) => (q && 'fehler' in q ? q.fehler : undefined);
   // Nicht erreichbar ist eine Quelle, die ausfiel; gesperrt (Werkzeug fehlt) heißt nur: nicht eingerichtet
-  const ausgefallen = () => [fehler(ansichten()) === 'aus' ? 'Ansichten' : '', fehler(geschichten()) === 'aus' ? 'Geschichten' : ''].filter(Boolean);
+  const ausgefallen = () => [fehler(ansichten()) === 'aus' ? tr('Ansichten') : '', fehler(geschichten()) === 'aus' ? tr('Geschichten') : ''].filter(Boolean);
   const keineQuelle = () => !laedt() && !!fehler(ansichten()) && !!fehler(geschichten());
   const sichtbar = createMemo(() => {
     const i = aktuell().inhalt;
@@ -141,8 +142,8 @@ export default function RaumSammlung(p: RaumProps): JSX.Element {
     <>
       <input
         type="search"
-        aria-label="In der Sammlung suchen"
-        placeholder="In der Sammlung suchen"
+        aria-label={tr('In der Sammlung suchen')}
+        placeholder={tr('In der Sammlung suchen')}
         value={suche()}
         onInput={(e) => {
           setSuche(e.currentTarget.value);
@@ -152,7 +153,7 @@ export default function RaumSammlung(p: RaumProps): JSX.Element {
         classList={{ 'max-w-xs': p.schmal }}
       />
       <Show when={!p.schmal}>
-        <span class="px-2.5 pt-1 pb-2 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">Typen</span>
+        <span class="px-2.5 pt-1 pb-2 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">{tr('Typen')}</span>
       </Show>
       <ul class="m-0 flex list-none gap-0.5 p-0" classList={{ 'flex-col': !p.schmal, 'flex-row whitespace-nowrap': p.schmal }}>
         <For each={TYPEN}>
@@ -184,19 +185,19 @@ export default function RaumSammlung(p: RaumProps): JSX.Element {
         </For>
       </ul>
       <Show when={!p.schmal}>
-        <span class="px-2.5 pt-4 pb-1 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">Von wem</span>
-        <p class="m-0 px-2.5 text-xs leading-relaxed text-(--color-fg-muted)">Geplant: Wer ein Stück gemacht hat (Mensch oder Agent), kommt mit dem Register der Dinge.</p>
+        <span class="px-2.5 pt-4 pb-1 text-[11px] font-semibold tracking-[0.08em] text-(--color-fg-muted) uppercase">{tr('Von wem')}</span>
+        <p class="m-0 px-2.5 text-xs leading-relaxed text-(--color-fg-muted)">{tr('Geplant: Wer ein Stück gemacht hat (Mensch oder Agent), kommt mit dem Register der Dinge.')}</p>
       </Show>
     </>
   );
 
   return (
-    <RaumRahmen titel="Sammlung" leiste={leiste} leisteName="Typen der Sammlung" schmal={p.schmal} heim={p.heim} fuellen={aktuell().inhalt.art === 'app'}>
+    <RaumRahmen titel={tr('Sammlung')} leiste={leiste} leisteName={tr('Typen der Sammlung')} schmal={p.schmal} heim={p.heim} fuellen={aktuell().inhalt.art === 'app'}>
       <div class="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col gap-4 px-4 py-5" data-sammlung-typ={aktuell().id}>
         <div class="flex items-center gap-3">
           <h1 class="m-0 flex-1 text-2xl font-bold text-(--color-fg)">{aktuell().titel}</h1>
           <Show when={istListe()}>
-            <div class="flex gap-0.5 rounded-[10px] border border-(--color-border) p-0.5" role="group" aria-label="Darstellung">
+            <div class="flex gap-0.5 rounded-[10px] border border-(--color-border) p-0.5" role="group" aria-label={tr('Darstellung')}>
               <For each={[{ wert: true, name: 'Raster' }, { wert: false, name: 'Liste' }]}>
                 {(o) => (
                   <button
@@ -225,14 +226,14 @@ export default function RaumSammlung(p: RaumProps): JSX.Element {
               <p class="m-0 text-sm text-(--color-fg-muted)" role="status" data-nicht-eingerichtet>{NICHT_EINGERICHTET}</p>
             </Show>
             <Show when={ausgefallen().length && !laedt()}>
-              <p class="m-0 text-sm text-(--color-fg-muted)" role="status">Nicht erreichbar: {ausgefallen().join(', ')}.</p>
+              <p class="m-0 text-sm text-(--color-fg-muted)" role="status">{tr('Nicht erreichbar:')}{' '}{ausgefallen().join(', ')}.</p>
             </Show>
-            <Show when={!laedt()} fallback={<p class="m-0 text-sm text-(--color-fg-muted)">Lädt …</p>}>
+            <Show when={!laedt()} fallback={<p class="m-0 text-sm text-(--color-fg-muted)">{tr('Lädt …')}</p>}>
               <Show
                 when={sichtbar().length}
                 fallback={
                   <Show when={!keineQuelle()}>
-                    <p class="m-0 text-sm text-(--color-fg-muted)">{suche().trim() ? 'Nichts passt zur Suche.' : 'Hier ist noch nichts entstanden.'}</p>
+                    <p class="m-0 text-sm text-(--color-fg-muted)">{suche().trim() ? tr('Nichts passt zur Suche.') : tr('Hier ist noch nichts entstanden.')}</p>
                   </Show>
                 }
               >

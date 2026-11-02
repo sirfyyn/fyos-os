@@ -1,5 +1,5 @@
 /**
- * bruecke-neu.ts — die volle OS-Brücke (Protokoll v1, docs/HUB-VERTRAG.md): der Agent wirkt auf das offene OS.
+ * bruecke-neu.ts — die volle OS-Brücke (Protokoll v1, docs/HUB-CONTRACT.md): der Agent wirkt auf das offene OS.
  *
  * Gegenstück zur schlanken `bruecke.ts` (die nur pollt und Mitteilungen zeigt): diese Brücke ist Duplex.
  * Das offene /os meldet sich beim Hub an und hört auf Befehle:
@@ -54,6 +54,7 @@ import type { BrueckeWerkzeug } from '~/lib/werkzeuge';
 import type { Lage } from './bruecke-lage';
 import { zeigtPruefen, type ZeigtDaten } from './agent-zeigt';
 import type { AudioMeldung } from './ton-modus';
+import { tr } from '~/lib/i18n';
 
 /** Die Brücke findet keine Anmeldung: die Shell darf einmal „Anmelden“ anbieten (höchstens alle 10 min). */
 export const ANMELDE_EREIGNIS = 'fyos:bruecke-anmelden';
@@ -581,7 +582,7 @@ export function erzeugeBruecke(opt: BrueckeOptionen): BrueckeLauf {
   async function mitFrist<T>(p: Promise<T>, ms: number, was: string): Promise<T | { zeitueberschreitung: string }> {
     let t: ReturnType<typeof setTimeout> | undefined;
     const frist = new Promise<{ zeitueberschreitung: string }>((r) => {
-      t = setTimeout(() => r({ zeitueberschreitung: `Zeitüberschreitung: ${was} hat nach ${Math.round(ms / 1000)} s nicht geantwortet.` }), ms);
+      t = setTimeout(() => r({ zeitueberschreitung: tr('Zeitüberschreitung: {0} hat nach {1} s nicht geantwortet.', was, Math.round(ms / 1000)) }), ms);
     });
     try {
       return await Promise.race([p, frist]);
@@ -592,25 +593,25 @@ export function erzeugeBruecke(opt: BrueckeOptionen): BrueckeLauf {
 
   async function ausfuehren(b: BefehlAusfuehren) {
     if (typeof b.werkzeug !== 'string' || !b.werkzeug) {
-      await antworten({ befehl: b.id, ok: false, fehler: 'werkzeug fehlt' });
+      await antworten({ befehl: b.id, ok: false, fehler: tr('werkzeug fehlt') });
       return;
     }
-    const r = await mitFrist(opt.ausfuehren(b.werkzeug, b.argumente && typeof b.argumente === 'object' ? b.argumente : {}), AUSFUEHREN_MAX_MS, `Werkzeug ${b.werkzeug}`);
+    const r = await mitFrist(opt.ausfuehren(b.werkzeug, b.argumente && typeof b.argumente === 'object' ? b.argumente : {}), AUSFUEHREN_MAX_MS, tr('Werkzeug {0}', b.werkzeug));
     if ('zeitueberschreitung' in r) {
       await antworten({ befehl: b.id, ok: false, fehler: r.zeitueberschreitung });
       return;
     }
-    if (r.isError) await antworten({ befehl: b.id, ok: false, ergebnis: r, fehler: textVon(r) || `${b.werkzeug} ist fehlgeschlagen` });
+    if (r.isError) await antworten({ befehl: b.id, ok: false, ergebnis: r, fehler: textVon(r) || tr('{0} ist fehlgeschlagen', b.werkzeug) });
     else await antworten({ befehl: b.id, ok: true, ergebnis: r });
   }
 
   async function zeigen(b: BefehlZeigen) {
     if (typeof b.ziel !== 'string' || !b.ziel) {
-      await antworten({ befehl: b.id, ok: false, fehler: 'ziel fehlt' });
+      await antworten({ befehl: b.id, ok: false, fehler: tr('ziel fehlt') });
       return;
     }
     const eingabe = b.eingabe && typeof b.eingabe === 'object' && !Array.isArray(b.eingabe) ? b.eingabe : null;
-    const r = await mitFrist(opt.zeigen(b.ziel, eingabe), AUSFUEHREN_MAX_MS, `Öffnen von ${b.ziel}`);
+    const r = await mitFrist(opt.zeigen(b.ziel, eingabe), AUSFUEHREN_MAX_MS, tr('Öffnen von {0}', b.ziel));
     if ('zeitueberschreitung' in r) await antworten({ befehl: b.id, ok: false, fehler: r.zeitueberschreitung });
     else if (r.ok) await antworten({ befehl: b.id, ok: true, ergebnis: r.ergebnis });
     else await antworten({ befehl: b.id, ok: false, fehler: r.fehler });

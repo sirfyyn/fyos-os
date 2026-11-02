@@ -1,3 +1,4 @@
+import { tr } from '~/lib/i18n';
 /**
  * transport.ts — die eine Strecke, über die die Oberfläche JSON holt.
  *
@@ -80,7 +81,7 @@ export async function strecke(pfad: string, init: RequestInit & { zeitMs?: numbe
       headers: { Accept: 'application/json', ...(rest.headers ?? {}) },
     });
   } catch (e) {
-    if (s?.zeit.aborted) return { art: 'zeit', grund: `keine Antwort nach ${Math.round(zeitMs / 1000)} s` };
+    if (s?.zeit.aborted) return { art: 'zeit', grund: tr('keine Antwort nach {0} s', Math.round(zeitMs / 1000)) };
     if (rest.signal?.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
       return { art: 'abgebrochen', grund: 'abgebrochen' };
     }
@@ -102,7 +103,7 @@ export async function strecke(pfad: string, init: RequestInit & { zeitMs?: numbe
       const d = typeof p?.detail === 'string' ? p.detail : typeof p?.title === 'string' ? p.title : '';
       if (d) grund = d;
     } catch {
-      grund = `HTTP ${res.status} (kein Fehlertext im Körper)`;
+      grund = tr('HTTP {0} (kein Fehlertext im Körper)', res.status);
     }
     return { art: 'http', res, status: res.status, grund, koerper };
   }
@@ -118,6 +119,6 @@ export async function strecke(pfad: string, init: RequestInit & { zeitMs?: numbe
   try {
     return { art: 'ok', res, daten: await res.json() };
   } catch (e) {
-    return { art: 'kein_json', res, grund: `Antwort war kein JSON (${textVon(e)})` };
+    return { art: 'kein_json', res, grund: tr('Antwort war kein JSON ({0})', textVon(e)) };
   }
 }

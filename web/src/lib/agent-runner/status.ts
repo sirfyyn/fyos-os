@@ -3,6 +3,7 @@
  * und wann ein Zug so lange nichts mehr gemeldet hat, dass die Oberfläche nachfragen lässt.
  */
 import type { Gespraech, GespraechsZustand } from './typen';
+import { tr } from '~/lib/i18n';
 
 export type KopfStatus = 'pausiert' | 'wartet' | 'arbeitet' | 'bereit';
 
@@ -34,8 +35,8 @@ export function kopfStatus(p: { busy: boolean; offeneFreigaben: number; spielmod
 
 /** „Pausiert (Spielmodus)“ für den Kopf: der Grund steht dabei. */
 export function kopfText(status: KopfStatus, spielmodus: string | null): string {
-  if (status === 'pausiert') return /spielmodus/i.test(spielmodus ?? '') ? 'Pausiert (Spielmodus)' : 'Pausiert';
-  return KOPF_TEXT[status];
+  if (status === 'pausiert') return /spielmodus/i.test(spielmodus ?? '') ? tr('Pausiert (Spielmodus)') : tr('Pausiert');
+  return tr(KOPF_TEXT[status]);
 }
 
 function modellVon(wert: unknown): string {
@@ -68,7 +69,7 @@ export function zugFlaute(p: { busy: boolean; letzteRegung: number; jetzt?: numb
 /** „Keine fertige Antwort nach 15 min.“ */
 export function flauteText(p: { letzteRegung: number; jetzt?: number }): string {
   const min = Math.max(1, Math.floor(((p.jetzt ?? Date.now()) - p.letzteRegung) / 60_000));
-  return `Keine fertige Antwort nach ${min} min.`;
+  return tr('Keine fertige Antwort nach {0} min.', min);
 }
 
 /** Was „Nachfassen“ an den laufenden Zug schickt. */

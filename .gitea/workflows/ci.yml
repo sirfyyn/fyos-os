@@ -1,8 +1,8 @@
-# Prüfen bei jedem Pull Request und auf main, Bilder bauen auf main.
-# Repo-Variablen: FYOS_RUNNER (Runner-Etikett), FYOS_REGISTRY (z. B. registry.example.com/org),
-# optional FYOS_REGISTRY_HOSTS (add-hosts für buildx, z. B. "registry.example.com=192.0.2.10").
-# Anmeldung an Registry und Paketindex: Secrets REGISTRY_USER/REGISTRY_TOKEN (Token mit write:package; Gitea gibt dem
-# Laufzeit-Token GITEA_TOKEN keine Paketrechte). Fehlen sie, versucht der Lauf das Laufzeit-Token (packages: write).
+# Check on every pull request and on main, build images on main.
+# Repo variables: FYOS_RUNNER (CI runner label), FYOS_REGISTRY (e.g. registry.example.com/org),
+# optionally FYOS_REGISTRY_HOSTS (add-hosts for buildx, e.g. "registry.example.com=192.0.2.10").
+# Login to registry and package index: secrets REGISTRY_USER/REGISTRY_TOKEN (token with write:package; Gitea gives the
+# runtime token GITEA_TOKEN no package permissions). If they are missing, the run tries the runtime token (packages: write).
 name: ci
 
 on:
@@ -10,15 +10,15 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-  # Laufend getestet (Entscheidungsbuch Nr. 144): täglich gegen die neuesten Pakete aus dem
-  # Index, auch ohne Commit. Rot meldet die Erkunden-Schleife als Vorgang (Bereich dist).
+  # Tested continuously: daily against the newest packages from the
+  # index, even without a commit. A red run is reported as a ticket (area dist).
   schedule:
     - cron: "7 5 * * *"
 
-# Je Commit genau ein Lauf: Zweige prüft der PR-Lauf, main der Push-Lauf. Liefen Push- und PR-Lauf desselben Commits
-# gleichzeitig, stießen sie im selben Arbeitsordner des Runners aufeinander (`npm ci`, esbuild ETXTBSY, Lauf #34); in
-# einer gemeinsamen Gruppe brach Gitea den noch wartenden Push-Lauf ab (Lauf #35), und abgebrochene Jobs zählen im
-# Commit-Status als Fehler.
+# Exactly one run per commit: the PR run checks branches, the push run checks main. If push and PR runs of the same
+# commit ran at the same time, they collided in the same work folder of the CI runner (`npm ci`, esbuild ETXTBSY,
+# run #34); in a shared group Gitea cancelled the still waiting push run (run #35), and cancelled jobs count as
+# failures in the commit status.
 concurrency:
   group: ${{ gitea.workflow }}-${{ gitea.ref }}
   cancel-in-progress: false
@@ -28,20 +28,20 @@ jobs:
     runs-on: ${{ vars.FYOS_RUNNER }}
     steps:
       - uses: actions/checkout@v4
-      - name: Sauberkeit
+      - name: Cleanliness
         run: python3 tools/sauber.py .
-      - name: Hub-Tests
+      - name: Hub tests
         run: |
           python3 -m venv /tmp/venv
           /tmp/venv/bin/pip install -q -e "hub[test]"
           /tmp/venv/bin/python -m pytest hub/tests -q
-      - name: Werkzeug-Tests
+      - name: Tool tests
         run: /tmp/venv/bin/python -m pytest tools -q
-      - name: Installer-Tests
+      - name: Installer tests
         run: |
           /tmp/venv/bin/pip install -q -e "installer[test]"
           /tmp/venv/bin/python -m pytest installer/tests -q
-      - name: Shell-Tests und Bau
+      - name: Shell tests and build
         working-directory: web
         run: |
           npm ci --no-audit --no-fund
@@ -49,9 +49,9 @@ jobs:
           npx astro build
 
   paket:
-    # fyos-hub als Python-Paket in die Paket-Registry (PyPI-API des Git-Servers), damit Plugin-Repos
-    # `uv pip install --index <Index> fyos-hub` aus demselben Index ziehen (docs/ERWEITERN.md, Abschnitt 9.4).
-    # Version: <pyproject-Version>.dev<Laufnummer>.
+    # fyos-hub as a Python package into the package registry (the Git server's PyPI API), so that plugin repos
+    # can pull it with `uv pip install --index <index> fyos-hub` from the same index (docs/EXTENDING.md, section 9.4).
+    # Version: <pyproject version>.dev<run number>.
     needs: pruefen
     if: gitea.ref == 'refs/heads/main' && gitea.event_name == 'push'
     runs-on: ${{ vars.FYOS_RUNNER }}
@@ -60,11 +60,11 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      # setuptools ab 77 nimmt LICENSE* und NOTICE* aus dem Ordner des Pakets in Wheel und Sdist. Die Dateien liegen in der
-      # Wurzel des Repos, deshalb kommen sie vor dem Bau nach hub/ (pypi.yml unter .github/workflows macht dasselbe).
-      - name: LICENSE und NOTICE ins Paket kopieren
+      # setuptools 77 and newer takes LICENSE* and NOTICE* from the package's folder into wheel and sdist. The files live in
+      # the repo root, so they are copied to hub/ before the build (pypi.yml under .github/workflows does the same).
+      - name: Copy LICENSE and NOTICE into the package
         run: cp LICENSE NOTICE hub/
-      - name: Bauen und hochladen
+      - name: Build and upload
         working-directory: hub
         run: |
           python3 -m venv /tmp/paket
@@ -96,7 +96,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
         with:
           driver-opts: network=host
-      - name: Anmelden
+      - name: Log in
         run: |
           host="${FYOS_REGISTRY%%/*}"
           printf '%s' "$REGISTRY_TOKEN" | docker login "$host" -u "$REGISTRY_USER" --password-stdin

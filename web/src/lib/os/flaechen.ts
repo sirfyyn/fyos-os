@@ -16,6 +16,7 @@ import type { McpApp } from '~/lib/mcp-apps/host';
 import { appsGruppieren } from '~/components/apps/gruppen';
 import { startbar } from '~/lib/mcp-apps/pins';
 import { kuerzelVon } from './kuerzel';
+import { sprache, tr } from '~/lib/i18n';
 import { nativeFlaechen, type NativProps } from './nativ';
 import { gruppeFuerApp, registrierteAlias, registrierteFlaechen, registrierteReihenfolge, registrierteStandardPlaetze } from './register';
 
@@ -109,7 +110,15 @@ export function alleFlaechen(apps: McpApp[] = []): Flaeche[] {
     const i = reihenfolge.indexOf(g);
     return i < 0 ? 99 : i;
   };
-  return alle.map((f, i) => ({ f, i })).sort((a, b) => rang(a.f.gruppe) - rang(b.f.gruppe) || a.i - b.i).map((x) => x.f);
+  const sortiert = alle.map((f, i) => ({ f, i })).sort((a, b) => rang(a.f.gruppe) - rang(b.f.gruppe) || a.i - b.i).map((x) => x.f);
+  // Titel in der Sprache der Oberfläche; die Suche findet weiter auch den deutschen Namen
+  if (sprache() === 'de') return sortiert;
+  return sortiert.map((f) => {
+    const titel = tr(f.titel);
+    const untertitel = f.untertitel ? tr(f.untertitel) : f.untertitel;
+    if (titel === f.titel && untertitel === f.untertitel) return f;
+    return { ...f, titel, untertitel, suchwort: [f.suchwort, f.titel].filter(Boolean).join(' ') };
+  });
 }
 
 export function gruppiert(liste: Flaeche[], suche = ''): { gruppe: string; flaechen: Flaeche[] }[] {

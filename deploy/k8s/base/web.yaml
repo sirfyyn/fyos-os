@@ -17,7 +17,7 @@ spec:
             - containerPort: 8080
           env:
             - { name: FYOS_HUB_UPSTREAM, value: "http://hub:8080" }
-            # Der Runner unter /api/agent/; nginx meldet die Oberfläche mit diesem Token an (web/README.md)
+            # The runner under /api/agent/; nginx authenticates the interface with this token (web/README.md)
             - { name: FYOS_AGENT_UPSTREAM, value: "http://agent:18438" }
             - name: FYOS_AGENT_TOKEN
               valueFrom:

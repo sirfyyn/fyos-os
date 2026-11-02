@@ -8,6 +8,7 @@ import { FOKUS, KNOPF, Punkt } from '~/components/einstellungen/bausteine';
 import { KNOPF_VOLL } from '~/components/zentrale/bausteine';
 import { textTeile, type InlineTeil } from '~/lib/agent-runner/text';
 import type { RunnerFehler } from '~/lib/agent-runner/verbindung';
+import { tr } from '~/lib/i18n';
 
 export { KNOPF, KNOPF_VOLL, Punkt };
 export { Fehler, Laedt, FOKUS } from '~/components/einstellungen/bausteine';
@@ -81,7 +82,7 @@ function Codeblock(p: { sprache: string; text: string }): JSX.Element {
       <div class="flex min-h-7 items-center justify-between gap-2 border-b border-(--color-border) px-2.5 text-[0.7rem] text-(--color-fg-muted)">
         <span class="font-mono">{p.sprache || 'text'}</span>
         <button type="button" class={`rounded-md px-1.5 py-0.5 hover:text-(--color-fg) ${FOKUS}`} onClick={kopiere}>
-          {kopiert() ? 'Kopiert' : 'Kopieren'}
+          {kopiert() ? tr('Kopiert') : tr('Kopieren')}
         </button>
       </div>
       <pre class="m-0 max-h-80 overflow-auto p-2.5 font-mono text-[0.8rem] leading-snug whitespace-pre" data-sprache={p.sprache || undefined}>
@@ -131,8 +132,8 @@ export function Text(p: { text: string }): JSX.Element {
 const ZUGANG_HILFE: Record<string, string> = {
   anmeldung: 'Vor dem Agenten steht eine Anmeldung. Einmal anmelden, dann geht es hier weiter.',
   token: 'Der Runner nimmt das Token nicht an: FYOS_AGENT_TOKEN der Shell (nginx) muss zum Token des Runners passen; danach die Shell neu starten.',
-  'nicht-freigegeben': 'Der Weg /api/agent ist zu: die Shell leitet ihn nicht weiter (FYOS_AGENT_UPSTREAM?) oder der Kopf X-FYOS-Agent fehlt.',
-  'nicht-erreichbar': 'Der Runner antwortet nicht. Läuft der Dienst, und stimmt FYOS_AGENT_UPSTREAM?',
+  'nicht-freigegeben': ('Der Weg /api/agent ist zu: die Shell leitet ihn nicht weiter (FYOS_AGENT_UPSTREAM?) oder der Kopf X-FYOS-Agent fehlt.'),
+  'nicht-erreichbar': ('Der Runner antwortet nicht. Läuft der Dienst, und stimmt FYOS_AGENT_UPSTREAM?'),
   netz: 'Der Browser kommt nicht durch. Netz oder VPN prüfen.',
   server: 'Der Runner hat einen Fehler gemeldet.',
   anfrage: 'Der Runner hat die Anfrage abgelehnt.',
@@ -146,18 +147,18 @@ export function Zugangsfehler(p: { fehler: RunnerFehler; erneut: () => void; anm
         <Punkt ton="fehler" />
         <h2 class="m-0 text-base font-semibold">{p.fehler.titel}</h2>
       </div>
-      <p class="m-0 text-sm text-(--color-fg-muted)">{ZUGANG_HILFE[p.fehler.art] ?? ''}</p>
+      <p class="m-0 text-sm text-(--color-fg-muted)">{tr(ZUGANG_HILFE[p.fehler.art] ?? '')}</p>
       <Show when={p.fehler.message && p.fehler.message !== p.fehler.titel}>
         <p class="m-0 text-xs text-(--color-fg-subtle)">{p.fehler.message}</p>
       </Show>
       <div class="flex flex-wrap gap-2">
         <Show when={p.fehler.art === 'anmeldung'}>
           <button type="button" class={KNOPF_VOLL} onClick={p.anmelden}>
-            Anmelden
+            {tr('Anmelden')}
           </button>
         </Show>
         <button type="button" class={KNOPF} onClick={p.erneut}>
-          Erneut versuchen
+          {tr('Erneut versuchen')}
         </button>
       </div>
     </div>

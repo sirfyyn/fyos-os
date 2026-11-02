@@ -267,15 +267,17 @@ class SkillsPlugin(HubPlugin):
                 name="suchen",
                 title="Skills",
                 description=(
-                    "Skills (Arbeitsanleitungen) aller Agenten durchsuchen: `q` = Wörter (alle müssen in Name, "
-                    "Beschreibung oder Text vorkommen; sonst die besten Teiltreffer). Ohne q das ganze Verzeichnis "
-                    "kompakt. Liefert Name, Quelle (Verzeichnisname), Beschreibung und die Werkstatt-IDs, die der "
-                    "Skill nutzt. Danach skills.lesen."
+                    (
+                        "Search the skills (work instructions) of all agents: `q` = words (all must "
+                        "appear in name, description or text; otherwise the best partial hits). Without "
+                        "q the whole directory in compact form. Returns name, source (directory name), "
+                        "description and the workshop IDs the skill uses. Then skills.lesen."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
-                        "q": {"type": "string", "description": "Suchwörter, z. B. 'deploy' oder 'backup'"},
+                        "q": {"type": "string", "description": "Search words, e.g. 'deploy' or 'backup'"},
                         "quelle": {"type": "string", "description": "Nur diese Quelle (Verzeichnisname)"},
                     },
                     "additionalProperties": False,
@@ -286,14 +288,16 @@ class SkillsPlugin(HubPlugin):
                 name="lesen",
                 title="Skill lesen",
                 description=(
-                    "Einen Skill lesen: die SKILL.md (Front-Matter + Text) und die Liste seiner Zusatzdateien; mit "
-                    "`datei` eine Datei aus references/. Name wie aus skills.suchen."
+                    (
+                        "Read a skill: the SKILL.md (front matter + text) and the list of its extra "
+                        "files; with `datei` a file from references/. Name as from skills.suchen."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "name": {"type": "string"},
-                        "datei": {"type": "string", "description": "Dateiname aus references/ (optional)"},
+                        "datei": {"type": "string", "description": "File name from references/ (optional)"},
                     },
                     "required": ["name"],
                     "additionalProperties": False,

@@ -12,6 +12,7 @@ import {
   DUNKEL_MAX, DUNKEL_STANDARD, HOCHLADEN_KANTE, TAPETEN, WEICH_MAX, WEICH_STANDARD,
   tapetenPfad, urlGueltig, type Tapete,
 } from '~/lib/os/tapete';
+import { tr } from '~/lib/i18n';
 
 // ── Eigenes Bild verkleinern (JPEG) — unter der 1-MB-Grenze von /hub-api/app-call ─────────────────
 const GRENZE_BASE64 = 900_000;
@@ -30,7 +31,7 @@ async function verkleinern(datei: File): Promise<string> {
   } finally {
     bmp.close();
   }
-  throw new Error('Das Bild ist auch verkleinert zu groß.');
+  throw new Error(tr('Das Bild ist auch verkleinert zu groß.'));
 }
 
 export interface TapeteZiel {
@@ -66,22 +67,22 @@ export default function TapeteDialog(p: {
   const hochladen = async (datei: File | undefined) => {
     if (!datei) return;
     if (!datei.type.startsWith('image/')) {
-      setMeldung('Das ist kein Bild.');
+      setMeldung(tr('Das ist kein Bild.'));
       return;
     }
     setLaedt(true);
-    setMeldung('Bild wird verkleinert und abgelegt …');
+    setMeldung(tr('Bild wird verkleinert und abgelegt …'));
     try {
       const b64 = await verkleinern(datei);
       const pfad = tapetenPfad(p.kennung(ziel()));
       const r = await hub<{ ok?: boolean; error?: string }>('dateien.schreiben', { pfad, inhalt_base64: b64, bestaetigt: true }, { art: 'bewusst', zeitMs: 60_000 });
-      if (r && r.ok === false) throw new Error(r.error ?? 'Ablegen fehlgeschlagen');
+      if (r && r.ok === false) throw new Error(r.error ?? tr('Ablegen fehlgeschlagen'));
       setze({ art: 'datei', wert: pfad, ...regler(), dunkel: Math.max(regler().dunkel, DUNKEL_STANDARD) });
-      setMeldung(`Abgelegt in der Dateiablage: ${pfad}`);
+      setMeldung(tr('Abgelegt in der Dateiablage: {0}', pfad));
     } catch (e) {
       // Kein Dateiablage-Plugin (404) oder nicht freigegeben (403): ein Satz, der Dialog bleibt benutzbar (Verläufe, Adresse)
-      if (e instanceof ApiError && (e.status === 404 || e.status === 503)) setMeldung('Noch nicht eingerichtet.');
-      else if (e instanceof ApiError && e.status === 403) setMeldung('Noch nicht freigegeben.');
+      if (e instanceof ApiError && (e.status === 404 || e.status === 503)) setMeldung(tr('Noch nicht eingerichtet.'));
+      else if (e instanceof ApiError && e.status === 403) setMeldung(tr('Noch nicht freigegeben.'));
       else setMeldung(e instanceof Error ? e.message : String(e));
     } finally {
       setLaedt(false);
@@ -92,7 +93,7 @@ export default function TapeteDialog(p: {
   const adresseUebernehmen = () => {
     const u = adresse().trim();
     if (!urlGueltig(u)) {
-      setMeldung('Nur Adressen mit https:// (oder ein Pfad auf diesem Server).');
+      setMeldung(tr('Nur Adressen mit https:// (oder ein Pfad auf diesem Server).'));
       return;
     }
     waehle('url', u);
@@ -120,13 +121,13 @@ export default function TapeteDialog(p: {
 
   return (
     <div class="os-start absolute inset-0 z-40 flex items-center justify-center bg-black/25 p-4" onClick={(e) => { if (e.target === e.currentTarget) p.onSchliessen(); }}>
-      <div ref={el} role="dialog" aria-modal="true" aria-label="Tapete" class="os-glas os-glas-blur os-menue max-h-full w-[min(36rem,100%)] overflow-auto p-5">
+      <div ref={el} role="dialog" aria-modal="true" aria-label={tr('Tapete')} class="os-glas os-glas-blur os-menue max-h-full w-[min(36rem,100%)] overflow-auto p-5">
         <div class="mb-3 flex items-center gap-3">
-          <h2 class="m-0 flex-1 text-lg font-semibold">Tapete</h2>
-          <button type="button" class="os-knopf" aria-label="Schließen" onClick={() => p.onSchliessen()}>✕</button>
+          <h2 class="m-0 flex-1 text-lg font-semibold">{tr('Tapete')}</h2>
+          <button type="button" class="os-knopf" aria-label={tr('Schließen')} onClick={() => p.onSchliessen()}>✕</button>
         </div>
         <label class="mb-3 flex items-center gap-3 text-sm">
-          <span class="text-(--color-fg-muted)">Bildschirm</span>
+          <span class="text-(--color-fg-muted)">{tr('Bildschirm')}</span>
           <select class="os-tapete-feld min-w-0 flex-1" value={String(ziel())} onChange={(e) => setZiel(Number(e.currentTarget.value))}>
             <For each={p.ziele}>{(z) => <option value={String(z.index)}>{z.name}</option>}</For>
           </select>
@@ -146,15 +147,15 @@ export default function TapeteDialog(p: {
         </div>
         <form class="mt-2 flex gap-2 text-sm" onSubmit={(e) => { e.preventDefault(); adresseUebernehmen(); }}>
           <input class="os-tapete-feld min-w-0 flex-1" type="url" inputmode="url" placeholder="https://… (Bildadresse)" value={adresse()} onInput={(e) => setAdresse(e.currentTarget.value)} />
-          <button type="submit" class="os-chip">Übernehmen</button>
+          <button type="submit" class="os-chip">{tr('Übernehmen')}</button>
         </form>
 
         <Show when={jetzt()}>
           <div class="mt-4 grid grid-cols-[auto_minmax(0,1fr)_3rem] items-center gap-x-3 gap-y-2 text-sm">
-            <span>Abdunkeln</span>
+            <span>{tr('Abdunkeln')}</span>
             <input type="range" min="0" max={DUNKEL_MAX} value={jetzt()!.dunkel} onInput={(e) => setze({ ...jetzt()!, dunkel: Number(e.currentTarget.value) })} />
             <span class="text-right tabular-nums text-(--color-fg-muted)">{jetzt()!.dunkel} %</span>
-            <span>Weichzeichnen</span>
+            <span>{tr('Weichzeichnen')}</span>
             <input type="range" min="0" max={WEICH_MAX} value={jetzt()!.weich} onInput={(e) => setze({ ...jetzt()!, weich: Number(e.currentTarget.value) })} />
             <span class="text-right tabular-nums text-(--color-fg-muted)">{jetzt()!.weich} px</span>
           </div>

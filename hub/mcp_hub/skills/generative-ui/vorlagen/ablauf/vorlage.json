@@ -1,6 +1,6 @@
 {
-  "titel": "Ablauf",
-  "zweck": "Schritte, Wege und Zusammenhänge als SVG-Ablauf: Kästen mit Pfeilen, senkrecht oder waagerecht (bricht bei wenig Breite um), Ton je Schritt, Klick fragt nach.",
+  "titel": "Flow",
+  "zweck": "Steps, paths and connections as an SVG flow: boxes with arrows, vertical (senkrecht) or horizontal (waagerecht; wraps when narrow), tone per step, a click asks about it.",
   "schema": {
     "type": "object",
     "required": ["schritte"],
@@ -22,12 +22,12 @@
     }
   },
   "beispiel": {
-    "ueberschrift": "Weg einer Änderung",
+    "ueberschrift": "Path of a change",
     "schritte": [
-      {"titel": "Änderung committen", "text": "gezielte Tests", "farbe": "purple"},
-      {"titel": "Pull Request", "text": "die CI läuft", "farbe": "teal"},
-      {"titel": "Merge nach main", "text": "Images werden gebaut", "farbe": "amber"},
-      {"titel": "Ausrollen", "text": "Installation aktualisieren", "farbe": "gray", "frage": "Wie rolle ich die Änderung aus?"}
+      {"titel": "Commit the change", "text": "targeted tests", "farbe": "purple"},
+      {"titel": "Pull Request", "text": "CI runs", "farbe": "teal"},
+      {"titel": "Merge to main", "text": "images are built", "farbe": "amber"},
+      {"titel": "Roll out", "text": "update the installation", "farbe": "gray", "frage": "How do I roll out the change?"}
     ]
   }
 }

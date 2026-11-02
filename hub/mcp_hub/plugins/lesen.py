@@ -398,16 +398,18 @@ class LesenPlugin(HubPlugin):
                 name="artikel",
                 title="Artikel lesen",
                 description=(
-                    "Holt den Haupttext eines Artikels (Titel, Quelle, Datum, Absätze) ohne Bilder und Skripte, damit er "
-                    "in FYOS gelesen werden kann. Nur https und öffentliche Seiten; 6 Stunden zwischengespeichert. "
-                    "Als Fenster: gui.bauen {vorlage: \"artikel\", quelle: {werkzeug: \"lesen.artikel\", argumente: {url}}}. "
-                    "Nur lesend."
+                    (
+                        "Fetches the main text of an article (title, source, date, paragraphs) without "
+                        "images and scripts, so it can be read in FYOS. Only https and public pages; "
+                        "cached for 6 hours. As a window: gui.bauen {vorlage: \"artikel\", quelle: "
+                        "{werkzeug: \"lesen.artikel\", argumente: {url}}}. Read-only."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "url": {"type": "string", "maxLength": URL_MAX, "description": "https-Adresse des Artikels"},
-                        "frisch": {"type": "boolean", "description": "Zwischenspeicher übergehen"},
+                        "frisch": {"type": "boolean", "description": "Bypass the cache"},
                     },
                     "required": ["url"],
                     "additionalProperties": False,

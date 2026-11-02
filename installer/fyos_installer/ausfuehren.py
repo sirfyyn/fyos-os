@@ -13,6 +13,7 @@ from typing import Callable
 
 from . import abnahme as abn
 from .erzeugen import Plan
+from .sprache import _
 
 Protokoll = Callable[[str], None]
 
@@ -47,20 +48,20 @@ def docker_pruefen(
 ) -> tuple[bool, str]:
     """(bereit, Meldung): ist docker mit Compose vorhanden und läuft der Dienst?"""
     if not which("docker"):
-        return False, "Docker wurde nicht gefunden. Installiere Docker (Desktop oder Engine) mit Compose und starte neu."
+        return False, _("Docker wurde nicht gefunden. Installiere Docker (Desktop oder Engine) mit Compose und starte neu.")
     try:
         r = lauf(["docker", "compose", "version"], capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError) as e:
-        return False, f"`docker compose` lässt sich nicht starten ({e})."
+        return False, _("`docker compose` lässt sich nicht starten ({0}).", e)
     if r.returncode != 0:
-        return False, "Das Compose-Plugin fehlt (`docker compose version` schlägt fehl). Installiere Docker Compose v2."
+        return False, _("Das Compose-Plugin fehlt (`docker compose version` schlägt fehl). Installiere Docker Compose v2.")
     try:
         r = lauf(["docker", "info"], capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.SubprocessError) as e:
-        return False, f"`docker info` lässt sich nicht ausführen ({e})."
+        return False, _("`docker info` lässt sich nicht ausführen ({0}).", e)
     if r.returncode != 0:
-        return False, "Docker läuft nicht. Starte Docker Desktop bzw. den Docker-Dienst und versuche es erneut."
-    return True, "Docker mit Compose ist bereit."
+        return False, _("Docker läuft nicht. Starte Docker Desktop bzw. den Docker-Dienst und versuche es erneut.")
+    return True, _("Docker mit Compose ist bereit.")
 
 
 def _lauf(argv: list[str], cwd: Path, log: Protokoll, popen: Callable = subprocess.Popen) -> tuple[int, str]:
@@ -68,7 +69,7 @@ def _lauf(argv: list[str], cwd: Path, log: Protokoll, popen: Callable = subproce
     try:
         p = popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
     except OSError as e:
-        log(f"Start nicht möglich: {e}")
+        log(_("Start nicht möglich: {0}", e))
         return 127, str(e)
     gesammelt: list[str] = []
     for zeile in p.stdout or []:
@@ -82,7 +83,7 @@ def _hinweis(ausgabe: str) -> str:
     klein = ausgabe.lower()
     for schluessel, text in HINWEISE:
         if schluessel in klein:
-            return text
+            return _(text)
     return ""
 
 
@@ -119,7 +120,7 @@ def _abnahme(plan: Plan, log: Protokoll, pruefen: Callable[[str], abn.Abnahme]) 
     try:
         ergebnis = pruefen(f"http://127.0.0.1:{plan.port}")
     except Exception as e:  # noqa: BLE001 - ein Fehler hier ist eine Meldung, kein Abbruch der Installation
-        log(f"Die Abnahme konnte nicht laufen: {e}")
+        log(_("Die Abnahme konnte nicht laufen: {0}", e))
         return None
     for zeile in ergebnis.zeilen():
         log(zeile)
@@ -139,32 +140,33 @@ def ausfuehren(
     abnahme: Callable[[str], abn.Abnahme] | None = None,
 ) -> Ergebnis:
     if not plan.ausfuehrbar:
-        return Ergebnis(False, "Dieses Ziel wird vom Installer nicht gestartet.")
+        return Ergebnis(False, _("Dieses Ziel wird vom Installer nicht gestartet."))
     bereit, meldung = docker()
     log(meldung)
     if not bereit:
         return Ergebnis(False, meldung)
     verz = Path(plan.verzeichnis)
     for titel, argv in (
-        ("Hub-Bild bauen (kann beim ersten Mal einige Minuten dauern)", ["docker", "compose", "build"]),
-        ("Dienste starten", ["docker", "compose", "up", "-d"]),
+        (_("Hub-Bild bauen (kann beim ersten Mal einige Minuten dauern)"), ["docker", "compose", "build"]),
+        (_("Dienste starten"), ["docker", "compose", "up", "-d"]),
     ):
         log(f"== {titel}")
         code, ausgabe = _lauf(argv, verz, log, popen)
         if code != 0:
             hinweis = _hinweis(ausgabe)
-            text = f"`{' '.join(argv)}` ist mit Code {code} fehlgeschlagen." + (f" {hinweis}" if hinweis else "")
+            text = _("`{0}` ist mit Code {1} fehlgeschlagen.", " ".join(argv), code) + (f" {hinweis}" if hinweis else "")
             log(text)
             return Ergebnis(False, text)
-    log("== Gesundheit prüfen")
+    log(_("== Gesundheit prüfen"))
     pruefer = pruefer or standard_pruefer(plan, popen)
     ende = uhr() + zeitlimit
     letzter: dict[str, bool] = {}
+    nicht_bereit = _("noch nicht bereit")
     while True:
         letzter = pruefer()
-        log("web: " + ("ok" if letzter.get("web") else "noch nicht bereit") + ", hub: " + ("ok" if letzter.get("hub") else "noch nicht bereit"))
+        log("web: " + ("ok" if letzter.get("web") else nicht_bereit) + ", hub: " + ("ok" if letzter.get("hub") else nicht_bereit))
         if letzter.get("web") and letzter.get("hub"):
-            text = f"FYOS läuft: {plan.url}"
+            text = _("FYOS läuft: {0}", plan.url)
             log(text)
             ab = _abnahme(plan, log, abnahme or abn.pruefen)
             if ab is not None:
@@ -174,9 +176,9 @@ def ausfuehren(
             break
         schlaf(3)
     fehlt = ", ".join(k for k in ("web", "hub") if not letzter.get(k))
-    text = (
-        f"Zeitlimit erreicht: {fehlt} antwortet nicht. Die Dienste laufen vielleicht noch an; "
-        "`docker compose logs` im Zielordner zeigt die Meldungen."
+    text = _(
+        "Zeitlimit erreicht: {0} antwortet nicht. Die Dienste laufen vielleicht noch an; "
+        "`docker compose logs` im Zielordner zeigt die Meldungen.", fehlt,
     )
     log(text)
     return Ergebnis(False, text)

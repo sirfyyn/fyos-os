@@ -10,6 +10,7 @@
  */
 import type { Flaeche } from './flaechen';
 import type { ZentraleZustand } from '~/lib/zentrale';
+import { tr } from '~/lib/i18n';
 
 export type DrawerAnsicht = 'raum' | 'az' | 'zuletzt';
 
@@ -39,14 +40,14 @@ const VORGAENGE = /vorgaenge|vorgänge|itsm|aufgaben|wartet/i;
 export function standFuer(f: Pick<Flaeche, 'id' | 'titel' | 'appName'>, q: StandQuellen): string | null {
   const text = `${f.id} ${f.appName ?? ''} ${f.titel}`;
   if (VORGAENGE.test(text) && typeof q.wartet === 'number') {
-    return q.wartet === 0 ? 'nichts wartet auf dich' : q.wartet === 1 ? '1 wartet auf dich' : `${q.wartet} warten auf dich`;
+    return q.wartet === 0 ? tr('nichts wartet auf dich') : q.wartet === 1 ? tr('1 wartet auf dich') : tr('{0} warten auf dich', q.wartet);
   }
   const kacheln = q.zustand?.kacheln ?? [];
   // Native Kachel-Flächen tragen die Kachel im Namen (nativ:<kachel-id>)
   const direkt = f.id.startsWith('nativ:') ? kacheln.find((k) => `nativ:${k.id}` === f.id) : undefined;
   const ziel = direkt ?? kacheln.find((k) => ZUORDNUNG.some((z) => z.kachel === k.id && z.muster.test(text)));
   if (!ziel) return null;
-  if (ziel.fehler) return 'nicht abrufbar';
+  if (ziel.fehler) return tr('nicht abrufbar');
   const s = (ziel.kurz || '').replace(/\*\*/g, '').trim();
   return s ? kuerzen(s, 60) : null;
 }

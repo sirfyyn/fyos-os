@@ -12,7 +12,7 @@ metadata:
   name: fyos-hub-config
 data:
   config.yaml: |
-    # Installierte Plugin-Pakete laden ohne Eintrag (Entry-Point-Gruppe mcp_hub.plugins).
+    # Installed plugin packages load without an entry (entry point group mcp_hub.plugins).
     host: 0.0.0.0
     port: 8080
     path: /mcp
@@ -24,8 +24,8 @@ data:
           quellen: [/opt/fyos/skills]
       - name: beispiel_app
 ---
-# Die Dateiablage (Plugin dateien, App „Dateien“): Dateien, frühere Fassungen und Papierkorb liegen hier.
-# Größe und Speicherklasse im Overlay anpassen. Sichern wie jedes Volume.
+# The file store (plugin dateien, app "Files"): files, earlier versions and the trash live here.
+# Adjust size and storage class in the overlay. Back it up like any volume.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -42,10 +42,10 @@ metadata:
   name: hub
 spec:
   replicas: 1
-  # Genau ein Hub gleichzeitig: das Volume der Dateiablage ist ReadWriteOnce, und Fassungen und Papierkorb sind nicht
-  # für zwei Hubs gebaut, die dieselben Dateien beschreiben. Darum Recreate statt Rolling.
-  # `rollingUpdate: null` ist nötig: Der Server füllt bei einem bestehenden Deployment die Rolling-Werte ein, und Kubernetes
-  # lehnt sie bei Recreate ab („may not be specified when strategy type is Recreate“), sobald Flux die Strategie ändert.
+  # Exactly one Hub at a time: the file store's volume is ReadWriteOnce, and versions and trash are not built for
+  # two Hubs writing the same files. Hence Recreate instead of Rolling.
+  # `rollingUpdate: null` is needed: on an existing deployment the server fills in the rolling values, and Kubernetes
+  # rejects them with Recreate ("may not be specified when strategy type is Recreate") as soon as Flux changes the strategy.
   strategy:
     type: Recreate
     rollingUpdate: null
@@ -54,7 +54,7 @@ spec:
   template:
     metadata:
       labels: { app: hub }
-      # /metrics: Kernzähler, Plugin-Kennzahlen und Zeitplan (Prometheus-Text)
+      # /metrics: core counters, plugin metrics and schedule (Prometheus text)
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
@@ -69,7 +69,7 @@ spec:
             - containerPort: 8080
           env:
             - { name: MCP_HUB_CONFIG_PATH, value: /etc/fyos-hub/config.yaml }
-            # Dateiablage (docs/ERWEITERN.md §2.17); FYOS_DATEIEN_MAX_MB hebt die Obergrenze je Datei (Vorgabe 25)
+            # File store (docs/EXTENDING.md §2.17); FYOS_DATEIEN_MAX_MB raises the limit per file (default 25)
             - { name: FYOS_DATEIEN, value: /data/dateien }
             - { name: REDIS_URL, value: "redis://redis:6379/0" }
             - name: FYOS_OEFFENTLICH_URL

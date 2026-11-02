@@ -9,6 +9,7 @@ import { fehlerText, vor } from '~/lib/agent-runner/text';
 import type { Freigabe } from '~/lib/agent-runner/typen';
 import { Fehler, KARTE_ZEILE, KNOPF, KNOPF_VOLL, Marke } from './gemeinsam';
 import { WartetHalten } from '../../WartetHalten';
+import { tr } from '~/lib/i18n';
 
 export const KONTEXT_MAX = 280;
 
@@ -49,14 +50,14 @@ export function FreigabeKarte(p: {
       class={`${KARTE_ZEILE} ${istOffen(p.f) ? 'border-(--color-warn)/45' : ''}`}
       data-freigabe={p.f.id}
       data-status={p.f.status}
-      aria-label={`Freigabe: ${p.f.aktion ?? 'Aktion'}`}
+      aria-label={tr('Freigabe: {0}', p.f.aktion ?? tr('Aktion'))}
     >
       <div class="flex flex-wrap items-start justify-between gap-2">
-        <h3 class="m-0 min-w-0 flex-[1_1_14rem] text-[0.95rem] font-semibold">{p.f.aktion ?? 'Aktion'}</h3>
+        <h3 class="m-0 min-w-0 flex-[1_1_14rem] text-[0.95rem] font-semibold">{p.f.aktion ?? tr('Aktion')}</h3>
         <div class="flex flex-wrap items-center gap-1.5">
-          <Marke ton={risikoTon()}>Risiko {risikoText(p.f.risiko)}</Marke>
+          <Marke ton={risikoTon()}>{tr('Risiko')}{' '}{risikoText(p.f.risiko)}</Marke>
           <Show when={p.f.zerstoererisch}>
-            <Marke ton="fehler">zerstörerisch</Marke>
+            <Marke ton="fehler">{tr('zerstörerisch')}</Marke>
           </Show>
           <Show when={!istOffen(p.f)}>
             <Marke ton={p.f.status === 'erteilt' ? 'ok' : 'leise'}>{p.f.status}</Marke>
@@ -75,7 +76,7 @@ export function FreigabeKarte(p: {
         </p>
       </Show>
       <Show when={befehlsZeile(p.f)}>
-        <pre class="m-0 mt-2 max-h-40 overflow-auto rounded-lg bg-[color-mix(in_oklab,var(--color-fg)_9%,transparent)] p-2 font-mono text-xs leading-snug whitespace-pre-wrap break-words" aria-label="Befehl">
+        <pre class="m-0 mt-2 max-h-40 overflow-auto rounded-lg bg-[color-mix(in_oklab,var(--color-fg)_9%,transparent)] p-2 font-mono text-xs leading-snug whitespace-pre-wrap break-words" aria-label={tr('Befehl')}>
           {befehlsZeile(p.f)}
         </pre>
       </Show>
@@ -95,20 +96,20 @@ export function FreigabeKarte(p: {
             when={p.halten && p.f.zerstoererisch}
             fallback={
               <button type="button" class={KNOPF_VOLL} disabled={!!arbeitet()} aria-busy={arbeitet() === 'erteilt'} onClick={() => void los('erteilt')}>
-                {arbeitet() === 'erteilt' ? 'Erlaube …' : 'Erlauben'}
+                {arbeitet() === 'erteilt' ? tr('Erlaube …') : tr('Erlauben')}
               </button>
             }
           >
             <WartetHalten class={KNOPF} disabled={!!arbeitet()} onFertig={() => void los('erteilt')}>
-              {arbeitet() === 'erteilt' ? 'Erlaube …' : 'Halten zum Erlauben'}
+              {arbeitet() === 'erteilt' ? tr('Erlaube …') : tr('Halten zum Erlauben')}
             </WartetHalten>
           </Show>
           <button type="button" class={KNOPF} disabled={!!arbeitet()} aria-busy={arbeitet() === 'abgelehnt'} onClick={() => void los('abgelehnt')}>
-            {arbeitet() === 'abgelehnt' ? 'Lehne ab …' : 'Ablehnen'}
+            {arbeitet() === 'abgelehnt' ? tr('Lehne ab …') : tr('Ablehnen')}
           </button>
           <Show when={p.spaeter}>
-            <button type="button" class={KNOPF} disabled={!!arbeitet()} onClick={() => p.spaeter!(p.f.id)} title="Stellt die Karte hier zurück; sie bleibt in der Liste der Freigaben offen">
-              Später
+            <button type="button" class={KNOPF} disabled={!!arbeitet()} onClick={() => p.spaeter!(p.f.id)} title={tr('Stellt die Karte hier zurück; sie bleibt in der Liste der Freigaben offen')}>
+              {tr('Später')}
             </button>
           </Show>
         </div>

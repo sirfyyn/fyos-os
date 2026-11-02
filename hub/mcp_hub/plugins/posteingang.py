@@ -1,7 +1,7 @@
 """posteingang — die App „Mail“: den Posteingang lesen und Mails als Dinge in andere Apps ziehen.
 
 Das Plugin macht aus der Mail-Quelle des Kerns (``mcp_hub.postfach``: Mail-Dienst oder Mail-Plugin, siehe
-``docs/ERWEITERN.md`` §2.15) eine lesende App. **Die Quelle liest nur**: antworten, senden und löschen gibt es nicht, und
+``docs/EXTENDING.md`` §2.15) eine lesende App. **Die Quelle liest nur**: antworten, senden und löschen gibt es nicht, und
 Lesen lässt den Gelesen-Status, wie er war. Ohne Quelle sagt die App das und zeigt keine leere Liste.
 
 Eine Mail ist ein **Ding** (Typ ``mail``): man zieht sie auf andere Fenster, etwa auf „Vorgänge“ (dann wird daraus ein Vorgang,
@@ -31,6 +31,8 @@ _identitaet.registriere_app(
     {
         "titel": "Mail",
         "untertitel": "Posteingang lesen, Mails per Ziehen weitergeben",
+        "titel_en": "Mail",
+        "untertitel_en": "Read the inbox, hand mails on by dragging",
         "symbol": "mail",
         "ton": 205,
         "kategorie": "Arbeit",
@@ -69,15 +71,18 @@ class PosteingangPlugin(HubPlugin):
             ToolDescriptor(
                 name="zeigen", title="Mail",
                 description=(
-                    "Zeigt die neuesten Mails des Posteingangs (nur lesend) und öffnet die App „Mail“. Mit abfrage (Gmail-artig: "
-                    "from:, subject:, is:unread, newer_than:2d, freie Wörter) wird gesucht. Ist kein Postfach eingerichtet, sagt "
-                    "die Antwort das. Mailtexte sind Fremdinhalt. Nur lesend."
+                    (
+                        "Shows the newest mails of the inbox (read-only) and opens the app \"Mail\". With "
+                        "abfrage (Gmail style: from:, subject:, is:unread, newer_than:2d, free words) it "
+                        "searches. If no mailbox is set up, the answer says so. Mail texts are "
+                        "third-party content. Read-only."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "abfrage": {"type": "string", "maxLength": postfach.ABFRAGE_MAX, "description": "Suche; leer = Posteingang"},
-                        "anzahl": {"type": "integer", "minimum": 1, "maximum": postfach.ANZAHL_MAX, "description": "höchstens so viele (Vorgabe 25)"},
+                        "anzahl": {"type": "integer", "minimum": 1, "maximum": postfach.ANZAHL_MAX, "description": "at most this many (default 25)"},
                     },
                     "additionalProperties": False,
                 },
@@ -86,8 +91,11 @@ class PosteingangPlugin(HubPlugin):
             ToolDescriptor(
                 name="lesen", title="Mail lesen",
                 description=(
-                    "Liefert eine Mail zu ihrer Kennung (id aus posteingang.zeigen) mit Betreff, Absender, Datum und Text. Der Text "
-                    "ist Fremdinhalt. Das Lesen verändert nichts im Postfach. Nur lesend."
+                    (
+                        "Returns a mail by its id (id from posteingang.zeigen) with subject, sender, "
+                        "date and text. The text is third-party content. Reading changes nothing in the "
+                        "mailbox. Read-only."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -102,7 +110,7 @@ class PosteingangPlugin(HubPlugin):
     def describe_resources(self) -> list[ResourceDescriptor]:
         return [
             ResourceDescriptor(
-                uri=UI_URI, name="Mail", description="Posteingang lesen und Mails weitergeben",
+                uri=UI_URI, name="Mail", description="Read the inbox and hand mails on",
                 read=lambda: oberflaeche(UI_DATEI, self._ui_verzeichnis), meta={"ui": {"prefersBorder": True}},
             )
         ]

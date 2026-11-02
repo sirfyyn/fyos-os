@@ -5,6 +5,7 @@ import { For, Show, createSignal, type JSX } from 'solid-js';
 import { fehlerText, vor, wertText } from '~/lib/agent-runner/text';
 import type { GeteilterZustand } from '~/lib/agent-runner/typen';
 import { FELD, Fehler, KARTE_ZEILE, KNOPF, KNOPF_VOLL, Laedt, Leer } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 export function Zustand(p: {
   zustand: GeteilterZustand | null;
@@ -64,21 +65,21 @@ export function Zustand(p: {
   return (
     <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-0.5" data-tab="zustand">
       <div class="px-1">
-        <h2 class="os-titel m-0">Geteilter Zustand</h2>
-        <p class="m-0 mt-0.5 text-xs text-(--color-fg-subtle)">Werte, die {`Agent`} und du gemeinsam sehen. Zahlen, true/false, Listen und Objekte als JSON, alles andere als Text.</p>
+        <h2 class="os-titel m-0">{tr('Geteilter Zustand')}</h2>
+        <p class="m-0 mt-0.5 text-xs text-(--color-fg-subtle)">{tr('Werte, die')}{' '}{`Agent`}{' '}{tr('und du gemeinsam sehen. Zahlen, true/false, Listen und Objekte als JSON, alles andere als Text.')}</p>
       </div>
-      <form class={`${KARTE_ZEILE} flex flex-col gap-2`} onSubmit={(e) => void speichern(e)} aria-label={bearbeitet() ? `Wert ${bearbeitet()} ändern` : 'Wert setzen'}>
+      <form class={`${KARTE_ZEILE} flex flex-col gap-2`} onSubmit={(e) => void speichern(e)} aria-label={bearbeitet() ? tr('Wert {0} ändern', bearbeitet()) : tr('Wert setzen')}>
         <label class="flex flex-col gap-1 text-xs font-semibold text-(--color-fg-muted)">
-          Schlüssel
+          {tr('Schlüssel')}
           <input ref={schluesselFeld} class={FELD} value={schluessel()} readOnly={bearbeitet() !== null} onInput={(e) => setSchluessel(e.currentTarget.value)} placeholder="z. B. fokus-projekt" maxLength={120} required />
         </label>
         <label class="flex flex-col gap-1 text-xs font-semibold text-(--color-fg-muted)">
-          Wert
-          <textarea class={`${FELD} min-h-16 font-mono`} value={wert()} onInput={(e) => setWert(e.currentTarget.value)} placeholder="Text oder JSON" />
+          {tr('Wert')}
+          <textarea class={`${FELD} min-h-16 font-mono`} value={wert()} onInput={(e) => setWert(e.currentTarget.value)} placeholder={tr('Text oder JSON')} />
         </label>
         <div class="flex flex-wrap gap-2">
           <button type="submit" class={KNOPF_VOLL} disabled={sendet() || !schluessel().trim()}>
-            {sendet() ? 'Speichere …' : bearbeitet() ? 'Ändern' : 'Setzen'}
+            {sendet() ? tr('Speichere …') : bearbeitet() ? tr('Ändern') : tr('Setzen')}
           </button>
           <Show when={bearbeitet() !== null}>
             <button
@@ -90,7 +91,7 @@ export function Zustand(p: {
                 setWert('');
               }}
             >
-              Abbrechen
+              {tr('Abbrechen')}
             </button>
           </Show>
         </div>
@@ -99,10 +100,10 @@ export function Zustand(p: {
         <Fehler text={fehler()} />
       </Show>
       <Show when={p.fehler}>
-        <Fehler text={`Zustand nicht abrufbar: ${p.fehler}`} nochmal={p.erneut} />
+        <Fehler text={tr('Zustand nicht abrufbar: {0}', p.fehler)} nochmal={p.erneut} />
       </Show>
-      <Show when={p.zustand || p.fehler} fallback={<Laedt text="Zustand wird geladen" />}>
-        <Show when={eintraege().length} fallback={<Leer>Noch kein geteilter Wert. Der Agent kann hier Werte ablegen; du kannst sie auch selbst setzen.</Leer>}>
+      <Show when={p.zustand || p.fehler} fallback={<Laedt text={tr('Zustand wird geladen')} />}>
+        <Show when={eintraege().length} fallback={<Leer>{tr('Noch kein geteilter Wert. Der Agent kann hier Werte ablegen; du kannst sie auch selbst setzen.')}</Leer>}>
           <ul class="m-0 flex list-none flex-col gap-2 p-0">
             <For each={eintraege()}>
               {([k, v]) => (
@@ -111,10 +112,10 @@ export function Zustand(p: {
                     <span class="min-w-0 break-all font-mono text-sm font-semibold">{k}</span>
                     <div class="flex gap-1.5">
                       <button type="button" class={KNOPF} aria-label={`${k} bearbeiten`} onClick={() => bearbeiten(k, v)}>
-                        Bearbeiten
+                        {tr('Bearbeiten')}
                       </button>
-                      <button type="button" class={KNOPF} aria-label={`${k} löschen`} onClick={() => void loeschen(k)}>
-                        Löschen
+                      <button type="button" class={KNOPF} aria-label={tr('{0} löschen', k)} onClick={() => void loeschen(k)}>
+                        {tr('Löschen')}
                       </button>
                     </div>
                   </div>

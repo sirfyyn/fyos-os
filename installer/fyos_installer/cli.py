@@ -9,78 +9,83 @@ from typing import Callable
 
 from . import __version__, abnahme as abn, ausfuehren as ausf, erzeugen, reife, stufen
 from .katalog import Katalog, KatalogFehler, lade_standard
+from .sprache import _, katalog_text
+from . import sprache as spr
 
-BESCHREIBUNG = """\
-FYOS einrichten. Ohne Argumente startet ein Assistent im Browser (nur auf diesem Rechner erreichbar).
+def beschreibung() -> str:
+    return f"""\
+{_("FYOS einrichten. Ohne Argumente startet ein Assistent im Browser (nur auf diesem Rechner erreichbar).")}
 
-Beispiele:
-  fyos-install                         Web-Assistent
+{_("Beispiele:")}
+  fyos-install                         {_("Web-Assistent")}
+  fyos-install --sprache de            Deutsch / German
   fyos-install --tui                   Textoberfläche (pip install "fyos-installer[tui]")
   fyos-install --auswahl kern,agent --ziel compose --verzeichnis ./fyos --trocken
   fyos-install --auswahl kern,agent,kalender --ziel k8s --stufe termine=grund --trocken
-                                       Stufe je Fähigkeit umstellen (Vorgabe: Kubernetes Ausbau, Compose Grund)
-  fyos-install --abnahme http://localhost:8080     Abnahme einer laufenden Installation
+                                       {_("Stufe je Fähigkeit umstellen (Vorgabe: Kubernetes Ausbau, Compose Grund)")}
+  fyos-install --abnahme http://localhost:8080     {_("Abnahme einer laufenden Installation")}
 
-Rückgabewerte: 0 gut, 1 Installation oder Start gescheitert, 2 falsche Eingabe, 3 FYOS läuft, aber die Abnahme
-ist nicht bestanden.
+{_("Rückgabewerte: 0 gut, 1 Installation oder Start gescheitert, 2 falsche Eingabe, 3 FYOS läuft, aber die Abnahme" + chr(10) + "ist nicht bestanden.")}
 """
 
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="fyos-install", description=BESCHREIBUNG, formatter_class=argparse.RawDescriptionHelpFormatter
+        prog="fyos-install", description=beschreibung(), formatter_class=argparse.RawDescriptionHelpFormatter
     )
     p.add_argument("--version", action="version", version=f"fyos-install {__version__}")
-    p.add_argument("--tui", action="store_true", help="Textoberfläche statt Browser (braucht Textual)")
-    p.add_argument("--auswahl", help="Bausteine, durch Komma getrennt (schaltet in den Modus ohne Oberfläche)")
-    p.add_argument("--ziel", choices=list(erzeugen.ZIELE), help="compose, k8s oder dateien (Vorgabe ohne Oberfläche: compose)")
-    p.add_argument("--antworten", metavar="DATEI", help="YAML mit persona, modell, felder, optionen, stufen")
+    p.add_argument("--tui", action="store_true", help=_("Textoberfläche statt Browser (braucht Textual)"))
+    p.add_argument("--sprache", choices=list(spr.SPRACHEN), default=None,
+                   help=_("Sprache des Installers und der erzeugten Oberfläche: en (Vorgabe) oder de"))
+    p.add_argument("--auswahl", help=_("Bausteine, durch Komma getrennt (schaltet in den Modus ohne Oberfläche)"))
+    p.add_argument("--ziel", choices=list(erzeugen.ZIELE), help=_("compose, k8s oder dateien (Vorgabe ohne Oberfläche: compose)"))
+    p.add_argument("--antworten", metavar="DATEI", help=_("YAML mit persona, modell, felder, optionen, stufen"))
     p.add_argument("--stufe", action="append", default=[], metavar="FÄHIGKEIT=STUFE",
-                   help="Stufe einer Fähigkeit: grund, ausbau oder aus (mehrfach möglich; Fähigkeiten zeigt --liste). "
-                   "Ohne Angabe gilt die Vorgabe der Bauart: Kubernetes Ausbau, Compose Grund")
-    p.add_argument("--verzeichnis", default=None, metavar="ORDNER", help="Zielordner (Vorgabe: ./fyos)")
-    p.add_argument("--trocken", action="store_true", help="nur zeigen, was entstünde; nichts schreiben, nichts starten")
-    p.add_argument("--ja", action="store_true", help="ohne Rückfrage ausführen")
-    p.add_argument("--katalog", action="append", default=[], metavar="URL|DATEI", help="zusätzlicher Katalog (mehrfach möglich)")
-    p.add_argument("--ohne-plugin-kataloge", action="store_true", help="Kataloge installierter Plugin-Pakete nicht einlesen")
-    p.add_argument("--liste", action="store_true", help="Bausteine auflisten und beenden")
+                   help=_("Stufe einer Fähigkeit: grund, ausbau oder aus (mehrfach möglich; Fähigkeiten zeigt --liste). "
+                   "Ohne Angabe gilt die Vorgabe der Bauart: Kubernetes Ausbau, Compose Grund"))
+    p.add_argument("--verzeichnis", default=None, metavar="ORDNER", help=_("Zielordner (Vorgabe: ./fyos)"))
+    p.add_argument("--trocken", action="store_true", help=_("nur zeigen, was entstünde; nichts schreiben, nichts starten"))
+    p.add_argument("--ja", action="store_true", help=_("ohne Rückfrage ausführen"))
+    p.add_argument("--katalog", action="append", default=[], metavar="URL|DATEI", help=_("zusätzlicher Katalog (mehrfach möglich)"))
+    p.add_argument("--ohne-plugin-kataloge", action="store_true", help=_("Kataloge installierter Plugin-Pakete nicht einlesen"))
+    p.add_argument("--liste", action="store_true", help=_("Bausteine auflisten und beenden"))
     p.add_argument("--abnahme", metavar="ADRESSE",
-                   help="nur die Abnahme gegen eine laufende Installation (Adresse der Shell, zum Beispiel http://localhost:8080)")
-    p.add_argument("--port", type=int, default=0, help="Port des Web-Assistenten (Vorgabe: zufällig)")
-    p.add_argument("--kein-browser", action="store_true", help="Browser nicht automatisch öffnen")
+                   help=_("nur die Abnahme gegen eine laufende Installation (Adresse der Shell, zum Beispiel http://localhost:8080)"))
+    p.add_argument("--port", type=int, default=0, help=_("Port des Web-Assistenten (Vorgabe: zufällig)"))
+    p.add_argument("--kein-browser", action="store_true", help=_("Browser nicht automatisch öffnen"))
     return p
 
 
 def zeige_liste(katalog: Katalog, aus: Callable[[str], None] = print) -> None:
     for b in katalog:
-        marke = "Pflicht" if b.pflicht else b.art
-        aus(f"{b.id:<16} [{marke}] {b.titel}: {b.kurz}")
+        marke = _("Pflicht") if b.pflicht else b.art
+        aus(f"{b.id:<16} [{marke}] {katalog_text(b.titel)}: {katalog_text(b.kurz)}")
     if katalog.faehigkeiten:
         aus("")
-        aus("Fähigkeiten (Stufe wählen mit --stufe FÄHIGKEIT=grund|ausbau|aus):")
+        aus(_("Fähigkeiten (Stufe wählen mit --stufe FÄHIGKEIT=grund|ausbau|aus):"))
         for zeile in stufen.beschreibe_katalog(katalog):
             aus(f"  {zeile}")
 
 
 def zeige_plan(plan: erzeugen.Plan, aus: Callable[[str], None] = print) -> None:
-    aus(f"Ziel: {erzeugen.ZIELE[plan.ziel]}")
-    aus("Bausteine: " + ", ".join(plan.auswahl))
-    aus(f"Zielordner: {plan.verzeichnis}")
+    aus(_("Ziel: {0}", _(erzeugen.ZIELE[plan.ziel])))
+    aus(_("Bausteine: ") + ", ".join(plan.auswahl))
+    aus(_("Zielordner: {0}", plan.verzeichnis))
     if plan.stufen:
-        aus("Stufe je Fähigkeit (Vorgabe nach Bauart, umstellbar mit --stufe FÄHIGKEIT=grund|ausbau|aus):")
+        aus(_("Stufe je Fähigkeit (Vorgabe nach Bauart, umstellbar mit --stufe FÄHIGKEIT=grund|ausbau|aus):"))
         for zeile in stufen.zeilen(plan.stufen):
             aus(f"  {zeile}")
     if plan.reife:
         for zeile in reife.zeilen(plan.reife):
             aus(zeile)
-    aus("Dateien:")
+    aus(_("Dateien:"))
     for d in plan.dateien:
         aus(f"  {d.pfad}  ({oct(d.modus)[2:]})  {d.beschreibung}")
-    aus("Befehle:")
+    aus(_("Befehle:"))
     for b in plan.befehle:
         aus(f"  {b}")
     for hinweis in plan.hinweise:
-        aus(f"Hinweis: {hinweis}")
+        aus(_("Hinweis: {0}", hinweis))
 
 
 def mit_stufen(antworten: dict, angaben: list[str]) -> dict:
@@ -91,7 +96,7 @@ def mit_stufen(antworten: dict, angaben: list[str]) -> dict:
     for angabe in angaben:
         name, gleich, stufe = angabe.partition("=")
         if not gleich or not name.strip() or not stufe.strip():
-            raise ValueError(f"--stufe {angabe!r}: erwartet FÄHIGKEIT=STUFE, zum Beispiel termine=grund")
+            raise ValueError(_("--stufe {0}: erwartet FÄHIGKEIT=STUFE, zum Beispiel termine=grund", repr(angabe)))
         gewaehlt[name.strip()] = stufe.strip()
     return {**antworten, "stufen": gewaehlt}
 
@@ -101,38 +106,38 @@ def ohne_oberflaeche(args: argparse.Namespace, katalog: Katalog) -> int:
     try:
         antworten = erzeugen.lade_antworten(args.antworten) if args.antworten else {}
     except ValueError as e:
-        print(f"Fehler: {e}", file=sys.stderr)
+        print(_("Fehler: {0}", e), file=sys.stderr)
         return 2
     try:
         antworten = mit_stufen(antworten, args.stufe)
     except ValueError as e:
-        print(f"Fehler: {e}", file=sys.stderr)
+        print(_("Fehler: {0}", e), file=sys.stderr)
         return 2
     plan = erzeugen.erstelle_plan(katalog, ids, args.ziel or "compose", antworten, args.verzeichnis or "./fyos")
     if not plan.ok:
-        print("Das geht so nicht:", file=sys.stderr)
+        print(_("Das geht so nicht:"), file=sys.stderr)
         for f in plan.fehler:
             print(f"  - {f}", file=sys.stderr)
         return 2
     zeige_plan(plan)
     if args.trocken:
-        print("Trocken: nichts wurde geschrieben oder gestartet.")
+        print(_("Trocken: nichts wurde geschrieben oder gestartet."))
         return 0
     if not args.ja:
         if not sys.stdin.isatty():
-            print("Ohne Terminal bitte --ja angeben (oder --trocken zum Ansehen).", file=sys.stderr)
+            print(_("Ohne Terminal bitte --ja angeben (oder --trocken zum Ansehen)."), file=sys.stderr)
             return 2
-        if input("Dateien schreiben" + (" und starten" if plan.ausfuehrbar else "") + "? [j/N] ").strip().lower() not in ("j", "ja", "y"):
-            print("Abgebrochen.")
+        if input(_("Dateien schreiben") + (_(" und starten") if plan.ausfuehrbar else "") + _("? [j/N] ")).strip().lower() not in ("j", "ja", "y"):
+            print(_("Abgebrochen."))
             return 1
     for pfad in erzeugen.schreiben(plan):
-        print(f"geschrieben: {pfad}")
+        print(_("geschrieben: {0}", pfad))
     if plan.ausfuehrbar:
         erg = ausf.ausfuehren(plan, print)
         if not erg.ok:
             return 1
         return 3 if erg.nicht_abgenommen else 0
-    print("Fertig. Die nächsten Schritte stehen in ANLEITUNG.md im Zielordner.")
+    print(_("Fertig. Die nächsten Schritte stehen in ANLEITUNG.md im Zielordner."))
     return 0
 
 
@@ -141,7 +146,7 @@ def nur_abnahme(adresse: str, aus: Callable[[str], None] = print) -> int:
     try:
         ergebnis = abn.pruefen(adresse)
     except ValueError as e:
-        print(f"Fehler: {e}", file=sys.stderr)
+        print(_("Fehler: {0}", e), file=sys.stderr)
         return 2
     for zeile in ergebnis.zeilen():
         aus(zeile)
@@ -149,13 +154,22 @@ def nur_abnahme(adresse: str, aus: Callable[[str], None] = print) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Die Sprache zuerst: sie gilt schon für die Hilfe (--help)
+    roh = list(sys.argv[1:] if argv is None else argv)
+    for i, a in enumerate(roh):
+        if a == "--sprache" and i + 1 < len(roh):
+            spr.setze(roh[i + 1])
+        elif a.startswith("--sprache="):
+            spr.setze(a.split("=", 1)[1])
     args = parser().parse_args(argv)
+    if args.sprache:
+        spr.setze(args.sprache)
     if args.abnahme is not None:
         return nur_abnahme(args.abnahme)
     try:
         katalog = lade_standard(args.katalog, plugins=not args.ohne_plugin_kataloge)
     except KatalogFehler as e:
-        print(f"Katalog fehlerhaft:\n{e}", file=sys.stderr)
+        print(_("Katalog fehlerhaft:\n{0}", e), file=sys.stderr)
         return 2
     if args.liste:
         zeige_liste(katalog)
@@ -167,9 +181,9 @@ def main(argv: list[str] | None = None) -> int:
             tui = importlib.import_module("fyos_installer.tui")
         except ImportError:
             print(
-                "Die Textoberfläche braucht Textual. Installiere es mit:\n"
-                '  pip install "fyos-installer[tui]"        (optional Bilder: "fyos-installer[tui,bilder]")\n'
-                "Oder nutze den Web-Assistenten (fyos-install) bzw. --auswahl.",
+                _("Die Textoberfläche braucht Textual. Installiere es mit:") + "\n"
+                '  pip install "fyos-installer[tui]"        (optional: "fyos-installer[tui,bilder]")\n'
+                + _("Oder nutze den Web-Assistenten (fyos-install) bzw. --auswahl."),
                 file=sys.stderr,
             )
             return 2

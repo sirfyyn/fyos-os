@@ -15,6 +15,7 @@ import { DAUER_MS, type Meldung, type MeldungAktion } from '~/lib/os/meldungen';
 import { dienst, einstellungen, meldungOeffnen, meldungenStarten, system, zustand } from '~/lib/os/meldungen-produktiv';
 import { QUELLEN_NAME } from '~/lib/os/meldungen-einstellungen';
 import { Glyphe } from './Symbol';
+import { tr } from '~/lib/i18n';
 
 /** So lange spielt die Ausblend-Bewegung, danach verlässt die Karte den Speicher. */
 export const AUS_MS = 180;
@@ -83,7 +84,7 @@ function Toast(p: { id: string; sichtbarSeite: () => boolean }): JSX.Element {
           data-quelle={mm().quelle}
           data-meldung={mm().id}
           role={mm().stufe === 'kritisch' || mm().stufe === 'hoch' ? 'alert' : 'status'}
-          aria-label={`${QUELLEN_NAME[mm().quelle]}: ${mm().titel}`}
+          aria-label={`${tr(QUELLEN_NAME[mm().quelle])}: ${tr(mm().titel)}`}
           onPointerEnter={() => setUeber(true)}
           onPointerLeave={() => setUeber(false)}
           onFocusIn={() => setUeber(true)}
@@ -105,12 +106,12 @@ function Toast(p: { id: string; sichtbarSeite: () => boolean }): JSX.Element {
                 <span class="os-meldung-stufe"> · {STUFE_NAME[mm().stufe]}</span>
               </Show>
             </span>
-            <button type="button" class="os-meldung-zu" aria-label="Meldung schließen" onClick={() => schliessen(true)}>
+            <button type="button" class="os-meldung-zu" aria-label={tr('Meldung schließen')} onClick={() => schliessen(true)}>
               <Glyphe name="x" />
             </button>
           </div>
           <button type="button" class="os-meldung-haupt" onClick={() => (mm().ziel ? meldungOeffnen(mm()) : schliessen(true))}>
-            <strong class="os-meldung-titel">{mm().titel}</strong>
+            <strong class="os-meldung-titel">{tr(mm().titel)}</strong>
             <Show when={mm().text}>
               <span class="os-meldung-text" data-privat={mm().quelle === 'mail' || mm().quelle === 'agent' ? 'privat' : undefined}>{mm().text}</span>
             </Show>
@@ -125,7 +126,7 @@ function Toast(p: { id: string; sichtbarSeite: () => boolean }): JSX.Element {
             </For>
             <Show when={mm().stufe === 'kritisch'}>
               <button type="button" class="os-meldung-knopf os-meldung-leise" onClick={() => schliessen(true)}>
-                Verstanden
+                {tr('Verstanden')}
               </button>
             </Show>
           </div>
@@ -171,7 +172,7 @@ export default function MeldungenHost(p: MeldungenHostProps): JSX.Element {
   });
 
   const inhalt = (
-    <div class="os-meldungen" role="group" aria-label="Meldungen">
+    <div class="os-meldungen" role="group" aria-label={tr('Meldungen')}>
       <For each={ids()}>{(id) => <Toast id={id} sichtbarSeite={sichtbarSeite} />}</For>
       <Show when={zustand().wartend > 0}>
         <p class="os-meldungen-mehr" role="status">+{zustand().wartend} weitere in der Glocke</p>

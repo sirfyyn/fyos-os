@@ -15,6 +15,7 @@ import { Show, createSignal, type Component } from 'solid-js';
 import { Toast as KToast, toaster } from '@kobalte/core/toast';
 import { Portal } from 'solid-js/web';
 import { cn } from '~/lib/cn';
+import { tr } from '~/lib/i18n';
 
 type ToastVariant = 'default' | 'success' | 'warn' | 'error' | 'info';
 
@@ -133,7 +134,7 @@ export function showToast(opts: ShowToastOptions): number {
         </div>
         <KToast.CloseButton
           class="m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-(--color-fg-muted) hover:bg-(--color-bg) hover:text-(--color-fg)"
-          aria-label="Schließen"
+          aria-label={tr('Schließen')}
         >
           ✕
         </KToast.CloseButton>
@@ -169,7 +170,7 @@ export function showUndoToast(opts: { title: string; description?: string; durat
             onClick={() => { if (!resolved) { resolved = true; clearTimeout(timer); resolve(true); } toaster.dismiss(props.toastId); }}
             class="m-2 rounded-md bg-(--color-fg) px-3 py-1 text-xs font-semibold text-(--color-bg) hover:opacity-80"
           >
-            Rückgängig
+            {tr('Rückgängig')}
           </button>
         </div>
       </KToast>

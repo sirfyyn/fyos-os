@@ -8,6 +8,7 @@
  */
 import { For, Show, type JSX } from 'solid-js';
 import './pixel-katze.css';
+import { tr } from '~/lib/i18n';
 
 export type Taetigkeit = 'baut' | 'denkt' | 'liest' | 'schaut' | 'wartet' | 'schlaeft' | 'bereit';
 
@@ -52,7 +53,7 @@ export default function PixelKatze(p: {
       class={`pixel-katze ${p.class ?? ''}`}
       data-taetigkeit={t()}
       role="img"
-      aria-label={p.label ?? `Agent ${TEXT[t()]}`}
+      aria-label={p.label ?? tr('Agent {0}', tr(TEXT[t()]))}
       style={{ '--px': `${px()}px` }}
     >
       <span class="pk-koerper">

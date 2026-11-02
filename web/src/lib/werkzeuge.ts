@@ -1,3 +1,4 @@
+import { tr } from '~/lib/i18n';
 /**
  * werkzeuge.ts — das Werkzeug-Register der offenen Seite.
  *
@@ -90,7 +91,7 @@ function fuerWebmcp(r: WerkzeugErgebnis): unknown {
     .map((c) => c.text)
     .filter(Boolean)
     .join('\n');
-  if (r.isError) return { fehler: text || 'Das Werkzeug ist fehlgeschlagen.' };
+  if (r.isError) return { fehler: text || tr('Das Werkzeug ist fehlgeschlagen.') };
   return r.structuredContent ?? text;
 }
 
@@ -219,7 +220,7 @@ export function beiAenderung(f: () => void): () => void {
 
 export async function rufen(name: string, args: Record<string, unknown> = {}): Promise<WerkzeugErgebnis> {
   const w = register.get(name);
-  if (!w) return fehler(`Unbekanntes Werkzeug: ${name}. Verfügbar: ${[...register.keys()].join(', ')}`);
+  if (!w) return fehler(tr('Unbekanntes Werkzeug: {0}. Verfügbar: {1}', name, [...register.keys()].join(', ')));
   try {
     const r = await w.ausfuehren(args);
     return r && typeof r === 'object' && 'content' in (r as object) ? (r as WerkzeugErgebnis) : ergebnis(r);
@@ -289,8 +290,8 @@ export async function rufenFuerBruecke(name: string, args: Record<string, unknow
     const frei = fuerBruecke().map((x) => x.name);
     return fehler(
       w
-        ? `Das Werkzeug ${name} ist nicht für die Brücke freigegeben. Freigegeben: ${frei.join(', ')}`
-        : `Unbekanntes Werkzeug: ${name}. Verfügbar: ${frei.join(', ')}`,
+        ? tr('Das Werkzeug {0} ist nicht für die Brücke freigegeben. Freigegeben: {1}', name, frei.join(', '))
+        : tr('Unbekanntes Werkzeug: {0}. Verfügbar: {1}', name, frei.join(', ')),
     );
   }
   return rufen(name, args);

@@ -4,7 +4,7 @@
  * (Reihenfolge der Räume, Pins) gelten weiter.
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hub = vi.hoisted(() => vi.fn());
 const hubApps = vi.hoisted(() => vi.fn());
@@ -23,6 +23,10 @@ vi.mock('~/lib/mcp-apps/host', () => ({
 import Shell from '~/components/os/Shell';
 import { raeume, raeumeSetzen, raeumeZuruecksetzen } from '~/lib/os/raeume';
 import { registerZuruecksetzen, registriereFlaechen } from '~/lib/os/register';
+import { shellTeileVorladen } from './shell-vorladen';
+
+// Apps-Seite & Co. sind lazy (siehe shell-vorladen.ts)
+beforeAll(shellTeileVorladen);
 
 beforeEach(() => {
   const m = new Map<string, string>();

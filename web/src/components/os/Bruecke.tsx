@@ -37,6 +37,7 @@ import { vorlesen, vorlesenStoppen, vorlesetext } from '~/lib/os/vorlesen';
 import { beiAenderung, fuerBruecke, registriereWerkzeuge, rufenFuerBruecke } from '~/lib/werkzeuge';
 import { rueckgaengigAnbieten, rueckHinweis } from '~/lib/os/rueckgaengig';
 import Mitteilungen, { type Hinweis } from './Mitteilungen';
+import { tr } from '~/lib/i18n';
 
 export interface BrueckeProps {
   ap: () => Arbeitsplatz;
@@ -90,12 +91,12 @@ export default function Bruecke(p: BrueckeProps): JSX.Element {
   const stumm = (minuten: number) => {
     const vorher = einstellungLesen();
     einstellungSchreiben({ ...vorher, stumm_bis: Date.now() + minuten * 60_000 });
-    setHinweis({ text: minuten === 60 ? `${agentName()} zeigt dir eine Stunde lang nichts.` : `${agentName()} zeigt dir ${minuten} Minuten lang nichts.`, zurueck: () => einstellungSchreiben(vorher) });
+    setHinweis({ text: minuten === 60 ? tr('{0} zeigt dir eine Stunde lang nichts.', agentName()) : tr('{0} zeigt dir {1} Minuten lang nichts.', agentName(), minuten), zurueck: () => einstellungSchreiben(vorher) });
   };
   const aus = () => {
     const vorher = einstellungLesen();
     einstellungSchreiben({ ...vorher, aus: true });
-    setHinweis({ text: `Mitteilungen von ${agentName()} sind aus.`, zurueck: () => einstellungSchreiben(vorher) });
+    setHinweis({ text: tr('Mitteilungen von {0} sind aus.', agentName()), zurueck: () => einstellungSchreiben(vorher) });
   };
 
   onMount(() => {

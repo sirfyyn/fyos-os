@@ -22,5 +22,6 @@ Agent: **{{agent_name}}**, Besitzer: **{{besitzer_name}}**, Sprache: {{sprache}}
 - Der Hub wird als eigenes Bild gebaut (`hub/Dockerfile`): Hub der Distribution plus die gewählten Plugin-Pakete. Pakete aus Git-Adressen brauchen im Basisbild `git` und Zugriff auf das Repository.
 - Die Plugin-Pakete installiert `uv` statt `pip`. Ein eigener Paketindex (Umgebungsvariable `FYOS_PAKETINDEX`, beim Bauen als Bau-Argument `FYOS_INDEX_URL`) steht vor PyPI, und `uv` nimmt ein Paket nur aus dem ersten Index, der es führt: Ein Paket gleichen Namens auf PyPI kann das eigene nicht verdrängen.
 - Der Agent ist der Runner (`fyos-agent/runner`). Seine Konfiguration steht in `agent-runner.json` (Schema: `fyos-agent/runner/beispiele/agent-runner.beispiel.json`); nach Änderungen den Agenten neu starten. Matrix als Meldeweg trägt man dort selbst ein (`pi_durable.freigabe_meldung.kanaele`).
+- Die Sprache der Oberfläche steht in `fyos.config.json` (`"sprache": "en"` oder `"de"`); jeder Benutzer kann sie auch unter Einstellungen › Erscheinungsbild › Sprache umstellen.
 - Läuft etwas nicht, zeigt `{{protokoll_befehl}}` die Meldungen.
 {{hinweise}}

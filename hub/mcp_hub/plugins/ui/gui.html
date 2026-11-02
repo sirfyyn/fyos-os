@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -24,10 +24,10 @@
 </head>
 <body>
 <!--KOPF-->
-  <button id="zurueck" class="zweit klein knopf-sym" type="button" hidden title="Alle Ansichten" aria-label="Alle Ansichten"><svg class="ico" data-symbol="list"></svg><span class="beschriftung">Alle</span></button>
+  <button id="zurueck" class="zweit klein knopf-sym" type="button" hidden title="Alle Ansichten" aria-label="Alle Ansichten"><svg class="ico" data-symbol="list"></svg><span class="beschriftung" data-t>Alle</span></button>
 <!--/KOPF-->
 <main id="inhalt">
-  <div id="laden" class="laedt gross">Die Ansicht wird gebaut …</div>
+  <div id="laden" class="laedt gross" data-t>Die Ansicht wird gebaut …</div>
   <p id="beschreibung" class="gui-text" data-ab="normal" hidden></p>
   <div id="live" class="gui-live" hidden><span id="stand" role="status"></span><button id="frisch" class="zweit klein" type="button">Aktualisieren</button></div>
   <iframe id="rahmen" sandbox="allow-scripts" title="Gebaute Ansicht" hidden></iframe>
@@ -35,6 +35,14 @@
   <div id="hinweis" hidden></div>
 </main>
 <script>/*BRUECKE*/
+App.texte({
+  "Gebaute Ansicht": "Built view", "Alle Ansichten": "All views", "Alle": "All", "Die Ansicht wird gebaut …": "The view is being built …",
+  "Nicht aktualisiert": "Not refreshed", "In der Ansicht ging etwas schief": "Something went wrong in the view",
+  "Noch keine Ansichten": "No views yet",
+  "Der Agent baut sie mit gui.bauen, wenn ein Bild oder ein Regler mehr hilft als Text.": "The agent builds them with gui.bauen when a picture or a slider helps more than text.",
+  "1 weiteres im größeren Fenster": "1 more in a larger window", "{0} weitere im größeren Fenster": "{0} more in a larger window",
+  "Älterer Stand": "Older state", "„{0}“ wird gebaut …": "“{0}” is being built …", "Die Ansicht ließ sich nicht bauen": "The view could not be built",
+});
 // ── Gebaute Ansicht (gui) ─────────────────────────────────────────────────────────────────────────
 // Das Fragment des Agenten läuft in #rahmen: srcdoc, sandbox="allow-scripts", OHNE allow-same-origin. Es sieht weder
 // diese Seite noch die Brücke zum Host, kann also keine Hub-Werkzeuge rufen. Die CSP dieser Ressource gilt dort mit
@@ -300,7 +308,7 @@ function innenBruecke() {
 const ohneEnde = (t, tag) => String(t || "").replace(new RegExp(`</${tag}`, "gi"), `<\\/${tag}`);
 function dokumentText(d) {
   const w = Object.entries(werte()).map(([k, v]) => `${k}:${v}`).join(";");
-  return `<!doctype html><html lang="de" data-theme="${thema()}" data-stufe="${App.stufe || "normal"}"><head><meta charset="utf-8">`
+  return `<!doctype html><html lang="${App.sprache}" data-theme="${thema()}" data-stufe="${App.stufe || "normal"}"><head><meta charset="utf-8">`
     + `<meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<script type="importmap">${JSON.stringify(IMPORTE)}<\/script>`
     + `<style>html{${w}}</style><style>${GESTALTUNG}</style>`
@@ -349,9 +357,9 @@ function zeigen(d, id, stand) {
   gezeigt = schluessel; bekommen = true;
   ladenAus(); hinweis(""); $("liste").hidden = true;
   liveSetzen(id, d, stand);
-  App.satz(String(d.titel || "Gebaute Ansicht"));
+  App.satz(String(d.titel || App.t("Gebaute Ansicht")));
   const b = $("beschreibung"); b.textContent = String(d.beschreibung || ""); b.hidden = !d.beschreibung;
-  rahmen.title = String(d.titel || "Gebaute Ansicht");
+  rahmen.title = String(d.titel || App.t("Gebaute Ansicht"));
   if (typeof d.hoehe === "number" && isFinite(d.hoehe)) rahmen.style.height = `${Math.max(120, Math.min(2400, d.hoehe))}px`;
   rahmen.hidden = false;
   rahmen.srcdoc = dokumentText(d);
@@ -440,7 +448,7 @@ function listeMalen() {
     + (a.beschreibung ? `<span class="gui-zeile-text">${App.esc(a.beschreibung)}</span>` : "")
     + (a.angelegt ? `<span class="gui-zeile-text">${App.esc(App.zeit.tag(a.angelegt, true))}</span>` : "")
     + `</button>`).join("")
-    + (rest > 0 ? `<p class="gui-weitere">${rest === 1 ? "1 weiteres" : `${rest} weitere`} im größeren Fenster</p>` : "");
+    + (rest > 0 ? `<p class="gui-weitere">${App.esc(rest === 1 ? App.t("1 weiteres im größeren Fenster") : App.t("{0} weitere im größeren Fenster", rest))}</p>` : "");
 }
 async function oeffnen(id) {
   try {
@@ -457,7 +465,7 @@ $("zurueck").addEventListener("click", () => { $("zurueck").hidden = true; oeffn
 // ── Host ──────────────────────────────────────────────────────────────────────────────────────────
 App.auf("ui/notifications/tool-input-partial", (p) => {
   const a = obj(obj(p).arguments);
-  if (!bekommen && a.titel) $("laden").textContent = `„${String(a.titel).slice(0, 120)}“ wird gebaut …`;
+  if (!bekommen && a.titel) $("laden").textContent = App.t("„{0}“ wird gebaut …", String(a.titel).slice(0, 120));
 });
 App.auf("ui/notifications/tool-input", (p) => {
   const a = obj(obj(p).arguments);
@@ -467,7 +475,7 @@ App.auf("ui/notifications/tool-input", (p) => {
   const html = typeof a.html === "string" ? a.html : "";
   const einfach = !!html.trim() && a.daten === undefined && !a.umformen && (!a.quelle || html.includes('id="gui-daten"'));
   if (einfach) zeigen(a);
-  else { erwartet = true; if (a.titel) $("laden").textContent = `„${String(a.titel).slice(0, 120)}“ wird gebaut …`; }
+  else { erwartet = true; if (a.titel) $("laden").textContent = App.t("„{0}“ wird gebaut …", String(a.titel).slice(0, 120)); }
 });
 App.auf("ui/notifications/tool-result", (r) => {
   if (r && r.isError) {

@@ -7,6 +7,7 @@
  */
 import { Show, createResource, onCleanup, type JSX } from 'solid-js';
 import { hub } from '~/lib/hub';
+import { tr } from '~/lib/i18n';
 
 export interface Ampel {
   zustand?: string;
@@ -24,7 +25,7 @@ export const AMPEL_TEXT: Record<string, string> = {
 
 export function ampelSatz(a: Ampel | undefined): string {
   if (!a?.zustand) return '';
-  const kopf = AMPEL_TEXT[a.zustand] ?? a.zustand;
+  const kopf = AMPEL_TEXT[a.zustand] ? tr(AMPEL_TEXT[a.zustand]!) : a.zustand;
   const warum = (a.warum ?? []).slice(0, 3).join(' · ');
   return warum ? `${kopf}: ${warum}` : kopf;
 }
@@ -41,7 +42,7 @@ export default function AmpelPunkt(p: { oeffne: (ziel: string) => void }): JSX.E
         type="button"
         class="os-leiste-punkt os-ampel"
         data-ampel={daten()!.zustand}
-        aria-label={`Lage: ${ampelSatz(daten())}`}
+        aria-label={tr('Lage: {0}', ampelSatz(daten()))}
         title={ampelSatz(daten())}
         onClick={() => p.oeffne('app:leitstand__lagebild')}
       >

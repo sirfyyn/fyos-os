@@ -1,0 +1,31 @@
+#!/bin/sh
+# Agent-Adresse für nginx voll ausschreiben (läuft vor 20-envsubst-on-templates.sh, wird eingelesen, darf exportieren).
+# nginx löst den Agenten je Anfrage über `resolver` auf, und dieser Resolver kennt die Suchdomänen aus /etc/resolv.conf
+# nicht: unter Kubernetes fände er `agent` nie (502 „could not be resolved“). Ist der Host in FYOS_AGENT_UPSTREAM ein
+# kurzer Name und steht in resolv.conf eine Suchdomäne auf svc.cluster.local, hängt dieses Skript die erste davon an
+# (agent → agent.<namespace>.svc.cluster.local). Unter Docker Compose gibt es so eine Suchdomäne nicht; dort ändert sich nichts.
+fyos_fqdn() {
+    url="$1"
+    case "$url" in
+        http://*) rest="${url#http://}"; schema="http://" ;;
+        https://*) rest="${url#https://}"; schema="https://" ;;
+        *) echo "$url"; return ;;
+    esac
+    hostport="${rest%%/*}"
+    pfad="${rest#"$hostport"}"
+    host="${hostport%%:*}"
+    port="${hostport#"$host"}"
+    case "$host" in *.*|"") echo "$url"; return ;; esac
+    domaene=$(awk '/^search/ { for (i = 2; i <= NF; i++) if ($i ~ /svc\.cluster\.local$/) { print $i; exit } }' "${FYOS_RESOLV_CONF:-/etc/resolv.conf}" 2>/dev/null)
+    if [ -n "$domaene" ]; then
+        echo "${schema}${host}.${domaene}${port}${pfad}"
+    else
+        echo "$url"
+    fi
+}
+
+if [ -n "${FYOS_AGENT_UPSTREAM:-}" ]; then
+    FYOS_AGENT_UPSTREAM=$(fyos_fqdn "$FYOS_AGENT_UPSTREAM")
+    export FYOS_AGENT_UPSTREAM
+    echo "18-fyos-agent-fqdn: FYOS_AGENT_UPSTREAM=$FYOS_AGENT_UPSTREAM"
+fi

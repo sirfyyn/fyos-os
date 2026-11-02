@@ -1,116 +1,120 @@
-English: [README.en.md](README.en.md)
+Deutsch: [README.de.md](README.de.md)
 
 # FYOS — For Your Own Sake
 
-Ein persönliches Betriebssystem im Browser, das auf einem eigenen Agenten aufbaut und ganz bei dir läuft: eine
-Desktop-Shell mit Fenstern und Apps, ein MCP-Hub, der Werkzeuge und Oberflächen aus Plugins bündelt, und ein Agent
-(der Runner aus `fyos-agent`), der mit diesen Werkzeugen arbeitet und vor schweren Schritten fragt.
+A personal operating system in the browser that is built on an agent of your own and runs entirely on your side: a
+desktop shell with windows and apps, an MCP hub that bundles tools and interfaces from plugins, and an agent (the
+runner from `fyos-agent`) that works with these tools and asks before taking heavy steps.
 
-Diese Distribution enthält nur Allgemeines. Was ein bestimmtes Zuhause, ein Konto oder eine Person braucht, kommt als
-Plugin aus einem eigenen Repo.
+This distribution contains only general-purpose parts. Whatever a particular home, account or person needs comes as a
+plugin from a repo of its own.
 
 ```text
-Plugins (je ein Repo)    fyos-plugin-…            persönlich, optional
-fyos-os (dieses Repo)    web/  hub/  deploy/  installer/
-fyos-agent (Grundlage)   der Agent: Runner auf pi-durable (Bild fyos-agent/runner)
+Plugins (one repo each)  fyos-plugin-…            personal, optional
+fyos-os (this repo)      web/  hub/  deploy/  installer/
+fyos-agent (foundation)  the agent: runner on pi-durable (image fyos-agent/runner)
 ```
 
-## Was hier liegt
+## What lives here
 
-| Ordner | Inhalt |
+| Folder | Contents |
 |---|---|
-| [`web/`](web/README.md) | Desktop-Shell (Astro mit SolidJS): Fenster, Dock, Kacheln, Menüleiste; zeigt Hub-Apps (`ui://`) ohne eigenen Code |
-| [`hub/`](hub/README.md) | MCP-Hub (Python-Paket `fyos-hub`, Modul `mcp_hub`): MCP unter `/mcp`, REST unter `/hub/*`, Plugins per Entry-Point |
-| [`installer/`](installer/README.md) | Installer mit Web-Assistent, Textoberfläche und Kommandozeile; erklärt jeden Baustein mit Bildern |
-| `deploy/compose/` | Einzelplatz mit Docker Compose (`docker-compose.yml`, `env.example`, `agent-runner.json`, `hub-config.yaml`) |
-| `deploy/k8s/base/` | Kubernetes-Grundinstallation (Kustomize); Bilder und Namespace setzt ein Overlay |
-| `tools/sauber.py` | Sauberkeitsprüfung: keine privaten Netze, Adressen, Geheimnisse oder verbotenen Wörter im Repo |
-| `tools/doku_pruefen.py` | Doku-Abgleich: Links, genannte Pfade und feste Abschnitte der Markdown-Dateien stimmen mit dem Repo überein |
-| `tools/claude-code/` | Mods für Claude Code: [`fyos-ansicht`](tools/claude-code/fyos-ansicht/README.md) öffnet vom Agenten gebaute Ansichten (Plugin `gui`) im Panel des Terminals |
-| `docs/` | [Architektur](docs/ARCHITEKTUR.md), [Hub-Vertrag](docs/HUB-VERTRAG.md), [Erweitern](docs/ERWEITERN.md), [Nachbau](docs/NACHBAU.md) (Plan: jede Fähigkeit selbst betreiben), [Nachtarbeit](docs/NACHTARBEIT.md) (der Agent arbeitet nachts, morgens meldet die Shell „erledigt“) |
-| [`CHANGELOG.md`](CHANGELOG.md), [`RELEASE.md`](RELEASE.md) | Was sich je Version geändert hat; die Schritte für Maintainer, um eine Version zu veröffentlichen |
+| [`web/`](web/README.md) | Desktop shell (Astro with SolidJS): windows, dock, tiles, menu bar; shows hub apps (`ui://`) without any code of its own |
+| [`hub/`](hub/README.md) | MCP hub (Python package `fyos-hub`, module `mcp_hub`): MCP at `/mcp`, REST at `/hub/*`, plugins via entry point |
+| [`installer/`](installer/README.md) | Installer with a web assistant, a text interface and a command line; explains every building block with pictures |
+| `deploy/compose/` | Single-machine setup with Docker Compose (`docker-compose.yml`, `env.example`, `agent-runner.json`, `hub-config.yaml`) |
+| `deploy/k8s/base/` | Kubernetes base installation (Kustomize); an overlay sets images and namespace |
+| `tools/sauber.py` | Cleanliness check: no private networks, addresses, secrets or forbidden words in the repo |
+| `tools/doku_pruefen.py` | Docs check: links, named paths and fixed sections of the Markdown files match the repo |
+| `tools/claude-code/` | Mods for Claude Code: [`fyos-ansicht`](tools/claude-code/fyos-ansicht/README.md) opens views that the agent built (plugin `gui`) in the terminal's side panel |
+| `docs/` | [Architecture](docs/ARCHITECTURE.md), [Hub contract](docs/HUB-CONTRACT.md), [Extending](docs/EXTENDING.md), [ITSM](docs/ITSM.md) (tickets and approvals in the core), [Rebuild](docs/REBUILD.md) (plan: run every capability yourself), [Night work](docs/NIGHT-WORK.md) (the agent works at night, in the morning the shell reports "done"), [Glossary](docs/GLOSSARY.md) (German identifiers and the English words for them) |
+| [`CHANGELOG.md`](CHANGELOG.md), [`RELEASE.md`](RELEASE.md) | What changed in each version; the steps for maintainers to publish a version |
 
-## Loslegen
+## Getting started
 
-Der bequeme Weg ist der Installer. Er fragt nach Bausteinen (Kern, Agent, Plugins), zeigt, was daraus wird, und
-erzeugt die Auslieferung für Docker Compose oder Kubernetes.
+The easy way is the installer. It asks for building blocks (core, agent, plugins), shows what they turn into, and
+generates the delivery for Docker Compose or Kubernetes.
 
 ```sh
-pip install ./installer        # Python 3.11 oder neuer
-fyos-install                   # Web-Assistent im Browser; --tui für die Textoberfläche
+pip install ./installer        # Python 3.11 or newer
+fyos-install                   # web assistant in the browser; --tui for the text interface
 ```
 
-![Der Installer: Bausteine wählen, mit Bildern und dem, was daraus wird](installer/docs/screenshots/web-bausteine.png)
+![The installer: choose building blocks, with pictures and what they turn into](installer/docs/screenshots/web-bausteine.png)
 
-Alle Schritte mit Bildern: [`installer/README.md`](installer/README.md).
+All steps with pictures: [`installer/README.md`](installer/README.md).
 
-Ohne Installer, mit Docker Compose:
+Without the installer, with Docker Compose:
 
 ```sh
 cd deploy/compose
-cp env.example .env            # Bilder, Modell und Agent-Token eintragen
-docker compose up -d           # danach http://localhost:8080
+cp env.example .env            # enter images, model and agent token
+docker compose up -d           # then http://localhost:8080
 ```
 
-Die Bilder baut die CI dieses Repos (`<registry>/fyos-os/web`, `<registry>/fyos-os/hub`) und die von `fyos-agent`
-(`<registry>/fyos-agent/runner`). Veröffentlicht liegen sie unter `ghcr.io/sirfyyn` (Tags `v<Version>` und `latest`). <!-- sauber: ok -->
-Der Installer nimmt sie ohne weitere Angabe im Stand seiner eigenen Version; `FYOS_REGISTRY=<host>/<besitzer>` lenkt
-ihn auf die eigene Registry, `FYOS_BILD_TAG` wählt einen anderen Tag. Die Vorlage `deploy/compose/env.example` zeigt
-dagegen auf die Beispieladresse `registry.example.com`, die sich nie auflösen lässt: wer sie von Hand nutzt, trägt die
-Bilder selbst ein, sonst bricht der Start sichtbar ab, statt fremde Bilder zu ziehen.
+The images are built by the CI of this repo (`<registry>/fyos-os/web`, `<registry>/fyos-os/hub`) and by that of
+`fyos-agent` (`<registry>/fyos-agent/runner`). Published images live at `ghcr.io/sirfyyn` (tags `v<version>` and `latest`). <!-- sauber: ok -->
+Without further settings the installer uses them at its own version; `FYOS_REGISTRY=<host>/<owner>` points it at your
+own registry, `FYOS_BILD_TAG` picks another tag. The template `deploy/compose/env.example`, by contrast, points to the
+example address `registry.example.com`, which can never be resolved: if you use it by hand, enter the images yourself,
+otherwise startup fails visibly instead of pulling foreign images.
 
-Als Modell dient jeder OpenAI-kompatible Anbieter (zum Beispiel ein llama.cpp-Server, Ollama oder vLLM), lokal oder im
-eigenen Netz.
+Any OpenAI-compatible provider serves as the model (for example a llama.cpp server, Ollama or vLLM), locally or on your
+own network.
 
-**Der erste Chat.** Das Agent-Fenster (Dock rechts oder die App „Agent“) spricht den Runner über `/api/agent/`; das
-Token (`FYOS_AGENT_TOKEN` aus `.env`, in Kubernetes das Secret `fyos-agent-token`) setzt die Shell selbst, der Browser
-kennt es nie. Wer die Shell über das eigene Netz hinaus erreichbar macht, setzt eine Anmeldung davor (`web/README.md`).
+**The first chat.** The agent window (dock on the right or the app "Agent") talks to the runner via `/api/agent/`; the
+shell sets the token (`FYOS_AGENT_TOKEN` from `.env`, in Kubernetes the secret `fyos-agent-token`) itself, the browser
+never sees it. If you expose the shell beyond your own network, put a login in front of it (`web/README.md`).
 
-## Erweitern
+## Extending
 
-Ein Plugin ist ein Python-Paket mit Entry-Point `mcp_hub.plugins`. Es kann Werkzeuge, eine Oberfläche, Skills für den
-Agenten und einen Eintrag im Installer-Katalog mitbringen. Startpunkt ist das Repo `fyos-plugin-vorlage`; die ganze
-Anleitung mit Beispielen steht in [`docs/ERWEITERN.md`](docs/ERWEITERN.md): Hub-Plugin, App, Skills, Agentenverhalten,
-Shell, Katalog, Begleitdienste, Testen und Ausliefern.
+A plugin is a Python package with the entry point `mcp_hub.plugins`. It can bring tools, an interface, skills for the
+agent and an entry in the installer catalog. The starting point is the repo `fyos-plugin-vorlage`; the complete guide
+with examples is in [`docs/EXTENDING.md`](docs/EXTENDING.md): Hub plugin, app, skills, agent behaviour, shell, catalog,
+companion services, testing and delivery.
 
-**Pakete mit uv, der eigene Index zuerst.** Plugin-Pakete installiert FYOS mit [uv](https://docs.astral.sh/uv/) statt mit
-pip: im Hub-Bild, im vom Installer erzeugten Dockerfile und im Muster-Plugin. Liegen die Plugins in einem eigenen
-Paketindex, steht dessen Adresse per `--index` vor PyPI (als Bau-Argument `FYOS_INDEX_URL`; der Installer liest sie aus
-`FYOS_PAKETINDEX`). Dazu steht `--index-strategy first-index` ausdrücklich im Befehl: uv nimmt ein Paket nur aus dem ersten
-Index, der es führt. Ein Paket gleichen Namens auf PyPI kann so ein Plugin aus dem eigenen Index nicht verdrängen
-(Dependency Confusion); mit `pip --extra-index-url` wäre das möglich, weil pip die höchste Version aus allen Indizes
-nimmt. Die Version von uv ist in den Dockerfiles fest. Mehr dazu in [`docs/ERWEITERN.md`](docs/ERWEITERN.md), Abschnitt 10.3.
+**Packages with uv, your own index first.** FYOS installs plugin packages with [uv](https://docs.astral.sh/uv/)
+instead of pip: in the hub image, in the Dockerfile generated by the installer and in the sample plugin. If the plugins
+live in an index of your own, its address goes before PyPI via `--index` (as the build argument `FYOS_INDEX_URL`; the
+installer reads it from `FYOS_PAKETINDEX`). In addition, `--index-strategy first-index` is set explicitly in the
+command: uv takes a package only from the first index that carries it. A package of the same name on PyPI therefore
+cannot displace a plugin from your own index (dependency confusion); with `pip --extra-index-url` it could, because pip
+takes the highest version from all indexes. The version of uv is pinned in the Dockerfiles. More in
+[`docs/EXTENDING.md`](docs/EXTENDING.md), section 10.3.
 
-## Entwickeln
+## Developing
 
 ```sh
-python3 tools/sauber.py .                                         # muss still sein
-python3 tools/doku_pruefen.py                                     # Doku stimmt mit dem Repo überein
+python3 tools/sauber.py .                                         # must be silent
+python3 tools/doku_pruefen.py                                     # docs match the repo
 pip install -e "hub[test]" && python -m pytest hub/tests -q
 pip install -e "installer[test]" && python -m pytest installer/tests -q
 cd web && npm ci && npx vitest run && npx astro build
 ```
 
-Die Befehle zum Entwickeln und Testen dieses Repos nutzen pip, weil es überall da ist; mit `uv pip install` laufen sie
-genauso.
+The commands for developing and testing this repo use pip because it is available everywhere; with `uv pip install`
+they work the same.
 
-Die CI (`.gitea/workflows/ci.yml`) prüft jeden Pull Request und jeden Push auf `main` genauso (Zweige über ihren Pull
-Request, je Commit ein Lauf). Auf `main` lädt sie `fyos-hub` als Entwicklungsstand
-(`X.Y.Z.devN`) in den Paketindex des Git-Servers und baut die Bilder `web` und `hub` mit den Tags `main` und Commit.
+The CI (`.gitea/workflows/ci.yml`) checks every pull request and every push to `main` the same way (branches through
+their pull request, one run per commit). On `main` it uploads `fyos-hub` as a development build (`X.Y.Z.devN`) to the
+package index of the Git server and builds the images `web` and `hub` with the tags `main` and commit.
 
-Auf GitHub laufen dieselben Prüfungen als `.github/workflows/tests.yml`, dazu ein Geheimnis-Scan mit gitleaks. Auf einen
-Tag `v*` veröffentlicht `.github/workflows/pypi.yml` die Pakete `fyos-hub` und `fyos-installer` auf PyPI (Trusted
-Publishing, ohne gespeichertes Token) und `.github/workflows/bilder.yml` baut die Bilder nach ghcr.io.
+On GitHub the same checks run as `.github/workflows/tests.yml`, plus a secret scan with gitleaks. On a `v*` tag,
+`.github/workflows/pypi.yml` publishes the packages `fyos-hub` and `fyos-installer` to PyPI (Trusted Publishing, no
+stored token) and `.github/workflows/bilder.yml` pushes the images to ghcr.io.
 
-Den Doku-Abgleich fährt die CI zusätzlich jede Nacht und auf Knopfdruck (`.gitea/workflows/doku-nachts.yml`). Er prüft
-alle Markdown-Dateien: Links und Anker, Pfade in Code-Schnipseln (`web/src/lib/hub.ts`) und die festen Abschnitte der
-READMEs. Was die Doku nennt und nicht in diesem Repo liegt (Dateien von `fyos-agent` oder aus Plugin-Repos, Beispiele,
-Dateien, die erst im Betrieb entstehen), steht mit Grund in `.doku/ausserhalb.txt`.
+The CI also runs the docs check every night and on demand (`.gitea/workflows/doku-nachts.yml`). It checks all Markdown
+files: links and anchors, paths in code snippets (`web/src/lib/hub.ts`) and the fixed sections of the READMEs. What the
+docs name but what does not live in this repo (files of `fyos-agent` or from plugin repos, examples, files that only
+come into being in operation) is listed with a reason in `.doku/ausserhalb.txt`.
 
-## Lizenz
+Many identifiers in code and configuration are German (tool names, keys, environment variables). They are part of the
+contract and stay as they are; [`docs/GLOSSARY.md`](docs/GLOSSARY.md) lists the English words the docs use for them.
 
-FYOS OS steht unter der Apache License, Version 2.0 (SPDX-Kennung `Apache-2.0`).
+## License
+
+FYOS OS is licensed under the Apache License, Version 2.0 (SPDX identifier `Apache-2.0`).
 
 Copyright 2026 sirfyyn and FYOS CONTRIBUTORS <!-- sauber: ok -->
 
-Der vollständige Lizenztext steht in [`LICENSE`](LICENSE), der Urheberhinweis in [`NOTICE`](NOTICE).
+The full license text is in [`LICENSE`](LICENSE), the copyright notice in [`NOTICE`](NOTICE).

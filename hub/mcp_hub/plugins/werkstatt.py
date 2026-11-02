@@ -606,19 +606,23 @@ class WerkstattPlugin(HubPlugin):
                 name="suchen",
                 title="Werkstatt",
                 description=(
-                    "Angemeldete Repo-Skripte finden (Kopfblock WERKSTATT). `q` = Suchwoerter (ganze Woerter, Name > "
-                    "Titel > Zweck gewichtet; Umschreibungen findet die Aehnlichkeitssuche); die besten 10 mit Rangwert, "
-                    "`voll: true` liefert alle Treffer. Ohne q alle Skripte. `ort` und `wirkung` filtern. Liefert id, "
-                    "Titel, Zweck, Ort, Wirkung und ob ein Trockenlauf da ist; der Host zeigt dazu die Werkstatt."
+                    (
+                        "Find registered repo scripts (header block WERKSTATT). `q` = search words "
+                        "(whole words, weighted name > title > purpose; the similarity search finds "
+                        "paraphrases); the best 10 with a rank value, `voll: true` returns all hits. "
+                        "Without q all scripts. `ort` and `wirkung` filter. Returns id, title, purpose, "
+                        "place, effect and whether a dry run exists; the host shows the workshop "
+                        "alongside."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
-                        "q": {"type": "string", "description": "Suchwoerter, z. B. 'speicher platz' oder 'backup'"},
+                        "q": {"type": "string", "description": "Search words, e.g. 'storage space' or 'backup'"},
                         "ort": {"type": "string", "enum": list(self.orte)},
                         "wirkung": {"type": "string", "enum": list(WIRKUNGEN)},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "hoechstens so viele Treffer (Vorgabe 10 mit q)"},
-                        "voll": {"type": "boolean", "description": "alle Treffer statt der besten 10"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "at most this many hits (default 10 with q)"},
+                        "voll": {"type": "boolean", "description": "all hits instead of the best 10"},
                     },
                     "additionalProperties": False,
                 },
@@ -629,8 +633,10 @@ class WerkstattPlugin(HubPlugin):
                 name="beschreiben",
                 title="Werkstatt — Skript",
                 description=(
-                    "Ein angemeldetes Skript beschreiben: Kopfblock, Sperren und die Argumente als "
-                    "JSON-Schema (daraus baut die App das Formular). id wie aus werkstatt.suchen."
+                    (
+                        "Describe a registered script: header block, locks and the arguments as a JSON "
+                        "schema (the app builds the form from it). id as from werkstatt.suchen."
+                    )
                 ),
                 input_schema={
                     "type": "object",
@@ -643,23 +649,25 @@ class WerkstattPlugin(HubPlugin):
             ),
             ToolDescriptor(
                 name="ausfuehren",
-                title="Werkstatt — ausführen",
+                title="Workshop — run",
                 description=(
-                    "Ein angemeldetes Skript im Hub ausfuehren (nur ort hub/egal; sonst "
-                    "„Job-Weg folgt“). lesen laeuft direkt. schreiben/system: Standard Trockenlauf, "
-                    "echter Lauf nur mit trocken=false UND bestaetigt=true. loeschen wird nie "
-                    "ausgefuehrt — es kommt der fertige Befehl zum Selbstausfuehren zurueck. `argumente` streng "
-                    "nach dem Schema aus werkstatt.beschreiben. Liefert rc, Dauer, stdout/stderr "
-                    "und bei JSON-Ausgabe `daten`."
+                    (
+                        "Run a registered script in the Hub (only ort hub/egal; otherwise \"job route "
+                        "follows\"). lesen runs directly. schreiben/system: dry run by default, a real "
+                        "run only with trocken=false AND bestaetigt=true. loeschen is never run — the "
+                        "finished command comes back for you to run yourself. `argumente` strictly "
+                        "follow the schema from werkstatt.beschreiben. Returns rc, duration, "
+                        "stdout/stderr and, with JSON output, `daten`."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "id": {"type": "string"},
-                        "argumente": {"type": "object", "description": "Werte nach dem Schema aus werkstatt.beschreiben"},
-                        "trocken": {"type": "boolean", "description": "Trockenlauf (Standard bei schreiben/system/loeschen)"},
+                        "argumente": {"type": "object", "description": "Values following the schema from werkstatt.beschreiben"},
+                        "trocken": {"type": "boolean", "description": "Dry run (default for schreiben/system/loeschen)"},
                         "bestaetigt": {"type": "boolean", "description": "echter Lauf eines schreibenden Skripts"},
-                        "wer": {"type": "string", "description": "wer ruft (fuer das Bus-Ereignis), z. B. ein Benutzer- oder Agentenname"},
+                        "wer": {"type": "string", "description": "who calls (for the bus event), e.g. a user or agent name"},
                     },
                     "required": ["id"],
                     "additionalProperties": False,
@@ -673,15 +681,17 @@ class WerkstattPlugin(HubPlugin):
                 name="zeigen",
                 title="Werkstatt — Ergebnis",
                 description=(
-                    "Beliebige Ergebnisse in der Werkstatt-App zeigen: `daten` als Text (String), "
-                    "Tabelle (Liste von Objekten), Kurve (Liste von {x, y} oder {name: [{x, y}]}) "
-                    "oder sonst als JSON. Veraendert nichts."
+                    (
+                        "Show any results in the workshop app: `daten` as text (string), table (list of "
+                        "objects), curve (list of {x, y} or {name: [{x, y}]}) or otherwise as JSON. "
+                        "Changes nothing."
+                    )
                 ),
                 input_schema={
                     "type": "object",
                     "properties": {
                         "titel": {"type": "string"},
-                        "daten": {"description": "Text, Liste von Objekten, [{x,y}] oder beliebiges JSON"},
+                        "daten": {"description": "Text, list of objects, [{x,y}] or any JSON"},
                         "notiz": {"type": "string"},
                     },
                     "required": ["titel", "daten"],
@@ -694,8 +704,7 @@ class WerkstattPlugin(HubPlugin):
                 name="favoriten",
                 title="Werkstatt-Favoriten",
                 description=(
-                    "Die Werkstatt-Favoriten (id, Titel, Wirkung) und die letzten "
-                    "Laeufe aus dem Bus (id, rc, wann)."
+                    "The workshop favourites (id, title, effect) and the last runs from the bus (id, rc, when)."
                 ),
                 input_schema={"type": "object", "properties": {}, "additionalProperties": False},
                 tags=nur_lesen,
@@ -724,7 +733,7 @@ class WerkstattPlugin(HubPlugin):
             ResourceDescriptor(
                 uri=UI_WERKSTATT,
                 name="Werkstatt",
-                description="Vorlage-App fuer angemeldete Skripte und Agenten-Ergebnisse",
+                description="Template app for registered scripts and agent results",
                 read=lambda: oberflaeche("werkstatt.html"),
                 meta={"ui": {"prefersBorder": True}},
             )

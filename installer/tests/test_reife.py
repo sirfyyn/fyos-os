@@ -108,9 +108,15 @@ def test_reifegrad_steht_in_der_kommandozeile(katalog, tmp_path):
 
 
 def test_readme_nennt_die_leiter():
+    # Die README ist englisch: Titel und Stufen in der englischen Fassung (sprache.EN), die der Installer zeigt.
+    from fyos_installer.sprache import EN
+
+    titel_en = {s: EN[reife.TITEL[s]] if reife.TITEL[s] in EN else reife.TITEL[s] for s in reife.SCHICHTEN}
     zellen_je_zeile = [[c.strip() for c in z.strip().strip("|").split("|")] for z in README.read_text(encoding="utf-8").splitlines() if z.startswith("| ")]
-    tabelle = {z[0]: z[1:] for z in zellen_je_zeile if len(z) == 4 and z[0] in reife.TITEL.values()}
-    assert tabelle == {reife.TITEL[s]: [st.name for st in reife.LEITER[s]] for s in reife.SCHICHTEN}
+    tabelle = {z[0]: z[1:] for z in zellen_je_zeile if len(z) == 4 and z[0] in titel_en.values()}
+    assert tabelle == {titel_en[s]: [EN.get(st.name, st.name) for st in reife.LEITER[s]] for s in reife.SCHICHTEN}
+    for s in reife.SCHICHTEN:  # jede Stufe hat eine englische Fassung
+        assert all(st.name in EN and st.erkennbar in EN for st in reife.LEITER[s]), s
 
 
 def test_readme_nennt_die_proben_der_abnahme():

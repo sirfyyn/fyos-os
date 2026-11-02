@@ -8,6 +8,7 @@
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { SITZUNG_EREIGNIS, sitzungAbgelaufen } from '~/lib/api/transport';
 import { OFFLINE_EREIGNIS, netzWaechterInstallieren } from '~/lib/api/netz-waechter';
+import { tr } from '~/lib/i18n';
 
 export default function SitzungsBanner() {
   const [abgelaufen, setAbgelaufen] = createSignal(false);
@@ -39,15 +40,15 @@ export default function SitzungsBanner() {
       >
         <Show
           when={!offline()}
-          fallback={<span>Kein Netz — Anzeigen können veraltet sein. Es geht weiter, sobald die Verbindung zurück ist.</span>}
+          fallback={<span>{tr('Kein Netz — Anzeigen können veraltet sein. Es geht weiter, sobald die Verbindung zurück ist.')}</span>}
         >
-          <span>Anmeldung abgelaufen — Daten werden nicht mehr geladen.</span>
+          <span>{tr('Anmeldung abgelaufen — Daten werden nicht mehr geladen.')}</span>
           <button
             type="button"
             class="rounded bg-white/20 px-3 py-1 hover:bg-white/30"
             onClick={() => location.reload()}
           >
-            Neu anmelden
+            {tr('Neu anmelden')}
           </button>
         </Show>
       </div>

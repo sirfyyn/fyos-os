@@ -1,114 +1,114 @@
-# FYOS Shell (`web/`)
+# FYOS shell (`web/`)
 
-Die Desktop-Shell von FYOS — For Your Own Sake: Startbildschirm, Arbeitsbildschirme aus Fenstern, Dock,
-Menüleiste, Agent-Dock, Mitteilungen. Sie enthält keine eigenen Inhalte: Flächen kommen vom Hub (Apps),
-von Plugins (`registriereFlaechen`) und aus der Laufzeit-Konfiguration (externe Dienste).
+The desktop shell of FYOS — For Your Own Sake: home screen, work screens made of windows, dock, menu bar, agent dock,
+notices. It contains no content of its own: surfaces come from the Hub (apps), from plugins (`registriereFlaechen`) and
+from the runtime configuration (external services).
 
-Technik: Astro 5 (statisch) mit SolidJS (nicht React), Tailwind 4, Kobalte. Ausgeliefert von nginx auf Port 8080.
+Technology: Astro 5 (static) with SolidJS (not React), Tailwind 4, Kobalte. Served by nginx on port 8080.
 
-## Wie die Shell spricht
+## How the shell talks
 
-Der Browser spricht nur mit diesem Server:
+The browser talks only to this server:
 
-| Pfad | geht an | Zweck |
+| Path | goes to | Purpose |
 | --- | --- | --- |
-| `/hub-api/apps`, `/hub-api/resource`, `/hub-api/app-call` | `${FYOS_HUB_UPSTREAM}/hub/…` | Hub-Apps listen, Oberflächen laden, Werkzeuge aufrufen |
-| `/hub-api/os/*` | `${FYOS_HUB_UPSTREAM}/hub/os/…` | OS-Brücke: die Shell meldet sich (`lib/os/bruecke.ts`) und holt Mitteilungen des Agenten ab, auch vorgemerkte der Nacht |
-| `/hub-api/dateien/datei` | `${FYOS_HUB_UPSTREAM}/hub/dateien/datei` | Dateien der Ablage herunterladen (GET) und hochladen (PUT, ohne Zwischenspeicher; Größe begrenzt der Hub); hochgeladen wird aus der Shell (`lib/mcp-apps/host.ts`), nicht aus der App |
-| `/hub/gui/<id>`, `/hub/gui/<id>/daten` | `${FYOS_HUB_UPSTREAM}/hub/gui/…` | gebaute Ansichten als ganze Seite für einen Link (nur GET, Pfad bleibt; Begründung in `docs/HUB-VERTRAG.md`) |
-| `/api/agent/*` | `${FYOS_AGENT_UPSTREAM}/…` (Präfix ab) | Agenten-Runner für die native Agent-App (Dock und Fläche `nativ:agent`): Gespräche, Live-Strom (SSE), Freigaben, Läufe. Nur mit Kopf `X-FYOS-Agent: 1`, sonst 404; nginx setzt `Authorization: Bearer ${FYOS_AGENT_TOKEN}` und streicht Cookie und Authorization des Browsers; ohne Puffer, Lesefenster 1 h |
-| `/fyos.config.json` | Datei `/etc/fyos/fyos.config.json` | Laufzeit-Konfiguration |
-| `/healthz` | nginx | Gesundheitsabfrage |
+| `/hub-api/apps`, `/hub-api/resource`, `/hub-api/app-call` | `${FYOS_HUB_UPSTREAM}/hub/…` | list hub apps, load interfaces, call tools |
+| `/hub-api/os/*` | `${FYOS_HUB_UPSTREAM}/hub/os/…` | OS bridge: the shell checks in (`lib/os/bruecke.ts`) and picks up the agent's notices, including those queued at night |
+| `/hub-api/dateien/datei` | `${FYOS_HUB_UPSTREAM}/hub/dateien/datei` | download (GET) and upload (PUT, without buffering; the Hub limits the size) files of the store; uploads come from the shell (`lib/mcp-apps/host.ts`), not from the app |
+| `/hub/gui/<id>`, `/hub/gui/<id>/daten` | `${FYOS_HUB_UPSTREAM}/hub/gui/…` | built views as a whole page for a link (GET only, the path stays; reasons in `docs/HUB-CONTRACT.md`) |
+| `/api/agent/*` | `${FYOS_AGENT_UPSTREAM}/…` (prefix removed) | agent runner for the native agent app (dock and surface `nativ:agent`): conversations, live stream (SSE), approvals, runs. Only with the header `X-FYOS-Agent: 1`, otherwise 404; nginx sets `Authorization: Bearer ${FYOS_AGENT_TOKEN}` and strips the browser's cookie and authorization; no buffering, read timeout 1 h |
+| `/fyos.config.json` | file `/etc/fyos/fyos.config.json` | runtime configuration |
+| `/healthz` | nginx | health check |
 
-Die Vorlage `nginx/default.conf.template` ist eine envsubst-Vorlage (`NGINX_ENVSUBST_FILTER=FYOS_`). Umgebung:
+The template `nginx/default.conf.template` is an envsubst template (`NGINX_ENVSUBST_FILTER=FYOS_`). Environment:
 
-| Variable | Vorgabe im Image | Zweck |
+| Variable | Default in the image | Purpose |
 | --- | --- | --- |
 | `FYOS_HUB_UPSTREAM` | `http://hub:8080` | Hub |
-| `FYOS_AGENT_UPSTREAM` | `http://agent:18438` | der Agent (Runner), ohne Pfad |
-| `FYOS_AGENT_TOKEN` | leer | Token des Runners; nginx setzt es als `Authorization: Bearer …`. Leer lehnt der Runner jede Anfrage ab (401). |
+| `FYOS_AGENT_UPSTREAM` | `http://agent:18438` | the agent (runner), without a path |
+| `FYOS_AGENT_TOKEN` | empty | the runner's token; nginx sets it as `Authorization: Bearer …`. If it is empty, the runner rejects every request (401). |
 
-Es gibt keinen festen Resolver; die Upstreams sind Namen, die nginx beim Start auflöst.
+There is no fixed resolver; the upstreams are names that nginx resolves at startup.
 
-**Runner-Zugang:** Der Browser kennt das Runner-Token nie, nginx setzt es. Damit spricht jeder, der `/api/agent/`
-erreicht, mit den Rechten des Runners. Wer die Shell über das eigene Netz hinaus erreichbar macht, setzt eine Anmeldung
-davor (Proxy mit Login); die Agent-App erkennt eine Umleitung zur Anmeldung und bietet „Anmelden“ an. Der Pflicht-Kopf
-`X-FYOS-Agent: 1` hält fremde Seiten ab: ein Browser schickt ihn quer zur Herkunft nur nach einer Vorabfrage, die
-nginx nicht beantwortet. Im Dev-Server: `FYOS_DEV_RUNNER=http://localhost:18438 FYOS_DEV_RUNNER_TOKEN=… npm run dev`.
+**Runner access:** the browser never sees the runner token; nginx sets it. So anyone who reaches `/api/agent/` talks
+with the runner's permissions. If you expose the shell beyond your own network, put a login in front of it (a proxy
+with login); the agent app recognises a redirect to the login and offers "Sign in". The required header
+`X-FYOS-Agent: 1` keeps foreign pages out: a browser sends it cross-origin only after a preflight, which nginx does not
+answer. In the dev server: `FYOS_DEV_RUNNER=http://localhost:18438 FYOS_DEV_RUNNER_TOKEN=… npm run dev`.
 
-## Aufbau
+## Structure
 
 ```
 src/
-  pages/            index (leitet nach /os/), os (die Shell), os/allein (eine Fläche allein im Tab), 404
-  components/os/    Shell, Startbildschirm, Start (Suche), Dock, Menüleiste, Fenster, Raster, Menü,
-                    Mitteilungen, Kontrollzentrum, Hilfe, AppRahmen, Symbol
-  components/apps/  AppEingebettet (zeigt eine Hub-App im Fenster)
-  lib/os/           Modell: Flächen, Anordnung, Bildschirme, Menüs, Ziehen, Öffnen (Deeplinks), Mitteilungen,
-                    Symbole, register.ts (die Schnittstelle für Plugins)
-  lib/mcp-apps/     Host für MCP-Apps (ui://-Oberflächen im iframe, Härtung, Zustand, Pins)
-  lib/config.ts     Namen, Agent und externe Dienste aus Bauzeit und Laufzeit
-  plugins/          Dateien hier werden beim Start der Shell ausgeführt (siehe unten)
-  styles/           Theme und OS-Stile
+  pages/            index (redirects to /os/), os (the shell), os/allein (one surface alone in a tab), 404
+  components/os/    shell, home screen, Start (search), dock, menu bar, window, grid, menu,
+                    notices, control center, help, app frame, symbol
+  components/apps/  AppEingebettet (shows a hub app in a window)
+  lib/os/           model: surfaces, layout, screens, menus, dragging, opening (deep links), notices,
+                    symbols, register.ts (the interface for plugins)
+  lib/mcp-apps/     host for MCP apps (ui:// interfaces in an iframe, hardening, state, pins)
+  lib/config.ts     names, agent and external services from build time and runtime
+  plugins/          files here are executed when the shell starts (see below)
+  styles/           theme and OS styles
 tests/unit/         Vitest (jsdom)
-nginx/              Vorlage und Standard-Konfiguration
-Dockerfile          node:22-alpine baut, nginx:1.27-alpine liefert aus
+nginx/              template and default configuration
+Dockerfile          node:22-alpine builds, nginx:1.27-alpine serves
 ```
 
 ## `registriereFlaechen`
 
-`lib/os/register.ts` ist die eine Schnittstelle, über die Plugins Flächen in die Shell bringen. Der Aufruf ist
-wiederholbar und darf jederzeit geschehen; die Shell zeichnet sich neu.
+`lib/os/register.ts` is the one interface through which plugins bring surfaces into the shell. The call can be repeated
+and may happen at any time; the shell redraws.
 
 ```ts
 import { registriereFlaechen } from '~/lib/os/register';
 
 registriereFlaechen({
-  flaechen: [{ id: 'seite:notizen', titel: 'Notizen', gruppe: 'Arbeit', art: 'seite', kuerzel: 'No', pfad: '/notizen/' }],
-  symbole: { 'seite:notizen': ['file-text', 200] },            // Glyphe (Lucide-Name) und Farbton 0–359
+  flaechen: [{ id: 'seite:notizen', titel: 'Notes', gruppe: 'Arbeit', art: 'seite', kuerzel: 'No', pfad: '/notizen/' }],
+  symbole: { 'seite:notizen': ['file-text', 200] },            // glyph (Lucide name) and colour tone 0–359
   gruppen: { reihenfolge: ['Arbeit'], plugin: { notizen: 'Arbeit' }, app: { notizen__liste: 'Arbeit' } },
-  standardPlaetze: [{ name: 'Schreiben', ids: ['seite:notizen', 'app:kalender__heute'] }],
+  standardPlaetze: [{ name: 'Writing', ids: ['seite:notizen', 'app:kalender__heute'] }],
   alias: { 'seite:alt': 'seite:notizen' },
-  dinge: { notiz: { name: 'Notiz', pfad: '/notizen/' } },     // optional: ziehbare Dinge (fyos://notiz/<id>)
-  quelle: 'mein-plugin',                                       // optional: ersetzt frühere Einträge derselben Quelle
+  dinge: { notiz: { name: 'Note', pfad: '/notizen/' } },      // optional: draggable things (fyos://notiz/<id>)
+  quelle: 'mein-plugin',                                       // optional: replaces earlier entries from the same source
 });
 ```
 
-| Feld | Bedeutung |
+| Field | Meaning |
 | --- | --- |
-| `flaechen` | Seiten (`art: 'seite'` mit `pfad`, läuft in einem Fenster), externe Dienste (`extern: <url>`, neuer Tab) und native Flächen (`art: 'nativ'` mit `laden`, eine Solid-Komponente im Fenster) |
-| `symbole` | Glyphe und Farbton je Fläche; Hub-Apps bringen ihr Gesicht selbst mit |
-| `gruppen` | Reihenfolge der Gruppen im Start und Zuordnung von Hub-Apps zu einer Gruppe (erst ganzer Werkzeugname, dann Plugin-Präfix vor `__`, sonst „Apps“) |
-| `standardPlaetze` | Vorlagen, die der Start anbietet; fehlende Flächen werden übergangen |
-| `alias` | alte Kennungen führen auf die heutige Fläche (gespeicherte Anordnungen, Lesezeichen, `?offen=`) |
-| `dinge` | Typen ziehbarer Dinge: die Shell öffnet die Fläche mit dem angegebenen Pfad und sagt ihr, welches Ding gemeint ist |
-| `quelle` | Eine neue Registrierung derselben Quelle ersetzt die alte |
+| `flaechen` | pages (`art: 'seite'` with `pfad`, runs in a window), external services (`extern: <url>`, new tab) and native surfaces (`art: 'nativ'` with `laden`, a Solid component in the window) |
+| `symbole` | glyph and colour tone per surface; hub apps bring their own face |
+| `gruppen` | order of the groups in Start and assignment of hub apps to a group (first the full tool name, then the plugin prefix before `__`, otherwise "Apps") |
+| `standardPlaetze` | templates that Start offers; missing surfaces are skipped |
+| `alias` | old ids lead to today's surface (saved layouts, bookmarks, `?offen=`) |
+| `dinge` | types of draggable things: the shell opens the surface with the given path and tells it which thing is meant |
+| `quelle` | a new registration from the same source replaces the old one |
 
-Wohin der Aufruf gehört: Jede Datei `src/plugins/*.ts` wird beim Laden der Shell ausgeführt. Ein Plugin legt
-dort eine Datei ab, die `registriereFlaechen` aufruft; die Shell selbst bleibt unverändert.
+Where the call belongs: every file `src/plugins/*.ts` is executed when the shell loads. A plugin puts a file there that
+calls `registriereFlaechen`; the shell itself stays unchanged.
 
-## Wie ein Plugin mit Hub-App erscheint
+## How a plugin with a hub app appears
 
-Ein Hub-Plugin, dessen Werkzeug eine Oberfläche (`_meta.ui.resourceUri`) hat, erscheint ohne Eintrag in der Shell:
-Die Shell fragt `/hub-api/apps` ab (beim Start, alle zwei Minuten und beim Zurückkehren in den Tab). Daraus entstehen
-Fläche, Dock-Eintrag und Katalogkachel.
+A Hub plugin whose tool has an interface (`_meta.ui.resourceUri`) appears in the shell without an entry: the shell
+queries `/hub-api/apps` (at startup, every two minutes and when you return to the tab). Surface, dock entry and catalog
+tile come from that.
 
-- Titel, Untertitel, Kategorie, Symbol und Farbe nimmt die Shell vom Hub (oberste Ebene von `/hub/apps` oder
-  `_meta.app` am Werkzeug: `titel`, `untertitel`, `symbol`, `ton`, `kategorie`, `icon`); fehlt etwas, leitet sie es
-  aus Name und Beschreibung ab, die Farbe aus dem Namen.
-- Die Gruppe im Start kommt aus `gruppen.app` / `gruppen.plugin`; ohne Eintrag steht die App in „Apps“.
-- Werkzeuge mit derselben Oberfläche sind eine Fläche. Nur lesende Werkzeuge ohne Pflichtfelder lassen sich an den
-  Startbildschirm heften.
-- Deeplink: `/os/?offen=app:<plugin>__<werkzeug>[&eingabe=<base64url(JSON)>]` öffnet die App, die Eingabe nur für
-  lesende Werkzeuge.
+- The shell takes title, subtitle, category, symbol and colour from the Hub (top level of `/hub/apps` or `_meta.app`
+  on the tool: `titel`, `untertitel`, `symbol`, `ton`, `kategorie`, `icon`); if something is missing, it derives it
+  from name and description, the colour from the name.
+- The group in Start comes from `gruppen.app` / `gruppen.plugin`; without an entry the app is in "Apps".
+- Tools with the same interface are one surface. Only reading tools without required fields can be pinned to the home
+  screen.
+- Deep link: `/os/?offen=app:<plugin>__<tool>[&eingabe=<base64url(JSON)>]` opens the app; the input only for reading
+  tools.
 
-Seiten, die ein Plugin selbst ausliefert, laufen als `art: 'seite'` in einem Fenster (iframe, gleicher Ursprung).
+Pages that a plugin serves itself run as `art: 'seite'` in a window (iframe, same origin).
 
-## Laufzeit-Konfiguration
+## Runtime configuration
 
-Der Name kommt aus der Bauzeit (`PUBLIC_FYOS_NAME`, Vorgabe „FYOS“), alles Weitere aus `/fyos.config.json`
-(Beispiel: `public/fyos.config.example.json`). Fehlt die Datei, läuft die Shell mit den Vorgaben. Der Ursprung ist
-immer `window.location.origin`.
+The name comes from build time (`PUBLIC_FYOS_NAME`, default "FYOS"), everything else from `/fyos.config.json`
+(example: `public/fyos.config.example.json`). If the file is missing, the shell runs with the defaults. The origin is
+always `window.location.origin`.
 
 ```json
 {
@@ -119,52 +119,51 @@ immer `window.location.origin`.
 }
 ```
 
-- `name`: Name im Menü, Start und Seitentitel (überschreibt `PUBLIC_FYOS_NAME`).
-- `oeffentlicheUrl`: zusätzlicher Ursprung, dessen Links im OS öffnen (hinter einem Proxy).
-- `agent.name`: Anzeigename des Agenten (Dock, Fensterkopf, Raum Gespräch).
-- `extern`: Dienste mit eigener Oberfläche; sie öffnen in einem neuen Tab (nur `http`/`https`).
+- `name`: name in the menu, Start and page title (overrides `PUBLIC_FYOS_NAME`).
+- `oeffentlicheUrl`: an additional origin whose links open in the OS (behind a proxy).
+- `agent.name`: display name of the agent (dock, window header, room "Conversation").
+- `extern`: services with an interface of their own; they open in a new tab (only `http`/`https`).
 
-Im Image liegt eine leere Standarddatei `{}` unter `/etc/fyos/fyos.config.json`; wer eigene Werte will, bindet eine
-Datei dort ein.
+The image contains an empty default file `{}` at `/etc/fyos/fyos.config.json`; if you want your own values, mount a
+file there.
 
-## Mitteilungen und Agent-Fragen
+## Notices and questions to the agent
 
-Eine Quelle (zum Beispiel der Agent) zeigt eine Mitteilung oben rechts mit einem Fensterereignis; ein Klick öffnet
-die Fläche. Gestapelt werden höchstens drei, gleiche binnen einer Minute ersetzen einander; „stumm“ und „aus“ lassen
-sich zurücknehmen.
+A source (for example the agent) shows a notice at the top right with a window event; a click opens the surface. At
+most three are stacked; identical ones within a minute replace each other; "muted" and "off" can be undone.
 
 ```js
 window.dispatchEvent(new CustomEvent('fyos:zeigt', {
-  detail: { ziel: 'app:notizen__liste', titel: 'Notizen', untertitel: 'Heute', vorschau: 'Drei neue Einträge.', eingabe: { tag: 'heute' } },
+  detail: { ziel: 'app:notizen__liste', titel: 'Notes', untertitel: 'Today', vorschau: 'Three new entries.', eingabe: { tag: 'heute' } },
 }));
 ```
 
-Den Agenten fragen (aus Apps, Seiten und Objekten): `fyos:agent-fragen` mit `detail: { text, kontext, quelle }` am
-Fenster, aus einer Seite im Fenster per `postMessage({ fyosAgentFragen: { … } })`. Die Shell öffnet das Agent-Dock
-(native Agent-App gegen den Runner) mit der Frage samt Kontext als Entwurf im Eingabefeld; gesendet wird mit Enter.
+Asking the agent (from apps, pages and objects): `fyos:agent-fragen` with `detail: { text, kontext, quelle }` on the
+window, from a page in a window by `postMessage({ fyosAgentFragen: { … } })`. The shell opens the agent dock (native
+agent app against the runner) with the question and its context as a draft in the input field; Enter sends it.
 
-Flächen öffnen: `fyos:oeffnen` mit `detail: { ziel, eingabe }` (`ziel` ist eine Fläche oder ein Pfad); die Shell
-setzt `preventDefault()`, wenn sie übernimmt.
+Opening surfaces: `fyos:oeffnen` with `detail: { ziel, eingabe }` (`ziel` is a surface or a path); the shell calls
+`preventDefault()` when it takes over.
 
-## Entwickeln und prüfen
+## Developing and testing
 
 ```
 npm install
 npm run dev          # http://localhost:4321/os/
-npx vitest run       # Unit-Tests (jsdom)
-npx astro build      # statische Seiten nach dist/
+npx vitest run       # unit tests (jsdom)
+npx astro build      # static pages into dist/
 ```
 
-Für `npm run dev` leitet der Entwicklungs-Proxy an laufende Dienste, wenn gesetzt:
+For `npm run dev` the development proxy forwards to running services if set:
 
 ```
 FYOS_DEV_HUB=http://localhost:8080 FYOS_DEV_RUNNER=http://localhost:18438 FYOS_DEV_RUNNER_TOKEN=… npm run dev
 ```
 
-Er verhält sich wie die Auslieferung: `/hub-api/*` wird zu `/hub/*`, `/api/agent/*` geht ohne Präfix und mit dem
-Token als `Authorization: Bearer` an den Runner (nur mit `X-FYOS-Agent: 1`).
+It behaves like the delivery: `/hub-api/*` becomes `/hub/*`, `/api/agent/*` goes to the runner without the prefix and
+with the token as `Authorization: Bearer` (only with `X-FYOS-Agent: 1`).
 
-Der Typ-Check der Quellen: `npx tsc --noEmit -p .` (die Tests sind davon ausgenommen).
+Type check of the sources: `npx tsc --noEmit -p .` (the tests are excluded).
 
 ## Image
 
@@ -173,12 +172,11 @@ docker build -t fyos-web .
 docker run -p 8080:8080 -e FYOS_HUB_UPSTREAM=http://hub:8080 -e FYOS_AGENT_UPSTREAM=http://agent:18438 -e FYOS_AGENT_TOKEN=… fyos-web
 ```
 
-Gesundheit: `GET /healthz`.
+Health: `GET /healthz`.
 
-## Hinweise
+## Notes
 
-- Der Host-Name, mit dem sich die Shell gegenüber Hub-Apps vorstellt (`fyos-web`), ist bewusst unverändert; Apps
-  prüfen ihn.
-- Die Hub-Werkzeuge `shell.plaetze`, `shell.platz_speichern`, `shell.platz_entfernen`, `shell.abholen`,
-  `shell.merken` und `shell.zustand` ruft die Shell nach bestem Wissen auf (Vorlagen, Anordnung melden, Befehle des
-  Agenten abholen). Antwortet der Hub nicht, läuft die Shell ohne sie weiter.
+- The host name the shell introduces itself with to hub apps (`fyos-web`) is deliberately unchanged; apps check it.
+- The shell calls the Hub tools `shell.plaetze`, `shell.platz_speichern`, `shell.platz_entfernen`, `shell.abholen`,
+  `shell.merken` and `shell.zustand` on a best-effort basis (templates, reporting the layout, picking up the agent's
+  commands). If the Hub does not answer, the shell carries on without them.

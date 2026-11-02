@@ -11,6 +11,7 @@ import { For, Show, createEffect, createSignal, onCleanup, type JSX } from 'soli
 import { Portal } from 'solid-js/web';
 import { lage, menue, menueZu, naechster, waehlbar, type MenuePunkt } from '~/lib/os/menue';
 import { Glyphe } from './Symbol';
+import { tr } from '~/lib/i18n';
 
 function Liste(p: {
   punkte: MenuePunkt[];
@@ -90,7 +91,7 @@ function Liste(p: {
       for (let j = 1; j <= n.length; j++) {
         const i = (start + j) % n.length;
         const pt = n[i]!;
-        if (waehlbar(pt) && 'text' in pt && pt.text.toLowerCase().startsWith(k)) {
+        if (waehlbar(pt) && 'text' in pt && tr(pt.text).toLowerCase().startsWith(k)) {
           setWahl(i);
           break;
         }
@@ -113,7 +114,7 @@ function Liste(p: {
         <For each={p.punkte}>
           {(pt, i) => {
             if (pt.art === 'trenner') return <div role="separator" class="os-menue-trenner" />;
-            if (pt.art === 'titel') return <div class="os-menue-titel">{pt.text}</div>;
+            if (pt.art === 'titel') return <div class="os-menue-titel">{tr(pt.text)}</div>;
             const istUnter = pt.art === 'unter';
             return (
               <div
@@ -152,7 +153,7 @@ function Liste(p: {
                     ✓
                   </Show>
                 </span>
-                <span class="min-w-0 flex-1 truncate">{pt.text}</span>
+                <span class="min-w-0 flex-1 truncate">{tr(pt.text)}</span>
                 <Show when={pt.art !== 'unter' && pt.kuerzel}>
                   <span class="os-menue-kuerzel">{(pt as { kuerzel: string }).kuerzel}</span>
                 </Show>

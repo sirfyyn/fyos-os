@@ -8,6 +8,7 @@ import { istOffen } from '~/lib/agent-runner/freigaben';
 import type { Freigabe } from '~/lib/agent-runner/typen';
 import { FreigabeKarte } from './FreigabeKarte';
 import { Fehler, Laedt, Leer } from './gemeinsam';
+import { tr } from '~/lib/i18n';
 
 export function Freigaben(p: {
   freigaben: Freigabe[];
@@ -21,18 +22,18 @@ export function Freigaben(p: {
   return (
     <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-0.5" data-tab="freigaben">
       <Show when={p.fehler}>
-        <Fehler text={`Freigaben nicht abrufbar: ${p.fehler}`} nochmal={p.erneut} />
+        <Fehler text={tr('Freigaben nicht abrufbar: {0}', p.fehler)} nochmal={p.erneut} />
       </Show>
-      <Show when={p.geladen || p.fehler} fallback={<Laedt text="Freigaben werden geladen" />}>
-        <Show when={offen().length} fallback={<Leer>Keine offene Freigabe. Was zerstören könnte, fragt hier zuerst.</Leer>}>
-          <section aria-label="Offene Freigaben" class="flex flex-col gap-2">
-            <h2 class="os-titel m-0 px-1">Wartet auf dich ({offen().length})</h2>
+      <Show when={p.geladen || p.fehler} fallback={<Laedt text={tr('Freigaben werden geladen')} />}>
+        <Show when={offen().length} fallback={<Leer>{tr('Keine offene Freigabe. Was zerstören könnte, fragt hier zuerst.')}</Leer>}>
+          <section aria-label={tr('Offene Freigaben')} class="flex flex-col gap-2">
+            <h2 class="os-titel m-0 px-1">{tr('Wartet auf dich (')}{offen().length})</h2>
             <For each={offen()}>{(f) => <FreigabeKarte f={f} entscheide={p.entscheide} />}</For>
           </section>
         </Show>
         <Show when={erledigt().length}>
-          <section aria-label="Entschiedene Freigaben" class="flex flex-col gap-2">
-            <h2 class="os-titel m-0 px-1">Zuletzt entschieden</h2>
+          <section aria-label={tr('Entschiedene Freigaben')} class="flex flex-col gap-2">
+            <h2 class="os-titel m-0 px-1">{tr('Zuletzt entschieden')}</h2>
             <For each={erledigt()}>{(f) => <FreigabeKarte f={f} entscheide={p.entscheide} />}</For>
           </section>
         </Show>

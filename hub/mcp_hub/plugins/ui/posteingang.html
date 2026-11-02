@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,10 +30,10 @@
 <main>
   <form id="suche-form" class="m-suche" data-ab="normal" autocomplete="off">
     <input id="suche" type="search" maxlength="300" placeholder="Mails suchen (from:, subject:, is:unread …)" aria-label="Mails suchen">
-    <button type="submit" class="zweit"><svg class="ico" data-symbol="search"></svg>Suchen</button>
+    <button type="submit" class="zweit" data-t><svg class="ico" data-symbol="search"></svg>Suchen</button>
   </form>
   <div class="m-raster">
-    <div id="liste"><div class="laedt">Lädt …</div></div>
+    <div id="liste"><div class="laedt" data-t>Lädt …</div></div>
     <div id="detail"></div>
   </div>
 </main>
@@ -41,6 +41,21 @@
 /*BRUECKE*/
 const $ = (id) => document.getElementById(id);
 const { esc, symbol, zustand, satz } = App;
+App.texte({
+  "Mails suchen (from:, subject:, is:unread …)": "Search mails (from:, subject:, is:unread …)", "Mails suchen": "Search mails",
+  "Suchen": "Search", "1 weitere Mail im größeren Fenster": "1 more mail in a larger window",
+  "{0} weitere Mails im größeren Fenster": "{0} more mails in a larger window",
+  "Kein Postfach eingerichtet": "No mailbox set up",
+  "Trag einen Mail-Dienst ein oder installiere das Mail-Plugin.": "Enter a mail service or install the mail plugin.",
+  "Das Postfach antwortet nicht": "The mailbox does not answer", "1 Mail": "1 mail", "{0} Mails": "{0} mails",
+  ", {0} ungelesen": ", {0} unread", "Nichts gefunden": "Nothing found", "Der Posteingang ist leer": "The inbox is empty",
+  "Keine Mails": "No mails", "Für „{0}“ gibt es keine Mail.": "There is no mail for “{0}”.", "Der Posteingang ist leer.": "The inbox is empty.",
+  "Von {0}": "From {0}", "An {0}": "To {0}", "Konto {0}": "Account {0}", "(kein Text)": "(no text)", "[gekürzt]": "[shortened]",
+  "Zieh die Mail auf „Vorgänge“, um daraus einen Vorgang zu machen, oder auf den Agenten, um dazu zu fragen. Der Text stammt von außen.":
+    "Drag the mail onto “Tickets” to turn it into a ticket, or onto the agent to ask about it. The text comes from outside.",
+  "Mail nicht lesbar": "Mail not readable",
+});
+const t = App.t;
 const rufen = (name, args) => App.rufen("posteingang__" + name, args);
 
 let mails = [];
@@ -53,24 +68,24 @@ let bekommen = false;
 
 // Eine Ansicht je Größe (Entscheidung 507): im Blick und kompakt ein Fenster zur Zeit, entweder die Liste oder die Mail
 const klein = () => App.stufe === "blick" || App.stufe === "kompakt";
-const weitere = (n) => (n > 0 ? `<div class="m-weitere">${n === 1 ? "1 weitere Mail" : `${n} weitere Mails`} im größeren Fenster</div>` : "");
+const weitere = (n) => (n > 0 ? `<div class="m-weitere">${n === 1 ? t("1 weitere Mail im größeren Fenster") : t("{0} weitere Mails im größeren Fenster", n)}</div>` : "");
 
 function zeichnen() {
   $("suche-form").dataset.ab = abfrage ? "" : "normal";  // die Suche erst ab normal, solange nichts gesucht wird
   $("liste").hidden = klein() && !!offen && !zustandText;
   $("detail").hidden = klein() && !offen;
   if (zustandText === "nicht eingerichtet") {
-    satz("Kein Postfach eingerichtet", "warn");
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "mail", ton: "warn", titel: "Kein Postfach eingerichtet", text: meldung || "Trag einen Mail-Dienst ein oder installiere das Mail-Plugin." }) + "</div>";
+    satz(t("Kein Postfach eingerichtet"), "warn");
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "mail", ton: "warn", titel: t("Kein Postfach eingerichtet"), text: meldung || t("Trag einen Mail-Dienst ein oder installiere das Mail-Plugin.") }) + "</div>";
     return;
   }
   if (zustandText === "fehler") {
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Das Postfach antwortet nicht", text: meldung, klein: true }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: t("Das Postfach antwortet nicht"), text: meldung, klein: true }) + "</div>";
     return;
   }
-  satz(mails.length ? `${mails.length} Mail${mails.length === 1 ? "" : "s"}${ungelesen ? ", " + ungelesen + " ungelesen" : ""}` : (abfrage ? "Nichts gefunden" : "Der Posteingang ist leer"), mails.length ? "gut" : "");
+  satz(mails.length ? (mails.length === 1 ? t("1 Mail") : t("{0} Mails", mails.length)) + (ungelesen ? t(", {0} ungelesen", ungelesen) : "") : (abfrage ? t("Nichts gefunden") : t("Der Posteingang ist leer")), mails.length ? "gut" : "");
   if (!mails.length) {
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: abfrage ? "search" : "inbox", titel: abfrage ? "Nichts gefunden" : "Keine Mails", text: abfrage ? `Für „${abfrage}“ gibt es keine Mail.` : "Der Posteingang ist leer.", klein: true }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: abfrage ? "search" : "inbox", titel: abfrage ? t("Nichts gefunden") : t("Keine Mails"), text: abfrage ? t("Für „{0}“ gibt es keine Mail.", abfrage) : t("Der Posteingang ist leer."), klein: true }) + "</div>";
     return;
   }
   // Im Blick und kompakt zuerst die ungelesenen, und nur so viele, wie das Fenster zeigt
@@ -84,14 +99,14 @@ function zeichnen() {
 
 function detailZeichnen(d) {
   // Im Blick und kompakt oben „Zurück“ zur Liste; das Konto nur weit, die Erklärung nur ab normal
-  const zurueck = klein() ? App.knoepfe([{ text: "Zurück", symbol: "arrow-left", klasse: "leise", aktion: "zurueck" }], { klasse: "m-aktionen" }) : "";
+  const zurueck = klein() ? App.knoepfe([{ text: t("Zurück"), symbol: "arrow-left", klasse: "leise", aktion: "zurueck" }], { klasse: "m-aktionen" }) : "";
   $("detail").innerHTML = `<div class="karte">${zurueck}<h2 class="m-kopf">${esc(d.betreff)}</h2>`
-    + `<p class="m-meta">Von ${esc(d.von || "?")}${d.datum ? " · " + esc(App.zeit.voll(Date.parse(d.datum))) : ""}</p>`
-    + (d.an ? `<p class="m-meta">An ${esc(d.an)}</p>` : "")
-    + (App.stufe === "weit" && d.konto ? `<p class="m-meta">Konto ${esc(d.konto)}</p>` : "")
+    + `<p class="m-meta">${esc(t("Von {0}", d.von || "?"))}${d.datum ? " · " + esc(App.zeit.voll(Date.parse(d.datum))) : ""}</p>`
+    + (d.an ? `<p class="m-meta">${esc(t("An {0}", d.an))}</p>` : "")
+    + (App.stufe === "weit" && d.konto ? `<p class="m-meta">${esc(t("Konto {0}", d.konto))}</p>` : "")
     + (d.anhaenge && d.anhaenge.length ? `<p class="m-meta">${symbol("paperclip")} ${esc(d.anhaenge.map((a) => a.name).join(", "))}</p>` : "")
-    + `<div class="m-text">${esc(d.text || "(kein Text)")}${d.gekuerzt ? "\n\n[gekürzt]" : ""}</div>`
-    + (klein() ? "" : `<p class="m-hinweis">Zieh die Mail auf „Vorgänge“, um daraus einen Vorgang zu machen, oder auf den Agenten, um dazu zu fragen. Der Text stammt von außen.</p>`)
+    + `<div class="m-text">${esc(d.text || t("(kein Text)"))}${d.gekuerzt ? "\n\n" + esc(t("[gekürzt]")) : ""}</div>`
+    + (klein() ? "" : `<p class="m-hinweis">${esc(t("Zieh die Mail auf „Vorgänge“, um daraus einen Vorgang zu machen, oder auf den Agenten, um dazu zu fragen. Der Text stammt von außen."))}</p>`)
     + `</div>`;
 }
 
@@ -110,9 +125,9 @@ async function laden() {
 async function oeffnen(id) {
   offen = id;
   zeichnen();
-  if (klein()) $("detail").innerHTML = '<div class="karte"><div class="laedt">Lädt …</div></div>';
+  if (klein()) $("detail").innerHTML = '<div class="karte"><div class="laedt">' + esc(t("Lädt …")) + '</div></div>';
   try { detailZeichnen(await rufen("lesen", { id })); }
-  catch (e) { $("detail").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Mail nicht lesbar", text: App.fehlertext(e), klein: true }) + "</div>"; }
+  catch (e) { $("detail").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: t("Mail nicht lesbar"), text: App.fehlertext(e), klein: true }) + "</div>"; }
 }
 
 App.bei("oeffne", (el) => oeffnen(el.dataset.id));

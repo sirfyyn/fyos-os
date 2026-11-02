@@ -20,6 +20,7 @@ import type { StartZustand } from './anordnung';
 import type { Flaeche } from './flaechen';
 import type { MenuePunkt } from './menue';
 import { deeplink } from './oeffnen';
+import { tr } from '~/lib/i18n';
 
 /** Ereignis an `window`; `detail` ist ein `AgentFragenDetail`. */
 export const AGENT_FRAGEN = FRAGEN_EREIGNIS;
@@ -115,7 +116,7 @@ async function inZwischenablage(text: string): Promise<boolean> {
 export function appFragen(f: Flaeche, start?: StartZustand): AgentFragenDetail {
   const a = ansicht(f, start);
   const detail: AgentFragenDetail = {
-    text: `Was fällt dir an „${f.titel}“ gerade auf?`,
+    text: tr('Was fällt dir an „{0}“ gerade auf?', tr(f.titel)),
     kontext: { app: a.app, titel: f.titel, eingabe: a.eingabe, modellKontext: kontextKuerzen(zustandVon(f.id).modellKontext) },
     quelle: 'app',
   };

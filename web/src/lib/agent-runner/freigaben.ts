@@ -3,6 +3,7 @@
  * im Runner, nicht im ITSM. Die Karte zeigt Aktion, Risiko, Kontext und Befehl; Erteilen und Ablehnen sind zwei Knöpfe.
  */
 import type { Freigabe } from './typen';
+import { tr } from '~/lib/i18n';
 
 export const istOffen = (f: Freigabe): boolean => f.status === 'offen';
 
@@ -24,7 +25,7 @@ export const offeneZahl = (liste: Freigabe[]): number => liste.filter(istOffen).
 export const RISIKO_TEXT: Record<string, string> = { low: 'niedrig', medium: 'mittel', high: 'hoch' };
 
 export function risikoText(r: string | undefined): string {
-  return RISIKO_TEXT[r ?? ''] ?? (r || 'mittel');
+  return tr(RISIKO_TEXT[r ?? ''] ?? (r || 'mittel'));
 }
 
 export type Entscheidung = 'erteilt' | 'abgelehnt';

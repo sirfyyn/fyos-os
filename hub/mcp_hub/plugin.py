@@ -379,7 +379,7 @@ class ToolDescriptor:
     setzen ihr eigenes."""
 
     aufgabe: bool = False
-    """MCP Tasks (docs/HUB-VERTRAG.md): ``True`` = das Werkzeug darf einem Client, der die Erweiterung
+    """MCP Tasks (docs/HUB-CONTRACT.md): ``True`` = das Werkzeug darf einem Client, der die Erweiterung
     ``io.modelcontextprotocol/tasks`` erklaert hat, als Aufgabe (Kennung statt Ergebnis) angeboten werden. Nur fuer
     Werkzeuge, die legitim lange laufen. Das Werkzeug darf ``mcp_hub.aufgaben.aktuelle()`` nutzen (Abbruch, Eingabe)."""
 

@@ -17,6 +17,7 @@ import { OEFFNEN, eingabeLesen, osZielAus, type OsZiel } from '~/lib/os/oeffnen'
 import { AppAktionen, AppTitel } from './AppRahmen';
 import { Inhalt } from './Fenster';
 import Kulisse from './Kulisse';
+import { tr } from '~/lib/i18n';
 
 const SCHMAL = '(max-width: 767px)';
 
@@ -93,8 +94,8 @@ export default function Allein(): JSX.Element {
         <button
           type="button"
           class="os-knopf os-allein-zurueck"
-          title="Zurück ins OS"
-          aria-label="Zurück ins OS"
+          title={tr('Zurück ins OS')}
+          aria-label={tr('Zurück ins OS')}
           onClick={zurueck}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
@@ -105,7 +106,7 @@ export default function Allein(): JSX.Element {
             <AppTitel f={f()!} />
           </div>
           <Show when={f()!.art === 'hubapp'}>
-            <div class="os-app-aktionen" role="group" aria-label={`${f()!.titel}: Aktionen`}>
+            <div class="os-app-aktionen" role="group" aria-label={tr('{0}: Aktionen', f()!.titel)}>
               <AppAktionen f={f()!} start={treffer()?.start} />
             </div>
           </Show>
@@ -118,18 +119,18 @@ export default function Allein(): JSX.Element {
           fallback={
             <>
               <Show when={laedt()}>
-                <p class="m-auto text-sm opacity-70" role="status">Lädt …</p>
+                <p class="m-auto text-sm opacity-70" role="status">{tr('Lädt …')}</p>
               </Show>
               <Show when={hubFehler() && !treffer() && ziel.startsWith('app:')}>
                 <div class="os-glas m-auto max-w-md rounded-[var(--os-radius)] p-6 text-center" role="alert">
-                  <p class="m-0 text-base">Der Hub antwortet gerade nicht, die App lässt sich nicht laden.</p>
-                  <button type="button" class="os-knopf mt-4 px-3" onClick={() => location.reload()}>Neu laden</button>
+                  <p class="m-0 text-base">{tr('Der Hub antwortet gerade nicht, die App lässt sich nicht laden.')}</p>
+                  <button type="button" class="os-knopf mt-4 px-3" onClick={() => location.reload()}>{tr('Neu laden')}</button>
                 </div>
               </Show>
               <Show when={unbekannt()}>
                 <div class="os-glas m-auto max-w-md rounded-[var(--os-radius)] p-6 text-center">
-                  <p class="m-0 text-base">Diese Fläche gibt es nicht (mehr).</p>
-                  <button type="button" class="os-knopf mt-4 px-3" onClick={zurueck}>Zurück ins OS</button>
+                  <p class="m-0 text-base">{tr('Diese Fläche gibt es nicht (mehr).')}</p>
+                  <button type="button" class="os-knopf mt-4 px-3" onClick={zurueck}>{tr('Zurück ins OS')}</button>
                 </div>
               </Show>
             </>

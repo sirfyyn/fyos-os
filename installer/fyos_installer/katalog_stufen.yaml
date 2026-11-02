@@ -1,4 +1,4 @@
-# Stufen je Fähigkeit. Schema und Prüfung: stufen.py, Begriffe: docs/NACHBAU.md (Grundstufe und Ausbaustufe).
+# Stufen je Fähigkeit. Schema und Prüfung: stufen.py, Begriffe: docs/REBUILD.md (Grundstufe und Ausbaustufe).
 #
 # Eine Fähigkeit gehört zu einem Baustein des Katalogs und kennt bis zu zwei Stufen:
 #   grund   ohne eigenen Dienst: was der Agent mitbringt oder was sich direkt anbinden lässt
@@ -11,98 +11,117 @@
 # anderen Stufe weder abgefragt noch geschrieben. Ein Eintrag mit Beschreibung statt eines Namens legt das Feld am
 # Baustein an, falls es dort fehlt (Plugin-Pakete bringen eigene Katalogeinträge ohne diese Felder mit).
 # `url` ist das Feld der Stufe `ausbau`, das die Adresse des Dienstes trägt.
+# `en` (optional, auch an Stufen und neuen Feldern): englische Texte; ohne sie bleibt der deutsche Text.
 version: 1
 faehigkeiten:
   - id: vorgaenge
     titel: Vorgänge
     kurz: Aufgaben, Entscheidungen und Freigaben, die der Agent anlegt und abarbeitet.
+    en: { titel: Tickets, kurz: "Tasks, decisions and approvals that the agent creates and works through." }
     baustein: leitstand
     stufen:
       grund:
         titel: Ablage im Hub
-        text: Die Vorgänge liegen in einer Ablage, die ein Plugin im Hub anmeldet. Nichts weiter zu betreiben.
+        text: Die Vorgänge liegen im ITSM des Kerns (Redis des Hubs). Nichts weiter zu betreiben.
+        en: { titel: Store in the Hub, text: "The tickets live in the core's ITSM (the Hub's Redis). Nothing else to run." }
       ausbau:
         titel: eigener Ticketdienst
         text: Ein Ticketdienst mit dem Vorgangs-Vertrag; der Hub fragt ihn über FYOS_VORGAENGE_URL.
+        en: { titel: own ticket service, text: "A ticket service with the ticket contract; the Hub asks it via FYOS_VORGAENGE_URL." }
         felder: [vorgaenge_url, vorgaenge_kopf]
         url: vorgaenge_url
 
   - id: termine
     titel: Termine
     kurz: Deine Termine lesen und auf Wunsch einen neuen eintragen.
+    en: { titel: Appointments, kurz: "Read your appointments and add a new one on request." }
     baustein: kalender
     aus: true
     stufen:
       grund:
         titel: CalDAV und ICS direkt
         text: Das Plugin liest deinen CalDAV-Kalender (App-Passwort) oder ein ICS-Abo selbst, ohne eigenen Dienst.
+        en: { titel: CalDAV and ICS directly, text: "The plugin reads your CalDAV calendar (app password) or an ICS subscription itself, without a service of its own." }
         felder: [url, nutzer, passwort]
       ausbau:
         titel: eigener Termin-Dienst
         text: Ein Dienst, der Termine mehrerer Konten bündelt; der Hub fragt ihn über FYOS_TERMINE_URL.
+        en: { titel: own appointment service, text: "A service that bundles appointments of several accounts; the Hub asks it via FYOS_TERMINE_URL." }
         felder:
           - name: termine_url
             typ: url
             titel: Adresse des Termin-Dienstes
             beschreibung: Wo der Termin-Dienst für den Hub erreichbar ist (der Vertrag steht in hub/mcp_hub/termine.py); leer = nicht eingerichtet
+            en: { titel: Address of the appointment service, beschreibung: "Where the Hub reaches the appointment service (the contract is in hub/mcp_hub/termine.py); empty = not set up" }
             umgebung: FYOS_TERMINE_URL
           - name: termine_kopf
             typ: geheim
             titel: Kopfzeile für den Termin-Dienst
             beschreibung: "Eine Kopfzeile „Name: Wert“, die jeder Aufruf beim Dienst mitschickt, etwa eine Anmeldung"
+            en: { titel: Header for the appointment service, beschreibung: "A header »Name: Value« that every call to the service sends, such as a sign-in" }
             umgebung: FYOS_TERMINE_KOPF
         url: termine_url
 
   - id: postfach
     titel: Postfach lesen
     kurz: Den Posteingang ansehen, nach Mails suchen und eine vorlesen, nur lesend.
+    en: { titel: Read mailbox, kurz: "Look at the inbox, search for mails and read one aloud, read-only." }
     baustein: mail
     aus: true
     stufen:
       grund:
         titel: IMAP direkt
         text: Das Plugin liest dein Postfach selbst über IMAP mit App-Passwort, nur lesend, ohne eigenen Dienst.
+        en: { titel: IMAP directly, text: "The plugin reads your mailbox itself via IMAP with an app password, read-only, without a service of its own." }
         felder: [host, port, nutzer, passwort]
       ausbau:
         titel: eigener Postfach-Dienst
         text: Ein Dienst, der mehrere Postfächer bündelt; der Hub fragt ihn über FYOS_POSTFACH_URL.
+        en: { titel: own mailbox service, text: "A service that bundles several mailboxes; the Hub asks it via FYOS_POSTFACH_URL." }
         felder:
           - name: postfach_url
             typ: url
             titel: Adresse des Postfach-Dienstes
             beschreibung: Wo der Postfach-Dienst für den Hub erreichbar ist (der Vertrag steht in hub/mcp_hub/postfach.py); leer = nicht eingerichtet
+            en: { titel: Address of the mailbox service, beschreibung: "Where the Hub reaches the mailbox service (the contract is in hub/mcp_hub/postfach.py); empty = not set up" }
             umgebung: FYOS_POSTFACH_URL
           - name: postfach_kopf
             typ: geheim
             titel: Kopfzeile für den Postfach-Dienst
             beschreibung: "Eine Kopfzeile „Name: Wert“, die jeder Aufruf beim Dienst mitschickt, etwa eine Anmeldung"
+            en: { titel: Header for the mailbox service, beschreibung: "A header »Name: Value« that every call to the service sends, such as a sign-in" }
             umgebung: FYOS_POSTFACH_KOPF
         url: postfach_url
 
   - id: post
     titel: Post senden
     kurz: Mitteilungen und Kampagnen per E-Mail über deinen eigenen Mail-Dienst.
+    en: { titel: Send post, kurz: "Notices and campaigns by email through your own mail service." }
     baustein: post
     aus: true
     stufen:
       ausbau:
         titel: Listmonk
         text: Ein eigener Listmonk verschickt die Post; der Hub fragt ihn über FYOS_POST_URL. Eine Grundstufe ohne Dienst gibt es nicht.
+        en: { titel: Listmonk, text: "Your own Listmonk sends the post; the Hub asks it via FYOS_POST_URL. There is no basic tier without a service." }
         felder: [url, link, an, zugaenge, token_fyos, tagesgrenze]
         url: url
 
   - id: dokumente
     titel: Dokumente
     kurz: Scans und Belege finden und im Dokumenten-Eingang zeigen.
+    en: { titel: Documents, kurz: "Find scans and receipts and show them in the document inbox." }
     baustein: leitstand
     aus: true
     stufen:
       grund:
         titel: Ordner-Ablage
         text: Eine Ablage als Ordner ohne eigenen Dienst. Sie gibt es noch nicht; bis dahin bleiben Ausbau oder aus.
+        en: { titel: Folder store, text: "A store as a folder without a service of its own. It does not exist yet; until then extended tier or off remain." }
         verfuegbar: false
       ausbau:
         titel: Paperless-ngx
         text: Ein Paperless-ngx mit Token; der Hub fragt es über FYOS_DOKUMENTE_URL.
+        en: { titel: Paperless-ngx, text: "A Paperless-ngx with a token; the Hub asks it via FYOS_DOKUMENTE_URL." }
         felder: [dokumente_url, dokumente_kopf, dokumente_link]
         url: dokumente_url
