@@ -12,22 +12,22 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="fl" x="40" y="26" width="560" height="348" rx="12"/>
 <rect class="ln" x="40" y="26" width="560" height="348" rx="12"/>
 <rect class="bar" x="41" y="27" width="558" height="28" rx="11"/>
-<text class="ink" x="250" y="46">Eigenes Modell</text>
+<text class="ink" x="250" y="46">Own model</text>
 <rect class="acc" x="60" y="72" width="250" height="64" rx="10"/>
-<text class="fl" x="78" y="98" font-weight="700">Profil läuft: Profil-B</text>
-<text class="fl" x="78" y="122">Antwortet in Echtzeit</text>
-<text class="ink" x="340" y="88">Rechner</text><rect class="bar" x="410" y="77" width="170" height="12" rx="6"/><rect class="acc" x="410" y="77" width="104" height="12" rx="6"/>
-<text class="ink" x="340" y="112">Speicher</text><rect class="bar" x="410" y="101" width="170" height="12" rx="6"/><rect class="wrm" x="410" y="101" width="142" height="12" rx="6"/>
-<text class="ink" x="340" y="136">Wärme</text><rect class="bar" x="410" y="125" width="170" height="12" rx="6"/><rect class="acc" x="410" y="125" width="70" height="12" rx="6"/>
-<text class="ink" x="60" y="178" font-weight="700">Messreihe: Tempo je Profil</text>
+<text class="fl" x="78" y="98" font-weight="700">Profile running: Profile-B</text>
+<text class="fl" x="78" y="122">Answers in real time</text>
+<text class="ink" x="340" y="88">Machine</text><rect class="bar" x="410" y="77" width="170" height="12" rx="6"/><rect class="acc" x="410" y="77" width="104" height="12" rx="6"/>
+<text class="ink" x="340" y="112">Storage</text><rect class="bar" x="410" y="101" width="170" height="12" rx="6"/><rect class="wrm" x="410" y="101" width="142" height="12" rx="6"/>
+<text class="ink" x="340" y="136">Heat</text><rect class="bar" x="410" y="125" width="170" height="12" rx="6"/><rect class="acc" x="410" y="125" width="70" height="12" rx="6"/>
+<text class="ink" x="60" y="178" font-weight="700">Measurement series: speed per profile</text>
 <path class="ln" d="M70 190v140h350" opacity=".45"/>
-<rect class="mut" x="100" y="270" width="52" height="60" rx="4"/><text class="mut" x="102" y="350">Profil-A</text>
-<rect class="acc" x="200" y="226" width="52" height="104" rx="4"/><text class="mut" x="202" y="350">Profil-B</text>
-<rect class="wrm" x="300" y="246" width="52" height="84" rx="4"/><text class="mut" x="302" y="350">Profil-C</text>
+<rect class="mut" x="100" y="270" width="52" height="60" rx="4"/><text class="mut" x="102" y="350">Profile-A</text>
+<rect class="acc" x="200" y="226" width="52" height="104" rx="4"/><text class="mut" x="202" y="350">Profile-B</text>
+<rect class="wrm" x="300" y="246" width="52" height="84" rx="4"/><text class="mut" x="302" y="350">Profile-C</text>
 <rect class="bar" x="450" y="190" width="130" height="140" rx="10"/>
-<text class="ink" x="466" y="216" font-weight="700">Fy schlägt vor:</text>
-<text class="mut" x="466" y="242">Profil-B behalten,</text>
-<text class="mut" x="466" y="262">Profil-C testen.</text>
-<rect class="ln" x="466" y="284" width="98" height="28" rx="14"/><text class="ink" x="486" y="303">Freigeben</text>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="ink" x="466" y="216" font-weight="700">Fy suggests:</text>
+<text class="mut" x="466" y="242">Keep Profile-B,</text>
+<text class="mut" x="466" y="262">test Profile-C.</text>
+<rect class="ln" x="466" y="284" width="98" height="28" rx="14"/><text class="ink" x="486" y="303">Approve</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

@@ -1,3 +1,5 @@
+[![FLE Link: run an agent next to your model](https://flelink.run/media/banner-agent.jpg)](https://flelink.run)
+
 English: [README.md](README.md) (Hauptfassung; die übrige Doku des Repos ist englisch, Begriffe in [docs/GLOSSARY.md](docs/GLOSSARY.md))
 
 # FYOS — For Your Own Sake

@@ -375,7 +375,7 @@ def _erstelle_plan(
     bausteine = [katalog[i] for i in plan.auswahl]
     plan.reife = bestimme_reife(bausteine)
 
-    persona = _abschnitt(antworten, "persona", {**VORGABE_PERSONA, "sprache": spr.persona_sprache()}, fehler)
+    persona = _abschnitt(antworten, "persona", spr.persona_vorgabe(VORGABE_PERSONA), fehler)
     # Sprache der erzeugten Oberfläche (fyos.config.json): Antwort `sprache`, sonst die Sprache des Installers
     plan.sprache = spr.normalisiere(antworten.get("sprache")) or spr.aktiv()
     modell = _abschnitt(antworten, "modell", VORGABE_MODELL, fehler)

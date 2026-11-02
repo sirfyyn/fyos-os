@@ -12,9 +12,9 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
 <rect class="fl" x="40" y="30" width="380" height="290" rx="10"/>
 <rect class="ln" x="40" y="30" width="380" height="290" rx="10"/>
-<text class="ink" x="60" y="58" font-weight="700">Oktober</text>
+<text class="ink" x="60" y="58" font-weight="700">October</text>
 <g class="mut ctr">
-<text x="76" y="84">Mo</text><text x="130" y="84">Di</text><text x="184" y="84">Mi</text><text x="238" y="84">Do</text><text x="292" y="84">Fr</text><text x="346" y="84">Sa</text><text x="400" y="84">So</text>
+<text x="76" y="84">Mo</text><text x="130" y="84">Tu</text><text x="184" y="84">We</text><text x="238" y="84">Th</text><text x="292" y="84">Fr</text><text x="346" y="84">Sa</text><text x="400" y="84">Su</text>
 </g>
 <rect class="acc" x="58" y="152" width="36" height="34" rx="17"/>
 <g class="ink ctr">
@@ -26,16 +26,16 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 </g>
 <circle class="wrm" cx="76" cy="196" r="3"/><circle class="wrm" cx="238" cy="196" r="3"/><circle class="wrm" cx="130" cy="232" r="3"/>
 <circle class="wrm" cx="292" cy="232" r="3"/><circle class="wrm" cx="184" cy="268" r="3"/>
-<text class="mut" x="60" y="304">Punkt = Tag mit Terminen</text>
+<text class="mut" x="60" y="304">Dot = day with appointments</text>
 <rect class="fl" x="440" y="30" width="180" height="290" rx="10"/>
 <rect class="ln" x="440" y="30" width="180" height="290" rx="10"/>
-<text class="ink" x="458" y="58" font-weight="700">Heute</text>
-<rect class="bar" x="456" y="72" width="148" height="30" rx="8"/><text class="ink" x="468" y="92">ganztägig · Feiertag</text>
-<rect class="bar" x="456" y="112" width="148" height="30" rx="8"/><text class="ink" x="468" y="132">09:00 · Zahnarzt</text>
-<rect class="bar" x="456" y="152" width="148" height="30" rx="8"/><text class="ink" x="468" y="172">13:30 · Mittagessen</text>
-<text class="mut" x="458" y="214">Quellen</text>
-<rect class="acc" x="458" y="226" width="12" height="12" rx="3"/><text class="ink" x="478" y="237">CalDAV, App-Passwort</text>
-<rect class="wrm" x="458" y="250" width="12" height="12" rx="3"/><text class="ink" x="478" y="261">ICS-Abo, nur lesen</text>
-<text class="mut" x="40" y="350">Wiederholungen, Ausnahmen und Zeitzonen sind aufgelöst; neue Termine nur auf Wunsch</text>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="ink" x="458" y="58" font-weight="700">Today</text>
+<rect class="bar" x="456" y="72" width="148" height="30" rx="8"/><text class="ink" x="468" y="92">all day · holiday</text>
+<rect class="bar" x="456" y="112" width="148" height="30" rx="8"/><text class="ink" x="468" y="132">09:00 · Dentist</text>
+<rect class="bar" x="456" y="152" width="148" height="30" rx="8"/><text class="ink" x="468" y="172">13:30 · Lunch</text>
+<text class="mut" x="458" y="214">Sources</text>
+<rect class="acc" x="458" y="226" width="12" height="12" rx="3"/><text class="ink" x="478" y="237">CalDAV, app password</text>
+<rect class="wrm" x="458" y="250" width="12" height="12" rx="3"/><text class="ink" x="478" y="261">ICS subscription, read only</text>
+<text class="mut" x="40" y="350">Recurrences, exceptions and time zones are resolved; new appointments only on request</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

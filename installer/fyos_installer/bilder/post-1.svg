@@ -12,26 +12,26 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="fl" x="30" y="26" width="270" height="260" rx="12"/>
 <rect class="ln" x="30" y="26" width="270" height="260" rx="12"/>
 <rect class="bar" x="31" y="27" width="268" height="28" rx="11"/>
-<text class="ink" x="46" y="46">Mitteilung</text>
-<text class="ink" x="46" y="86" font-weight="700">Aufgabe fertig</text>
-<text class="mut" x="46" y="112">Der Bericht liegt bereit.</text>
-<text class="mut" x="46" y="134">Zwei Punkte brauchen deinen Blick.</text>
+<text class="ink" x="46" y="46">Notification</text>
+<text class="ink" x="46" y="86" font-weight="700">Task done</text>
+<text class="mut" x="46" y="112">The report is ready.</text>
+<text class="mut" x="46" y="134">Two items need your attention.</text>
 <path class="ln" d="M46 252h238" opacity=".3"/>
-<text class="mut" x="46" y="272" font-size="12">Von Agent über FYOS Post</text>
+<text class="mut" x="46" y="272" font-size="12">From the agent via FYOS Post</text>
 <rect class="fl" x="340" y="26" width="270" height="260" rx="12"/>
 <rect class="ln" x="340" y="26" width="270" height="260" rx="12"/>
 <rect class="bar" x="341" y="27" width="268" height="28" rx="11"/>
 <text class="ink" x="356" y="46">Listmonk</text>
 <rect class="bar" x="356" y="74" width="238" height="52" rx="8"/><circle class="wrm" cx="376" cy="100" r="6"/>
-<text class="ink" x="392" y="96" font-weight="700">Oktober-Brief</text>
-<text class="mut" x="392" y="116">Entwurf, 1 Liste</text>
+<text class="ink" x="392" y="96" font-weight="700">October letter</text>
+<text class="mut" x="392" y="116">Draft, 1 list</text>
 <rect class="bar" x="356" y="134" width="238" height="52" rx="8" opacity=".6"/><circle class="acc" cx="376" cy="160" r="6"/>
-<text class="ink" x="392" y="156">Testmail</text>
-<text class="mut" x="392" y="176">angenommen</text>
+<text class="ink" x="392" y="156">Test mail</text>
+<text class="mut" x="392" y="176">accepted</text>
 <path class="ln" d="M300 156h40" opacity=".5"/>
 <path class="ln" d="M330 148l10 8-10 8" opacity=".5"/>
 <path class="ln" d="M60 320h520" opacity=".3"/>
-<text class="ink" x="60" y="346" font-weight="700">Gestartet wird von dir</text>
-<text class="mut" x="238" y="346">Der Agent legt nur Entwürfe an und schickt Testmails.</text>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="ink" x="60" y="346" font-weight="700">You start it</text>
+<text class="mut" x="238" y="346">The agent only creates drafts and sends test mails.</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

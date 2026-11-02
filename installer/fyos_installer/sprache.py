@@ -89,6 +89,13 @@ def persona_sprache() -> str:
     return "English" if _aktiv == "en" else "Deutsch"
 
 
+def persona_vorgabe(basis: dict[str, str]) -> dict[str, str]:
+    """Vorgaben der Persona in der Sprache der Oberfläche: Sprache und Wesen (sonst stand das deutsche Wesen auch im
+    englischen Installer)."""
+    wesen = "Calm, precise and attentive" if _aktiv == "en" else basis["wesen"]
+    return {**basis, "wesen": wesen, "sprache": persona_sprache()}
+
+
 EN: dict[str, str] = {
     # cli.py
     "FYOS einrichten. Ohne Argumente startet ein Assistent im Browser (nur auf diesem Rechner erreichbar).":

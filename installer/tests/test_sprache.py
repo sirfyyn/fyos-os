@@ -110,8 +110,21 @@ def test_web_assistent_wechselt_die_sprache(katalog):
     assert k["sprache"] == "en" and k["sprachen"] == ["en", "de"]
     assert k["bausteine"][0]["titel"] == "FYOS interface and Hub"
     assert k["vorgaben"]["persona"]["sprache"] == "English"
+    assert k["vorgaben"]["persona"]["wesen"] == "Calm, precise and attentive"
     assert k["ziele"]["compose"] == "Docker Compose on this computer"
     spr.setze("de")
     k = z.katalog_json()
     assert k["sprache"] == "de" and k["bausteine"][0]["titel"] == "FYOS-Oberfläche und Hub"
     assert k["vorgaben"]["persona"]["sprache"] == "Deutsch"
+    assert k["vorgaben"]["persona"]["wesen"] == "Ruhig, präzise und zugewandt"
+
+
+def test_skizzen_sind_englisch():
+    """Die Skizzen der Bausteine (bilder/*.svg) sind englisch; vorher stand auch im englischen Installer Deutsch."""
+    import re
+    from pathlib import Path
+
+    deutsch = re.compile(r"[äöüÄÖÜß]|\b(Skizze|Heute|Zentrale|Notizen|Freigeben|Ablehnen|und|nur)\b")
+    for p in (Path(erzeugen.__file__).parent / "bilder").glob("*.svg"):
+        texte = re.findall(r">([^<>]+)</(?:text|tspan)>", p.read_text())
+        assert not [t for t in texte if deutsch.search(t)], p.name

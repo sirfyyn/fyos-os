@@ -12,20 +12,20 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="fl" x="40" y="26" width="560" height="348" rx="12"/>
 <rect class="ln" x="40" y="26" width="560" height="348" rx="12"/>
 <rect class="bar" x="41" y="27" width="558" height="28" rx="11"/>
-<text class="ink" x="278" y="46">Leitstand</text>
-<text class="ink" x="60" y="84" font-weight="700">Braucht dich</text>
+<text class="ink" x="278" y="46">Control room</text>
+<text class="ink" x="60" y="84" font-weight="700">Needs you</text>
 <rect class="bar" x="60" y="96" width="520" height="44" rx="8"/><rect class="wrm" x="60" y="96" width="7" height="44" rx="3"/>
-<text class="ink" x="80" y="123">Freigabe: Neustart des Dienstes »agent«</text>
-<rect class="acc" x="470" y="106" width="96" height="24" rx="12"/><text class="fl" x="486" y="123" font-size="12">Freigeben</text>
+<text class="ink" x="80" y="123">Approval: restart the service “agent”</text>
+<rect class="acc" x="470" y="106" width="96" height="24" rx="12"/><text class="fl" x="486" y="123" font-size="12">Approve</text>
 <rect class="bar" x="60" y="148" width="520" height="44" rx="8"/><rect class="wrm" x="60" y="148" width="7" height="44" rx="3"/>
-<text class="ink" x="80" y="175">Entscheidung: Backup-Ziel wählen</text>
-<text class="mut" x="470" y="175">2 Optionen</text>
-<text class="ink" x="60" y="228" font-weight="700">Laufende Vorgänge</text>
-<text class="mut" x="60" y="254">Updates prüfen</text><rect class="bar" x="220" y="244" width="200" height="10" rx="5"/><rect class="acc" x="220" y="244" width="140" height="10" rx="5"/>
-<text class="mut" x="60" y="282">Wochenrunde aufräumen</text><rect class="bar" x="220" y="272" width="200" height="10" rx="5"/><rect class="acc" x="220" y="272" width="60" height="10" rx="5"/>
-<text class="ink" x="440" y="228" font-weight="700">Schleifen</text>
-<circle class="acc" cx="448" cy="250" r="5"/><text class="ink" x="462" y="255">Arbeit: läuft</text>
-<circle class="mut" cx="448" cy="278" r="5"/><text class="ink" x="462" y="283">Erkunden: pausiert</text>
-<text class="mut" x="60" y="330">Die Schleifen halten an, sobald du aktiv wirst.</text>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="ink" x="80" y="175">Decision: choose a backup target</text>
+<text class="mut" x="470" y="175">2 options</text>
+<text class="ink" x="60" y="228" font-weight="700">Open tickets</text>
+<text class="mut" x="60" y="254">Check for updates</text><rect class="bar" x="220" y="244" width="200" height="10" rx="5"/><rect class="acc" x="220" y="244" width="140" height="10" rx="5"/>
+<text class="mut" x="60" y="282">Tidy up the weekly round</text><rect class="bar" x="220" y="272" width="200" height="10" rx="5"/><rect class="acc" x="220" y="272" width="60" height="10" rx="5"/>
+<text class="ink" x="440" y="228" font-weight="700">Loops</text>
+<circle class="acc" cx="448" cy="250" r="5"/><text class="ink" x="462" y="255">Work: running</text>
+<circle class="mut" cx="448" cy="278" r="5"/><text class="ink" x="462" y="283">Explore: paused</text>
+<text class="mut" x="60" y="330">The loops pause as soon as you become active.</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

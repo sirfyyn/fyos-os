@@ -11,33 +11,33 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="ln dsh" x="6" y="6" width="628" height="388" rx="10"/>
 <rect class="bar" x="6" y="6" width="628" height="26" rx="10"/>
 <text class="ink" x="22" y="24" font-weight="700">FYOS</text>
-<text class="mut" x="80" y="24">Ablage  Ansicht  Fenster</text>
+<text class="mut" x="80" y="24">File  View  Window</text>
 <text class="mut" x="560" y="24">09:41</text>
 <g>
 <rect class="fl" x="40" y="56" width="330" height="220" rx="10"/>
 <rect class="ln" x="40" y="56" width="330" height="220" rx="10"/>
 <rect class="bar" x="41" y="57" width="328" height="28" rx="9"/>
 <circle class="wrm" cx="58" cy="71" r="5"/><circle class="acc" cx="75" cy="71" r="5"/>
-<text class="ink" x="150" y="76">Zentrale</text>
+<text class="ink" x="150" y="76">Home base</text>
 <rect class="acc" x="58" y="102" width="140" height="70" rx="8" opacity=".85"/>
-<text class="fl" x="72" y="130" font-weight="700">Heute</text>
-<text class="fl" x="72" y="152">3 Dinge offen</text>
+<text class="fl" x="72" y="130" font-weight="700">Today</text>
+<text class="fl" x="72" y="152">3 things open</text>
 <rect class="wrm" x="212" y="102" width="140" height="70" rx="8" opacity=".85"/>
 <text class="fl" x="226" y="130" font-weight="700">Agent</text>
-<text class="fl" x="226" y="152">bereit</text>
+<text class="fl" x="226" y="152">ready</text>
 <rect class="bar" x="58" y="186" width="140" height="70" rx="8"/>
 <text class="ink" x="72" y="214" font-weight="700">Apps</text>
-<text class="mut" x="72" y="236">Hub-Werkzeuge</text>
+<text class="mut" x="72" y="236">Hub tools</text>
 <rect class="bar" x="212" y="186" width="140" height="70" rx="8"/>
-<text class="ink" x="226" y="214" font-weight="700">Verlauf</text>
-<text class="mut" x="226" y="236">zuletzt benutzt</text>
+<text class="ink" x="226" y="214" font-weight="700">History</text>
+<text class="mut" x="226" y="236">last used</text>
 </g>
 <g>
 <rect class="fl" x="290" y="120" width="300" height="190" rx="10"/>
 <rect class="ln" x="290" y="120" width="300" height="190" rx="10"/>
 <rect class="bar" x="291" y="121" width="298" height="28" rx="9"/>
 <circle class="wrm" cx="308" cy="135" r="5"/><circle class="acc" cx="325" cy="135" r="5"/>
-<text class="ink" x="420" y="140">Notizen</text>
+<text class="ink" x="420" y="140">Notes</text>
 <path class="ln" d="M312 176h240M312 202h200M312 228h226M312 254h150" opacity=".55"/>
 </g>
 <rect class="bar" x="170" y="334" width="300" height="46" rx="16"/>
@@ -48,5 +48,5 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="acc" x="308" y="344" width="28" height="26" rx="7" opacity=".6"/>
 <rect class="wrm" x="348" y="344" width="28" height="26" rx="7" opacity=".6"/>
 <rect class="mut" x="388" y="344" width="28" height="26" rx="7" opacity=".6"/>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

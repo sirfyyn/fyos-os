@@ -93,7 +93,7 @@ class Zustand:
                 "herkunft": b.herkunft,
             })
         optionen = erzeugen.vorgaben_optionen(self.umgebung, bezug_aufloesen=True)
-        persona = {**erzeugen.VORGABE_PERSONA, "sprache": spr.persona_sprache()}
+        persona = spr.persona_vorgabe(erzeugen.VORGABE_PERSONA)
         return {
             "sprache": spr.aktiv(), "sprachen": list(spr.SPRACHEN),
             "bausteine": bausteine,

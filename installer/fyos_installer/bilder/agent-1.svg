@@ -15,23 +15,23 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <circle class="acc" cx="112" cy="40" r="7"/>
 <text class="ink" x="128" y="45" font-weight="700">Fy</text>
 <rect class="bar" x="290" y="72" width="240" height="40" rx="14"/>
-<text class="ink" x="304" y="97">Räum bitte den Ordner Downloads auf.</text>
+<text class="ink" x="304" y="97">Please tidy up the Downloads folder.</text>
 <text class="mut" x="500" y="128" font-size="11">Alex</text>
 <rect class="fl" x="110" y="138" width="260" height="40" rx="14"/>
 <rect class="ln" x="110" y="138" width="260" height="40" rx="14"/>
-<text class="ink" x="124" y="163">Ich habe 14 Dateien gefunden.</text>
+<text class="ink" x="124" y="163">I found 14 files.</text>
 <rect class="fl" x="110" y="196" width="420" height="116" rx="12"/>
 <rect class="ln" x="110" y="196" width="420" height="116" rx="12"/>
 <rect class="wrm" x="110" y="196" width="8" height="116" rx="4"/>
-<text class="ink" x="132" y="222" font-weight="700">Freigabe nötig: Löschen</text>
-<text class="mut" x="132" y="246">14 Dateien (212 MB) in den Papierkorb legen?</text>
+<text class="ink" x="132" y="222" font-weight="700">Approval needed: delete</text>
+<text class="mut" x="132" y="246">Move 14 files (212 MB) to the trash?</text>
 <rect class="acc" x="132" y="266" width="120" height="30" rx="15"/>
-<text class="fl" x="156" y="286" font-weight="700">Freigeben</text>
+<text class="fl" x="156" y="286" font-weight="700">Approve</text>
 <rect class="ln" x="266" y="266" width="120" height="30" rx="15"/>
-<text class="ink" x="292" y="286">Ablehnen</text>
+<text class="ink" x="292" y="286">Reject</text>
 <rect class="bar" x="110" y="332" width="380" height="30" rx="15"/>
-<text class="mut" x="128" y="352">Nachricht an Fy …</text>
+<text class="mut" x="128" y="352">Message to Fy …</text>
 <circle class="acc" cx="510" cy="347" r="14"/>
 <path class="fl" d="M504 347h12M511 341l6 6-6 6" fill="none" stroke="#fffdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

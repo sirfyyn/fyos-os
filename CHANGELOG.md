@@ -13,6 +13,19 @@ environment variables) are unchanged; [`docs/GLOSSARY.md`](docs/GLOSSARY.md) exp
 
 ## [Unreleased]
 
+## [0.3.1] – 2026-11-02
+
+### Fixed
+- **Installer sketches in English.** The pictures of the building blocks (`installer/fyos_installer/bilder/*.svg`) still
+  said "Skizze", "Zentrale", "Heute" and so on in the English installer; all texts are English now. A test checks it.
+- **The suggested character of the agent follows the language.** The English installer offered the German "Ruhig,
+  präzise und zugewandt"; it now suggests "Calm, precise and attentive" (`sprache.persona_vorgabe`).
+- The screenshots in `installer/README.md` show the English installer.
+- README: FLE Link banner on top.
+
+### Note
+- The agent stays fyos-agent 0.3.0 (`AGENT_TAG` `v0.3.0`).
+
 ## [0.3.0] – 2026-11-02
 
 ### Added

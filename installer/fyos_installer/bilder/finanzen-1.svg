@@ -12,22 +12,22 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="fl" x="40" y="26" width="560" height="348" rx="12"/>
 <rect class="ln" x="40" y="26" width="560" height="348" rx="12"/>
 <rect class="bar" x="41" y="27" width="558" height="28" rx="11"/>
-<text class="ink" x="290" y="46">Finanzen</text>
+<text class="ink" x="290" y="46">Finances</text>
 <rect class="bar" x="60" y="72" width="164" height="62" rx="8"/>
-<text class="mut" x="74" y="94">Girokonto</text><text class="ink" x="74" y="120" font-size="18" font-weight="700">1.240,50 €</text>
+<text class="mut" x="74" y="94">Current account</text><text class="ink" x="74" y="120" font-size="18" font-weight="700">€1,240.50</text>
 <rect class="bar" x="238" y="72" width="164" height="62" rx="8"/>
-<text class="mut" x="252" y="94">Rücklage</text><text class="ink" x="252" y="120" font-size="18" font-weight="700">3.800,00 €</text>
+<text class="mut" x="252" y="94">Savings</text><text class="ink" x="252" y="120" font-size="18" font-weight="700">€3,800.00</text>
 <rect class="bar" x="416" y="72" width="164" height="62" rx="8"/>
-<text class="mut" x="430" y="94">Noch offen</text><text class="wrm" x="430" y="120" font-size="18" font-weight="700">486,20 €</text>
+<text class="mut" x="430" y="94">Still open</text><text class="wrm" x="430" y="120" font-size="18" font-weight="700">€486.20</text>
 <path class="ln" d="M70 232l50-24 50 14 50-36 50 22 50-40 60 10" stroke="#3f7d6e"/>
 <path class="ln" d="M70 250h300" opacity=".35"/>
-<text class="mut" x="70" y="272">Verlauf, 30 Tage</text>
-<text class="ink" x="396" y="168" font-weight="700">Letzte Umsätze</text>
-<text class="ink" x="396" y="196">Supermarkt</text><text class="ink" x="520" y="196">−42,10</text>
-<text class="ink" x="396" y="224">Miete</text><text class="ink" x="520" y="224">−780,00</text>
-<text class="ink" x="396" y="252">Gehalt</text><text class="acc" x="520" y="252">+2.450,00</text>
-<text class="ink" x="396" y="280">Strom</text><text class="ink" x="520" y="280">−65,00</text>
-<rect class="acc" x="60" y="304" width="14" height="14" rx="4"/><text class="ink" x="84" y="316">Miete bezahlt</text>
-<rect class="ln" x="230" y="304" width="14" height="14" rx="4"/><text class="ink" x="254" y="316">Versicherung offen</text>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="mut" x="70" y="272">History, 30 days</text>
+<text class="ink" x="396" y="168" font-weight="700">Recent transactions</text>
+<text class="ink" x="396" y="196">Supermarket</text><text class="ink" x="520" y="196">−42.10</text>
+<text class="ink" x="396" y="224">Rent</text><text class="ink" x="520" y="224">−780.00</text>
+<text class="ink" x="396" y="252">Salary</text><text class="acc" x="520" y="252">+2,450.00</text>
+<text class="ink" x="396" y="280">Power</text><text class="ink" x="520" y="280">−65.00</text>
+<rect class="acc" x="60" y="304" width="14" height="14" rx="4"/><text class="ink" x="84" y="316">Rent paid</text>
+<rect class="ln" x="230" y="304" width="14" height="14" rx="4"/><text class="ink" x="254" y="316">Insurance open</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

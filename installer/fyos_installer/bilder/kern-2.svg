@@ -12,15 +12,15 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="fl" x="30" y="40" width="300" height="320" rx="10"/>
 <rect class="ln" x="30" y="40" width="300" height="320" rx="10"/>
 <rect class="bar" x="31" y="41" width="298" height="28" rx="9"/>
-<text class="ink" x="140" y="60">Werkzeuge</text>
+<text class="ink" x="140" y="60">Tools</text>
 <rect class="bar" x="48" y="84" width="264" height="30" rx="15"/>
-<text class="mut" x="68" y="104">Suchen …</text>
+<text class="mut" x="68" y="104">Search …</text>
 <rect class="acc" x="48" y="130" width="10" height="10" rx="3"/><text class="ink" x="68" y="140">notiz.anlegen</text>
 <rect class="acc" x="48" y="162" width="10" height="10" rx="3"/><text class="ink" x="68" y="172">notiz.suchen</text>
 <rect class="wrm" x="48" y="194" width="10" height="10" rx="3"/><text class="ink" x="68" y="204">kalender.termine</text>
 <rect class="wrm" x="48" y="226" width="10" height="10" rx="3"/><text class="ink" x="68" y="236">wetter.heute</text>
 <rect class="mut" x="48" y="258" width="10" height="10" rx="3"/><text class="ink" x="68" y="268">hub.health</text>
-<text class="mut" x="48" y="330">… und alles, was Bausteine mitbringen</text>
+<text class="mut" x="48" y="330">… and everything building blocks bring</text>
 <rect class="acc" x="380" y="80" width="110" height="52" rx="10"/>
 <text class="fl" x="404" y="112" font-weight="700">Hub</text>
 <path class="ln" d="M330 106h50"/><path class="ln" d="M372 99l8 7-8 7"/>
@@ -32,8 +32,8 @@ text{font-family:ui-rounded,system-ui,-apple-system,sans-serif;font-size:14px}
 <rect class="wrm" x="380" y="220" width="110" height="52" rx="10"/>
 <text class="fl" x="404" y="252" font-weight="700">Agent</text>
 <path class="ln" d="M435 132v78"/><path class="ln" d="M428 202l7 8 7-8"/>
-<text class="mut" x="446" y="176">ruft Werkzeuge</text>
-<text class="mut" x="380" y="320">Ein Werkzeug, mehrere Flächen:</text>
-<text class="mut" x="380" y="340">Fenster, Chat und Agent</text>
-<text class="mut" x="566" y="388" font-size="12">Skizze</text>
+<text class="mut" x="446" y="176">calls tools</text>
+<text class="mut" x="380" y="320">One tool, several surfaces:</text>
+<text class="mut" x="380" y="340">Windows, chat and agent</text>
+<text class="mut" x="566" y="388" font-size="12">Sketch</text>
 </svg>

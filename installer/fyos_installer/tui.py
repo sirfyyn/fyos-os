@@ -266,7 +266,7 @@ class InstallerApp(App):
         self.stufen_wahl.clear()
         v = erzeugen
         teile: list = [Label("[b]" + _("Dein Agent") + "[/b]")]
-        p = {**v.VORGABE_PERSONA, "sprache": spr.persona_sprache()}
+        p = spr.persona_vorgabe(v.VORGABE_PERSONA)
         teile += self._eingabe("persona", "agent_name", _("Name des Agenten"), p["agent_name"])
         teile += self._eingabe("persona", "wesen", _("Wesen"), p["wesen"])
         teile += self._eingabe("persona", "besitzer_name", _("Dein Name"), p["besitzer_name"])
