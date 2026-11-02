@@ -61,7 +61,7 @@ const payload = () => { vm.runInContext('globalThis.nl = JSON.stringify(nutzlast
 vm.runInContext("S.gewaehlt.clear(); ['kern', 'agent'].forEach((i) => S.gewaehlt.add(i)); setzeWahl('kalender', true); setzeWahl('post', true); setzeWahl('leitstand', true); S.felder = {}; S.stufen = {}; S.ziel = 'compose'; S.schritt = 3; zeigeInhalt();", ctx);
 let ts = text();
 for (const soll of ['Termine', 'Grundstufe: CalDAV und ICS direkt (Vorgabe)', 'Ausbaustufe: eigener Termin-Dienst', 'aus: nicht einrichten',
-  'Adresse des Kalenders', 'Ausbaustufe: Listmonk (Vorgabe)', 'Grundstufe: Ordner-Ablage', 'Workboard des Agenten']) {
+  'Adresse des Kalenders', 'Ausbaustufe: Listmonk (Vorgabe)', 'Grundstufe: Ordner-Ablage', 'Ablage im Hub']) {
   if (!ts.includes(soll)) fehler.push(`Einrichten (Compose) ohne "${soll}"`);
 }
 for (const nicht of ['Adresse des Termin-Dienstes', 'Grundstufe: Listmonk', 'Kopfzeile für den Postfach-Dienst']) {

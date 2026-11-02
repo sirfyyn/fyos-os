@@ -4,7 +4,7 @@ English: [README.en.md](README.en.md)
 
 Ein persönliches Betriebssystem im Browser, das auf einem eigenen Agenten aufbaut und ganz bei dir läuft: eine
 Desktop-Shell mit Fenstern und Apps, ein MCP-Hub, der Werkzeuge und Oberflächen aus Plugins bündelt, und ein Agent
-(eine Mod von OpenClaw), der mit diesen Werkzeugen arbeitet und vor schweren Schritten fragt.
+(der Runner aus `fyos-agent`), der mit diesen Werkzeugen arbeitet und vor schweren Schritten fragt.
 
 Diese Distribution enthält nur Allgemeines. Was ein bestimmtes Zuhause, ein Konto oder eine Person braucht, kommt als
 Plugin aus einem eigenen Repo.
@@ -12,8 +12,7 @@ Plugin aus einem eigenen Repo.
 ```text
 Plugins (je ein Repo)    fyos-plugin-…            persönlich, optional
 fyos-os (dieses Repo)    web/  hub/  deploy/  installer/
-fyos-agent (Grundlage)   Agentenverhalten als OpenClaw-Mod
-OpenClaw (Upstream)      Basisbild per Digest
+fyos-agent (Grundlage)   der Agent: Runner auf pi-durable (Bild fyos-agent/runner)
 ```
 
 ## Was hier liegt
@@ -23,7 +22,7 @@ OpenClaw (Upstream)      Basisbild per Digest
 | [`web/`](web/README.md) | Desktop-Shell (Astro mit SolidJS): Fenster, Dock, Kacheln, Menüleiste; zeigt Hub-Apps (`ui://`) ohne eigenen Code |
 | [`hub/`](hub/README.md) | MCP-Hub (Python-Paket `fyos-hub`, Modul `mcp_hub`): MCP unter `/mcp`, REST unter `/hub/*`, Plugins per Entry-Point |
 | [`installer/`](installer/README.md) | Installer mit Web-Assistent, Textoberfläche und Kommandozeile; erklärt jeden Baustein mit Bildern |
-| `deploy/compose/` | Einzelplatz mit Docker Compose (`docker-compose.yml`, `env.example`, `fyos.yaml`, `hub-config.yaml`) |
+| `deploy/compose/` | Einzelplatz mit Docker Compose (`docker-compose.yml`, `env.example`, `agent-runner.json`, `hub-config.yaml`) |
 | `deploy/k8s/base/` | Kubernetes-Grundinstallation (Kustomize); Bilder und Namespace setzt ein Overlay |
 | `tools/sauber.py` | Sauberkeitsprüfung: keine privaten Netze, Adressen, Geheimnisse oder verbotenen Wörter im Repo |
 | `tools/doku_pruefen.py` | Doku-Abgleich: Links, genannte Pfade und feste Abschnitte der Markdown-Dateien stimmen mit dem Repo überein |
@@ -54,7 +53,7 @@ docker compose up -d           # danach http://localhost:8080
 ```
 
 Die Bilder baut die CI dieses Repos (`<registry>/fyos-os/web`, `<registry>/fyos-os/hub`) und die von `fyos-agent`
-(`<registry>/fyos-agent/openclaw`). Veröffentlicht liegen sie unter `ghcr.io/sirfyyn` (Tags `v<Version>` und `latest`). <!-- sauber: ok -->
+(`<registry>/fyos-agent/runner`). Veröffentlicht liegen sie unter `ghcr.io/sirfyyn` (Tags `v<Version>` und `latest`). <!-- sauber: ok -->
 Der Installer nimmt sie ohne weitere Angabe im Stand seiner eigenen Version; `FYOS_REGISTRY=<host>/<besitzer>` lenkt
 ihn auf die eigene Registry, `FYOS_BILD_TAG` wählt einen anderen Tag. Die Vorlage `deploy/compose/env.example` zeigt
 dagegen auf die Beispieladresse `registry.example.com`, die sich nie auflösen lässt: wer sie von Hand nutzt, trägt die
@@ -63,18 +62,9 @@ Bilder selbst ein, sonst bricht der Start sichtbar ab, statt fremde Bilder zu zi
 Als Modell dient jeder OpenAI-kompatible Anbieter (zum Beispiel ein llama.cpp-Server, Ollama oder vLLM), lokal oder im
 eigenen Netz.
 
-**Der erste Chat.** Das Agent-Fenster zeigt die Oberfläche des OpenClaw-Gateways. Beim ersten Öffnen fragt sie nach dem
-Gateway-Token (`FYOS_AGENT_TOKEN` aus `.env`, in Kubernetes das Secret `fyos-agent-gateway`); der Browser merkt es sich.
-Jeder neue Browser braucht danach einmal die Freigabe als Gerät, weil das Gateway ihn über die Shell als entfernten
-Client sieht:
-
-```sh
-docker compose exec agent openclaw devices list              # Kubernetes: kubectl exec agent-0 -- openclaw devices list
-docker compose exec agent openclaw devices approve <requestId>
-```
-
-Über reines http klappt das nur unter `localhost`. Im Netz braucht die Shell https, denn die Geräte-Identität erzeugt der
-Browser nur in einem sicheren Kontext; sonst meldet das Gateway „control ui requires device identity“.
+**Der erste Chat.** Das Agent-Fenster (Dock rechts oder die App „Agent“) spricht den Runner über `/api/agent/`; das
+Token (`FYOS_AGENT_TOKEN` aus `.env`, in Kubernetes das Secret `fyos-agent-token`) setzt die Shell selbst, der Browser
+kennt es nie. Wer die Shell über das eigene Netz hinaus erreichbar macht, setzt eine Anmeldung davor (`web/README.md`).
 
 ## Erweitern
 

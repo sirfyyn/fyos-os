@@ -3,7 +3,7 @@
 Eine Fähigkeit (Vorgänge, Termine, Postfach lesen, Post senden, Dokumente) gehört zu einem Baustein und kennt bis zu
 zwei Stufen (`katalog_stufen.yaml`, Begriffe in `docs/NACHBAU.md`):
 
-    Grundstufe   ohne eigenen Dienst: das Workboard des Agenten, CalDAV oder ICS direkt, IMAP direkt.
+    Grundstufe   ohne eigenen Dienst: eine Ablage im Hub, CalDAV oder ICS direkt, IMAP direkt.
     Ausbaustufe  ein eigener Dienst, den der Hub über eine Adresse erreicht (`FYOS_TERMINE_URL` und ähnlich).
     aus          nichts davon einrichten; die Fähigkeit meldet ehrlich »nicht eingerichtet«.
 

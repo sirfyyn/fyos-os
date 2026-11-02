@@ -1,6 +1,6 @@
 /**
  * Native Fläche „Agent": die Oberfläche des Agenten-Runners — Gespräche, Live, Freigaben, Läufe und geteilter Zustand.
- * Spricht nur den Runner (über /api/agent, nginx leitet weiter), nie OpenClaw. Den Anzeigenamen setzt `agentName()`
+ * Spricht nur den Runner (über /api/agent, nginx leitet weiter). Den Anzeigenamen setzt `agentName()`
  * (lib/config.ts) zur Laufzeit. Komponente: components/os/nativ/Agent.tsx (Teile in agent/) · Logik: lib/agent-runner/.
  */
 import type { NativEintrag } from '../nativ';

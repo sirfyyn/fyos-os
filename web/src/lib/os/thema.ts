@@ -31,20 +31,3 @@ export function themaSetzen(w: ThemaWahl): void {
   }
   document.documentElement.dataset.theme = wirklich;
 }
-
-/**
- * Das Thema des OS an eine eingebettete Fremdoberfläche (OpenClaw-Chat unter /agent, gleicher Ursprung) weitergeben:
- * Farbschema und `data-theme` im Dokument des iframes, damit es nicht als weißes Fenster im dunklen OS steht.
- * Fremder Ursprung oder noch nicht geladen: stillschweigend nichts tun.
- */
-export function fremdesThemaAnwenden(rahmen: HTMLIFrameElement): void {
-  try {
-    const d = rahmen.contentDocument;
-    if (!d) return;
-    const t = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
-    d.documentElement.dataset.theme = t;
-    d.documentElement.style.colorScheme = t;
-  } catch {
-    /* Fremdursprung */
-  }
-}

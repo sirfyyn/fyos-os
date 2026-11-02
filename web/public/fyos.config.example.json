@@ -1,8 +1,7 @@
 {
   "name": "FYOS",
   "agent": {
-    "name": "Agent",
-    "pfad": "/agent/"
+    "name": "Agent"
   },
   "extern": [
     { "slug": "gitea", "titel": "Gitea", "url": "https://git.example.org/" },

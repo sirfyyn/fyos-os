@@ -2,7 +2,7 @@
  * Agent — die native Fläche `nativ:agent`: die Oberfläche des Agenten-Runners.
  *
  * Gespräche und Chat mit Strom, Live (die autonome Arbeit über alle Gespräche, Voreinstellung an), Freigaben als Karten,
- * Läufe, geteilter Zustand. Spricht nur den Runner (`/api/agent`, nginx setzt das Token), nie OpenClaw. Die Logik steht in
+ * Läufe, geteilter Zustand. Spricht nur den Runner (`/api/agent`, nginx setzt das Token). Die Logik steht in
  * lib/agent-runner/, die Teile in agent/. Keine eigenen Stile: Tailwind-Klassen mit den Farben des Systems und die
  * Bausteine der Einstellungen und der Zentrale.
  *

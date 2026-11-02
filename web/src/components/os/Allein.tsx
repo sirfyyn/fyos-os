@@ -75,7 +75,7 @@ export default function Allein(): JSX.Element {
     document.title = f() ? `${f()!.titel} · ${systemName()}` : systemName();
   });
 
-  const seite = () => f()?.art === 'seite' || f()?.art === 'agent';
+  const seite = () => f()?.art === 'seite';
   const zurueck = () => void zurueckZumOs(f()?.id ?? (ziel || undefined));
 
   return (

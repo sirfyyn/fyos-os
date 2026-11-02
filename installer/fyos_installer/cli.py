@@ -20,7 +20,6 @@ Beispiele:
   fyos-install --auswahl kern,agent,kalender --ziel k8s --stufe termine=grund --trocken
                                        Stufe je Fähigkeit umstellen (Vorgabe: Kubernetes Ausbau, Compose Grund)
   fyos-install --abnahme http://localhost:8080     Abnahme einer laufenden Installation
-  fyos-install --abnahme http://localhost:8080 --kanaele telegram    ... und: ist der Chat-Kanal im Agenten aktiv?
 
 Rückgabewerte: 0 gut, 1 Installation oder Start gescheitert, 2 falsche Eingabe, 3 FYOS läuft, aber die Abnahme
 ist nicht bestanden.
@@ -47,9 +46,6 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--liste", action="store_true", help="Bausteine auflisten und beenden")
     p.add_argument("--abnahme", metavar="ADRESSE",
                    help="nur die Abnahme gegen eine laufende Installation (Adresse der Shell, zum Beispiel http://localhost:8080)")
-    p.add_argument("--kanaele", metavar="LISTE",
-                   help="mit --abnahme: Chat-Kanäle (matrix, telegram, whatsapp), die im Agenten aktiv sein müssen; "
-                   "fragt den Agenten per `docker compose exec` im Ordner --verzeichnis (Vorgabe: hier)")
     p.add_argument("--port", type=int, default=0, help="Port des Web-Assistenten (Vorgabe: zufällig)")
     p.add_argument("--kein-browser", action="store_true", help="Browser nicht automatisch öffnen")
     return p
@@ -140,24 +136,13 @@ def ohne_oberflaeche(args: argparse.Namespace, katalog: Katalog) -> int:
     return 0
 
 
-def nur_abnahme(
-    adresse: str, aus: Callable[[str], None] = print, kanaele: str | None = None, verzeichnis: str | None = None,
-) -> int:
-    """`--abnahme`: die Abnahme gegen eine laufende Installation, ohne Katalog und ohne etwas zu schreiben. Mit
-    `kanaele` fragt sie auch den Agenten, ob die genannten Chat-Kanäle aktiv sind."""
-    namen = [k.strip() for k in (kanaele or "").split(",") if k.strip()]
-    unbekannt = [k for k in namen if k not in abn.KANAL_TITEL]
-    if unbekannt:
-        print(f"Fehler: unbekannter Kanal {', '.join(unbekannt)} (erlaubt: {', '.join(abn.KANAL_TITEL)})", file=sys.stderr)
-        return 2
+def nur_abnahme(adresse: str, aus: Callable[[str], None] = print) -> int:
+    """`--abnahme`: die Abnahme gegen eine laufende Installation, ohne Katalog und ohne etwas zu schreiben."""
     try:
         ergebnis = abn.pruefen(adresse)
     except ValueError as e:
         print(f"Fehler: {e}", file=sys.stderr)
         return 2
-    if namen:
-        ergebnis.kanaele = abn.kanal_proben(
-            {k: True for k in namen}, abn.kanal_abfrage_compose(verzeichnis or "."))
     for zeile in ergebnis.zeilen():
         aus(zeile)
     return 0 if ergebnis.bestanden else 3
@@ -166,7 +151,7 @@ def nur_abnahme(
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.abnahme is not None:
-        return nur_abnahme(args.abnahme, kanaele=args.kanaele, verzeichnis=args.verzeichnis)
+        return nur_abnahme(args.abnahme)
     try:
         katalog = lade_standard(args.katalog, plugins=not args.ohne_plugin_kataloge)
     except KatalogFehler as e:

@@ -28,7 +28,7 @@ def test_compose(katalog, tmp_path):
     out = tmp_path / "out"
     for n in ["docker-compose.yml", ".env", "agent-runner.json", "hub-config.yaml", "hub/Dockerfile", "ANLEITUNG.md", ".gitignore"]:
         assert (out / n).is_file(), n
-    assert not (out / "fyos.yaml").exists()  # die Persona-Datei braucht nur der veraltete OpenClaw-Agent
+    assert not (out / "fyos.yaml").exists()  # keine Persona-Datei mehr: der Runner liest agent-runner.json
     _keine_reste(plan)
     assert (out / ".env").stat().st_mode & 0o777 == 0o600
     env = (out / ".env").read_text()
@@ -57,17 +57,22 @@ def test_compose(katalog, tmp_path):
     assert plan.ausfuehrbar and plan.url == "http://localhost:8080"
 
 
-def test_openclaw_veraltet_auf_wunsch_und_bei_kubernetes(katalog, tmp_path):
-    plan = _plan(katalog, [], "compose", tmp_path, optionen={"agent": "openclaw"})
-    assert plan.ok and plan.agent == "openclaw" and any("veraltet" in h for h in plan.hinweise)
-    fyos = yaml.safe_load(next(d.inhalt for d in plan.dateien if d.pfad == "fyos.yaml"))
-    assert fyos["agent"]["name"] == "Fy" and fyos["besitzer"]["name"] == "Alex" and fyos["sprache_code"] == "de"
-    compose = yaml.safe_load(next(d.inhalt for d in plan.dateien if d.pfad == "docker-compose.yml"))
-    assert compose["services"]["web"]["environment"]["FYOS_OPENCLAW_UPSTREAM"] == "http://agent:18789"
-    assert compose["services"]["agent"]["environment"]["OPENCLAW_GATEWAY_TOKEN"] == "${FYOS_AGENT_TOKEN}"
+def test_runner_immer_auch_bei_kubernetes(katalog, tmp_path):
+    # Seit 0.2.1 ist der Runner der einzige Agent; eine alte Option `agent` wird nur noch mit Hinweis übergangen.
+    plan = _plan(katalog, [], "compose", tmp_path, optionen={"agent": "alt"})
+    assert plan.ok and any("'agent' gibt es seit 0.2.1 nicht mehr" in h for h in plan.hinweise)
+    assert not any(d.pfad == "fyos.yaml" for d in plan.dateien)
     k8s = _plan(katalog, [], "k8s", tmp_path / "k")
-    assert k8s.agent == "openclaw" and any("Kubernetes" in h and "Runner" in h for h in k8s.hinweise)
-    assert not _plan(katalog, [], "compose", tmp_path / "f", optionen={"agent": "anderer"}).ok
+    assert k8s.ok, k8s.fehler
+    runner = json.loads(next(d.inhalt for d in k8s.dateien if d.pfad == "agent-runner.json"))
+    assert runner["takt"] == {"an": False} and runner["pi_durable"]["port"] == 18438
+    kust = yaml.safe_load(next(d.inhalt for d in k8s.dateien if d.pfad == "kustomization.yaml"))
+    agent_cm = next(c for c in kust["configMapGenerator"] if c["name"] == "fyos-agent-config")
+    assert agent_cm["files"] == ["agent-runner.json"]
+    secrets = list(yaml.safe_load_all(next(d.inhalt for d in k8s.dateien if d.pfad == "secrets.yaml")))
+    assert secrets[1]["metadata"]["name"] == "fyos-agent-token" and secrets[1]["stringData"]["token"] == "ab" * 24
+    alles = "\n".join(d.inhalt for d in plan.dateien + k8s.dateien).lower()
+    assert "18789" not in alles and "gateway_token" not in alles and "fyos.yaml" not in alles
 
 
 def test_vorschau_ohne_geheimnisse(katalog, tmp_path):
@@ -159,15 +164,15 @@ def test_registry_vorgaben(katalog, tmp_path):
     o = e.vorgaben_optionen({"FYOS_REGISTRY": "registry.example.com/org/"})
     assert o["bild_web"] == "registry.example.com/org/fyos-os/web:main"
     assert o["hub_bild"] == "registry.example.com/org/fyos-os/hub:main"
-    assert o["bild_agent"] == "registry.example.com/org/fyos-agent/openclaw:main"
+    assert o["bild_agent"] == "registry.example.com/org/fyos-agent/runner:main"
     assert o["hub_bild_k8s"] == "registry.example.com/org/fyos-os/hub-eigen:main"
     # Ohne Registry die veröffentlichten Bilder im Stand der Installer-Version; nur hub-eigen braucht eine eigene.
     v = e.vorgaben_optionen({})
     assert e.BILD_TAG == f"v{e.__version__}"
-    assert e.AGENT_TAG == "v0.2.0"  # fyos-agent trägt für 0.2.0 denselben Tag (RELEASE.md)
+    assert e.AGENT_TAG == "v0.2.1"  # fyos-agent trägt für 0.2.1 denselben Tag (RELEASE.md)
     assert v["bild_web"] == f"ghcr.io/sirfyyn/fyos-os/web:{e.BILD_TAG}"  # sauber: ok
     assert v["hub_bild"] == f"ghcr.io/sirfyyn/fyos-os/hub:{e.BILD_TAG}"  # sauber: ok
-    assert v["bild_agent"] == f"ghcr.io/sirfyyn/fyos-agent/openclaw:{e.AGENT_TAG}"  # sauber: ok
+    assert v["bild_agent"] == f"ghcr.io/sirfyyn/fyos-agent/runner:{e.AGENT_TAG}"  # sauber: ok
     assert v["hub_bild_k8s"] == f"{e.BEISPIEL_REGISTRY}/fyos-os/hub-eigen:{e.BILD_TAG}"
     ohne = e.erstelle_plan(katalog, [], "compose", {}, tmp_path / "o", umgebung={})
     assert ohne.ok and not any("Beispieladresse" in h for h in ohne.hinweise)
@@ -178,7 +183,7 @@ def test_registry_vorgaben(katalog, tmp_path):
     assert plan.ok
     assert not any("Beispieladresse" in h for h in plan.hinweise)
     kust = next(d for d in plan.dateien if d.pfad == "kustomization.yaml").inhalt
-    assert "registry.example.com/org/fyos-os/web" in kust and "registry.example.com/org/fyos-agent/openclaw" in kust
+    assert "registry.example.com/org/fyos-os/web" in kust and "registry.example.com/org/fyos-agent/runner" in kust
     plan = e.erstelle_plan(katalog, [], "compose", {"optionen": {"bild_web": "eigen.example.com/w:1"}}, tmp_path / "c",
                            umgebung={"FYOS_REGISTRY": "registry.example.com/org"})
     env = next(d for d in plan.dateien if d.pfad == ".env").inhalt
@@ -189,7 +194,7 @@ def test_bild_tag(katalog, tmp_path):
     # FYOS_BILD_TAG setzt den Tag aller Bilder, mit und ohne eigene Registry.
     o = e.vorgaben_optionen({"FYOS_BILD_TAG": "latest"})
     assert o["bild_web"] == f"{e.OFFIZIELLE_REGISTRY}/fyos-os/web:latest"
-    assert o["bild_agent"] == f"{e.OFFIZIELLE_REGISTRY}/fyos-agent/openclaw:latest"
+    assert o["bild_agent"] == f"{e.OFFIZIELLE_REGISTRY}/fyos-agent/runner:latest"
     assert o["hub_bild_k8s"] == f"{e.BEISPIEL_REGISTRY}/fyos-os/hub-eigen:latest"
     o = e.vorgaben_optionen({"FYOS_REGISTRY": "registry.example.com/org", "FYOS_BILD_TAG": "v9"})
     assert o["hub_bild"] == "registry.example.com/org/fyos-os/hub:v9"
@@ -198,7 +203,7 @@ def test_bild_tag(katalog, tmp_path):
     kust = yaml.safe_load(next(d.inhalt for d in plan.dateien if d.pfad == "kustomization.yaml"))
     bilder = {b["newName"]: b["newTag"] for b in kust["images"]}
     assert bilder[f"{e.OFFIZIELLE_REGISTRY}/fyos-os/web"] == "latest"
-    assert bilder[f"{e.OFFIZIELLE_REGISTRY}/fyos-agent/openclaw"] == "latest"
+    assert bilder[f"{e.OFFIZIELLE_REGISTRY}/fyos-agent/runner"] == "latest"
 
 
 def test_plugin_quelle_aus_umgebung(katalog, tmp_path):
@@ -211,7 +216,7 @@ def test_k8s(katalog, tmp_path):
     assert plan.ok, plan.fehler
     e.schreiben(plan)
     out = tmp_path / "out"
-    for n in ["kustomization.yaml", "fyos.yaml", "hub-config.yaml", "secrets.yaml", "secrets.example.yaml", "hub/Dockerfile", "ANLEITUNG.md"]:
+    for n in ["kustomization.yaml", "agent-runner.json", "hub-config.yaml", "secrets.yaml", "secrets.example.yaml", "hub/Dockerfile", "ANLEITUNG.md"]:
         assert (out / n).is_file(), n
     _keine_reste(plan)
     assert (out / "secrets.yaml").stat().st_mode & 0o777 == 0o600
@@ -226,7 +231,7 @@ def test_k8s(katalog, tmp_path):
 BASIS = e.PAKET.parent.parent / "deploy/k8s/base"
 EIGENE_BILDER = {
     "bild_web": "registry.test.example/team/fyos-os/web:v2",
-    "bild_agent": "registry.test.example/team/fyos-agent/openclaw:v2",
+    "bild_agent": "registry.test.example/team/fyos-agent/runner:v2",
     "hub_bild_k8s": "registry.test.example/team/fyos-os/hub-eigen:v2",
 }
 
@@ -241,7 +246,9 @@ def test_k8s_kustomize_baut(katalog, tmp_path):
     e.schreiben(plan)
     r = subprocess.run(["kubectl", "kustomize", str(tmp_path / "out")], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
-    assert "name: Fy" in r.stdout and "envFrom" in r.stdout
+    assert '"name": "Fy"' in r.stdout and "envFrom" in r.stdout
+    assert "FYOS_AGENT_UPSTREAM" in r.stdout and "FYOS_RUNNER_TOKEN" in r.stdout and "18438" in r.stdout
+    assert "18789" not in r.stdout and "gateway" not in r.stdout.lower()
     # Die eigenen Bilder kommen an; nichts zeigt mehr auf die Beispieladresse der Basis.
     bilder = {z.split("image:", 1)[1].strip() for z in r.stdout.splitlines() if "image:" in z}
     assert set(EIGENE_BILDER.values()) <= bilder, bilder

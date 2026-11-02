@@ -1,4 +1,4 @@
-"""Vorgänge für Plugins (``mcp_hub.vorgaenge``): Dienst, Workboard oder keine Quelle — ohne Netz."""
+"""Vorgänge für Plugins (``mcp_hub.vorgaenge``): Dienst, Ablage eines Plugins oder keine Quelle — ohne Netz."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ import pytest
 
 from mcp_hub import vorgaenge as VG
 from mcp_hub.vorgaenge import NichtEingerichtet, QuelleFehler, VorgangFehlt, VorgangKonflikt
-
-from .test_openclaw import Werkbrett, _plugin, _Registry
 
 
 @pytest.fixture(autouse=True)
@@ -95,151 +93,90 @@ def test_eine_adresse_macht_den_dienst_zur_quelle(monkeypatch):
     assert VG.quelle(kopf="Name mit Leerzeichen: x").kopf == {}
 
 
-def _ohne_takt(p: Any) -> Any:
-    p._faden = object()  # registry_anbinden startet sonst den Takt-Faden (mit echten Abfragen)
-    return p
+class Ablage:
+    """Eine Ablage im Speicher, wie ein Plugin sie mit ``ablage_anmelden`` anbietet."""
+
+    def __init__(self) -> None:
+        self.vorgaenge: dict[str, dict[str, Any]] = {}
+        self.kommentare: dict[str, list[dict[str, Any]]] = {}
+        self.kaputt = False
+
+    def _pruefe(self) -> None:
+        if self.kaputt:
+            raise RuntimeError("Ablage nicht erreichbar")
+
+    def ablage_liste(self, status: str = "", grenze: int = 50) -> list[dict[str, Any]]:
+        self._pruefe()
+        return list(self.vorgaenge.values())[:grenze]
+
+    def ablage_holen(self, vid: str) -> dict[str, Any] | None:
+        self._pruefe()
+        return self.vorgaenge.get(vid)
+
+    def ablage_anlegen(self, koerper: dict[str, Any]) -> dict[str, Any]:
+        vid = f"AB-{len(self.vorgaenge) + 1}"
+        self.vorgaenge[vid] = {"id": vid, **koerper}
+        return self.vorgaenge[vid]
+
+    def ablage_kommentieren(self, vid: str, koerper: dict[str, Any]) -> dict[str, Any]:
+        if vid not in self.vorgaenge:
+            raise VorgangFehlt(vid)
+        self.kommentare.setdefault(vid, []).insert(0, {"event": "comment", "actor": koerper["actor"], "detail": koerper["text"]})
+        return {"ok": True}
+
+    def ablage_aendern(self, vid: str, koerper: dict[str, Any]) -> dict[str, Any]:
+        v = self.vorgaenge.get(vid)
+        if v is None:
+            raise VorgangFehlt(vid)
+        if koerper.get("expected_status") and koerper["expected_status"] != v["status"]:
+            raise VorgangKonflikt("status_conflict", v)
+        v.update({k: w for k, w in koerper.items() if k in ("status", "title")})
+        return v
+
+    def ablage_verlauf(self, vid: str, grenze: int = 20) -> list[dict[str, Any]]:
+        return self.kommentare.get(vid, [])[:grenze]
 
 
-def test_das_workboard_meldet_sich_als_ablage_an_und_ab():
-    p = _ohne_takt(_plugin(rpc_aufruf=Werkbrett()))
-    assert VG.quelle().art == "keine"
-    p.registry_anbinden(_Registry(p))
-    try:
-        assert VG.quelle().art == "workboard"
-        # ein Dienst hat Vorrang vor der Ablage
-        assert VG.quelle(url="http://tickets.example").art == "dienst"
-    finally:
-        p.shutdown()
-    assert VG.quelle().art == "keine"
-
-
-def test_im_spiegel_gilt_der_gespiegelte_dienst_samt_kopfzeile(monkeypatch):
-    # Adresse und Kopfzeile nur in der config des Plugins: die anderen Plugins fragen trotzdem denselben Dienst
-    p = _ohne_takt(_plugin(rpc_aufruf=Werkbrett(), vorgaenge_url="http://tickets.example/api/",
-                           vorgaenge_kopf="X-Innen: ja"))
-    monkeypatch.setenv("FYOS_VORGAENGE_URL", "http://anderswo.example")
-    p.registry_anbinden(_Registry(p))
-    try:
-        assert VG.angemeldete_ablage() is None
-        q = VG.quelle()
-        assert (q.art, q.url, q.kopf) == ("dienst", "http://tickets.example/api", {"X-Innen": "ja"})
-        assert VG.quelle(kopf="X-Anders: 1").kopf == {"X-Anders": "1"}
-        assert VG.quelle(url="http://direkt.example").url == "http://direkt.example"
-    finally:
-        p.shutdown()
-    assert VG.angemeldeter_dienst() is None and VG.quelle().url == "http://anderswo.example"
-
-
-def test_ein_eingetragener_dienst_gilt_auch_ohne_gateway(monkeypatch):
-    # Die Kopplung ruht (kein FYOS_AGENT_URL), der Vorgangs-Dienst steht aber in der config: die anderen Plugins
-    # (Leitstand, Zentrale) lesen ihn trotzdem. Eine Ablage gibt es ohne Gateway nicht.
-    monkeypatch.delenv("FYOS_AGENT_URL", raising=False)
-    p = _plugin(gateway_url="", vorgaenge_url="http://tickets.example/api")
-    assert p.modus == "aus"
-    p.registry_anbinden(_Registry(p))
-    try:
-        assert VG.angemeldete_ablage() is None and p._faden is None
-        assert (VG.quelle().art, VG.quelle().url) == ("dienst", "http://tickets.example/api")
-    finally:
-        p.shutdown()
-    assert VG.angemeldeter_dienst() is None and VG.quelle().art == "keine"
-    ohne = _plugin(gateway_url="")
-    ohne.registry_anbinden(_Registry(ohne))
-    try:
-        assert VG.quelle().art == "keine"
-    finally:
-        ohne.shutdown()
-
-
-def test_der_spiegel_schickt_die_kopfzeile_mit(monkeypatch):
-    gesehen: list[dict[str, str]] = []
-
-    class Antwort:
-        status = 200
-
-        def __enter__(self) -> "Antwort":
-            return self
-
-        def __exit__(self, *a: Any) -> None:
-            return None
-
-        def read(self, n: int = -1) -> bytes:
-            return b'{"tickets": []}'
-
-    def urlopen(req: Any, timeout: float = 0, context: Any = None) -> Antwort:
-        gesehen.append(dict(req.header_items()))
-        return Antwort()
-
-    monkeypatch.setenv("FYOS_VORGAENGE_KOPF", "X-FYOS-Pane-Auth: innen")
-    p = _plugin(vorgaenge_url="http://tickets.example/api")
-    monkeypatch.setattr("urllib.request.urlopen", urlopen)
-    assert p._vd("GET", "/tickets?limit=1") == {"tickets": []}
-    assert gesehen[0]["X-fyos-pane-auth"] == "innen"
-
-
-# ── Workboard ───────────────────────────────────────────────────────────────────────────────────
-
-
-def test_workboard_als_quelle_traegt_den_vertrag():
-    brett = Werkbrett()
-    p = _plugin(rpc_aufruf=brett)
-    VG.ablage_anmelden(p)
+def test_eine_angemeldete_ablage_ist_die_quelle_und_ein_dienst_hat_vorrang():
+    ablage = Ablage()
+    VG.ablage_anmelden(ablage)
     q = VG.quelle()
-    t = q.anlegen("Backup prüfen", "nachts", status="waiting_approval", priority="p1", actor="agent")
-    assert t["id"].startswith("WB-") and t["status"] == "waiting_approval" and t["priority"] == "urgent"
+    assert q.art == "ablage" and q.eingerichtet
+    assert VG.quelle(url="http://tickets.example").art == "dienst"
+    VG.dienst_anmelden("http://tickets.example/api/", {"X-Innen": "ja"})
+    q = VG.quelle()
+    assert (q.art, q.url, q.kopf) == ("dienst", "http://tickets.example/api", {"X-Innen": "ja"})
+    VG.dienst_anmelden(None)
+    VG.ablage_anmelden(None)
+    assert VG.quelle().art == "keine"
+
+
+def test_ablage_traegt_den_vertrag():
+    VG.ablage_anmelden(Ablage())
+    q = VG.quelle()
+    t = q.anlegen("Backup prüfen", "nachts", status="waiting_approval", actor="agent")
     q.anlegen("Neues Gerät", status="new")
     assert [x["id"] for x in q.freigaben()] == [t["id"]]
     assert {x["status"] for x in q.offen()} == {"waiting_approval", "new"}
-    assert len(q.liste("new,waiting_approval", grenze=1)) == 2  # Grenze je Status
     q.kommentieren(t["id"], "ja, aber nach 22 Uhr", actor="besitzer")
-    with pytest.raises(VorgangKonflikt) as konflikt:
+    with pytest.raises(VorgangKonflikt):
         q.aendern(t["id"], status="in_progress", expected_status="triage")
-    assert konflikt.value.vorgang["status"] == "waiting_approval"
-    neu = q.aendern(t["id"], status="in_progress", expected_status="waiting_approval", actor="besitzer",
-                    waiting_for="", assignee="agent")  # was das Workboard nicht kennt, fällt weg
-    assert neu["status"] == "in_progress" and q.holen(t["id"])["status"] == "in_progress"
-    karte = brett.karten[t["karte"]]
-    assert [c["body"] for c in karte["metadata"]["comments"]] == [
-        "besitzer: ja, aber nach 22 Uhr", "besitzer: Status waiting_approval → in_progress"]
-    # der Verlauf sind die Kommentare, neueste zuerst, Akteur und Text getrennt
-    verlauf = q.verlauf(t["id"])
-    assert [(e["event"], e["actor"], e["detail"]) for e in verlauf] == [
-        ("comment", "besitzer", "Status waiting_approval → in_progress"), ("comment", "besitzer", "ja, aber nach 22 Uhr")]
-    assert len(q.verlauf(t["id"], grenze=1)) == 1
+    assert q.aendern(t["id"], status="in_progress", expected_status="waiting_approval")["status"] == "in_progress"
+    assert q.verlauf(t["id"])[0]["detail"] == "ja, aber nach 22 Uhr"
     with pytest.raises(VorgangFehlt):
-        q.verlauf("WB-00000000")
-    with pytest.raises(VorgangFehlt):
-        q.holen("WB-00000000")
-    with pytest.raises(ValueError):
-        q.liste("erledigt")
+        q.holen("AB-99")
     with pytest.raises(ValueError):
         q.kommentieren(t["id"], "  ")
-
-
-def test_workboard_roh_bildet_den_vertrag_nach_und_sagt_was_fehlt():
-    p = _plugin(rpc_aufruf=Werkbrett())
-    VG.ablage_anmelden(p)
-    q = VG.quelle()
-    status, d = q.roh("POST", "/tickets", {"title": "Druckerpapier", "status": "new"})
-    assert status == 201 and d["ticket"]["status"] == "new"
-    vid = d["ticket"]["id"]
-    assert q.roh("GET", f"/tickets/{vid}")[1]["ticket"]["title"] == "Druckerpapier"
-    assert q.roh("GET", "/tickets?status=new&limit=5")[1]["tickets"][0]["id"] == vid
-    assert q.roh("POST", f"/tickets/{vid}/comments", {"actor": "agent", "text": "bestellt"})[0] == 200
-    assert q.roh("PATCH", f"/tickets/{vid}", {"status": "resolved"})[1]["ticket"]["status"] == "resolved"
-    assert q.roh("GET", "/tickets/WB-00000000")[0] == 404
-    assert q.roh("PATCH", f"/tickets/{vid}", {"status": "erledigt"})[0] == 400
-    status, d = q.roh("GET", f"/tickets/{vid}/history?limit=5")
-    assert status == 200 and [(e["actor"], e["detail"]) for e in d["history"]] == [("agent", "bestellt")]
+    status, d = q.roh("GET", "/tickets?status=new&limit=5")
+    assert status == 200 and d["quelle"] == "ablage" and d["tickets"][0]["title"] == "Neues Gerät"
     status, d = q.roh("GET", "/waiting")
-    assert status == 501 and "Workboard" in d["detail"]
+    assert status == 501 and "Ablage" in d["detail"]
 
 
-def test_workboard_fehler_der_bruecke_werden_quellfehler():
-    def kaputt(methode: str, params: dict[str, Any]) -> Any:
-        raise RuntimeError("Brücke nicht erreichbar (URLError)")
-
-    VG.ablage_anmelden(_plugin(rpc_aufruf=kaputt))
+def test_fehler_der_ablage_werden_quellfehler():
+    ablage = Ablage()
+    ablage.kaputt = True
+    VG.ablage_anmelden(ablage)
     q = VG.quelle()
     with pytest.raises(QuelleFehler):
         q.liste()

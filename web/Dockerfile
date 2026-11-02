@@ -18,11 +18,9 @@ FROM nginx:1.27-alpine
 ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 ENV NGINX_ENVSUBST_FILTER=FYOS_|NGINX_LOCAL_RESOLVERS
 ENV FYOS_HUB_UPSTREAM=http://hub:8080
-# Agenten-Runner (ab 0.2.0) unter /api/agent; das Token setzt nginx (leer: der Runner lehnt ab)
+# Der Agent (Runner) unter /api/agent; das Token setzt nginx (leer: der Runner lehnt ab)
 ENV FYOS_AGENT_UPSTREAM=http://agent:18438
 ENV FYOS_AGENT_TOKEN=
-# Veraltet: OpenClaw-Gateway unter /agent, nur für Installationen mit dem alten Agenten
-ENV FYOS_OPENCLAW_UPSTREAM=http://openclaw:18789
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 # Laufzeit-Konfiguration: diese Datei kann gemountet werden (ConfigMap, Volume).

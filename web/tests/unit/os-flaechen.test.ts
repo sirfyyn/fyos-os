@@ -14,14 +14,15 @@ describe('Flächenverzeichnis', () => {
   it('ohne Registrierung gibt es nur die eingebauten Flächen: Einstellungen und Agent', () => {
     const ids = alleFlaechen([]).map((f) => f.id);
     expect(ids).toContain('nativ:einstellungen');
-    expect(ids).toContain('agent');
-    expect(ids.every((id) => id === 'agent' || id.startsWith('nativ:'))).toBe(true);
+    expect(ids).toContain('nativ:agent');
+    expect(ids).not.toContain('agent'); // kein eingebetteter Gateway-Chat mehr (seit 0.2.1)
+    expect(ids.every((id) => id.startsWith('nativ:'))).toBe(true);
   });
 
   it('nimmt Hub-Apps von selbst auf, der Agent ist immer da, jede Kennung kommt einmal vor', () => {
     const l = alleFlaechen([app('notizen__liste', { title: 'Notizen' })]);
     expect(l.find((f) => f.id === 'app:notizen__liste')?.gruppe).toBe('Apps');
-    expect(l.find((f) => f.id === 'agent')?.breit).toBe(true);
+    expect(l.find((f) => f.id === 'nativ:agent')?.breit).toBe(true);
     expect(new Set(l.map((f) => f.id)).size).toBe(l.length);
   });
 

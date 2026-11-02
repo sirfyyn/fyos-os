@@ -1,6 +1,6 @@
 """vorgaenge — die App „Vorgänge“: offene Aufgaben ansehen, Info anhängen, aus einer Mail einen Vorgang machen.
 
-Das Plugin macht aus der Vorgangs-Quelle des Kerns (``mcp_hub.vorgaenge``: Vorgangs-Dienst oder Workboard des Agenten,
+Das Plugin macht aus der Vorgangs-Quelle des Kerns (``mcp_hub.vorgaenge``: Vorgangs-Dienst oder Ablage eines Plugins,
 siehe ``docs/ERWEITERN.md`` §2.13) Werkzeuge und eine App. Ohne Quelle sagt die App das und zeigt keine leere Liste.
 
 Ein Vorgang ist ein **Ding** (Typ ``vorgang``): man zieht ihn aus der App auf andere Fenster. Dazu nimmt die App an:
@@ -107,7 +107,7 @@ class VorgaengePlugin(HubPlugin):
         return [
             werkzeug(
                 "zeigen", "Vorgänge",
-                "Zeigt die Vorgänge (Vorgangs-Dienst oder Workboard des Agenten) und öffnet die App „Vorgänge“. Ohne status die offenen "
+                "Zeigt die Vorgänge (Vorgangs-Dienst oder Ablage eines Plugins) und öffnet die App „Vorgänge“. Ohne status die offenen "
                 "(new, triage, in_progress, waiting_approval). Ist keine Quelle eingerichtet, sagt die Antwort das. Nur lesend.",
                 {
                     "status": {"type": "string", "description": "ein oder mehrere Status, mit Komma getrennt; „alle“ für jeden"},

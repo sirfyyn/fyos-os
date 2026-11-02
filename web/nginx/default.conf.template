@@ -4,23 +4,11 @@
 #   /hub-api/*  ->  ${FYOS_HUB_UPSTREAM}/hub/*       (Hub: Apps, Ressourcen, App-Aufrufe, OS-Brücke)
 #   /hub/gui/<id>[/daten]  ->  ${FYOS_HUB_UPSTREAM}/hub/gui/…  (gebaute Ansichten, nur GET, Pfad bleibt)
 #   /api/agent/*  ->  ${FYOS_AGENT_UPSTREAM}/*  (Agenten-Runner: Präfix ab, Token setzt dieser Server, SSE ohne Puffer)
-#   /agent, /agent/*  ->  ${FYOS_OPENCLAW_UPSTREAM}/agent…  (veraltet: OpenClaw-Gateway mit Präfix, inkl. WebSocket)
 #   /fyos.config.json  aus einer Datei (Laufzeit-Konfiguration, siehe README)
 #
 # Die Datei ist eine envsubst-Vorlage (nginx-Image: /etc/nginx/templates). Ersetzt werden nur
-# FYOS_HUB_UPSTREAM, FYOS_AGENT_UPSTREAM, FYOS_AGENT_TOKEN und FYOS_OPENCLAW_UPSTREAM; alle anderen
-# $-Variablen gehören nginx. Es gibt keinen festen Resolver: die Upstreams sind statische Namen, die nginx
-# beim Start auflöst. FYOS_OPENCLAW_UPSTREAM steht ohne Pfad (http://openclaw:18789): die Location ist ein
-# regulärer Ausdruck, und nginx verbietet dort einen Pfad hinter proxy_pass.
-
-# Die Oberfläche des Gateways verbietet jede Einbettung (X-Frame-Options DENY, CSP frame-ancestors 'none').
-# Die Shell zeigt den Chat aber als Fenster im eigenen Ursprung. Für /agent ersetzt dieser Server deshalb
-# genau diese eine Angabe durch 'self' und lässt den Rest der CSP des Gateways stehen (deren Skript-Hashes
-# wechseln mit jeder OpenClaw-Version).
-map $upstream_http_content_security_policy $fyos_agent_csp {
-    "~^(?<fyos_csp_vor>.*)frame-ancestors 'none'(?<fyos_csp_nach>.*)$"  "${fyos_csp_vor}frame-ancestors 'self'${fyos_csp_nach}";
-    default  $upstream_http_content_security_policy;
-}
+# FYOS_HUB_UPSTREAM, FYOS_AGENT_UPSTREAM und FYOS_AGENT_TOKEN (dazu NGINX_LOCAL_RESOLVERS); alle anderen
+# $-Variablen gehören nginx.
 
 server {
     listen 8080 default_server;
@@ -48,8 +36,8 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "interest-cohort=()" always;
 
-    # Agent und OpenClaw werden erst je Anfrage aufgelöst (proxy_pass mit Variable): fehlt einer der Dienste, startet die
-    # Shell trotzdem, nur dieser Weg antwortet 502. NGINX_LOCAL_RESOLVERS setzt das nginx-Bild aus /etc/resolv.conf
+    # Der Agent wird erst je Anfrage aufgelöst (proxy_pass mit Variable): fehlt der Dienst, startet die Shell trotzdem,
+    # nur dieser Weg antwortet 502. NGINX_LOCAL_RESOLVERS setzt das nginx-Bild aus /etc/resolv.conf
     # (Docker und Kubernetes); NGINX_ENVSUBST_FILTER lässt die Variable durch.
     resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
     resolver_timeout 5s;
@@ -100,51 +88,6 @@ server {
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
     location = /api/agent { return 404; }
-
-    # Veraltet (bis 0.1): OpenClaw-Gateway (Control UI), mit WebSocket-Upgrade. Pfad GENAU /agent und /agent/…,
-    # nicht /agent… (das träfe auch /agents). Der Pfad geht unverändert durch: das Gateway liefert seine
-    # Oberfläche unter gateway.controlUi.basePath=/agent aus und baut Assets und WebSocket mit diesem Präfix,
-    # ohne Präfix antwortet es 404. Diese Location steht vor den Regex-Locations für Medien und HTML, sonst
-    # landeten Bilder der Oberfläche (/agent/….svg) bei den statischen Dateien.
-    location ~ ^/agent(/|$) {
-        set $fyos_openclaw ${FYOS_OPENCLAW_UPSTREAM};
-        proxy_pass $fyos_openclaw;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        # Herkunft: Weiterleitungs-Köpfe glaubt das Gateway nur einem benannten Vorsatz (gateway.trustedProxies)
-        # und weist sie sonst ab (403 proxy_attribution_required). Dieser Server ist keiner: seine Adresse
-        # wechselt mit Pod oder Container. Er streicht deshalb alle Herkunftsangaben, auch die eines Proxys
-        # davor. Das Gateway sieht ihn als Absender (direct-remote) und verlangt wie bei jedem entfernten
-        # Gerät die Anmeldung. Als Weiterleitung zählt es Forwarded, X-Real-IP und jedes X-Forwarded-*.
-        proxy_set_header Forwarded "";
-        proxy_set_header X-Real-IP "";
-        proxy_set_header X-Forwarded-For "";
-        proxy_set_header X-Forwarded-Proto "";
-        proxy_set_header X-Forwarded-Host "";
-        proxy_set_header X-Forwarded-Port "";
-        proxy_set_header X-Forwarded-Server "";
-        proxy_set_header X-Forwarded-Prefix "";
-        proxy_set_header X-Forwarded-Uri "";
-        proxy_set_header X-Forwarded-Method "";
-        proxy_set_header X-Forwarded-Ssl "";
-        proxy_set_header X-Forwarded-Scheme "";
-        proxy_set_header Tailscale-User-Login "";
-        proxy_set_header Tailscale-User-Name "";
-        proxy_set_header Tailscale-User-Profile-Pic "";
-        proxy_set_header Tailscale-Headers-Info "";
-        proxy_set_header Tailscale-Funnel-Request "";
-        # Einbettung nur im eigenen Ursprung (map oben). add_header hier hebt die Köpfe des server-Blocks auf;
-        # die übrigen Sicherheitsköpfe setzt das Gateway selbst.
-        proxy_hide_header X-Frame-Options;
-        proxy_hide_header Content-Security-Policy;
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header Content-Security-Policy $fyos_agent_csp always;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
-        proxy_buffering off;
-    }
 
     # Gebaute Ansichten (Plugin gui): die Seite /hub/gui/<id> und ihre frischen Daten /hub/gui/<id>/daten, damit ein
     # Ansichts-Link im Browser oder im Panel einer Entwicklungsumgebung über die Shell aufgeht. Nur lesend. Der Pfad

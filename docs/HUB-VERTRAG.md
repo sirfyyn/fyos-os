@@ -28,7 +28,7 @@ Was der Hub (`hub/`, Paket `mcp_hub`) nach außen zusagt: HTTP-Wege, Formate, Pl
 | `/hub/agent/eingang` | GET, POST | Agenten-Eingang (Plugin `agent`): Quellen werfen ein (POST), der Runner liest per Long-Poll (GET `?nach=&warte=&anzahl=&agent=`); Abschnitt „Agenten-Runner“ unten |
 | `/hub/agent/melden` | POST | Agenten-Ausgang: der Runner meldet seine Sitzung gebündelt in den Strom `fyos:agent` |
 | `/hub/agent/alarm` | POST | Alertmanager-Webhook (v4) als entprellte Alarme in den Agenten-Eingang |
-| `/hub/<eigener Weg>` | je Plugin | Wege aus Plugins (`routen()`, Abschnitt 4), nach denen des Kerns; etwa `/hub/openclaw/ereignisse` und `/hub/vorgaenge/tickets…` (KOPPLUNG-OPENCLAW.md) |
+| `/hub/<eigener Weg>` | je Plugin | Wege aus Plugins (`routen()`, Abschnitt 4), nach denen des Kerns; etwa `/hub/agent/eingang` (Plugin `agent`) |
 
 ### nginx der Shell
 

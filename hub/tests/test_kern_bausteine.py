@@ -105,17 +105,9 @@ def test_zettel_werkzeuge_schreibend_nur_fuer_die_oberflaeche(zettel):
 
 
 def test_der_nachtauftrag_liest_ein_werkzeug_das_der_agent_sehen_und_rufen_darf(zettel):
-    """tools/nachtauftrag.py schickt den Agenten zu `beispiel_app.zeigen`: Es muss das Werkzeug geben, es darf nicht
-    „nur für die Oberfläche“ sein, und es liefert `anzahl` und `notizen` mit Text (das nennt der Auftragstext)."""
-    import importlib.util
-
-    pfad = Path(__file__).resolve().parents[2] / "tools" / "nachtauftrag.py"
-    spec = importlib.util.spec_from_file_location("nachtauftrag_aus_tools", pfad)
-    assert spec and spec.loader
-    modul = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(modul)
-
-    plugin, werkzeug = modul.LESE_WERKZEUG.split(".")
+    """Der Nachtauftrag (docs/NACHTARBEIT.md, Skill nachtarbeit) schickt den Agenten zu `beispiel_app.zeigen`: Es muss das
+    Werkzeug geben, es darf nicht „nur für die Oberfläche“ sein, und es liefert `anzahl` und `notizen` mit Text."""
+    plugin, werkzeug = "beispiel_app.zeigen".split(".")
     assert plugin == zettel.name
     beschreibung = {t.name: t for t in zettel.describe_tools()}[werkzeug]
     assert "visibility" not in beschreibung.meta["ui"] and "read" in beschreibung.tags

@@ -14,29 +14,17 @@ ein Konto oder eine Person braucht, kommt als Plugin aus einem eigenen Repo.
 │                         hub/  MCP-Hub-Kern + Kern-Plugins    │  allgemein
 │                         deploy/ Compose + Kubernetes         │
 ├──────────────────────────────────────────────────────────────┤
-│ fyos-agent (Grundlage)  OpenClaw-Mod: Bild, Patches,         │
-│                         Verhaltens-Plugins, Workspace-       │  allgemein
-│                         Vorlagen, Verhaltensvertrag, Skills  │
-├──────────────────────────────────────────────────────────────┤
-│ OpenClaw (Upstream)     ghcr.io/openclaw/openclaw@<digest>   │
+│ fyos-agent (Grundlage)  der Agent: Runner auf pi-durable     │  allgemein
+│                         (Bild fyos-agent/runner)             │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### fyos-agent — das Agentenverhalten als Grundlage
+### fyos-agent — der Agent
 
-Ein Mod auf das Upstream-Bild von OpenClaw, kein Quell-Fork: Basisbild per Digest,
-versionsgebundene Patches (brechen bei Upstream-Drift den Bau ab), FYOS-Plugins
-unter `/opt/fyos/`. Das Verhalten steht in drei Formen:
-
-1. **Verhaltensvertrag** (`vertrag/`): Betriebskonzept (Kleines selbst mit Rückweg,
-   Schweres entscheidet der Mensch), Freigabeweg, Fortschrittsmeldungen,
-   Meldebudget und Ruhezeiten, Werkzeugentdeckung, Datenschutz (Geheimnisse und
-   Finanz-/Gesundheitsdaten bleiben lokal).
-2. **Workspace-Vorlagen** (`workspace/*.md.tmpl`): `AGENTS.md`, `SOUL.md`,
-   `IDENTITY.md`, `USER.md` mit Platzhaltern (`{{agent.name}}`, `{{besitzer.name}}`,
-   `{{sprache}}` …), gerendert aus `fyos.yaml`.
-3. **Verhaltens-Plugins** (`plugins/`): Freigabe im Chat, Kontext-Edit,
-   Meldebudget, Priorität, Schleifen-Läufer.
+Der Agent ist der Runner aus `fyos-agent` (`runner/`): ein dauerhafter Prozess auf pi-durable mit eigener Oberfläche,
+Gesprächen, Läufen, Freigaben und Takten. Sein Zustand liegt in SQLite unter `~/.fyos` (im Container
+`/home/node/.fyos`, ein Volume). Konfiguration: `agent-runner.json` (Vorlage
+`fyos-agent/runner/beispiele/agent-runner.beispiel.json`); Modell und Token kommen aus der Umgebung.
 
 ### fyos-os — Shell, Hub, Auslieferung
 
@@ -77,21 +65,18 @@ des Kerns (`mcp_hub.dateien`, `FYOS_DATEIEN`, ein Volume; `ERWEITERN.md` §2.17)
 | Dienst | Bild | Port | Wichtige Umgebung |
 |---|---|---|---|
 | web | `fyos-os/web` | 8080 (nginx) | `FYOS_HUB_UPSTREAM` (z. B. `http://hub:8080`), `FYOS_AGENT_UPSTREAM` |
-| hub | `fyos-os/hub` | 8080 (`/mcp`, `/hub/*`, `/health`, `/metrics`) | `MCP_HUB_CONFIG_PATH`, `FYOS_OEFFENTLICH_URL`, `FYOS_ERLAUBTE_HOSTS`, `FYOS_OIDC_ISSUER`, `REDIS_URL`, `QDRANT_URL`, `FYOS_AGENT_URL`, `FYOS_AGENT_TOKEN` |
-| agent | `fyos-agent/openclaw` | 18789 (Gateway) | `FYOS_CONFIG` (Pfad zu `fyos.yaml`), `FYOS_MODELL_BASIS_URL`, `FYOS_MODELL_NAME`, `FYOS_MODELL_SCHLUESSEL`, `FYOS_HUB_URL`, `OPENCLAW_GATEWAY_TOKEN`, `FYOS_OEFFENTLICH_URL` |
+| hub | `fyos-os/hub` | 8080 (`/mcp`, `/hub/*`, `/health`, `/metrics`) | `MCP_HUB_CONFIG_PATH`, `FYOS_OEFFENTLICH_URL`, `FYOS_ERLAUBTE_HOSTS`, `FYOS_OIDC_ISSUER`, `REDIS_URL`, `QDRANT_URL`, `FYOS_AGENT_TOKENS` |
+| agent | `fyos-agent/runner` | 18438 | `FYOS_RUNNER_TOKEN` (= `FYOS_AGENT_TOKEN` der Oberfläche), `FYOS_HUB_URL`, `FYOS_MODELL_BASIS_URL`, `FYOS_MODELL_NAME`, `FYOS_MODELL_SCHLUESSEL`; Konfiguration `/etc/fyos/agent-runner.json` |
 | redis | `redis:7` | 6379 | – |
 
-Der Browser spricht nur mit `web`: `/hub-api/*` geht an den Hub, `/agent/*` mit Präfix an
-das OpenClaw-Gateway (Control UI unter `/agent/`). Die Shell streicht dabei die
-Herkunftsköpfe und erlaubt die Einbettung im eigenen Ursprung (`web/README.md`); das
-Gateway lässt nur den Ursprung `FYOS_OEFFENTLICH_URL` zu. Anmeldung ist optional
-(OIDC-Forward-Auth vor `web`); ohne sie läuft FYOS als Einzelplatz im eigenen Netz.
+Der Browser spricht nur mit `web`: `/hub-api/*` geht an den Hub, `/api/agent/*` ohne Präfix an den Runner. Das Token des
+Runners setzt `web` (nginx, `FYOS_AGENT_TOKEN`), der Browser kennt es nie; ohne den Kopf `X-FYOS-Agent: 1` antwortet der
+Weg 404 (`web/README.md`). Anmeldung ist optional (OIDC-Forward-Auth vor `web`); ohne sie läuft FYOS als Einzelplatz im
+eigenen Netz.
 
-Hub und Agent sind gekoppelt (`KOPPLUNG-OPENCLAW.md`): Der Agent ruft die Werkzeuge des
-Hubs über MCP, die Brücke `fyos-bruecke` meldet seine Aktivität ohne Inhalte an den Hub,
-und der Hub liest Workboard, Skills, Cron und Nutzung des Agenten über eine feste
-Methodenliste. Vorgänge und Workboard, Takte und Cron, Audit und Nutzung erscheinen so
-je in einer Ansicht.
+Hub und Agent sind gekoppelt: Der Agent ruft die Werkzeuge des Hubs, und das Plugin `agent` (`/hub/agent/*`) nimmt
+Eingänge an (Web-Chat, Alarme) und Meldungen des Runners über seine Läufe entgegen. Gesprochen wird nur über diese Wege;
+eine zweite Brücke gibt es nicht.
 
 ## Sauberkeit
 

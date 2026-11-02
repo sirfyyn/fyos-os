@@ -13,7 +13,7 @@ Welche Verzeichnisse gelten, bestimmt (in dieser Reihenfolge) die Plugin-Config 
 `/opt/fyos/skills`. Dahinter kommen die Skill-Ordner installierter Plugin-Pakete (Entry-Point-Gruppe
 `fyos.skills`, abschaltbar mit `plugin_skills: false`). Die Quelle heisst nach ihrem Verzeichnisnamen bzw. dem
 Entry-Point; bei gleichem Skill-Namen gewinnt die zuerst genannte. Zuletzt kommen Skills, die andere Plugins beitragen
-(``HubPlugin.skills_beitrag``, etwa die des Agenten über das Plugin ``openclaw``; abschaltbar mit `beitraege: false`).
+(``HubPlugin.skills_beitrag``, etwa die eines Plugins, das Skills eines Dienstes mitbringt; abschaltbar mit `beitraege: false`).
 Jede SKILL.md beginnt mit Front-Matter (`name`, `description`; optional `werkstatt: [ids]`,
 `ausloeser`, `fuer: [agent, …]`).
 

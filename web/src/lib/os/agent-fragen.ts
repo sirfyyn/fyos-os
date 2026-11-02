@@ -12,15 +12,12 @@
  * Kontext als Entwurf in das Eingabefeld der Agent-App (Runner): der Mensch ändert sie und sendet mit Enter.
  *
  * Seiten in OS-Fenstern laufen in iframes: dort geht die Frage per postMessage an die Shell. Eine Seite allein im
- * Browser ohne Shell öffnet den Chat mit dem Entwurf in einem neuen Tab.
+ * Browser ohne Shell öffnet die Shell in einem neuen Tab; die Frage selbst geht dann nicht mit.
  */
-import { agentPfad } from '~/lib/config';
 
 export const FRAGEN_EREIGNIS = 'fyos:agent-fragen';
 /** Schlüssel der postMessage-Nachricht (iframe → Shell) */
 export const FRAGEN_NACHRICHT = 'fyosAgentFragen';
-/** Länge des kodierten Entwurfs in der Adresse (ein Umlaut kostet kodiert 6 Zeichen): weit unter jedem Adresslimit */
-const ENTWURF_KODIERT_MAX = 5000;
 /** Zeichen des Kontexts, die dem Entwurf angehängt werden */
 const KONTEXT_MAX = 400;
 
@@ -62,14 +59,6 @@ export function mitKontext(text: string, k?: FragenKontext): string {
   const zusatz = `${kopf}${rest ? ` ${rest}` : ''}`.trim();
   if (!zusatz) return text;
   return `${text}\n\n[Kontext: ${zusatz.length > KONTEXT_MAX ? `${zusatz.slice(0, KONTEXT_MAX)} …` : zusatz}]`;
-}
-
-/** Frage und Kontext als Eingabefeld-Entwurf im Chat. */
-export function entwurfAdresse(f: AgentFrage): string {
-  const voll = mitKontext(f.text, f.kontext);
-  let kurz = voll;
-  while (encodeURIComponent(kurz).length > ENTWURF_KODIERT_MAX) kurz = kurz.slice(0, Math.floor(kurz.length * 0.9));
-  return `${agentPfad()}?draft=${encodeURIComponent(kurz === voll ? voll : `${kurz} …`)}`;
 }
 
 const istObjekt = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -115,16 +104,13 @@ export function agentFragen(frage: AgentFrage, d: { fenster?: Window } = {}): vo
   }
   const ev = new CustomEvent<AgentFrage>(FRAGEN_EREIGNIS, { detail: f, cancelable: true });
   w.dispatchEvent(ev);
-  // Niemand in diesem Fenster nimmt sie an (keine Shell): Chat mit dem Entwurf in einem neuen Tab
-  if (!ev.defaultPrevented) w.open(entwurfAdresse(f), '_blank', 'noopener');
+  // Niemand in diesem Fenster nimmt sie an (keine Shell): die Shell in einem neuen Tab, dort steht das Agent-Dock
+  if (!ev.defaultPrevented) w.open('/', '_blank', 'noopener');
 }
 
 export interface Anbindung {
-  /**
-   * Agent-Dock öffnen bzw. nach vorn holen. `adresse` lenkt einen eingebetteten Chat (Entwurf als `?draft=`);
-   * `frage` ist dieselbe Frage als Daten, für die native Agent-App (Entwurf ins Eingabefeld, siehe mitKontext).
-   */
-  zeigen: (adresse?: string, frage?: AgentFrage) => void;
+  /** Agent-Dock öffnen bzw. nach vorn holen; `frage` kommt als Entwurf ins Eingabefeld der Agent-App (siehe mitKontext). */
+  zeigen: (frage: AgentFrage) => void;
 }
 
 /** Empfänger anhängen (einmal, in der Shell). Gibt die Abmeldung zurück. */
@@ -132,7 +118,7 @@ export function agentFragenAnbinden(a: Anbindung, d: { fenster?: Window } = {}):
   const w = d.fenster ?? window;
   const annehmen = (roh: unknown): boolean => {
     const f = pruefen(roh);
-    if (f) a.zeigen(entwurfAdresse(f), f);
+    if (f) a.zeigen(f);
     return !!f;
   };
   const imEreignis = (e: Event): void => {

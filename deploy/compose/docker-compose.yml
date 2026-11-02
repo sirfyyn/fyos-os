@@ -1,5 +1,5 @@
-# Handvorlage mit dem veralteten OpenClaw-Agenten. Der Installer (fyos-install) richtet ab 0.2.0 den Runner ein
-# (fyos-agent/runner); diese Datei bleibt für bestehende Einrichtungen.
+# Handvorlage, gleich aufgebaut wie die Einrichtung des Installers (fyos-install). Der Agent ist der Runner
+# (fyos-agent/runner); seine Konfiguration steht in agent-runner.json.
 # FYOS als Einzelplatz: docker compose --env-file .env up -d
 # Danach http://localhost:8080 öffnen. Werte in .env (Vorlage: env.example).
 services:
@@ -9,7 +9,9 @@ services:
       - "${FYOS_PORT:-8080}:8080"
     environment:
       FYOS_HUB_UPSTREAM: http://hub:8080
-      FYOS_OPENCLAW_UPSTREAM: http://agent:18789
+      FYOS_AGENT_UPSTREAM: http://agent:18438
+      # Anmeldung der Oberfläche beim Runner (nginx setzt den Kopf für /api/agent/)
+      FYOS_AGENT_TOKEN: ${FYOS_AGENT_TOKEN}
     depends_on: [hub, agent]
     restart: unless-stopped
 
@@ -21,9 +23,6 @@ services:
       FYOS_OEFFENTLICH_URL: ${FYOS_OEFFENTLICH_URL:-http://localhost:8080}
       # Zeitzone des Hubs: Tageszähler und Zeitfenster der Takte (docs/ERWEITERN.md §2.12), z. B. Europe/Berlin
       TZ: ${TZ:-UTC}
-      # Kopplung an OpenClaw (docs/KOPPLUNG-OPENCLAW.md): Abfragen über die Brücke, Prüfung ihrer Signatur
-      FYOS_AGENT_URL: http://agent:18789
-      FYOS_AGENT_TOKEN: ${FYOS_AGENT_TOKEN}
       # Dateiablage (Plugin dateien, App „Dateien“): Ordner im Volume, Obergrenze je Datei in MB (docs/ERWEITERN.md §2.17)
       FYOS_DATEIEN: /data/dateien
       FYOS_DATEIEN_MAX_MB: ${FYOS_DATEIEN_MAX_MB:-25}
@@ -34,22 +33,20 @@ services:
     restart: unless-stopped
 
   agent:
+    # Der Agent: dauerhafter Runner auf pi-durable (fyos-agent/runner). Zustand im Volume, Modell aus .env.
     image: ${FYOS_BILD_AGENT:?FYOS_BILD_AGENT in .env setzen (Vorlage env.example)}
     environment:
-      HOME: /home/node
-      FYOS_CONFIG: /etc/fyos/fyos.yaml
-      FYOS_HUB_URL: http://hub:8080/mcp
+      FYOS_RUNNER_TOKEN: ${FYOS_AGENT_TOKEN}
+      FYOS_HUB_URL: http://hub:8080
       FYOS_MODELL_BASIS_URL: ${FYOS_MODELL_BASIS_URL}
       FYOS_MODELL_NAME: ${FYOS_MODELL_NAME}
       FYOS_MODELL_SCHLUESSEL: ${FYOS_MODELL_SCHLUESSEL}
-      OPENCLAW_GATEWAY_TOKEN: ${FYOS_AGENT_TOKEN}
-      # Erlaubter Ursprung der Control UI im Fenster der Shell (fyos-agent: gateway.oeffentliche_url)
-      FYOS_OEFFENTLICH_URL: ${FYOS_OEFFENTLICH_URL:-http://localhost:8080}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./fyos.yaml:/etc/fyos/fyos.yaml:ro
-      - agent-zustand:/home/node/.openclaw
+      - ./agent-runner.json:/etc/fyos/agent-runner.json:ro
+      - agent-zustand:/home/node/.fyos
+    depends_on: [hub]
     restart: unless-stopped
 
   redis:

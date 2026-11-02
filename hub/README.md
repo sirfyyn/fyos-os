@@ -114,8 +114,7 @@ Wächter `mcp_hub.takt`, können sie zwei Grenzen haben: `max_pro_tag` (Läufe j
 `"07:00-22:00"`, auch über Mitternacht). Außerhalb des Fensters oder über dem Limit läuft die Aufgabe nicht; der Hub
 zählt die übersprungenen Läufe (`fyos_zeitplan_uebersprungen_total{takt, grund}`, dazu `fyos_zeitplan_laeufe_heute{takt}`)
 und führt je Takt ein knappes Laufprotokoll (Start, Dauer, Ergebnis; die letzten 20 Läufe) im Hub-Speicher. Tag und
-Uhrzeit gelten in der Zeitzone des Hubs (`TZ`). Ohne Grenzen läuft alles wie vorher. Die Takte des mitgelieferten
-Plugins `openclaw` stellt `takt_grenzen` in seiner `config` ein (`config.example.yaml`); eigene Plugins binden den
+Uhrzeit gelten in der Zeitzone des Hubs (`TZ`). Ohne Grenzen läuft alles wie vorher. Plugins binden den
 Wächter nach [`docs/ERWEITERN.md`](../docs/ERWEITERN.md) §2.12 ein.
 
 ## Anmeldung (optional)

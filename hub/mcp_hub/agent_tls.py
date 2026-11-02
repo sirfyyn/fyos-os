@@ -1,4 +1,4 @@
-"""TLS-Kontext für die HTTP-Aufrufe ans Gateway des Agenten (und an den Vorgangs-Dienst).
+"""TLS-Kontext für die HTTP-Aufrufe an den Vorgangs-Dienst (``vorgaenge.Dienst``).
 
 Vorgabe: prüfen, mit den System-Zertifikaten. Zwei Stellschrauben für interne Netze mit selbstsigniertem
 Zertifikat (Konfigschlüssel in Klammern, die Konfiguration gewinnt vor der Umgebung):

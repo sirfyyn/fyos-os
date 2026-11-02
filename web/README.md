@@ -17,7 +17,6 @@ Der Browser spricht nur mit diesem Server:
 | `/hub-api/dateien/datei` | `${FYOS_HUB_UPSTREAM}/hub/dateien/datei` | Dateien der Ablage herunterladen (GET) und hochladen (PUT, ohne Zwischenspeicher; Größe begrenzt der Hub); hochgeladen wird aus der Shell (`lib/mcp-apps/host.ts`), nicht aus der App |
 | `/hub/gui/<id>`, `/hub/gui/<id>/daten` | `${FYOS_HUB_UPSTREAM}/hub/gui/…` | gebaute Ansichten als ganze Seite für einen Link (nur GET, Pfad bleibt; Begründung in `docs/HUB-VERTRAG.md`) |
 | `/api/agent/*` | `${FYOS_AGENT_UPSTREAM}/…` (Präfix ab) | Agenten-Runner für die native Agent-App (Dock und Fläche `nativ:agent`): Gespräche, Live-Strom (SSE), Freigaben, Läufe. Nur mit Kopf `X-FYOS-Agent: 1`, sonst 404; nginx setzt `Authorization: Bearer ${FYOS_AGENT_TOKEN}` und streicht Cookie und Authorization des Browsers; ohne Puffer, Lesefenster 1 h |
-| `/agent`, `/agent/*` | `${FYOS_OPENCLAW_UPSTREAM}/agent/…` | veraltet: Control UI des OpenClaw-Gateways (mit WebSocket), nur für Installationen mit dem alten Agenten |
 | `/fyos.config.json` | Datei `/etc/fyos/fyos.config.json` | Laufzeit-Konfiguration |
 | `/healthz` | nginx | Gesundheitsabfrage |
 
@@ -26,9 +25,8 @@ Die Vorlage `nginx/default.conf.template` ist eine envsubst-Vorlage (`NGINX_ENVS
 | Variable | Vorgabe im Image | Zweck |
 | --- | --- | --- |
 | `FYOS_HUB_UPSTREAM` | `http://hub:8080` | Hub |
-| `FYOS_AGENT_UPSTREAM` | `http://agent:18438` | Agenten-Runner (ab 0.2.0), ohne Pfad |
+| `FYOS_AGENT_UPSTREAM` | `http://agent:18438` | der Agent (Runner), ohne Pfad |
 | `FYOS_AGENT_TOKEN` | leer | Token des Runners; nginx setzt es als `Authorization: Bearer …`. Leer lehnt der Runner jede Anfrage ab (401). |
-| `FYOS_OPENCLAW_UPSTREAM` | `http://openclaw:18789` | veraltet: OpenClaw-Gateway unter `/agent` |
 
 Es gibt keinen festen Resolver; die Upstreams sind Namen, die nginx beim Start auflöst.
 
@@ -37,22 +35,6 @@ erreicht, mit den Rechten des Runners. Wer die Shell über das eigene Netz hinau
 davor (Proxy mit Login); die Agent-App erkennt eine Umleitung zur Anmeldung und bietet „Anmelden“ an. Der Pflicht-Kopf
 `X-FYOS-Agent: 1` hält fremde Seiten ab: ein Browser schickt ihn quer zur Herkunft nur nach einer Vorabfrage, die
 nginx nicht beantwortet. Im Dev-Server: `FYOS_DEV_RUNNER=http://localhost:18438 FYOS_DEV_RUNNER_TOKEN=… npm run dev`.
-
-Die veraltete Durchreiche zum OpenClaw-Gateway (`/agent`) hat drei Eigenheiten, die `tools/test_nginx_vorlage.py` festhält:
-
-- **Präfix bleibt:** Das Gateway liefert die Control UI unter `/agent/` aus (fyos-agent setzt
-  `gateway.controlUi.basePath`). nginx reicht den Pfad deshalb unverändert weiter; `/` des Gateways ist 404.
-- **Keine Herkunftsköpfe:** Das Gateway weist Anfragen mit `X-Forwarded-*`, `X-Real-IP` oder `Forwarded`
-  von einem nicht vertrauten Absender ab (`proxy_attribution_required`). nginx setzt diese Köpfe leer; der
-  Agent sieht die Shell als direkten Client. Wer einen Proxy davor betreibt, muss sie dort nicht entfernen.
-- **Einbettung nur im eigenen Ursprung:** OpenClaw verbietet jede Einbettung (`X-Frame-Options: DENY`,
-  `frame-ancestors 'none'`). nginx ersetzt das durch `SAMEORIGIN` bzw. `'self'`, damit das Agent-Fenster
-  der Shell die Oberfläche zeigen kann; die übrige CSP bleibt.
-
-Zusätzlich prüft das Gateway den Browser-Ursprung. Erlaubt ist die öffentliche Adresse der Installation:
-`FYOS_OEFFENTLICH_URL` am Agenten (oder `gateway.oeffentliche_url` in `fyos.yaml`), dieselbe wie am Hub.
-Danach verlangt es das Gateway-Token und für jeden neuen Browser eine Geräte-Freigabe; im Netz geht das nur
-über https (Haupt-README, „Der erste Chat“).
 
 ## Aufbau
 
@@ -132,14 +114,14 @@ immer `window.location.origin`.
 {
   "name": "FYOS",
   "oeffentlicheUrl": "https://os.example.org",
-  "agent": { "name": "Agent", "pfad": "/agent/" },
+  "agent": { "name": "Agent" },
   "extern": [{ "slug": "git", "titel": "Git", "url": "https://git.example.org/" }]
 }
 ```
 
 - `name`: Name im Menü, Start und Seitentitel (überschreibt `PUBLIC_FYOS_NAME`).
 - `oeffentlicheUrl`: zusätzlicher Ursprung, dessen Links im OS öffnen (hinter einem Proxy).
-- `agent.name` / `agent.pfad`: Anzeigename des Agenten und Adresse des Chats (muss mit `/` beginnen).
+- `agent.name`: Anzeigename des Agenten (Dock, Fensterkopf, Raum Gespräch).
 - `extern`: Dienste mit eigener Oberfläche; sie öffnen in einem neuen Tab (nur `http`/`https`).
 
 Im Image liegt eine leere Standarddatei `{}` unter `/etc/fyos/fyos.config.json`; wer eigene Werte will, bindet eine
@@ -180,8 +162,7 @@ FYOS_DEV_HUB=http://localhost:8080 FYOS_DEV_RUNNER=http://localhost:18438 FYOS_D
 ```
 
 Er verhält sich wie die Auslieferung: `/hub-api/*` wird zu `/hub/*`, `/api/agent/*` geht ohne Präfix und mit dem
-Token als `Authorization: Bearer` an den Runner (nur mit `X-FYOS-Agent: 1`). Veraltet: `FYOS_DEV_AGENT` reicht `/agent`
-mit dem Präfix an ein OpenClaw-Gateway durch.
+Token als `Authorization: Bearer` an den Runner (nur mit `X-FYOS-Agent: 1`).
 
 Der Typ-Check der Quellen: `npx tsc --noEmit -p .` (die Tests sind davon ausgenommen).
 

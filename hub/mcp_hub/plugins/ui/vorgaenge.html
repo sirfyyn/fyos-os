@@ -71,7 +71,7 @@ function zeichnen() {
   if (fehlerText) { $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "circle-alert", ton: "schlecht", titel: "Das hat nicht geklappt", text: fehlerText, klein: true }) + "</div>"; return; }
   if (!quelleDa) {
     satz("Keine Ablage für Vorgänge eingerichtet", "warn");
-    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "ticket", ton: "warn", titel: "Keine Ablage für Vorgänge", text: hinweis || "Trag einen Vorgangs-Dienst ein oder schalte das Workboard des Agenten dazu." }) + "</div>";
+    $("liste").innerHTML = '<div class="karte">' + zustand({ symbol: "ticket", ton: "warn", titel: "Keine Ablage für Vorgänge", text: hinweis || "Trag einen Vorgangs-Dienst ein (FYOS_VORGAENGE_URL) oder installiere ein Plugin, das Vorgänge ablegt." }) + "</div>";
     $("detail").innerHTML = "";
     return;
   }

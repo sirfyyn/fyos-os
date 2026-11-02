@@ -54,7 +54,7 @@ spec:
   template:
     metadata:
       labels: { app: hub }
-      # /metrics: Kernzähler, Plugin-Kennzahlen, Zeitplan und die Kopplung an OpenClaw (Prometheus-Text)
+      # /metrics: Kernzähler, Plugin-Kennzahlen und Zeitplan (Prometheus-Text)
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
@@ -78,11 +78,6 @@ spec:
             - name: FYOS_ERLAUBTE_HOSTS
               valueFrom:
                 configMapKeyRef: { name: fyos-umgebung, key: erlaubte_hosts, optional: true }
-            # Kopplung an OpenClaw (docs/KOPPLUNG-OPENCLAW.md): Abfragen über die Brücke, Prüfung ihrer Signatur
-            - { name: FYOS_AGENT_URL, value: "http://agent:18789" }
-            - name: FYOS_AGENT_TOKEN
-              valueFrom:
-                secretKeyRef: { name: fyos-agent-gateway, key: token, optional: true }
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
             periodSeconds: 10

@@ -1,0 +1,13 @@
+{
+  "hub": "http://hub:8080",
+  "agent": "main",
+  "takt": {"an": false},
+  "pi_durable": {
+    "port": 18438,
+    "device": {"id": "server", "name": "Fy", "kind": "linux"},
+    "storage": "~/.fyos/fyos.sqlite",
+    "security": {"allowedOrigins": ["http://localhost:8080"]},
+    "browser": {"enabled": false},
+    "desktop": {"enabled": false}
+  }
+}

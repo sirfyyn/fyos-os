@@ -1,24 +1,23 @@
-"""Vorgänge für Plugins: eine Quelle, gleich ob Vorgangs-Dienst oder Workboard.
+"""Vorgänge für Plugins: eine Quelle, gleich ob Vorgangs-Dienst oder Ablage eines Plugins.
 
 Plugins, die Vorgänge lesen oder beantworten (Leitstand, Zentrale, „Braucht dich“), tragen keine Adresse fest ein,
-sondern fragen hier. Es gilt der Vorgangs-Vertrag aus docs/KOPPLUNG-OPENCLAW.md (Abschnitt 4):
+sondern fragen hier. Es gilt der Vorgangs-Vertrag (docs/ERWEITERN.md, Vorgänge):
 ``GET /tickets?status=&limit=``, ``GET /tickets/{id}``, ``POST /tickets``, ``POST /tickets/{id}/comments``
 ``{actor, text}``, ``PATCH /tickets/{id}`` ``{status, expected_status?, actor?, title?, description?, priority?}``.
 
 Reihenfolge der Quellen (``quelle()``):
 
-1. **Vorgangs-Dienst**, wenn eine Adresse gesetzt ist (Argument ``url``, der Dienst, den das Plugin ``openclaw``
-   spiegelt, oder ``FYOS_VORGAENGE_URL``): HTTP auf ``<adresse>/tickets…``, mit der Kopfzeile aus
+1. **Vorgangs-Dienst**, wenn eine Adresse gesetzt ist (Argument ``url``, ein mit ``dienst_anmelden`` angemeldeter
+   Dienst oder ``FYOS_VORGAENGE_URL``): HTTP auf ``<adresse>/tickets…``, mit der Kopfzeile aus
    ``FYOS_VORGAENGE_KOPF``. Das ist die Ausbaustufe, etwa ein eigener Ticketdienst. Kann der Dienst mehr als der
    Vertrag (Verlauf, Wartelisten), reicht ``roh()`` solche Pfade unverändert durch.
-2. **Workboard** des Agenten, wenn das Hub-Plugin ``openclaw`` als Ablage läuft (Grundstufe, prozessintern). Was
-   das Workboard nicht kennt (Zuständige, ``waiting_for``), gibt es dann nicht; den Verlauf bilden die Kommentare
-   der Karte.
+2. **Ablage** (prozessintern): ein Hub-Plugin, das sich mit ``ablage_anmelden`` meldet und das Protokoll
+   ``Ablage`` erfüllt. Was die Ablage nicht kennt (etwa Zuständige oder ``waiting_for``), gibt es dann nicht.
 3. **Keine**: Listen bleiben leer, Einzelabruf und Schreiben melden ``NichtEingerichtet``.
 
 Plugins fragen ``quelle()`` bei jedem Aufruf neu; das ist billig und nimmt eine Ablage mit, die sich erst nach ihnen
 anmeldet. Fehler: ``VorgangFehlt`` (404), ``VorgangKonflikt`` (409, mit dem aktuellen Stand), ``ValueError``
-(Eingabe), ``QuelleFehler`` (Dienst oder Brücke antworten nicht wie vereinbart), ``NichtEingerichtet`` (keine Quelle).
+(Eingabe), ``QuelleFehler`` (Dienst oder Ablage antworten nicht wie vereinbart), ``NichtEingerichtet`` (keine Quelle).
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ from .agent_tls import kontext as _tls_kontext
 VORGANG_STATUS = ("new", "triage", "in_progress", "waiting_approval", "resolved", "closed")
 OFFEN = ("new", "triage", "in_progress", "waiting_approval")
 FREIGABE = "waiting_approval"
-#: Felder, die ``PATCH /tickets/{id}`` laut Vertrag annimmt. Alles andere bleibt beim Dienst (oder fällt im Workboard weg).
+#: Felder, die ``PATCH /tickets/{id}`` laut Vertrag annimmt. Alles andere bleibt beim Dienst (oder fällt in der Ablage weg).
 AENDERBAR = ("status", "expected_status", "actor", "title", "description", "priority")
 FRIST_LESEN_S = 8.0
 FRIST_SCHREIBEN_S = 12.0
@@ -46,7 +45,7 @@ ANTWORT_MAX = 4 * 1024 * 1024
 
 
 class QuelleFehler(RuntimeError):
-    """Die Quelle antwortet nicht wie vereinbart (Netz, Brücke, unerwarteter Status)."""
+    """Die Quelle antwortet nicht wie vereinbart (Netz, Ablage, unerwarteter Status)."""
 
     def __init__(self, text: str, status: int = 502) -> None:
         super().__init__(text)
@@ -54,12 +53,12 @@ class QuelleFehler(RuntimeError):
 
 
 class NichtEingerichtet(QuelleFehler):
-    """Es gibt keine Quelle für Vorgänge (kein Vorgangs-Dienst, keine Ablage im Workboard)."""
+    """Es gibt keine Quelle für Vorgänge (kein Vorgangs-Dienst, keine angemeldete Ablage)."""
 
     def __init__(self, text: str = "") -> None:
         super().__init__(text or (
-            "Keine Ablage für Vorgänge eingerichtet: weder ein Vorgangs-Dienst (FYOS_VORGAENGE_URL) noch das Workboard "
-            "des Agenten (Hub-Plugin openclaw mit FYOS_AGENT_URL)."
+            "Keine Ablage für Vorgänge eingerichtet: weder ein Vorgangs-Dienst (FYOS_VORGAENGE_URL) noch ein Plugin, "
+            "das sich als Ablage anmeldet."
         ), 501)
 
 
@@ -76,7 +75,7 @@ class VorgangKonflikt(RuntimeError):
 
 
 class Ablage(Protocol):
-    """Was das Hub-Plugin ``openclaw`` im Ablage-Betrieb anbietet (Daten statt HTTP)."""
+    """Was ein Hub-Plugin als Ablage anbietet (Daten statt HTTP)."""
 
     def ablage_liste(self, status: str = "", grenze: int = 50) -> list[dict[str, Any]]: ...
 
@@ -94,12 +93,12 @@ class Ablage(Protocol):
 _sperre = threading.Lock()
 _ablage: Ablage | None = None
 _dienst: tuple[str, dict[str, str]] | None = None
-#: Liefert den SSL-Kontext des angemeldeten Dienstes (das Plugin ``openclaw`` reicht seine Gateway-Einstellung durch)
+#: Liefert den SSL-Kontext des angemeldeten Dienstes (vom Plugin, das ihn anmeldet)
 _dienst_tls: Callable[[], Any] | None = None
 
 
 def ablage_anmelden(ablage: Ablage | None) -> None:
-    """Das Workboard (Plugin ``openclaw`` als Ablage) meldet sich an; ``None`` meldet ab."""
+    """Ein Plugin meldet sich als Ablage an; ``None`` meldet ab."""
     global _ablage
     with _sperre:
         _ablage = ablage
@@ -112,8 +111,8 @@ def angemeldete_ablage() -> Ablage | None:
 
 def dienst_anmelden(url: str | None, kopf: dict[str, str] | None = None,
                     tls: Callable[[], Any] | None = None) -> None:
-    """Das Plugin ``openclaw`` meldet im Spiegel-Betrieb den Dienst an, den es spiegelt (Adresse und Kopfzeile aus
-    seiner ``config`` oder der Umgebung): so fragen alle Plugins denselben Dienst. ``tls`` liefert den SSL-Kontext für
+    """Ein Plugin meldet den Vorgangs-Dienst an, den es kennt (Adresse und Kopfzeile aus seiner ``config`` oder der
+    Umgebung): so fragen alle Plugins denselben Dienst. ``tls`` liefert den SSL-Kontext für
     https-Adressen (sonst ``FYOS_AGENT_CA``/``FYOS_AGENT_TLS_PRUEFEN`` aus der Umgebung). ``None`` meldet ab."""
     global _dienst, _dienst_tls
     with _sperre:
@@ -162,7 +161,7 @@ def _aenderung(felder: dict[str, Any]) -> dict[str, Any]:
 
 
 class Quelle:
-    """Gemeinsame Form aller Quellen. ``art``: dienst | workboard | keine."""
+    """Gemeinsame Form aller Quellen. ``art``: dienst | ablage | keine."""
 
     art = "keine"
 
@@ -183,15 +182,14 @@ class Quelle:
         raise NichtEingerichtet()
 
     def verlauf(self, vid: str, grenze: int = 20) -> list[dict[str, Any]]:
-        """Verlauf eines Vorgangs, neueste zuerst: ``{ts, event, actor, detail}``. Im Workboard sind es die Kommentare
-        der Karte (``event`` = ``comment``)."""
+        """Verlauf eines Vorgangs, neueste zuerst: ``{ts, event, actor, detail}``."""
         raise NichtEingerichtet()
 
     def offen(self, grenze: int = 200) -> list[dict[str, Any]]:
         return self.liste(OFFEN, grenze)
 
     def freigaben(self, grenze: int = 200) -> list[dict[str, Any]]:
-        """Vorgänge, die auf eine Freigabe warten (``waiting_approval``, im Workboard die Spalte ``review``)."""
+        """Vorgänge, die auf eine Freigabe warten (``waiting_approval``)."""
         return self.liste(FREIGABE, grenze)
 
     # Schreiben
@@ -301,29 +299,29 @@ class Dienst(Quelle):
         return _vorgang_aus(d)
 
 
-class Workboard(Quelle):
-    """Das Workboard des Agenten als Ablage (prozessintern über das Hub-Plugin ``openclaw``)."""
+class AblageQuelle(Quelle):
+    """Die Ablage eines Hub-Plugins (prozessintern, ``ablage_anmelden``)."""
 
-    art = "workboard"
+    art = "ablage"
 
     def __init__(self, ablage: Ablage) -> None:
         self.ablage = ablage
 
     def beschreibung(self) -> str:
-        return "Workboard des Agenten (OpenClaw)"
+        return "Ablage für Vorgänge im Hub"
 
     @staticmethod
     def _rufe(fn: Callable[[], Any]) -> Any:
         try:
             return fn()
-        except json.JSONDecodeError as exc:  # kaputte Antwort der Brücke, kein Eingabefehler
-            raise QuelleFehler(f"Workboard antwortet unlesbar: {str(exc)[:200]}") from exc
+        except json.JSONDecodeError as exc:  # kaputte Antwort der Ablage, kein Eingabefehler
+            raise QuelleFehler(f"Ablage antwortet unlesbar: {str(exc)[:200]}") from exc
         except (VorgangFehlt, VorgangKonflikt, ValueError, QuelleFehler):
             raise
-        except Exception as exc:  # noqa: BLE001 — Brücke oder Gateway; die Nachricht trägt den Grund
-            if "conflict" in str(exc).lower():  # jemand hat die Karte inzwischen bewegt
-                raise VorgangKonflikt(f"Workboard: {str(exc)[:300]}") from exc
-            raise QuelleFehler(f"Workboard nicht erreichbar: {str(exc)[:300]}") from exc
+        except Exception as exc:  # noqa: BLE001 — die Nachricht trägt den Grund
+            if "conflict" in str(exc).lower():  # jemand hat den Vorgang inzwischen geändert
+                raise VorgangKonflikt(f"Ablage: {str(exc)[:300]}") from exc
+            raise QuelleFehler(f"Ablage nicht erreichbar: {str(exc)[:300]}") from exc
 
     def liste(self, status: str | Iterable[str] | None = None, grenze: int = 50) -> list[dict[str, Any]]:
         gesucht = _status_liste(status)
@@ -386,7 +384,7 @@ def _grund(d: Any, status: int) -> str:
 
 
 def _vertrag_auf_methoden(q: Quelle, methode: str, pfad: str, koerper: Any) -> tuple[int, Any]:
-    """Pfade des Vertrags auf die Methoden einer Quelle ohne HTTP (Workboard, keine): (Status, JSON)."""
+    """Pfade des Vertrags auf die Methoden einer Quelle ohne HTTP (Ablage, keine): (Status, JSON)."""
     teile = urllib.parse.urlsplit(pfad)
     stuecke = [urllib.parse.unquote(s) for s in teile.path.strip("/").split("/") if s]
     abfrage = dict(urllib.parse.parse_qsl(teile.query))
@@ -435,10 +433,10 @@ def kopf_aus(text: str) -> dict[str, str]:
 
 
 def quelle(url: str | None = None, kopf: str | None = None) -> Quelle:
-    """Die Quelle der Vorgänge für diesen Aufruf. Reihenfolge: ``url``; der Dienst, den das Plugin ``openclaw``
-    spiegelt; ``FYOS_VORGAENGE_URL``; das Workboard als Ablage; keine. ``kopf`` (``"Name: Wert"``) überschreibt die
-    Kopfzeile (sonst die des Spiegels bzw. ``FYOS_VORGAENGE_KOPF``). Eine Adresse auf die eigene Ablage
-    (``…/hub/vorgaenge``) zählt nicht als Dienst: das wäre das Workboard über einen Umweg."""
+    """Die Quelle der Vorgänge für diesen Aufruf. Reihenfolge: ``url``; der angemeldete Dienst;
+    ``FYOS_VORGAENGE_URL``; die angemeldete Ablage; keine. ``kopf`` (``"Name: Wert"``) überschreibt die Kopfzeile
+    (sonst die des angemeldeten Dienstes bzw. ``FYOS_VORGAENGE_KOPF``). Eine Adresse auf die eigene Ablage
+    (``…/hub/vorgaenge``) zählt nicht als Dienst: das wäre die Ablage über einen Umweg."""
     gespiegelt = angemeldeter_dienst() if url is None else None
     if gespiegelt is not None:
         with _sperre:
@@ -449,5 +447,5 @@ def quelle(url: str | None = None, kopf: str | None = None) -> Quelle:
         return Dienst(adresse, kopf_aus(os.getenv("FYOS_VORGAENGE_KOPF", "") if kopf is None else kopf))
     ablage = angemeldete_ablage()
     if ablage is not None:
-        return Workboard(ablage)
+        return AblageQuelle(ablage)
     return Quelle()

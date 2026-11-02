@@ -447,7 +447,7 @@ bausteine:
     pflicht: false
     abhaengig_von: [kern, agent]
     voraussetzungen:
-      - Keine äußeren Dienste; ohne Ticketdienst sind die Vorgänge Karten im Workboard des Agenten
+      - Keine äußeren Dienste; ohne Ticketdienst liegen die Vorgänge in einer Ablage im Hub
       - Für den Dokumenten-Eingang ein Paperless-ngx mit einem Token (Adresse unten); ohne ihn sagt der Eingang ehrlich »Dokumente nicht eingerichtet«
     quelle: { paket: fyos-plugin-leitstand, repo: fyos-plugin-leitstand }
     reife: { oberflaeche: 3, agent: 3, gedaechtnis: 3, takte: 2 }
@@ -455,7 +455,7 @@ bausteine:
       - name: vorgaenge_url
         titel: Adresse des Ticketdienstes
         typ: url
-        beschreibung: Ticketdienst mit dem Vorgangs-Vertrag (…/tickets); leer = das Workboard des Agenten ist die Ablage
+        beschreibung: Ticketdienst mit dem Vorgangs-Vertrag (…/tickets); leer = die Ablage im Hub
         standard: ""
         pflicht: false
         umgebung: FYOS_VORGAENGE_URL

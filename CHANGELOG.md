@@ -11,6 +11,35 @@ stehen in dessen `CHANGELOG.md`.
 
 ## [Unveröffentlicht]
 
+## [0.2.1] – 2026-11-02
+
+### Entfernt
+- **OpenClaw vollständig.** Der Runner aus `fyos-agent` ersetzt den alten Agenten ganz; es gibt kein Bild
+  `fyos-agent/openclaw` mehr in der Distribution, keinen Rückfall und keine Wahl.
+- **Chat-Kanäle über OpenClaw.** Die Installer-Bausteine Telegram, WhatsApp und Matrix (katalog_kanaele.yaml,
+  kanaele.py), das abgeleitete Agent-Bild (agent/Dockerfile, `agent_bild_k8s`) und die Kanal-Abnahme
+  (`--kanaele`) entfallen. Matrix als Meldeweg für Freigaben richtet der Runner selbst ein
+  (`pi_durable.freigabe_meldung.kanaele` in `agent-runner.json`).
+- **Option `agent`.** `optionen.agent` und die Persona-Datei fyos.yaml gibt es nicht mehr; eine alte Antwort wird mit
+  Hinweis übergangen. `bild_agent` nennt jetzt das Bild des Runners.
+- **Weg `/agent`.** Die Oberfläche reicht kein Gateway mehr durch: Location `/agent`, `FYOS_OPENCLAW_UPSTREAM`, der
+  eingebettete Chat (Fläche „Agent-Chat“, `agentPfad()`, `?draft=`) und `agent.pfad` in `fyos.config.json` entfallen.
+  Fragen an den Agenten gehen als Entwurf in die native Agent-App; der Raum Gespräch zeigt sie ebenfalls.
+- **Hub-Plugin `openclaw`** samt Entry-Point, Tests und den nur von ihm genutzten Teilen (Wecker, Gedächtnis-Abfrage,
+  Laufprofile, Workboard-Spiegel, Dienstprüfung, Lebenszeichen) und die Doku KOPPLUNG-OPENCLAW.md. Die Ablage für Vorgänge
+  bleibt als allgemeiner Anschluss (`vorgaenge.ablage_anmelden`, Art `ablage`). tools/nachtauftrag.py (Cron des alten
+  Agenten) entfällt; Nachtaufträge sind Takte des Runners (`docs/NACHTARBEIT.md`).
+
+### Neu
+- **Runner unter Kubernetes.** `deploy/k8s/base/agent.yaml` ist ein Deployment des Runners (Bild `fyos-agent/runner`,
+  Port 18438, Service `agent`, ConfigMap `fyos-agent-config` mit `agent-runner.json`, Secret `fyos-agent-token`,
+  Modell aus `fyos-modell`, Zustand im Volume `agent-zustand` unter `/home/node/.fyos`, uid 1000). `web` erreicht ihn
+  über `FYOS_AGENT_UPSTREAM=http://agent:18438`. Der Installer erzeugt das passende Overlay.
+
+### Geändert
+- `deploy/compose` ist wie die Einrichtung des Installers aufgebaut (Runner, `agent-runner.json`).
+- Der Installer zieht `fyos-agent/runner` mit dem Tag `v0.2.1`.
+
 ## [0.2.0] – 2026-11-02
 
 ### Neu

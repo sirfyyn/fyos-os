@@ -17,8 +17,11 @@ spec:
             - containerPort: 8080
           env:
             - { name: FYOS_HUB_UPSTREAM, value: "http://hub:8080" }
-            # OpenClaw (veraltet) unter /agent; ab web 0.2.0 eigene Variable (FYOS_AGENT_UPSTREAM ist der Runner)
-            - { name: FYOS_OPENCLAW_UPSTREAM, value: "http://agent:18789" }
+            # Der Runner unter /api/agent/; nginx meldet die Oberfläche mit diesem Token an (web/README.md)
+            - { name: FYOS_AGENT_UPSTREAM, value: "http://agent:18438" }
+            - name: FYOS_AGENT_TOKEN
+              valueFrom:
+                secretKeyRef: { name: fyos-agent-token, key: token }
           readinessProbe:
             httpGet: { path: /, port: 8080 }
             periodSeconds: 10

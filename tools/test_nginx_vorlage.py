@@ -1,11 +1,8 @@
-"""nginx-Vorlage der Shell: die Durchreichen zum Agent-Gateway und zu den gebauten Ansichten des Hubs. Laeuft in der CI
-als Werkzeug-Test (pytest tools).
+"""nginx-Vorlage der Shell: die Durchreichen zum Agenten (Runner unter /api/agent/) und zu den gebauten Ansichten des
+Hubs. Laeuft in der CI als Werkzeug-Test (pytest tools).
 
-Drei Fehler machten den Chat im Fenster der Shell unbenutzbar (Testserver, 09.10.2026), keiner faellt beim Bau auf:
-das Gateway wies angehaengte Herkunftskoepfe mit 403 `proxy_attribution_required` ab, ohne das Praefix `/agent`
-antwortete es 404, und seine Rahmen-Sperre (X-Frame-Options DENY, frame-ancestors 'none') blockierte das Fenster.
 `nginx -t` prueft die Vorlage nicht (sie wird erst beim Start des Containers gerendert); diese Tests halten fest,
-was die Durchreiche tun muss.
+was die Durchreichen tun muessen. Seit 0.2.1 gibt es keinen Weg /agent mehr (der alte Agent ist entfernt).
 """
 from __future__ import annotations
 
@@ -23,47 +20,12 @@ def _location(kopf: str) -> str:
     return m.group(1)
 
 
-AGENT = _location(r"~ ^/agent(/|$)")
-
-
-def _gesetzt(kopf: str) -> str | None:
-    m = re.search(r"^\s*proxy_set_header " + re.escape(kopf) + r" (.+);", AGENT, re.M | re.I)
-    return m.group(1).strip() if m else None
-
-
-def test_praefix_bleibt_erhalten():
-    # proxy_pass ohne Pfad: /agent/… geht unveraendert ans Gateway (basePath /agent)
-    assert re.search(r"^\s*set \$fyos_openclaw \$\{FYOS_OPENCLAW_UPSTREAM\};", AGENT, re.M)
-    assert re.search(r"^\s*proxy_pass \$fyos_openclaw;", AGENT, re.M)
-
-
-def test_herkunftskoepfe_werden_gestrichen():
-    for kopf in ("Forwarded", "X-Real-IP", "X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-Host"):
-        assert _gesetzt(kopf) == '""', f"{kopf} muss leer gesetzt sein"
-    assert "$proxy_add_x_forwarded_for" not in AGENT
-
-
-def test_websocket_und_host():
-    assert _gesetzt("Upgrade") == "$http_upgrade"
-    assert _gesetzt("Host") == "$host"
-
-
-def test_einbettung_nur_im_eigenen_ursprung():
-    assert re.search(r"^\s*proxy_hide_header X-Frame-Options;", AGENT, re.M)
-    assert re.search(r"^\s*proxy_hide_header Content-Security-Policy;", AGENT, re.M)
-    assert re.search(r'^\s*add_header X-Frame-Options "SAMEORIGIN" always;', AGENT, re.M)
-    assert re.search(r"^\s*add_header Content-Security-Policy \$fyos_agent_csp always;", AGENT, re.M)
-    karte = re.search(r"^map \$upstream_http_content_security_policy \$fyos_agent_csp \{\n(.*?)^\}", TEXT,
-                      re.M | re.S)
-    assert karte and "frame-ancestors 'none'" in karte.group(1) and "frame-ancestors 'self'" in karte.group(1)
-
-
-def test_agent_location_steht_vor_den_regex_locations_fuer_dateien():
-    # nginx nimmt die erste passende Regex-Location: /agent/….svg darf nicht bei den statischen Dateien landen
-    agent = TEXT.index("location ~ ^/agent(/|$)")
-    andere = [m.start() for m in re.finditer(r"location ~\*? ", TEXT) if m.start() != agent]
-    assert andere, "keine weiteren Regex-Locations gefunden"
-    assert all(agent < a for a in andere), "eine Regex-Location steht vor /agent"
+def test_kein_weg_agent_mehr():
+    # 0.2.1: das Gateway des alten Agenten unter /agent ist entfernt; nur /api/agent/ fuehrt zum Agenten (Runner)
+    assert not re.search(r"^\s*location [^\n]*/agent\(", TEXT, re.M)
+    assert not re.search(r"^\s*location [~=^ ]*/agent[ /]", TEXT, re.M)
+    assert "18789" not in TEXT and "gateway" not in TEXT.lower()
+    assert "fyos_agent_csp" not in TEXT
 
 
 # Gebaute Ansichten (Plugin gui): /hub/gui/<id> und /hub/gui/<id>/daten gehen durch, sonst nichts unter /hub/.
@@ -121,20 +83,19 @@ def test_nur_fyos_variablen_fuer_envsubst():
     # Das Bild ersetzt nur FYOS_-Variablen (NGINX_ENVSUBST_FILTER); eigene nginx-Variablen duerfen so nicht heissen
     for name in re.findall(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)", TEXT):
         if name.startswith("FYOS_"):
-            assert name in ("FYOS_HUB_UPSTREAM", "FYOS_AGENT_UPSTREAM", "FYOS_AGENT_TOKEN", "FYOS_OPENCLAW_UPSTREAM"), name
+            assert name in ("FYOS_HUB_UPSTREAM", "FYOS_AGENT_UPSTREAM", "FYOS_AGENT_TOKEN"), name
 
 
 def test_fehlender_agent_haelt_die_shell_nicht_auf():
-    # Trockenlauf 0.2.0: ohne OpenClaw-Dienst brach nginx mit „host not found in upstream“ ab. Agent und OpenClaw
-    # werden deshalb je Anfrage aufgelöst, mit dem Resolver des Bilds.
+    # Trockenlauf 0.2.0: ohne einen Dienst brach nginx mit „host not found in upstream“ ab. Der Agent wird deshalb je
+    # Anfrage aufgelöst, mit dem Resolver des Bilds.
     assert re.search(r"^\s*resolver \$\{NGINX_LOCAL_RESOLVERS\} valid=10s ipv6=off;$", TEXT, re.M)
     assert "NGINX_ENVSUBST_FILTER=FYOS_|NGINX_LOCAL_RESOLVERS" in (VORLAGE.parent.parent / "Dockerfile").read_text()
-    for v in ("FYOS_AGENT_UPSTREAM", "FYOS_OPENCLAW_UPSTREAM"):
-        assert not re.search(r"^\s*proxy_pass \$\{" + v, TEXT, re.M), v
+    assert not re.search(r"^\s*proxy_pass \$\{FYOS_AGENT_UPSTREAM", TEXT, re.M)
 
 
 def test_runner_unter_api_agent():
-    # 0.2.0: die native Agent-App spricht den Runner über /api/agent/…; das Präfix fällt weg, nginx meldet sich an,
+    # Seit 0.2.0: die native Agent-App spricht den Runner über /api/agent/…; das Präfix fällt weg, nginx meldet sich an,
     # die Anmeldung des Browsers kommt nicht durch, SSE ohne Puffer.
     r = _location("^~ /api/agent/")
     assert re.search(r"^\s*set \$fyos_agent \$\{FYOS_AGENT_UPSTREAM\};$", r, re.M)

@@ -17,7 +17,6 @@ import { SPALTEN, SPALTEN_MIN, ZEILEN_MAX, ZEILEN_MIN, type Fenster, type StartZ
 import type { Flaeche } from '~/lib/os/flaechen';
 import { menueOeffnen, type MenuePunkt } from '~/lib/os/menue';
 import { nativZu, type NativProps } from '~/lib/os/nativ';
-import { fremdesThemaAnwenden } from '~/lib/os/thema';
 import { ausHerkunft } from '~/lib/os/uebergang';
 import {
   ablageAufApp, aktuellerZug, gutArt, gutLesen, gutSetzen, hinweisWeg, hinweisZeigen, wasPassiert, zugBeginnt, zugBild, zugEndet,
@@ -103,7 +102,6 @@ export function Inhalt(p: { f: Flaeche; ziehen: boolean; oeffne: (id: string) =>
           const fremd = !e.currentTarget.contentDocument;
           setStand(fremd ? 'anmelden' : 'da');
           if (fremd) return;
-          if (p.f.art === 'agent') fremdesThemaAnwenden(e.currentTarget);
           e.currentTarget.dataset.geladen = '';
           zustellungAbholen(p.f.id, e.currentTarget.contentWindow);
         }}

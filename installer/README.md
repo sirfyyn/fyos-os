@@ -81,11 +81,11 @@ Vorgaben aus der Umgebung:
 |---|---|
 | `FYOS_PAKETINDEX` | PyPI-kompatibler Index (zum Beispiel `https://git.example.com/api/packages/org/pypi/simple`); Plugins werden per Paketname installiert, der Index geht als `--build-arg FYOS_INDEX_URL` ins Hub-Dockerfile und steht dort vor PyPI |
 | `FYOS_PLUGIN_QUELLE` | Git-Adresse der Plugin-Repos (`optionen.bezug: git`) |
-| `FYOS_REGISTRY` | zum Beispiel `registry.example.com/org`; ergibt `<reg>/fyos-os/web:main`, `<reg>/fyos-os/hub:main`, `<reg>/fyos-agent/openclaw:main` |
+| `FYOS_REGISTRY` | zum Beispiel `registry.example.com/org`; ergibt `<reg>/fyos-os/web:main`, `<reg>/fyos-os/hub:main`, `<reg>/fyos-agent/runner:main` |
 | `FYOS_BILD_TAG` | Tag aller Bilder statt `v<Version>` (ohne `FYOS_REGISTRY`) bzw. `main` (mit), zum Beispiel `latest` |
 
 Ohne `FYOS_REGISTRY` kommen Oberfläche, Hub und Agent-Grundlage aus den veröffentlichten Bildern unter
-`ghcr.io/sirfyyn`, im Stand der Installer-Version (Installer 0.1.1 → Tag `v0.1.1`). Nur das Hub-Bild mit den gewählten <!-- sauber: ok -->
+`ghcr.io/sirfyyn`, im Stand der Installer-Version (Installer 0.2.1 → Tag `v0.2.1`). Nur das Hub-Bild mit den gewählten <!-- sauber: ok -->
 Plugins (`hub_bild_k8s`, Ziel Kubernetes) baut man selbst; es braucht eine eigene Registry, sonst weist der Plan darauf
 hin. `optionen.bezug` ist `index` (Vorgabe) oder `git`; ist nur eine Plugin-Quelle gesetzt, gilt `git`. Die Bilder
 (`bild_web`, `hub_bild`, `bild_agent`, `hub_bild_k8s`) sind in den Antworten und im Assistenten editierbar.
@@ -106,35 +106,38 @@ eigene Index selbst nicht erreichbar, bricht uv ebenfalls ab, statt auf PyPI aus
 
 ## Der Agent
 
-Ab 0.2.0 richtet der Installer als Agenten den **Runner** ein (`fyos-agent/runner`, dauerhaft auf pi-durable, Port
-18438). Die Oberfläche spricht ihn über `/api/agent` an und meldet sich mit `FYOS_AGENT_TOKEN` an; das Modell kommt aus
-`FYOS_MODELL_*` in `.env`. Der bisherige OpenClaw-Agent ist veraltet und bleibt nur dort, wo der Runner noch nicht
-reicht: bei gewählten [Chat-Kanälen](#chat-kanäle) und bei Kubernetes (dann mit Hinweis). Ausdrücklich wählen lässt er
-sich mit `optionen.agent: openclaw`.
+Der Agent ist der **Runner** (`fyos-agent/runner`, dauerhaft auf pi-durable, Port 18438), für Docker Compose wie für
+Kubernetes. Die Oberfläche spricht ihn über `/api/agent` an und meldet sich mit `FYOS_AGENT_TOKEN` an (im Container des
+Runners heißt es `FYOS_RUNNER_TOKEN`); das Modell kommt aus `FYOS_MODELL_*`. Seine Konfiguration schreibt der Installer
+nach `agent-runner.json`, mit ausgeschaltetem eingebautem Tagesrhythmus (`"takt": {"an": false}`). Eine Wahl des Agenten
+gibt es seit 0.2.1 nicht mehr; eine alte Antwort `optionen.agent` wird mit Hinweis übergangen.
+
+Chat-Kanäle (Telegram, WhatsApp, Matrix) als Bausteine gibt es nicht mehr. Matrix als Meldeweg für Freigaben richtet
+der Runner selbst ein: `pi_durable.freigabe_meldung.kanaele` in `agent-runner.json` (siehe `fyos-agent/runner/README.md`).
 
 ## Was entsteht
 
 Compose (`compose`, `dateien`): `docker-compose.yml` (Hub mit `build: ./hub`), `.env` (Geheimnisse, Rechte 0600),
-`agent-runner.json` (Runner) oder `fyos.yaml` (Persona, nur OpenClaw), `hub-config.yaml` (Format des Hubs, Plugins per Entry-Point-Name), `hub/Dockerfile`
-(`FROM <Hub-Bild>` plus `uv pip install` der Plugin-Quellen), bei gewählten Kanälen mit Paket `agent/Dockerfile`
-([Chat-Kanäle](#chat-kanäle)), `.gitignore`, `ANLEITUNG.md`. Bei `compose` folgen
+`agent-runner.json` (Konfiguration des Runners), `hub-config.yaml` (Format des Hubs, Plugins per Entry-Point-Name),
+`hub/Dockerfile` (`FROM <Hub-Bild>` plus `uv pip install` der Plugin-Quellen), `.gitignore`, `ANLEITUNG.md`. Bei `compose` folgen
 `docker compose build`, `up -d` und eine Gesundheitsprüfung (web `/`, hub `/health`).
 
 Kubernetes (`k8s`): Kustomize-Overlay mit `kustomization.yaml` (Basis `deploy/k8s/base` als Pfad oder Git-URL,
-`optionen.k8s_basis`), ConfigMaps für `fyos.yaml` und Hub-Konfiguration, `secrets.yaml` (0600) und
+`optionen.k8s_basis`), ConfigMaps für `agent-runner.json` (`fyos-agent-config`) und die Hub-Konfiguration,
+`secrets.yaml` (0600: `fyos-modell`, `fyos-agent-token`, Plugin-Geheimnisse) und
 `secrets.example.yaml`, `hub/Dockerfile`, `ANLEITUNG.md`. Angewendet wird mit `kubectl`, vom Nutzer. Vorhandene
 Dateien werden als `<name>.vorher` gesichert.
 
 ## Stufe je Fähigkeit
 
 Fünf Fähigkeiten gibt es in zwei Ausführungen: Vorgänge, Termine, Postfach lesen, Post senden und Dokumente. Die
-**Grundstufe** braucht keinen eigenen Dienst (das Workboard des Agenten, ein CalDAV-Konto oder ICS-Abo, ein IMAP-Postfach),
+**Grundstufe** braucht keinen eigenen Dienst (eine Ablage im Hub, ein CalDAV-Konto oder ICS-Abo, ein IMAP-Postfach),
 die **Ausbaustufe** einen (Ticketdienst, Termin-Dienst, Postfach-Dienst, Listmonk, Paperless-ngx), den der Hub über eine
 Adresse erreicht. Du wählst die Stufe **je Fähigkeit**; ohne Wahl gilt die Vorgabe nach Bauart:
 
 | Fähigkeit (`--stufe`-Name) | Grundstufe | Ausbaustufe (Variable) | Compose | Kubernetes |
 |---|---|---|---|---|
-| Vorgänge (`vorgaenge`) | Workboard des Agenten | Ticketdienst (`FYOS_VORGAENGE_URL`) | Grund | Ausbau |
+| Vorgänge (`vorgaenge`) | Ablage im Hub | Ticketdienst (`FYOS_VORGAENGE_URL`) | Grund | Ausbau |
 | Termine (`termine`) | CalDAV und ICS direkt | Termin-Dienst (`FYOS_TERMINE_URL`) | Grund | Ausbau |
 | Postfach lesen (`postfach`) | IMAP direkt | Postfach-Dienst (`FYOS_POSTFACH_URL`) | Grund | Ausbau |
 | Post senden (`post`) | — | Listmonk (`FYOS_POST_URL`) | Ausbau | Ausbau |
@@ -144,7 +147,7 @@ Adresse erreicht. Du wählst die Stufe **je Fähigkeit**; ohne Wahl gilt die Vor
   (vorgewählt ist die Vorgabe des Ziels); ohne Oberfläche `--stufe termine=ausbau` (mehrfach) oder `stufen:` in der
   Antwortdatei, die Option gewinnt. `--liste` zeigt die Fähigkeiten mit Stufen und Vorgaben. Zusätzlich gibt es, wo es
   passt, die Wahl **aus**: nichts davon einrichten, die Fähigkeit meldet ehrlich „nicht eingerichtet“. Die Vorgänge
-  lassen sich nicht ausschalten (das Workboard gehört zum Agenten). Wo es keine Grundstufe gibt oder noch keine gebaut
+  lassen sich nicht ausschalten. Wo es keine Grundstufe gibt oder noch keine gebaut
   ist, bleiben Ausbau und aus; wer sie trotzdem verlangt, bekommt eine Fehlermeldung.
 - **Wirkung:** Nur die Felder der gewählten Stufe werden abgefragt und geschrieben. Bei der Grundstufe entsteht kein
   Dienst und keine Dienstadresse, das Plugin nimmt den direkten Weg. Bei der Ausbaustufe steht die Adresse in der
@@ -213,58 +216,12 @@ fyos-install --abnahme http://localhost:8080      # 0 bestanden, 3 nicht bestand
 Bei Kubernetes läuft dafür der Port-Forward aus der Anleitung (`kubectl -n <namespace> port-forward svc/web 8080:80`). Die
 `ANLEITUNG.md` im Zielordner nennt den Abnahme-Befehl mit dem Port der Installation.
 
-## Chat-Kanäle
-
-Der Agent kann dir auch außerhalb der Shell schreiben und Freigaben im Chat annehmen. Im Katalog stehen dafür drei
-Bausteine der Art `kanal` (`fyos_installer/katalog_kanaele.yaml`): **Telegram**, **WhatsApp** und **Matrix**. Jeder hat
-eine Erklärung, eine Skizze und die Felder, die der Kanal braucht; alle drei hängen von Kern und Agent ab, keiner ist
-Pflicht, und du kannst mehrere wählen.
-
-| Kanal | Felder (Umgebung des Agenten) | Bild des Agenten |
-|---|---|---|
-| Telegram | `OPENCLAW_TELEGRAM_TOKEN` (Bot-Token), `FYOS_APPROVER_TELEGRAM_ID` | Basisbild genügt |
-| WhatsApp | `FYOS_APPROVER_WHATSAPP_NUMBER` (+Landesvorwahl…), Wahl »eigene Nummer« (nur in `fyos.yaml`) | Paket `@openclaw/whatsapp` |
-| Matrix | `FYOS_MATRIX_HOMESERVER`, `FYOS_MATRIX_BENUTZER`, `OPENCLAW_MATRIX_TOKEN`, `FYOS_APPROVER_MATRIX_ID` | Paket `@openclaw/matrix` |
-
-Was entsteht (`fyos_installer/kanaele.py`):
-
-- `fyos.yaml`: `kanaele.<name>: true|false`, bei Matrix dazu `besitzer.matrix_id`, bei WhatsApp `whatsapp.eigene_nummer`.
-- Die Werte gehen an den **Agenten**, nie an den Hub: bei Compose in `.env` und in die Umgebung des Dienstes `agent`, bei
-  Kubernetes in die ConfigMap und das Secret `fyos-agent-kanaele`, die nur der Agent einbindet. Token stehen nur in
-  der Geheimnisdatei und werden in Vorschauen maskiert.
-- Matrix und WhatsApp sind Pakete, die das Bild zusätzlich braucht. Der Installer erzeugt dafür `agent/Dockerfile`
-  (`FROM` dem Bild des Agenten plus `openclaw plugins install …`). Compose baut es mit (`docker compose build`);
-  bei Kubernetes steht der Bau und das Schieben unter den Befehlen (Option `agent_bild_k8s`, Vorgabe aus
-  `FYOS_REGISTRY`). Telegram braucht das nicht.
-- **Platzhalter statt Absturz:** Fehlt einem gewählten Kanal ein Wert, schreibt der Installer ihn trotzdem (leere Zeile
-  in `.env`, Paket im Bild), lässt ihn aber aus (`kanaele.<name>: false`) und nennt im Hinweis, was fehlt. Ein Kanal ohne
-  Token würde den Agenten beim Start abbrechen lassen; so läuft FYOS, und der Kanal ist eine Zeile Arbeit entfernt.
-  Werte, die gesetzt sind, aber nicht die Form haben (Bot-Token, numerische ID, Nummer mit `+`, `@name:server`), sind
-  ein Fehler; die Meldung nennt die Variable, nie den Wert.
-- **WhatsApp koppelst du selbst:** einmal nach dem Start per QR-Code (`docker compose exec agent openclaw channels login
-  --channel whatsapp`, den Code unter »Verknüpfte Geräte« einlesen). Das kann der Installer nicht für dich tun. Der
-  Zustandsordner des Agenten (Volume `agent-zustand`) muss erhalten bleiben, sonst ist die Kopplung weg.
-
-Die Abnahme prüft die Kanäle mit: Nach dem Start fragt der Installer den Agenten (Compose: `docker compose exec agent`,
-ein Aufruf der Brücke `fyos.bruecke.status`, die je Kanal nur Wahrheitswerte meldet, nie die Adresse), ob jeder
-eingeschaltete Kanal wirklich aktiv ist: im Agenten an und mit der Adresse des Besitzers. Ein vorbereiteter, aus
-gelassener Kanal gilt als »vorbereitet und aus« und besteht. Ist ein eingeschalteter Kanal nicht aktiv, besteht die
-Abnahme nicht (Rückgabewert `3`); der Agent bekommt einige Versuche, weil er nach dem Start noch hochfährt. Ältere
-Agent-Bilder melden ihre Kanäle noch nicht und gelten dann als »keine Auskunft«. Zum Wiederholen im Zielordner:
-
-```sh
-fyos-install --abnahme http://localhost:8080 --kanaele telegram,whatsapp
-```
-
-Bei Kubernetes läuft die Kanal-Abnahme nicht von selbst; das Protokoll des Agenten (`kubectl logs deploy/agent`) zeigt,
-ob ein Kanal startet.
-
 ## Katalog
 
-`fyos_installer/katalog.yaml` (die Chat-Kanäle in `katalog_kanaele.yaml`, die Stufen je Fähigkeit in
+`fyos_installer/katalog.yaml` (die Stufen je Fähigkeit in
 `katalog_stufen.yaml`, siehe [Stufe je Fähigkeit](#stufe-je-fähigkeit)), Schema in `katalog.py`. Je Baustein: `id`, `titel`, `kurz`, `was_daraus_wird`
 (Markdown, 3 bis 8 Sätze), `bilder` (Dateinamen unter `bilder/`, Schema `<id>-<n>.svg`; liegt daneben eine
-`.png`, nimmt der Installer sie), `art` (`kern|agent|plugin|kanal`), `pflicht`, `abhaengig_von`, `voraussetzungen`,
+`.png`, nimmt der Installer sie), `art` (`kern|agent|plugin`), `pflicht`, `abhaengig_von`, `voraussetzungen`,
 `quelle` (`{paket: fyos-plugin-x, repo: fyos-plugin-x}`: Paketname im Index und Git-Repo-Name), `konfiguration`
 (Felder mit `name` als Schlüssel, `titel` als Beschriftung (Pflicht), `typ` text|geheim|url|zahl|wahl,
 `beschreibung`, `standard`, `pflicht`, optional `umgebung` und `optionen`),
@@ -290,9 +247,6 @@ wenn vorhanden. Der Seitentest (`test_seiten.py`) braucht Node.
 Die Stufen je Fähigkeit prüft `test_stufen.py`: Vorgaben je Bauart, Umstellen einzelner Fähigkeiten, Fähigkeiten ohne
 Grundstufe, die Wirkung auf `.env` und Kustomize-Overlay, die Darstellung (Kommandozeile, Textoberfläche, Web-Assistent,
 Anleitung) und das Schema von `katalog_stufen.yaml`; die Seiten des Assistenten rendert `seiten_test.mjs` mit.
-
-Die Kanäle prüft `test_kanaele.py`: Katalog, erzeugte Dateien (Compose und Kubernetes, die Werte nur beim Agenten),
-Platzhalter, Form der Werte, die Abfrage des Agenten (ohne Docker) und die Urteile der Abnahme.
 
 Die Abnahme prüft `test_abnahme.py` auf drei Ebenen: die Urteile mit einem Sender ohne Netz, `senden` gegen einen
 lokalen Server (keine Weiterleitung, kein Proxy, nur http und https) und die ganze Kette gegen den echten Hub (Paket

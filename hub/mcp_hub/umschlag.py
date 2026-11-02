@@ -1,4 +1,4 @@
-"""umschlag — der gemeinsame Umschlag für Ereignisse zwischen Hub und OpenClaw-Agent.
+"""umschlag — der gemeinsame Umschlag für Ereignisse zwischen Hub und Agent.
 
 Im Hub gibt es mehrere Familien von Ereignisströmen mit unterschiedlichen Feldschemas. Statt die Erzeuger umzubauen,
 macht ein Normalisierer daraus einen Umschlag:
@@ -23,15 +23,15 @@ Familien (an Strom und Feldern erkannt):
 
 Zeiten stehen als ISO-Text, Sekunden oder Millisekunden, auch als Zeichenkette.
 
-Rein, ohne Netz, ohne Redis, nur Standardbibliothek: mit Feldern aus der Wirklichkeit testbar. Die Brücke zu OpenClaw
-(`docs/KOPPLUNG-OPENCLAW.md`) und der Wecker des Hub-Plugins `openclaw` sprechen dieselbe Sprache:
+Rein, ohne Netz, ohne Redis, nur Standardbibliothek: mit Feldern aus der Wirklichkeit testbar. Wer Ereignisse an
+einen Agenten weitergibt, spricht diese Sprache:
   - Umschlag und `normalisieren(strom, id, felder)`
   - `EREIGNISARTEN`                             die Themen, die Erzeuger schreiben und Weckregeln nennen
   - `passt(thema, muster)`, `weckt_diese(umschlag, regeln)`
                                                 Weckregeln: {thema: [...], nicht_von: [...], von: [...]}
   - `sitzungsschluessel(vorgang, agent)`, `vorgang_aus_schluessel(schluessel)`
                                                 `agent:<id>:vorgang:<ID>`; die Kennung kommt aus dem Argument,
-                                                aus `FYOS_AGENT` oder (ohne beides) ist `main` die OpenClaw-Vorgabe
+                                                aus `FYOS_AGENT` oder (ohne beides) `main`
 """
 
 from __future__ import annotations
@@ -338,7 +338,7 @@ EREIGNISARTEN: dict[str, str] = {
     "seco.nachsehen": "ein Workflow sieht nach, wie er es sich vorgenommen hat (von der Weiche erzeugt)",
 }
 
-#: Vorgabe von OpenClaw selbst, wenn weder Argument noch Umgebung eine Kennung nennen.
+#: Vorgabe, wenn weder Argument noch Umgebung eine Kennung nennen (wie `agent` in agent-runner.json).
 AGENT_VORGABE = "main"
 #: Vorgangsnummer: Präfix, Bindestrich, Zähler oder Kurzkennung (INC-1234, WB-1a2b3c4d).
 _VORGANG = re.compile(r"^[A-Za-z]{2,6}-[A-Za-z0-9]{1,16}$")
@@ -349,7 +349,7 @@ def vorgang_gueltig(vorgang: str) -> bool:
 
 
 def agent_kennung(agent: str | None = None) -> str:
-    """Kennung des OpenClaw-Agenten: Argument, sonst Umgebung `FYOS_AGENT`, sonst die OpenClaw-Vorgabe `main`."""
+    """Kennung des Agenten: Argument, sonst Umgebung `FYOS_AGENT`, sonst die Vorgabe `main`."""
     return (agent or os.getenv("FYOS_AGENT") or AGENT_VORGABE).strip()
 
 

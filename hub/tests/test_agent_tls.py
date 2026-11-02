@@ -1,4 +1,4 @@
-"""TLS zum Gateway des Agenten: Vorgabe prüfen, CA-Datei oder abgeschaltete Prüfung für interne Netze."""
+"""TLS zum Vorgangs-Dienst (agent_tls): Vorgabe prüfen, CA-Datei oder abgeschaltete Prüfung für interne Netze."""
 
 from __future__ import annotations
 
@@ -10,9 +10,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
-from mcp_hub import agent_tls, kv
+from mcp_hub import agent_tls
 from mcp_hub import vorgaenge as VG
-from mcp_hub.plugins.openclaw import BrueckeFehler, OpenClawPlugin
 
 pytestmark = pytest.mark.skipif(shutil.which("openssl") is None, reason="openssl fehlt")
 
@@ -55,8 +54,8 @@ def gateway(tmp_path_factory):
     server.shutdown()
 
 
-def _plugin(url: str, **cfg) -> OpenClawPlugin:
-    return OpenClawPlugin(config={"gateway_url": url, "token": "t", "kv_fabrik": kv.SpeicherKv, **cfg})
+def _liste(url: str) -> list:
+    return VG.Dienst(url).liste()
 
 
 @pytest.fixture(autouse=True)
@@ -68,39 +67,30 @@ def _sauber(monkeypatch):
 def test_vorgabe_prueft_und_lehnt_selbstsigniert_ab(gateway):
     url, _ = gateway
     assert agent_tls.kontext() is None
-    with pytest.raises(BrueckeFehler, match="nicht erreichbar"):
-        _plugin(url).rpc("cron.list")
-
-
-def test_ca_datei_aus_der_konfiguration(gateway):
-    url, cert = gateway
-    p = _plugin(url, agent_ca=cert)
-    assert p.rpc("cron.list") == {"da": True}
-    assert p._get(url + "/healthz")[0] == 200
+    with pytest.raises(VG.QuelleFehler, match="nicht erreichbar"):
+        _liste(url)
 
 
 def test_ca_datei_aus_der_umgebung(gateway, monkeypatch):
     url, cert = gateway
     monkeypatch.setenv("FYOS_AGENT_CA", cert)
-    assert _plugin(url).rpc("cron.list") == {"da": True}
+    assert VG.Dienst(url).roh("GET", "/tickets")[0] == 200
 
 
-def test_pruefung_abschaltbar_per_konfig_und_umgebung(gateway, monkeypatch):
+def test_pruefung_abschaltbar_per_umgebung(gateway, monkeypatch):
     url, _ = gateway
-    assert _plugin(url, agent_tls_pruefen=False).rpc("cron.list") == {"da": True}
     monkeypatch.setenv("FYOS_AGENT_TLS_PRUEFEN", "false")
-    assert _plugin(url).rpc("cron.list") == {"da": True}
+    assert VG.Dienst(url).roh("GET", "/tickets")[0] == 200
     monkeypatch.setenv("FYOS_AGENT_TLS_PRUEFEN", "true")
-    with pytest.raises(BrueckeFehler):
-        _plugin(url).rpc("cron.list")
+    with pytest.raises(VG.QuelleFehler):
+        _liste(url)
 
 
-def test_falsche_ca_schlaegt_fehl_statt_ungeprueft_zu_verbinden(gateway, tmp_path):
-    url, _ = gateway
+def test_falsche_ca_schlaegt_fehl_statt_ungeprueft_zu_verbinden(tmp_path):
     leer = tmp_path / "leer.pem"
     leer.write_text("kein zertifikat")
     with pytest.raises(Exception):
-        _plugin(url, agent_ca=str(leer)).rpc("cron.list")
+        agent_tls.kontext(str(leer))
 
 
 def test_ca_gewinnt_vor_abgeschalteter_pruefung(gateway, tmp_path):
@@ -108,9 +98,9 @@ def test_ca_gewinnt_vor_abgeschalteter_pruefung(gateway, tmp_path):
     assert ctx is not None and ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
 
 
-def test_vorgangs_dienst_nutzt_dieselbe_einstellung(gateway):
+def test_angemeldeter_vorgangs_dienst_nutzt_den_kontext_des_plugins(gateway):
     url, cert = gateway
-    VG.dienst_anmelden(url, {}, _plugin(url, agent_ca=cert)._kontext)
+    VG.dienst_anmelden(url, {}, lambda: agent_tls.kontext(cert))
     try:
         status, d = VG.quelle().roh("GET", "/tickets")
         assert status == 200 and d["ok"] is True

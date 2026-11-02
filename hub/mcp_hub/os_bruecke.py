@@ -34,9 +34,9 @@ Config `nachholen: false` schaltet es ab (dann gilt wieder `rueckfall: "kanal"`)
 ## Kanal: Dringendes sofort in den Chat
 
 Ist niemand da und die Mitteilung `dringlichkeit: "hoch"`, wartet sie nicht auf die Shell: `Bruecke.mitteilen` schickt sie
-sofort über den Agenten in den Chat-Kanal des Besitzers (Telegram, WhatsApp oder Matrix, wie im Agenten eingerichtet; der
-Agent hält die Sitzungen und sendet, der Hub kennt keine Zugänge). Der Weg ist die Brücken-Methode `fyos.kanal.mitteilen`
-(Plugin `openclaw`, `kanal_anmelden`); Antwort `zugestellt: true, weg: "kanal", kanal: <name>`, nichts wird vorgemerkt.
+sofort in den Chat-Kanal des Besitzers, über einen Weg, den ein Plugin mit `kanal_anmelden` anmeldet (der Hub selbst kennt
+keine Zugänge; ohne angemeldeten Weg wird vorgemerkt). Antwort `zugestellt: true, weg: "kanal", kanal: <name>`, nichts
+wird vorgemerkt.
 Dieselbe Mitteilung geht höchstens einmal je 10 min hinaus, insgesamt höchstens 6 je 10 min (`zu_viele`: dann wird
 vorgemerkt). Fehlt der Weg (keine Kopplung, kein Kanal eingerichtet) oder scheitert er, bleibt es beim Vormerken, die
 Antwort trägt `kanal_fehler`. `niedrig` und `normal` warten wie bisher auf die Shell. `OS_KANAL=aus` oder die Config
@@ -199,8 +199,8 @@ GERAETE_ARTEN = ("computer", "telefon", "tablet")
 AUDIO_MODI = ("stumm", "ton", "zurueckhaltend", "interaktiv")
 DRINGLICHKEITEN = ("niedrig", "normal", "hoch")
 
-#: Der Weg einer dringenden Mitteilung in den Chat-Kanal des Besitzers: eine Funktion `(text) -> dict` (Antwort der
-#: Brücke des Agenten, mit `kanal`). Das Plugin `openclaw` meldet sie an, solange die Kopplung an den Agenten steht.
+#: Der Weg einer dringenden Mitteilung in den Chat-Kanal des Besitzers: eine Funktion `(text) -> dict` (Antwort mit
+#: `kanal`). Ein Plugin meldet sie mit `kanal_anmelden` an; ohne Anmeldung gibt es den Weg nicht.
 _kanal_weg: Callable[[str], dict[str, Any]] | None = None
 
 

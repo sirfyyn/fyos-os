@@ -69,14 +69,14 @@ def _mit_grenzen(katalog, **plugin):
 
 
 def test_takt_grenzen_in_der_hub_konfiguration_heben_auf_stufe_3(katalog):
-    ohne = _mit_grenzen(katalog, name="openclaw", config={"modus": "an"})
+    ohne = _mit_grenzen(katalog, name="eigen_takt", config={"modus": "an"})
     assert ohne["takte"] == 1
-    mit = _mit_grenzen(katalog, name="openclaw", config={"takt_grenzen": {"cron": {"max_pro_tag": 4, "fenster": "07:00-22:00"}}})
+    mit = _mit_grenzen(katalog, name="eigen_takt", config={"takt_grenzen": {"cron": {"max_pro_tag": 4, "fenster": "07:00-22:00"}}})
     assert mit["takte"] == 3
     # abgeschaltet zählt nicht, leer auch nicht
-    assert _mit_grenzen(katalog, name="openclaw", enabled=False, config={"takt_grenzen": {"cron": {"max_pro_tag": 4}}})["takte"] == 1
-    assert _mit_grenzen(katalog, name="openclaw", config={"takt_grenzen": {}})["takte"] == 1
-    assert _mit_grenzen(katalog, name="openclaw", config="kaputt")["takte"] == 1
+    assert _mit_grenzen(katalog, name="eigen_takt", enabled=False, config={"takt_grenzen": {"cron": {"max_pro_tag": 4}}})["takte"] == 1
+    assert _mit_grenzen(katalog, name="eigen_takt", config={"takt_grenzen": {}})["takte"] == 1
+    assert _mit_grenzen(katalog, name="eigen_takt", config="kaputt")["takte"] == 1
 
 
 def test_plan_traegt_den_reifegrad(katalog, tmp_path):

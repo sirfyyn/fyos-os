@@ -290,15 +290,12 @@ function seiteEinrichten() {
       ] : h('p', { class: 'leise' }, 'Die gewählten Bausteine brauchen keine zusätzlichen Pakete.'),
       S.ziel === 'k8s' ? [
         feld('optionen', { name: 'hub_bild_k8s', titel: 'Hub-Bild in deiner Registry', beschreibung: 'Dorthin schiebst du das gebaute Bild.', pflicht: true, typ: 'text' }, o, (v) => { o.hub_bild_k8s = v; }),
-        gewaehlteBausteine().some((b) => b.id === 'kanal_matrix' || b.id === 'kanal_whatsapp')
-          ? feld('optionen', { name: 'agent_bild_k8s', titel: 'Agent-Bild mit Kanal-Paketen in deiner Registry', beschreibung: 'Matrix und WhatsApp brauchen zusätzliche Pakete im Bild des Agenten; dorthin schiebst du das gebaute Bild.', pflicht: true, typ: 'text' }, o, (v) => { o.agent_bild_k8s = v; })
-          : null,
         feld('optionen', { name: 'namespace', titel: 'Namespace', pflicht: true, typ: 'text' }, o, (v) => { o.namespace = v; }),
       ] : null,
       h('details', null, h('summary', null, 'Bilder der Dienste'),
         feld('optionen', { name: 'bild_web', titel: 'Bild der Oberfläche', beschreibung: 'Vorgabe aus FYOS_REGISTRY, falls gesetzt.', pflicht: true, typ: 'text' }, o, (v) => { o.bild_web = v; }),
         feld('optionen', { name: 'hub_bild', titel: 'Basisbild des Hubs', pflicht: true, typ: 'text' }, o, (v) => { o.hub_bild = v; }),
-        feld('optionen', { name: 'bild_agent', titel: 'Bild des Agenten', pflicht: true, typ: 'text' }, o, (v) => { o.bild_agent = v; }))),
+        feld('optionen', { name: 'bild_agent', titel: 'Bild des Agenten (Runner)', pflicht: true, typ: 'text' }, o, (v) => { o.bild_agent = v; }))),
   ];
 }
 

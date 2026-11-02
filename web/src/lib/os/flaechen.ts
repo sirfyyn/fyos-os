@@ -15,7 +15,6 @@ import type { Component } from 'solid-js';
 import type { McpApp } from '~/lib/mcp-apps/host';
 import { appsGruppieren } from '~/components/apps/gruppen';
 import { startbar } from '~/lib/mcp-apps/pins';
-import { agentPfad } from '~/lib/config';
 import { kuerzelVon } from './kuerzel';
 import { nativeFlaechen, type NativProps } from './nativ';
 import { gruppeFuerApp, registrierteAlias, registrierteFlaechen, registrierteReihenfolge, registrierteStandardPlaetze } from './register';
@@ -68,7 +67,9 @@ export interface Flaeche {
   laden?: () => Promise<{ default: Component<NativProps> }>;
 }
 
+/** Das Agent-Dock der Shell (Ziel `agent` der OS-Brücke); als Fenster ist der Agent die native App `AGENT_APP_ID`. */
 export const AGENT_ID = 'agent';
+export const AGENT_APP_ID = 'nativ:agent';
 
 export { EXTERN_GRUPPE } from '~/lib/config';
 
@@ -100,20 +101,9 @@ export function appFlaecheZu(flaechen: Flaeche[], werkzeug: string): Flaeche | u
   return flaechen.find((f) => f.art === 'hubapp' && (f.appName === werkzeug || f.mitglieder?.includes(werkzeug)));
 }
 
-/** Die Agent-Fläche; Adresse und Titel folgen der Konfiguration. */
-export const agentFlaeche = (titel = 'Agent-Chat'): Flaeche => ({
-  id: AGENT_ID,
-  titel,
-  gruppe: 'Agent',
-  art: 'agent',
-  kuerzel: 'Ag',
-  pfad: agentPfad(),
-  breit: true,
-});
-
-/** Alles, was der Start zeigt: eingebaute Flächen, registrierte, Agent, Hub-Apps; nach Gruppen geordnet. */
+/** Alles, was der Start zeigt: eingebaute Flächen (darunter die Agent-App), registrierte, Hub-Apps; nach Gruppen geordnet. */
 export function alleFlaechen(apps: McpApp[] = []): Flaeche[] {
-  const alle = [...nativeFlaechen(), ...registrierteFlaechen(), agentFlaeche(), ...hubFlaechen(apps)];
+  const alle = [...nativeFlaechen(), ...registrierteFlaechen(), ...hubFlaechen(apps)];
   const reihenfolge = [...registrierteReihenfolge(), ...GRUPPEN_REIHENFOLGE];
   const rang = (g: string) => {
     const i = reihenfolge.indexOf(g);

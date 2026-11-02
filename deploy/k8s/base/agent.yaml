@@ -1,18 +1,27 @@
-# Der Agent: OpenClaw-Mod aus fyos-agent. Persona und Grenzen stehen in der
-# ConfigMap `fyos-agent-config` (fyos.yaml, siehe fyos-agent/fyos.example.yaml);
-# Modellzugang und Gateway-Token kommen aus Secrets, die das Overlay anlegt.
+# Der Agent: dauerhafter Runner auf pi-durable (fyos-agent/runner). Die Konfiguration steht in der ConfigMap
+# `fyos-agent-config` (agent-runner.json, Schema: fyos-agent/runner/beispiele/agent-runner.beispiel.json; das Overlay des
+# Installers ersetzt sie). Modellzugang und Token kommen aus Secrets, die das Overlay anlegt: `fyos-modell` (basis_url,
+# name, schluessel) und `fyos-agent-token` (token, dasselbe Token bekommt die Oberfläche für /api/agent/).
+# Matrix als Meldeweg kann der Runner nur über seine eigene Konfiguration (pi_durable.freigabe_meldung.kanaele).
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fyos-agent-config
 data:
-  fyos.yaml: |
-    agent:
-      name: Fy
-      wesen: Ruhig, präzise und zugewandt
-    besitzer:
-      name: Alex
-    sprache: Deutsch
+  agent-runner.json: |
+    {
+      "hub": "http://hub:8080",
+      "agent": "main",
+      "takt": {"an": false},
+      "pi_durable": {
+        "port": 18438,
+        "device": {"id": "server", "name": "Fy", "kind": "linux"},
+        "storage": "~/.fyos/fyos.sqlite",
+        "security": {"allowedOrigins": ["http://localhost:8080"]},
+        "browser": {"enabled": false},
+        "desktop": {"enabled": false}
+      }
+    }
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -25,12 +34,16 @@ spec:
       storage: 5Gi
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: agent
 spec:
-  serviceName: agent
   replicas: 1
+  # Genau ein Runner: sein Zustand (SQLite im Volume, ReadWriteOnce) ist nicht für zwei Prozesse gebaut.
+  # `rollingUpdate: null` aus demselben Grund wie beim Hub (hub.yaml).
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels: { app: agent }
   template:
@@ -38,16 +51,20 @@ spec:
       labels: { app: agent }
     spec:
       securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
         fsGroup: 1000
       containers:
         - name: agent
-          image: fyos-agent/openclaw
+          image: fyos-agent/runner
           ports:
-            - containerPort: 18789
+            - containerPort: 18438
           env:
-            - { name: HOME, value: /home/node }
-            - { name: FYOS_CONFIG, value: /etc/fyos/fyos.yaml }
-            - { name: FYOS_HUB_URL, value: "http://hub:8080/mcp" }
+            - { name: FYOS_HUB_URL, value: "http://hub:8080" }
+            - name: FYOS_RUNNER_TOKEN
+              valueFrom:
+                secretKeyRef: { name: fyos-agent-token, key: token }
             - name: FYOS_MODELL_BASIS_URL
               valueFrom:
                 secretKeyRef: { name: fyos-modell, key: basis_url, optional: true }
@@ -57,20 +74,17 @@ spec:
             - name: FYOS_MODELL_SCHLUESSEL
               valueFrom:
                 secretKeyRef: { name: fyos-modell, key: schluessel, optional: true }
-            - name: OPENCLAW_GATEWAY_TOKEN
-              valueFrom:
-                secretKeyRef: { name: fyos-agent-gateway, key: token, optional: true }
-            # Erlaubter Ursprung der Control UI im Fenster der Shell (fyos-agent: gateway.oeffentliche_url);
-            # dieselbe Adresse wie für den Hub, gesetzt im Overlay über die ConfigMap fyos-umgebung.
-            - name: FYOS_OEFFENTLICH_URL
-              valueFrom:
-                configMapKeyRef: { name: fyos-umgebung, key: oeffentlich_url, optional: true }
+          readinessProbe:
+            tcpSocket: { port: 18438 }
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
           resources:
-            requests: { cpu: 100m, memory: 1Gi }
-            limits: { memory: 4Gi }
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 2Gi }
           volumeMounts:
-            - { name: zustand, mountPath: /home/node/.openclaw }
-            - { name: config, mountPath: /etc/fyos }
+            - { name: zustand, mountPath: /home/node/.fyos }
+            - { name: config, mountPath: /etc/fyos, readOnly: true }
       volumes:
         - name: zustand
           persistentVolumeClaim: { claimName: agent-zustand }
@@ -84,5 +98,5 @@ metadata:
 spec:
   selector: { app: agent }
   ports:
-    - port: 18789
-      targetPort: 18789
+    - port: 18438
+      targetPort: 18438

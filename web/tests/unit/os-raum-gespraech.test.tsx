@@ -1,5 +1,5 @@
 /**
- * Raum Gespräch (components/raeume/RaumGespraech.tsx): der Agent in der Mitte (Chat des Gateways im iframe), rechts
+ * Raum Gespräch (components/raeume/RaumGespraech.tsx): der Agent in der Mitte (native Agent-App), rechts
  * Gespräche, Vorgänge und Kanäle; Hub-Apps kommen eingebettet, Fehlendes steht als „geplant“ oder
  * „Noch nicht eingerichtet.“ da, und die Wahl übersteht das Neuladen.
  */
@@ -18,6 +18,7 @@ vi.mock('~/components/apps/AppEingebettet', () => ({
   },
 }));
 vi.mock('~/components/os/Fenster', () => ({ Inhalt: () => <div data-testid="seite" /> }));
+vi.mock('~/components/os/nativ/Agent', () => ({ default: () => <div data-testid="agent-app" /> }));
 
 const hubMock = vi.fn();
 vi.mock('~/lib/hub', () => ({ hub: (...a: unknown[]) => hubMock(...a) }));
@@ -37,20 +38,18 @@ const zeigen = (schmal = false) => render(() => <RaumGespraech oeffne={vi.fn()} 
 const knopf = (id: string) => document.querySelector(`[data-gespraech="${id}"]`) as HTMLButtonElement;
 
 describe('Raum Gespräch', () => {
-  it('beginnt beim Agenten (Chat im iframe) und gliedert die Leiste in Gespräche, Sitzungen und Kanäle', () => {
+  it('beginnt beim Agenten (native Agent-App, kein iframe) und gliedert die Leiste in Gespräche, Sitzungen und Kanäle', async () => {
     zeigen();
-    const rahmen = document.querySelector('iframe')!;
-    expect(rahmen.getAttribute('src')).toBe('/agent/');
-    expect(rahmen.getAttribute('title')).toBe('Agent-Chat');
+    expect(await screen.findByTestId('agent-app')).toBeTruthy();
+    expect(document.querySelector('iframe')).toBeNull();
     const gruppen = [...document.querySelectorAll('[data-gespraech-gruppe]')].map((g) => g.getAttribute('data-gespraech-gruppe'));
     expect(gruppen).toEqual(['Gespräche', 'Agenten-Sitzungen', 'Kanäle']);
     expect(knopf('agent').getAttribute('aria-current')).toBe('page');
   });
 
-  it('nimmt Name und Adresse des Agenten aus der Konfiguration', () => {
-    konfigurationSetzen({ agent: { name: 'Mira', pfad: '/mira/' } });
+  it('nimmt den Namen des Agenten aus der Konfiguration', () => {
+    konfigurationSetzen({ agent: { name: 'Mira' } });
     zeigen();
-    expect(document.querySelector('iframe')!.getAttribute('src')).toBe('/mira/');
     expect(knopf('agent').textContent).toContain('Mira');
   });
 
@@ -60,7 +59,7 @@ describe('Raum Gespräch', () => {
     const app = await screen.findByTestId('app');
     expect(app.dataset.name).toBe('vorgaenge__zeigen');
     expect(app.dataset.ohneKopf).toBe('true');
-    expect(document.querySelector('iframe')).toBeNull();
+    expect(screen.queryByTestId('agent-app')).toBeNull();
     cleanup();
     zeigen();
     expect((await screen.findByTestId('app')).dataset.name).toBe('vorgaenge__zeigen');

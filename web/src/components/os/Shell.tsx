@@ -57,7 +57,7 @@ import {
   istVollbild, leer, nachLinks, nachRechts, neuerBildschirm, pruefen, speichern as apSpeichern, tapeteSetzen, tapetenUebernehmen, tapeteVon, umbenennen, verschiebenNach, vollbildAn, vollbildAus, wechseln, wo,
   type Arbeitsplatz, type Bildschirm,
 } from '~/lib/os/bildschirme';
-import { AGENT_ID, alleFlaechen, appFlaecheZu, flaecheZu, gruppiert, standardPlaetze, type Flaeche } from '~/lib/os/flaechen';
+import { AGENT_APP_ID, AGENT_ID, alleFlaechen, appFlaecheZu, flaecheZu, gruppiert, standardPlaetze, type Flaeche } from '~/lib/os/flaechen';
 import { inNeuemTab, osTabMelden, zielAufloesen } from '~/lib/os/allein';
 import { TAPETEN, TAPETE_EREIGNIS, type Tapete } from '~/lib/os/tapete';
 import TapeteEbene from './TapeteEbene';
@@ -1182,10 +1182,10 @@ export default function Shell(): JSX.Element {
     // Fragen aus Apps, Seiten und Objekten gehen ins gemeinsame Gespräch; das Dock zeigt es.
     onCleanup(
       agentFragenAnbinden({
-        zeigen: (_adresse, frage) => {
+        zeigen: (frage) => {
           setAgent(true);
           setAgentGeladen(true);
-          if (frage) setAgentEntwurf({ text: mitKontext(frage.text, frage.kontext) });
+          setAgentEntwurf({ text: mitKontext(frage.text, frage.kontext) });
         },
       }),
     );
@@ -1784,11 +1784,11 @@ export default function Shell(): JSX.Element {
         >
           <header class="os-kopf">
             <h2 class="os-fenstertitel text-left">{agentName()}</h2>
-            <button type="button" class="os-knopf" aria-label={`${agentName()} als Fläche lösen`} title="Als Fläche lösen" onClick={() => { oeffne(AGENT_ID); setAgent(false); }}>⧉</button>
+            <button type="button" class="os-knopf" aria-label={`${agentName()} als Fläche lösen`} title="Als Fläche lösen" onClick={() => { oeffne(AGENT_APP_ID); setAgent(false); }}>⧉</button>
             <button type="button" class="os-knopf" aria-label={`${agentName()} schließen`} onClick={() => setAgent(false)}>✕</button>
           </header>
           <Show when={agentGeladen()}>
-            {/* Ab 0.2.0 die native Agent-App gegen den Runner (/api/agent) statt des eingebetteten OpenClaw-Chats */}
+            {/* Die native Agent-App gegen den Runner (/api/agent) */}
             <div class="min-h-0 flex-1 flex flex-col" style={{ 'pointer-events': ziehen() ? 'none' : 'auto' }}>
               <Suspense fallback={null}>
                 <AgentRunner schmal oeffne={oeffne} fuellen entwurf={agentEntwurf()} />

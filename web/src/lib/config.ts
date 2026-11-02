@@ -34,15 +34,12 @@ export interface FyosKonfiguration {
   agent?: {
     /** Anzeigename des Agenten (Dock, Fensterkopf) */
     name?: string;
-    /** Adresse des Chats; Vorgabe `/agent/` (nginx leitet an das Gateway) */
-    pfad?: string;
   };
   extern?: ExternerDienst[];
 }
 
 const VORGABE_NAME = 'FYOS';
 const VORGABE_AGENT = 'Agent';
-const VORGABE_AGENT_PFAD = '/agent/';
 
 const bau = (import.meta.env?.PUBLIC_FYOS_NAME as string | undefined)?.trim();
 
@@ -53,12 +50,6 @@ export const systemName = (): string => konfig().name?.trim() || bau || VORGABE_
 
 /** Anzeigename des Agenten. */
 export const agentName = (): string => konfig().agent?.name?.trim() || VORGABE_AGENT;
-
-/** Adresse des Agent-Chats (gleicher Ursprung, von nginx weitergereicht). */
-export const agentPfad = (): string => {
-  const p = konfig().agent?.pfad?.trim();
-  return p && p.startsWith('/') ? p : VORGABE_AGENT_PFAD;
-};
 
 /** Ursprung dieser Seite — nie eine feste Adresse. */
 export const ursprung = (): string => (typeof location !== 'undefined' ? location.origin : '');

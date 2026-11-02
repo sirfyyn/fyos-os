@@ -1,16 +1,16 @@
 /**
  * „Den Agenten fragen“ (lib/os/agent-fragen.ts): das Ereignis `fyos:agent-fragen` und die Nachricht
- * `fyosAgentFragen` erreichen den Empfänger der Shell; ohne Shell öffnet sich der Chat mit dem Entwurf.
+ * `fyosAgentFragen` erreichen den Empfänger der Shell; ohne Shell öffnet sich die Shell in einem neuen Tab.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { agentName, konfigurationSetzen, konfigurationZuruecksetzen } from '~/lib/config';
+import { agentName, konfigurationZuruecksetzen } from '~/lib/config';
 import {
-  FRAGEN_EREIGNIS, FRAGEN_NACHRICHT, agentFragen, agentFragenAnbinden, entwurfAdresse, mitKontext, type AgentFrage,
+  FRAGEN_EREIGNIS, FRAGEN_NACHRICHT, agentFragen, agentFragenAnbinden, mitKontext, type AgentFrage,
 } from '~/lib/os/agent-fragen';
 
 afterEach(() => konfigurationZuruecksetzen());
 
-describe('mitKontext / entwurfAdresse', () => {
+describe('mitKontext', () => {
   it('hängt Titel, Werkzeug und Eingabe als knappen Kontext an', () => {
     const t = mitKontext('Was heißt das?', { titel: 'Szenen', app: 'haus__szenen', eingabe: { raum: 'Küche' } });
     expect(t).toContain('Was heißt das?');
@@ -26,17 +26,10 @@ describe('mitKontext / entwurfAdresse', () => {
     expect(t.endsWith(' …]')).toBe(true);
   });
 
-  it('die Adresse des Entwurfs liegt im Agentpfad aus der Konfiguration und bleibt unter dem Limit', () => {
-    expect(entwurfAdresse({ text: 'Hallo' })).toBe('/agent/?draft=Hallo');
-    konfigurationSetzen({ agent: { pfad: '/chat/' } });
-    expect(entwurfAdresse({ text: 'Hallo' }).startsWith('/chat/?draft=')).toBe(true);
-    const lang = entwurfAdresse({ text: 'ä'.repeat(5000) });
-    expect(lang.length).toBeLessThan(5100);
-  });
 });
 
 describe('Empfänger der Shell', () => {
-  it('nimmt das Ereignis an, öffnet den Chat mit dem Entwurf und übernimmt es (preventDefault)', () => {
+  it('nimmt das Ereignis an, reicht die Frage als Daten weiter und übernimmt es (preventDefault)', () => {
     const zeigen = vi.fn();
     const ab = agentFragenAnbinden({ zeigen });
     try {
@@ -44,10 +37,9 @@ describe('Empfänger der Shell', () => {
       window.dispatchEvent(ev);
       expect(ev.defaultPrevented).toBe(true);
       expect(zeigen).toHaveBeenCalledTimes(1);
-      const adresse = zeigen.mock.calls[0]![0] as string;
-      expect(adresse.startsWith('/agent/?draft=')).toBe(true);
-      expect(decodeURIComponent(adresse.split('?draft=')[1]!)).toContain('Was fällt auf?');
-      expect(decodeURIComponent(adresse.split('?draft=')[1]!)).toContain('Haus');
+      const frage = zeigen.mock.calls[0]![0] as AgentFrage;
+      expect(frage.text).toBe('Was fällt auf?');
+      expect(mitKontext(frage.text, frage.kontext)).toContain('Haus');
     } finally {
       ab();
     }
@@ -106,10 +98,10 @@ describe('agentFragen', () => {
     expect(w.open).not.toHaveBeenCalled();
   });
 
-  it('ohne Shell: der Chat mit dem Entwurf in einem neuen Tab', () => {
+  it('ohne Shell: die Shell in einem neuen Tab (kein Gateway-Chat mit ?draft=)', () => {
     const w = fenster();
     agentFragen({ text: 'Frage' }, { fenster: w });
-    expect(w.open).toHaveBeenCalledWith('/agent/?draft=Frage', '_blank', 'noopener');
+    expect(w.open).toHaveBeenCalledWith('/', '_blank', 'noopener');
   });
 
   it('in einem Fenster der Shell (iframe): per postMessage an die Shell', () => {

@@ -368,7 +368,7 @@ def test_zeitplan_sammelt_die_plugins_und_uebersteht_fehler():
             return [
                 {"id": "a", "name": "Aufräumen", "takt": "alle 60 s", "letzter": 100.0, "letzter_status": "ok",
                  "naechster": 200.0},
-                {"id": "b", "name": "Brief", "takt": "0 6 * * *", "quelle": "openclaw", "letzter_status": "fehler",
+                {"id": "b", "name": "Brief", "takt": "0 6 * * *", "quelle": "agent", "letzter_status": "fehler",
                  "letzter_fehler": "Zeitlimit"},
                 {"name": "ohne id"},
             ]
@@ -382,9 +382,9 @@ def test_zeitplan_sammelt_die_plugins_und_uebersteht_fehler():
     plugin.registry_anbinden(reg)
     alles = plugin.call("zeitplan", {})
     assert [e["id"] for e in alles["eintraege"]] == ["takt:a", "takt:b"]
-    assert alles["eintraege"][1]["quelle"] == "openclaw" and alles["eintraege"][1]["letzter_status"] == "fehler"
+    assert alles["eintraege"][1]["quelle"] == "agent" and alles["eintraege"][1]["letzter_status"] == "fehler"
     assert "kaputt" in alles["fehler"] and "Brief" in alles["satz"]
-    nur = plugin.call("zeitplan", {"quelle": "openclaw"})
+    nur = plugin.call("zeitplan", {"quelle": "agent"})
     assert [e["name"] for e in nur["eintraege"]] == ["Brief"]
     # Ohne Grenzen tragen die Einträge die Felder leer.
     a = alles["eintraege"][0]

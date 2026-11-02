@@ -96,7 +96,7 @@ plugins:
   - name: beispiel_app
 
   # Arbeits-Apps: Vorgaenge, Mail (nur lesend) und Termine zeigen, was die Quellen des Kerns liefern (Vorgangs-Dienst oder
-  # Workboard, Mail-Dienst oder Mail-Plugin, Termin-Dienst oder Kalender-Plugin; docs/ERWEITERN.md 2.13 bis 2.15). Ohne Quelle
+  # Ablage eines Plugins, Mail-Dienst oder Mail-Plugin, Termin-Dienst oder Kalender-Plugin; docs/ERWEITERN.md 2.13 bis 2.15). Ohne Quelle
   # sagen sie das. Mails und Vorgaenge lassen sich per Ziehen uebergeben (Mail -> Vorgang, Vorgang -> Vorgang, Vorgang -> Termin).
   - name: vorgaenge
   - name: posteingang
@@ -106,20 +106,7 @@ plugins:
   # (docs/ERWEITERN.md 2.18).
   - name: suche
 
-  # Kopplung an OpenClaw (Brücke fyos-bruecke im Agenten): Ereignisse, Workboard, Skills, Cron, Nutzung.
-  # Ohne FYOS_AGENT_URL ist es aus. Werte sonst aus der Umgebung (FYOS_AGENT_URL, FYOS_AGENT_TOKEN,
-  # FYOS_VORGAENGE_URL, FYOS_VORGANG_LINK); siehe docs/KOPPLUNG-OPENCLAW.md.
-  - name: openclaw
-    # config:
-    #   gateway_url: http://agent:18789
-    #   board: fyos
-    #   abgleich_s: 60
-    #   # Grenzen je Takt (cron, skills, abgleich, karten): außerhalb des Fensters oder über dem Tageslimit läuft
-    #   # der Takt nicht. Die Uhrzeiten gelten in der Zeitzone des Hubs (TZ).
-    #   takt_grenzen:
-    #     abgleich: { max_pro_tag: 500, fenster: "06:00-23:00" }
-
-  # Eingang und Ausgang eines Agenten-Runners (/hub/agent/eingang, /melden, /alarm; keine Werkzeuge). Ohne
+  # Eingang und Ausgang des Agenten (Runner) (/hub/agent/eingang, /melden, /alarm; keine Werkzeuge). Ohne
   # Quellen-Tokens innen offen wie der übrige Hub; mit FYOS_AGENT_TOKENS (rolle=token, …) verlangt jeder Weg ein
   # Token, und die Quelle folgt dem Token. streng: ohne brauchbares Token antwortet alles 401.
   - name: agent

@@ -12,7 +12,7 @@ die Quelle bei jedem Aufruf neu. Die Quelle sucht in fester Reihenfolge:
 
 1. eine Adresse: als Argument, von einem Plugin angemeldet oder aus der Umgebung (`FYOS_<FÄHIGKEIT>_URL`, dazu eine
    Kopfzeile `FYOS_<FÄHIGKEIT>_KOPF` im Format `Name: Wert`);
-2. eine Ablage, die ein Plugin anmeldet (etwa das Workboard des Agenten oder ein Konto, das ein Plugin direkt liest);
+2. eine Ablage, die ein Plugin anmeldet (etwa ein Konto, das ein Plugin direkt liest);
 3. sonst: nicht eingerichtet (`NichtEingerichtet`, HTTP 501) mit einem Hinweis, wie man es einrichtet.
 
 Daraus folgen drei Zustände, die jede Oberfläche getrennt zeigt: **Daten** (auch eine leere Liste), **Fehler** (Dienst
@@ -22,7 +22,7 @@ Rechner im Netz“. Das Vorbild steht in [`ERWEITERN.md`](ERWEITERN.md) §2.13 (
 
 ## Grundstufe und Ausbaustufe
 
-- **Grundstufe:** was der Agent selbst mitbringt (Workboard, Cron, Skills) und was sich ohne eigenen Dienst direkt
+- **Grundstufe:** was der Agent selbst mitbringt (Takte, Skills) und was sich ohne eigenen Dienst direkt
   anbinden lässt (ein CalDAV-Kalender, ein IMAP-Postfach). Wenig zu betreiben, gut für Compose auf einem Rechner.
 - **Ausbaustufe:** eigene Dienste wie im Ursprungssystem (ein Ticketdienst, ein Kalender- und ein Postfach-Dienst,
   Paperless-ngx, Listmonk …). Mehr zu betreiben, dafür Verlauf, Wartelisten, mehrere Konten in einem Dienst.
@@ -36,7 +36,7 @@ ist, die Wahl **aus**: nichts einrichten, die Fähigkeit meldet dann ehrlich „
 Grundstufe gibt (Post senden, heute auch Dokumente), bleiben Ausbau und aus, und die Vorgabe ist der Ausbau.
 
 Was die Wahl bewirkt: Bei der **Grundstufe** rendert der Installer keinen Dienst und setzt keine Dienstadresse; das Plugin
-nimmt den direkten Weg (CalDAV, IMAP, Workboard). Bei der **Ausbaustufe** steht die Adresse des Dienstes in der Umgebung
+nimmt den direkten Weg (CalDAV, IMAP, Ablage im Hub). Bei der **Ausbaustufe** steht die Adresse des Dienstes in der Umgebung
 des Hubs (`FYOS_TERMINE_URL` und so weiter). Einen Dienst dazu rendert der Installer, **sobald es dafür einen Baustein
 gibt**; bis dahin liefert er die Dienste der Ausbaustufe nicht mit, schreibt die Zeile zum Ausfüllen und sagt im Plan
 ehrlich, welche Variable du selbst eintragen musst. Siehe `installer/README.md`, Abschnitt Stufe je Fähigkeit, und
@@ -48,15 +48,15 @@ Die Spalte „Vorgabe“ nennt die Stufe, die der Installer ohne Wahl nimmt (Com
 
 | Fähigkeit | Plugin (Paket) | Grundstufe | Ausbaustufe | Vorgabe | Stand |
 |---|---|---|---|---|---|
-| Vorgänge | `vorgaenge` (Kern), `vorgangsquelle` (fyos-plugin-leitstand) | Workboard des Agenten | Vorgangs-Dienst (`FYOS_VORGAENGE_URL`) | Grund / Ausbau | Grundstufe fertig (0.1.0); Stufenwahl im Installer; Dienst der Ausbaustufe liefert der Installer noch nicht mit |
+| Vorgänge | `vorgaenge` (Kern), `vorgangsquelle` (fyos-plugin-leitstand) | Ablage eines Plugins | Vorgangs-Dienst (`FYOS_VORGAENGE_URL`) | Grund / Ausbau | Grundstufe fertig (0.1.0); Stufenwahl im Installer; Dienst der Ausbaustufe liefert der Installer noch nicht mit |
 | Termine | `termine` (Kern), `kalender` (fyos-plugin-kalender), Leitstand | CalDAV- und ICS-Konten direkt | Termin-Dienst (`FYOS_TERMINE_URL`) | Grund / Ausbau | Grundstufe fertig, erscheint mit 0.1.1; Stufenwahl im Installer; Dienst der Ausbaustufe fehlt noch als Baustein |
 | Postfach lesen | `postfach` (Kern), `mail` (fyos-plugin-mail), Wache im Leitstand | IMAP direkt, nur lesend | Postfach-Dienst (`FYOS_POSTFACH_URL`) | Grund / Ausbau | Grundstufe fertig, erscheint mit 0.1.1; Stufenwahl im Installer; Dienst der Ausbaustufe fehlt noch als Baustein |
 | Post senden | `post` (fyos-plugin-mail) | — | Listmonk (`FYOS_POST_URL`) | Ausbau / Ausbau | Plugin fertig (fyos-plugin-mail 0.2.0); nur Ausbau oder aus; Listmonk als Baustein im Installer fehlt noch (`FYOS_POST_URL` trägst du selbst ein) |
 | Dokumente | `dokumente` (Kern), `dokumente` (fyos-plugin-leitstand) | Ordner-Ablage (geplant) | Paperless-ngx (`FYOS_DOKUMENTE_URL`, Token in `FYOS_DOKUMENTE_KOPF`) | Ausbau / Ausbau, bis die Ordner-Ablage da ist | Quelle und Leitstand fertig (Ausbaustufe), erscheint mit 0.1.1; Grundstufe offen, Paperless-ngx als Baustein fehlt noch |
 | Dateien | `dateien` (Kern, mit App „Dateien“) | Ordner auf einem Volume (`FYOS_DATEIEN`) mit Papierkorb und früheren Fassungen | — | fertig, erscheint mit 0.1.1; Ablage des Kerns, kein Dienst nötig (`ERWEITERN.md` §2.17) |
 | Ansichten | `gui` (Kern) | im Hub; mit Redis überstehen sie einen Neustart | — | fertig; ab 0.1.1 auch über die Shell |
-| Agent | fyos-agent | OpenClaw-Mod mit Verhaltensvertrag | — | fertig |
-| Nachtarbeit | `os` (Kern), [`tools/nachtauftrag.py`](../tools/nachtauftrag.py) | Cron des Agenten; Meldung wartet in Redis bis zu 24 h | — | fertig, siehe [`NACHTARBEIT.md`](NACHTARBEIT.md) |
+| Agent | fyos-agent | Runner auf pi-durable (`fyos-agent/runner`), Compose und Kubernetes | — | fertig (0.2.1) |
+| Nachtarbeit | `os` (Kern), Takt des Runners | Takt in `agent-runner.json`; Meldung wartet in Redis bis zu 24 h | — | Meldung fertig; Auslöser braucht `schleifen.darf` im Hub, siehe [`NACHTARBEIT.md`](NACHTARBEIT.md) |
 | Haus | fyos-plugin-haus | denkbar: Home Assistant direkt | Haus-Dienst vor Home Assistant, Kameras über Frigate und MQTT | Paket da; braucht heute den Haus-Dienst |
 | Konten | fyos-plugin-konten | denkbar: ein Zugang je Konto direkt | Konten-Dienst als Tresor für Zugänge; Fotos über Immich | aufgeräumt (0.2.0); braucht heute den Konten-Dienst |
 | Finanzen | fyos-plugin-finanzen | — | Finanz-Dienst (Monatsplan, Kontodaten) | aufgeräumt (0.2.0); braucht heute den Finanz-Dienst |
@@ -82,8 +82,8 @@ die alten wirken als Alias weiter; die Tabelle der Einstellungen steht in der RE
 6. Aufräumen in Haus, Konten, Finanzen, Betrieb, Modell und Leitstand: keine Vorgabe auf interne Dienstnamen (leer =
    nicht eingerichtet), neutrale Namen für Umgebungsvariablen mit Eigennamen (die alten bleiben eine Weile als Alias),
    und wo es eine Grundstufe gibt, eine Quelle nach dem Muster oben — Konten, Finanzen, Betrieb und Modell fertig;
-   Haus und Leitstand folgen. Der Agenten-Dienst in Betrieb heißt dabei `FYOS_AGENTDIENST_URL`, weil
-   `FYOS_AGENT_URL` das OpenClaw-Gateway der Kopplung meint.
+   Haus und Leitstand folgen. Der Agenten-Dienst in Betrieb heißt dabei `FYOS_AGENTDIENST_URL` (bis 0.2.0 meinte
+   `FYOS_AGENT_URL` das Gateway des alten Agenten).
 7. Die Stufe je Fähigkeit im Installer (Auswahl, Vorgabe nach Bauart, Wirkung auf die erzeugten Dateien) — fertig.
 8. Noch offen: die Dienste der Ausbaustufe als Bausteine im Installer (Ticketdienst, Termin-Dienst, Postfach-Dienst,
    Listmonk, Paperless-ngx; bis dahin trägst du ihre Adresse selbst ein) und die Grundstufen-Ablage für Dokumente

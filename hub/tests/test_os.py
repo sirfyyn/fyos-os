@@ -125,7 +125,8 @@ def test_der_skill_nachtarbeit_kommt_mit_dem_kern(tmp_path):
     treffer = [s for s in skills.call("suchen", {"q": "nachtarbeit"})["skills"] if s["name"] == "nachtarbeit"]
     assert treffer, "Skill nachtarbeit fehlt (Entry-Point fyos.skills, Ordner mcp_hub/skills/nachtarbeit)"
     gelesen = skills.call("lesen", {"name": "nachtarbeit"})
-    assert "os.mitteilen" in json.dumps(gelesen) and "tools/nachtauftrag.py" in json.dumps(gelesen)
+    # Seit 0.2.1 entsteht ein Nachtauftrag als Takt des Runners (agent-runner.json), nicht mehr über tools/nachtauftrag.py
+    assert "os.mitteilen" in json.dumps(gelesen) and "agent-runner.json" in json.dumps(gelesen)
 
 
 def test_lage_und_zeigen_ohne_offenes_os(plugin):

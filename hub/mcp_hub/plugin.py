@@ -544,7 +544,7 @@ class HubPlugin(abc.ABC):
         Je Eintrag: ``id`` (im Plugin eindeutig), ``name``, ``takt`` (Text wie ``"alle 60 s"`` oder ein
         Cron-Ausdruck); optional ``beschreibung``, ``an`` (bool), ``naechster`` und ``letzter`` (Unix-Sekunden),
         ``letzter_status`` (``"ok"`` oder ``"fehler"``), ``letzter_fehler``, ``quelle`` (Herkunft, wenn nicht das
-        Plugin selbst, etwa ``"openclaw"`` für die Cron-Aufträge des Agenten). Antwortet aus dem Speicher (keine
+        Plugin selbst, etwa ``"agent"`` für Aufträge des Agenten). Antwortet aus dem Speicher (keine
         Netzabfrage); Fehler fängt der Kern ab. Default: keine.
 
         Fährt das Plugin einen Takt über ``mcp_hub.takt.Waechter`` (Grenzen ``max_pro_tag`` und ``fenster``, Laufprotokoll),

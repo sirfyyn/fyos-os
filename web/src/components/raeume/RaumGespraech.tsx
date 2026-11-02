@@ -1,17 +1,18 @@
 /**
  * Raum Gespräch: ein Ort für alles, was gesprochen wird.
  *
- * Mitte ist das Gespräch mit dem Agenten: der Chat des Gateways (`agentPfad()`, gleicher Ursprung) als iframe, derselbe
- * wie im Agent-Dock der Shell. Rechts die Leiste mit Gesprächen, Vorgängen und Kanälen; was ein Plugin als Hub-App liefert
+ * Mitte ist das Gespräch mit dem Agenten: die native Agent-App (Runner über /api/agent), dieselbe wie im Agent-Dock der
+ * Shell. Rechts die Leiste mit Gesprächen, Vorgängen und Kanälen; was ein Plugin als Hub-App liefert
  * (Vorgänge), kommt als App in die Mitte, ein Kanal-Verlauf als eigener Verlauf (MatrixVerlauf), was fehlt, steht ehrlich
  * als „geplant“ oder „Noch nicht eingerichtet.“ da.
  */
-import { Match, Switch, createSignal, type JSX } from 'solid-js';
+import { Match, Suspense, Switch, createSignal, lazy, type JSX } from 'solid-js';
 import { type RaumProps, RaumRahmen } from '~/components/os/Raum';
 import { EintragLeiste, Geplant, HubApp, gemerkteWahl, wahlMerken } from '~/components/raeume/Huelle';
 import MatrixVerlauf from '~/components/raeume/MatrixVerlauf';
-import { agentName, agentPfad } from '~/lib/config';
-import { fremdesThemaAnwenden } from '~/lib/os/thema';
+import { agentName } from '~/lib/config';
+
+const AgentRunner = lazy(() => import('~/components/os/nativ/Agent'));
 
 type Inhalt = { art: 'agent' } | { art: 'matrix' } | { art: 'app'; name: string } | { art: 'geplant'; quelle: string };
 export interface Eintrag {
@@ -56,13 +57,11 @@ export default function RaumGespraech(p: RaumProps): JSX.Element {
       <div class="flex min-h-0 flex-1 flex-col" data-gespraech-mitte={aktuell().id}>
         <Switch>
           <Match when={aktuell().inhalt.art === 'agent'}>
-            <iframe
-              src={agentPfad()}
-              title={`${agentName()}-Chat`}
-              class="min-h-0 flex-1 border-0 bg-(--color-bg)"
-              style={{ 'color-scheme': 'dark light' }}
-              onLoad={(e) => fremdesThemaAnwenden(e.currentTarget)}
-            />
+            <div class="flex min-h-0 flex-1 flex-col" data-gespraech-agent>
+              <Suspense fallback={null}>
+                <AgentRunner oeffne={p.oeffne} schmal={p.schmal} fuellen />
+              </Suspense>
+            </div>
           </Match>
           <Match when={aktuell().inhalt.art === 'matrix'}>
             <MatrixVerlauf />

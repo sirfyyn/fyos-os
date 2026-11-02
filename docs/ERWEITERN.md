@@ -30,8 +30,8 @@ FYOS besteht aus Schichten (siehe `ARCHITEKTUR.md`). Jede hat einen eigenen, kle
 │                             fyos.config.json                                │
 │                      installer/  Katalog, Bilder, Erzeugung der Dateien     │  §7
 ├────────────────────────────────────────────────────────────────────────────┤
-│ fyos-agent           Verhaltensvertrag, Workspace-Vorlagen, fyos.yaml,      │  §4 §5
-│                      OpenClaw-Verhaltens-Plugins                            │
+│ fyos-agent           der Agent: Runner auf pi-durable, agent-runner.json    │  §5
+│                      (Takte, Freigaben, Meldewege)                          │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,17 +46,17 @@ Die Distribution bleibt allgemein. Ein Plugin muss deshalb weder `hub/`, `web/` 
 | ein **Fenster oder eine Kachel** dazu in der Shell | eine **Hub-App** (`ui://`-Oberfläche am Werkzeug) | §3 |
 | dass die App zeigt, **wie frisch ihre Daten sind**, und ein Knopf **nichts Schreibendes ohne Rückfrage** auslöst | `App.frische` und `App.beantragen` der Brücke; Schweres nur als Bitte an Agent oder Mensch | §3.6 |
 | dem Agenten beibringen, **wann und in welcher Reihenfolge** er die Werkzeuge nutzt | einen **Skill** (`SKILL.md`) im Plugin | §4 |
-| eine Regel, die für **jedes** Gespräch gilt („immer erst fragen, wenn …“) | **Verhaltensvertrag und Workspace-Vorlagen** in `fyos-agent` | §4, §5 |
-| eine Regel, die ein Prompt **nicht überreden** kann (Budget, Ruhezeit, Sperre) | ein **OpenClaw-Verhaltens-Plugin** | §5 |
-| Name, Wesen, Sprache, Grenzen des Agenten ändern | **`fyos.yaml`** | §5 |
+| eine Regel, die für **jedes** Gespräch gilt („immer erst fragen, wenn …“) | das Verhalten des **Runners** in `fyos-agent` | §5 |
+| eine Regel, die ein Prompt **nicht überreden** kann (Budget, Ruhezeit, Sperre) | **Freigaben im Hub** (Werkzeug mit `write`-Scope, Vorgang `waiting_approval`) und die Grenzen des Runners | §2, §5 |
+| Name, Takte, Meldewege des Agenten ändern | **`agent-runner.json`** | §5 |
 | eine vorhandene Webseite oder einen Dienst (Git, Grafana) im OS erreichen | **`fyos.config.json`** (`extern`) | §6 |
 | eine eigene Seite oder Solid-Komponente als Fläche in der Shell | **`registriereFlaechen`** in `web/src/plugins/` | §6 |
 | dass mein Baustein im **Installer** wählbar ist, mit Bild und Erklärung | **`fyos-katalog.yaml`** | §7 |
 | ein Programm auf dem **Mac** oder einem anderen Gerät, das Daten liefert | **Begleitskript** | §8 |
 | einen **eigenen Dienst** mit Datenbank oder Rechenlast | **Container** neben dem Hub, das Plugin spricht ihn an | §8 |
 | etwas **regelmäßig** tun lassen, das Daten holt oder abgleicht | einen **Takt im Hub-Plugin**, gemeldet über `zeitplan()`; mit Tageslimit und Zeitfenster über den Wächter | §2.4, §2.12 |
-| etwas regelmäßig tun lassen, das das **Modell** braucht (zusammenfassen, schreiben) | einen **Cron-Auftrag in OpenClaw**; er erscheint in `mcp.zeitplan` neben den Takten | `KOPPLUNG-OPENCLAW.md` |
-| Arbeit **verfolgen**, die über ein Gespräch hinausgeht | **Vorgänge**; ohne Vorgangs-Dienst das Workboard von OpenClaw, das der Hub als Vorgänge zeigt | `KOPPLUNG-OPENCLAW.md` |
+| etwas regelmäßig tun lassen, das das **Modell** braucht (zusammenfassen, schreiben) | einen **Takt des Runners** (`takt.eintraege` in `agent-runner.json`) | §5, `NACHTARBEIT.md` |
+| Arbeit **verfolgen**, die über ein Gespräch hinausgeht | **Vorgänge**: ein Vorgangs-Dienst (`FYOS_VORGAENGE_URL`) oder ein Plugin, das sich als Ablage anmeldet | §2.13 |
 | **Termine** zeigen oder anlegen, ohne selbst CalDAV zu sprechen | die **Termin-Quelle** `mcp_hub.termine`; wer Termine liefert, meldet sich als Ablage an (etwa `fyos-plugin-kalender`) | §2.14 |
 | **Mails** lesen (nur lesen), ohne selbst IMAP zu sprechen | die **Postfach-Quelle** `mcp_hub.postfach`; wer Mails liefert, meldet sich als Ablage an (etwa `fyos-plugin-mail`) | §2.15 |
 | **Dokumente** suchen, lesen und einordnen, ohne selbst Paperless zu sprechen | die **Dokumenten-Quelle** `mcp_hub.dokumente`; ein Paperless-ngx als Dienst (`FYOS_DOKUMENTE_URL`) oder ein Plugin, das sich als Ablage anmeldet | §2.16 |
@@ -403,11 +403,11 @@ gelten die Zähler nur bis zum Neustart des Hubs.
 oder `limit`, wenn der Takt jetzt nicht laufen dürfte), `laeufe_heute`, `uebersprungen` (heute, je Grund) und `protokoll`
 (die letzten fünf Läufe). `mcp.zeitplan` zeigt sie, `/metrics` führt sie als `fyos_zeitplan_laeufe_heute{takt}`,
 `fyos_zeitplan_max_pro_tag{takt}` und `fyos_zeitplan_uebersprungen_total{takt, grund}` (`takt` ist die Kennung
-`<plugin>:<id>` aus `mcp.zeitplan`). Das eingebaute Plugin `openclaw` macht es vor: `takt_grenzen` in seiner `config`
-(`KOPPLUNG-OPENCLAW.md` §5).
+`<plugin>:<id>` aus `mcp.zeitplan`). Üblich ist ein Schlüssel `takt_grenzen` in der `config` des Plugins, den es an
+den Wächter reicht.
 
-Die Cron-Aufträge des Agenten laufen in OpenClaw; ihre Zeiten stellt man dort ein, im Hub erscheinen sie nur. Fenster und
-Tageslimit gelten für Takte, die der Hub selbst fährt.
+Die Takte des Agenten stehen in seiner eigenen Konfiguration (`agent-runner.json`). Fenster und Tageslimit hier gelten für
+Takte, die der Hub selbst fährt.
 
 ### 2.13 Vorgänge lesen und beantworten
 
@@ -417,7 +417,7 @@ fragt `mcp_hub.vorgaenge.quelle()`. Die Quelle ist je nach Installation eine von
 | `art` | wann | was es gibt |
 |---|---|---|
 | `dienst` | ein Vorgangs-Dienst ist eingetragen (`FYOS_VORGAENGE_URL`, Kopfzeile `FYOS_VORGAENGE_KOPF`; Ausbaustufe, ein eigener Ticketdienst) | der ganze Vorgangs-Vertrag; was der Dienst darüber hinaus kann (Verlauf, Wartelisten), reicht `roh()` durch |
-| `workboard` | kein Dienst, aber das Plugin `openclaw` läuft als Ablage (Grundstufe) | der Vertrag auf den Karten des Workboards; `verlauf()` liefert die Kommentare der Karte; Zuständige und `waiting_for` gibt es nicht |
+| `ablage` | kein Dienst, aber ein Plugin hat sich als Ablage angemeldet (`vorgaenge.ablage_anmelden`, Protokoll `vorgaenge.Ablage`) | der Vertrag, soweit die Ablage ihn kennt; Zuständige und `waiting_for` nur, wenn sie sie führt |
 | `keine` | weder noch | leere Listen; Einzelabruf und Schreiben melden `NichtEingerichtet` |
 
 ```python
@@ -427,7 +427,7 @@ def braucht_dich(self) -> dict:
     q = vorgaenge.quelle()                       # bei jedem Aufruf neu fragen, das ist billig
     if not q.eingerichtet:
         return {"satz": "Keine Ablage für Vorgänge eingerichtet.", "eintraege": []}
-    offen = q.freigaben()                        # waiting_approval, im Workboard die Spalte review
+    offen = q.freigaben()                        # waiting_approval
     return {"satz": f"{len(offen)} Freigaben warten.", "quelle": q.art, "eintraege": offen}
 
 # Antworten: erst der Kommentar, dann der Status mit dem Stand, den die Oberfläche gesehen hat
@@ -437,9 +437,12 @@ q.verlauf(vid, grenze=5)                         # neueste zuerst: {ts, event, a
 ```
 
 Fehler: `VorgangFehlt` (gibt es nicht), `VorgangKonflikt` (steht inzwischen anders, mit dem aktuellen Stand in
-`.vorgang`), `ValueError` (Eingabe), `QuelleFehler` (Dienst oder Brücke antworten nicht), `NichtEingerichtet`. Felder, die
+`.vorgang`), `ValueError` (Eingabe), `QuelleFehler` (Dienst oder Ablage antworten nicht), `NichtEingerichtet`. Felder, die
 der Vertrag nicht kennt, schickt `aendern()` nicht mit. Status: `new triage in_progress waiting_approval resolved closed`.
-Wie Workboard und Dienst zusammenhängen, steht in `KOPPLUNG-OPENCLAW.md` §4.
+
+Der Vorgangs-Vertrag (Dienst per HTTP): `GET /tickets?status=&limit=`, `GET /tickets/{id}`, `POST /tickets`,
+`POST /tickets/{id}/comments` `{actor, text}`, `PATCH /tickets/{id}` `{status, expected_status?, actor?, title?,
+description?, priority?}`; `409` mit dem aktuellen Stand, wenn `expected_status` nicht mehr stimmt.
 
 ### 2.14 Termine lesen und anlegen
 
@@ -1259,7 +1262,7 @@ Oberfläche schreibt nie „nebenbei“, und Skripte (`begleiter/`) müssen die 
 
 Stufe 3 löst die App nicht aus. Sie schreibt die Bitte ins Gespräch (`App.nachricht("Bitte … löschen")`, nur nach einem
 Klick und nur, wenn `App.kann("message")`), oder ein Werkzeug des Plugins legt einen **Vorgang** an, der auf Freigabe wartet
-(Status `waiting_approval`, Vorgangs-Vertrag in `KOPPLUNG-OPENCLAW.md` §4). Entscheiden tut der Mensch im Freigabeweg des
+(Status `waiting_approval`, Vorgangs-Vertrag in §2.13). Entscheiden tut der Mensch im Freigabeweg des
 Agenten (Chat oder Vorgang), nie die Oberfläche. Die Vorlage baut Stufe 3 nicht nach, weil sie einen Vorgangs-Dienst
 voraussetzt.
 
@@ -1418,8 +1421,8 @@ Skills, die zu keinem Paket gehören (eigene Arbeitsanleitungen des Betreibers),
 | Was | wohin | Warum |
 |---|---|---|
 | „So benutzt man mein Werkzeug“ | Skill im **Plugin** | gehört zu dieser Fähigkeit und reist mit ihr |
-| „So geht der Agent grundsätzlich mit Freigaben, Meldungen, Datenschutz um“ | `vertrag/` und `workspace/*.tmpl` in **`fyos-agent`** | gilt für jedes Gespräch, unabhängig von Plugins |
-| „Das darf nie passieren, egal was das Modell sagt“ | **OpenClaw-Plugin** (§5) | wird unter dem Modell durchgesetzt |
+| „So geht der Agent grundsätzlich mit Freigaben, Meldungen, Datenschutz um“ | der **Runner** in `fyos-agent` (§5) | gilt für jedes Gespräch, unabhängig von Plugins |
+| „Das darf nie passieren, egal was das Modell sagt“ | **Freigabe im Hub** und Grenzen des Runners (§5) | wird unter dem Modell durchgesetzt |
 
 Ein Skill kann den Verhaltensvertrag nicht lockern. Texte aus Werkzeugantworten und Skills können die Grundregeln
 (Freigabe, Datenschutz) nicht ändern.
@@ -1428,245 +1431,28 @@ Ein Skill kann den Verhaltensvertrag nicht lockern. Texte aus Werkzeugantworten 
 
 ## 5. Agentenverhalten erweitern
 
-`fyos-agent` ist ein Mod auf das Upstream-Bild von OpenClaw. Das Verhalten steht in drei Formen, die einander nicht
-widersprechen dürfen: Prosa (`vertrag/`), Anweisung an das Modell (`workspace/*.tmpl`) und Durchsetzung unter dem Modell
-(`plugins/`).
+Der Agent ist der Runner aus `fyos-agent` (`fyos-agent/runner`, dauerhaft auf pi-durable, Port 18438). Er spricht den Hub
+über dessen Werkzeuge und das Plugin `agent` (`/hub/agent/*`: Eingang, Meldungen, Alarme), die Oberfläche spricht ihn
+über `/api/agent/` (nginx setzt das Token). Was er tut, steht in einer Datei, die der Installer erzeugt:
 
-### 5.1 Persona über `fyos.yaml`
+| Datei | Inhalt |
+|---|---|
+| `agent-runner.json` | Hub-Adresse, Kennung des Agenten (`agent`), Port, Gerätename, Speicher, erlaubte Ursprünge der Oberfläche, Takte (`takt`), Freigabe-Meldungen (`pi_durable.freigabe_meldung`) |
+| `.env` bzw. Secrets | Modell (`FYOS_MODELL_BASIS_URL`, `FYOS_MODELL_NAME`, `FYOS_MODELL_SCHLUESSEL`) und Token (`FYOS_AGENT_TOKEN`, im Container `FYOS_RUNNER_TOKEN`) |
 
-Name, Wesen, Besitzer, Sprache, Grenzen und Fähigkeiten stehen in einer Datei (Vorlage `fyos-agent/fyos.example.yaml`;
-der Installer erzeugt sie):
+Vorlage und alle Schlüssel: `fyos-agent/runner/beispiele/agent-runner.beispiel.json` und `fyos-agent/runner/README.md`.
 
-```yaml
-agent:
-  id: main
-  name: Fy
-  wesen: ruhig, präzise, direkt und zugewandt
-  rolle: Persönlicher Agent für FYOS
-besitzer:
-  name: Alex
-sprache: Deutsch
-sprache_code: de
-grenzen:
-  schwer:                   # was der Agent nie allein entscheidet; erscheint als Liste in AGENTS.md
-    - Löschen und nicht umkehrbare Datenänderungen
-    - Geld, Zahlungen, neue Konten bei Fremddiensten
-faehigkeiten: { vorgaenge: false, shell: false, browser: false }
-meldebudget: { tagesbudget: 5, ruhe_von: "22:00", ruhe_bis: "07:00" }
-```
+### 5.1 Takte
 
-Fehlendes füllen die Vorgaben aus `fyos_agent/render.py`. Der Start rendert daraus die Workspace-Dateien (`AGENTS.md`,
-`SOUL.md`, `IDENTITY.md`, `USER.md`) und die Gateway-Konfiguration. Geheimnisse (Modell-Schlüssel, Gateway-Token) stehen
-nie in `fyos.yaml`, sondern in der Umgebung.
+Der eingebaute Tagesrhythmus ist für einen bestimmten Alltag gebaut; der Installer schaltet ihn mit `"takt": {"an": false}`
+aus. Eigene Takte stehen unter `takt.eintraege` (etwa `{"id": "nacht-notizen", "um": "03:00", "fenster_min": 120,
+"text": "…"}`); ein Beispiel mit Meldung am Morgen steht in `NACHTARBEIT.md`.
 
-Eigene Formulierungen ohne Fork: Die Vorlagen liest der Einstieg aus `FYOS_VORLAGEN` (Vorgabe `/opt/fyos/vorlagen`). Kopiere
-`workspace/*.tmpl` und `config/` in ein eigenes Verzeichnis, passe es an und mounte es dort. Die Vorlagensprache ist klein:
-`{{pfad.zum.wert}}`, `{{pfad|Vorgabe}}`, `{{#if pfad}}…{{/if}}`, `{{#each liste}}{{.}}{{/each}}`, `{{json pfad}}`,
-`{{env.NAME}}`; ein unbekannter Pfad ohne Vorgabe bricht das Rendern ab (lieber laut scheitern als leer rendern).
+### 5.2 Meldewege
 
-### 5.2 Ein eigenes OpenClaw-Plugin
-
-Ein Verhaltens-Plugin hängt sich in die Hooks des Gateways. Es ist nötig, wenn eine Regel **nicht** vom Modell abhängen darf.
-Vorbilder in `fyos-agent/plugins/`: `fyos-meldebudget` (Tagesbudget und Ruhezeiten im Hook `message_sending`),
-`fyos-prioritaet` (Zustand je Gespräch), `fyos-freigabe-chat`, `fyos-bruecke` (Hooks ohne Inhalte, Dienst mit Takt,
-HTTP-Route mit Gateway-Anmeldung, die Gateway-Methoden einer festen Liste weiterreicht; `KOPPLUNG-OPENCLAW.md`).
-
-Ein vollständiges kleines Beispiel, **`fyos-laufzaehler`**: zählt abgeschlossene Läufe je Auslöser und stellt den Stand als
-Gateway-Methode bereit.
-
-```text
-plugins/fyos-laufzaehler/
-├── openclaw.plugin.json      Manifest
-├── package.json              Einstieg für OpenClaw
-├── index.mjs                 Anmeldung
-├── zaehler.mjs               die Logik (rein, ohne Gateway testbar)
-└── zaehler.test.mjs          node --test
-```
-
-`openclaw.plugin.json` (die `id` ist der Ordnername und beginnt mit `fyos-`; `configSchema` listet jede Einstellung,
-`additionalProperties: false` fängt Tippfehler ab):
-
-```json
-{
-  "id": "fyos-laufzaehler",
-  "name": "FYOS Laufzähler",
-  "version": "0.1.0",
-  "description": "Zählt abgeschlossene Agentenläufe je Auslöser; Stand über die Gateway-Methode fyos.laufzaehler.stand.",
-  "activation": { "onStartup": true },
-  "configSchema": { "type": "object", "properties": {}, "additionalProperties": false }
-}
-```
-
-`package.json`:
-
-```json
-{
-  "name": "@fyos/laufzaehler",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "openclaw": { "extensions": ["./index.mjs"] },
-  "scripts": { "test": "node --test *.test.mjs" }
-}
-```
-
-`index.mjs`:
-
-```js
-import {definePluginEntry} from 'openclaw/plugin-sdk/plugin-entry';
-import {PLUGIN_ID, registerLaufzaehler} from './zaehler.mjs';
-
-export default definePluginEntry({
-  id: PLUGIN_ID,
-  name: 'FYOS Laufzähler',
-  description: 'Zählt abgeschlossene Agentenläufe je Auslöser und stellt den Stand als Gateway-Methode bereit.',
-  register: registerLaufzaehler,
-});
-```
-
-`zaehler.mjs`:
-
-```js
-export const PLUGIN_ID = 'fyos-laufzaehler';
-
-export function erzeugeZaehler({uhr = () => Date.now()} = {}) {
-  const laufend = new Map(); // runId -> {trigger, t}
-  const summe = {};          // trigger -> {anzahl, ms}
-  return {
-    beginn(runId, trigger) {
-      if (typeof runId === 'string' && runId && !laufend.has(runId)) {
-        laufend.set(runId, {trigger: typeof trigger === 'string' && trigger ? trigger : 'unbekannt', t: uhr()});
-      }
-    },
-    ende(runId) {
-      const lauf = laufend.get(runId);
-      if (!lauf) return;
-      laufend.delete(runId);
-      const s = (summe[lauf.trigger] ??= {anzahl: 0, ms: 0});
-      s.anzahl += 1;
-      s.ms += uhr() - lauf.t;
-    },
-    stand() {
-      return {laufend: laufend.size, summe: structuredClone(summe)};
-    },
-  };
-}
-
-export function registerLaufzaehler(api, abhaengigkeiten = {}) {
-  const zaehler = abhaengigkeiten.zaehler ?? erzeugeZaehler();
-  api.on('before_agent_run', (_event, ctx) => { zaehler.beginn(ctx?.runId, ctx?.trigger); });
-  api.on('agent_end', (event, ctx) => { zaehler.ende(ctx?.runId ?? event?.runId); });
-  api.registerGatewayMethod?.('fyos.laufzaehler.stand', () => zaehler.stand(), {scope: 'operator.read'});
-  api.logger?.info?.(`${PLUGIN_ID}: bereit`);
-  return zaehler;
-}
-```
-
-`zaehler.test.mjs`:
-
-```js
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {erzeugeZaehler, registerLaufzaehler} from './zaehler.mjs';
-
-test('zählt abgeschlossene Läufe je Auslöser und misst die Dauer', () => {
-  let jetzt = 1000;
-  const z = erzeugeZaehler({uhr: () => jetzt});
-  z.beginn('r1', 'user');
-  jetzt += 250;
-  z.ende('r1');
-  z.ende('r1'); // doppeltes Ende zählt nicht noch einmal
-  assert.deepEqual(z.stand(), {laufend: 0, summe: {user: {anzahl: 1, ms: 250}}});
-});
-
-test('Hooks und Gateway-Methode werden angemeldet', () => {
-  const hooks = {}, methoden = {};
-  const api = {
-    on: (name, fn) => { hooks[name] = fn; },
-    registerGatewayMethod: (name, fn, opt) => { methoden[name] = {fn, opt}; },
-    logger: {info() {}},
-  };
-  const z = registerLaufzaehler(api);
-  hooks.before_agent_run({}, {runId: 'a', trigger: 'cron'});
-  hooks.agent_end({runId: 'a'}, {});
-  assert.equal(z.stand().summe.cron.anzahl, 1);
-  assert.equal(methoden['fyos.laufzaehler.stand'].opt.scope, 'operator.read');
-});
-```
-
-Merkregeln aus den vorhandenen Plugins:
-
-- **Logik und Anmeldung trennen.** `register…(api, abhaengigkeiten)` nimmt Abhängigkeiten (Uhr, Speicher, Logger) als
-  Parameter, damit die Tests ohne Gateway laufen: `node --test "plugins/**/*.test.mjs"` (die CI ruft genau das auf).
-- Hooks (Auswahl, die in den Plugins vorkommen): `message_received`, `message_sending` (Rückgabe
-  `{cancel: true, cancelReason: '…'}` verwirft die Sendung), `before_agent_run`, `agent_end`, `before_tool_call`,
-  `after_tool_call`, `before_model_resolve`, `before_prompt_build`, `before_agent_reply`, `gateway_start`; ohne
-  Einblick ins Gespräch nutzbar sind `after_tool_call`, `model_call_ended`, `session_start`, `session_end`,
-  `cron_changed`, `skill_changed` und das Lebenszyklus-Abo `api.agent.events.registerAgentEventSubscription`
-  (`fyos-bruecke`). Hooks, die Gesprächsinhalt sehen (`agent_end`, `llm_output`, `before_agent_run` …), brauchen
-  `hooks.allowConversationAccess: true` im Eintrag.
-- Fail-closed bei Regeln, die schützen: scheitert die Entscheidung, wird gesperrt, nicht durchgelassen.
-- Speichere nur Zähler und Entscheidungen, **nie Inhalte** von Gesprächen. Logge keine Modelltexte und keine Werkzeugparameter.
-- Konfiguration liest das Plugin aus `api.pluginConfig`; sie kommt aus `plugins.entries."<id>".config` der gerenderten
-  Gateway-Konfiguration.
-
-**Einbau in `fyos-agent`.** Drei Stellen, dann ist das Plugin im Bild:
-
-1. Den Ordner nach `fyos-agent/plugins/fyos-laufzaehler/` legen. Das Dockerfile kopiert `plugins/` nach `/opt/fyos/` und
-   verlinkt jedem Ordner `fyos-*` das SDK; `*.test.mjs` werden aus dem Bild gelöscht.
-2. In `fyos_agent/render.py` die Kennung zu `PLUGIN_IDS` ergänzen (daraus entstehen die Ladepfade
-   `/opt/fyos/<id>`; das Gateway startet nicht, wenn ein Pfad fehlt). Der Test `test_plugins_stimmen_mit_den_ordnern_ueberein`
-   verlangt, dass Ordner, `PLUGIN_IDS` und `id` im Manifest übereinstimmen.
-3. In `config/openclaw.json5.tmpl` einen Eintrag unter `plugins.entries` anlegen:
-
-   ```json5
-   "fyos-laufzaehler": {
-     enabled: true,
-     hooks: { allowConversationAccess: false, allowPromptInjection: false },
-     config: {},
-   },
-   ```
-
-   Die beiden `hooks`-Schalter geben dem Plugin Einblick in Gesprächsinhalt beziehungsweise das Recht, den Prompt zu ändern.
-   Lass beide aus, wenn das Plugin sie nicht braucht; `allowPromptInjection: true` hat im Bestand nur der Tempo-Router.
-   Soll das Plugin aus `fyos.yaml` einstellbar sein, ergänze einen Abschnitt in `VORGABEN` (`render.py`) und im Beispiel
-   `fyos.example.yaml` und verweise im Template mit `{{json abschnitt.feld}}` darauf; der Test verlangt, dass das Beispiel
-   nichts enthält, was die Vorgaben nicht kennen.
-
-Danach: `python3 -m pytest tests -q`, `node --test "plugins/**/*.test.mjs"`, `python3 tools/sauber.py .` und das Bild bauen
-(`docker build -f openclaw/Dockerfile -t fyos-agent .`). Diesen Ablauf haben wir mit dem Beispiel oben durchgespielt:
-Tests und Sauberkeit bleiben grün.
-
-#### Ohne Fork: Zusatz-Plugins
-
-Gehört das Plugin nicht in `fyos-agent` selbst, lege es in den Zusatzordner `/opt/fyos-extra` (anderer Ort:
-`FYOS_AGENT_PLUGINS`). Jeder Unterordner mit `openclaw.plugin.json` wird beim Start geladen, ohne Eintrag in
-`PLUGIN_IDS` und ohne eigene Vorlage:
-
-```dockerfile
-# abgeleitetes Agent-Bild
-FROM registry.example.com/fyos/fyos-agent/openclaw:main
-COPY --chown=node:node fyos-laufzaehler/ /opt/fyos-extra/fyos-laufzaehler/
-```
-
-Im Compose-Betrieb genügt ein Volume (`./agent-plugins:/opt/fyos-extra`), in Kubernetes ein ConfigMap- oder
-PVC-Mount. Der Einstieg legt dem Ordner `node_modules/openclaw` → `/app` an (das SDK); ist der Ordner schreibgeschützt,
-lege den Verweis vorher selbst an und lies die Warnung im Log.
-
-Ein Zusatz-Plugin ist **an**, aber **ohne Rechte**: kein Einblick ins Gespräch, kein Eingriff in den Prompt. Rechte und
-Einstellungen gibt der Betreiber in `fyos.yaml`:
-
-```yaml
-zusatz_plugins:
-  fyos-laufzaehler:
-    aktiv: true
-    rechte: { gespraech: true, prompt: false }   # → hooks.allowConversationAccess / allowPromptInjection
-    config: { grenze: 3 }                         # → plugins.entries.<id>.config
-```
-
-Das Rendern scheitert laut, wenn die `id` im Manifest fehlt, ungültig ist oder es sie schon gibt (eingebaut oder doppelt).
-Eine Einstellung für ein Plugin, das nicht im Ordner liegt, ergibt nur eine Warnung. Den Weg prüfen die Tests
-`test_zusatz_plugins_*` in `fyos-agent/tests/test_render.py`.
+Offene Freigaben meldet der Runner selbst, über die Kanäle in `pi_durable.freigabe_meldung.kanaele` (etwa `matrix`).
+Die Distribution bringt keinen eigenen Chat-Kanal mehr mit; Telegram und WhatsApp gibt es nicht. Ohne eingetragenen
+Kanal erscheinen Freigaben nur in der Shell.
 
 ---
 
@@ -1889,7 +1675,7 @@ Browser-Weg), und eine erlaubte als Gegenprobe. Für dein Plugin heißt das nur:
 ### 7.3 Stufe je Fähigkeit: Grundstufe, Ausbaustufe, aus
 
 Hängt dein Plugin an einer Quelle des Kerns (§2.13 Vorgänge, §2.14 Termine, §2.15 Postfach, §2.16 Dokumente), kennt es zwei Wege:
-die **Grundstufe** (ohne eigenen Dienst: ein CalDAV-Konto, ein IMAP-Postfach, das Workboard des Agenten) und die
+die **Grundstufe** (ohne eigenen Dienst: ein CalDAV-Konto, ein IMAP-Postfach, eine Ablage im Hub) und die
 **Ausbaustufe** (ein eigener Dienst, den der Hub über eine Adresse in der Umgebung erreicht, etwa `FYOS_TERMINE_URL`).
 Der Installer lässt den Nutzer die Stufe **je Fähigkeit** wählen. Die Vorgabe richtet sich nach der Bauart: Kubernetes nimmt
 die Ausbaustufe, Docker Compose die Grundstufe, und wo es keine Grundstufe gibt (etwa Post senden), bleibt der Ausbau.
@@ -2117,7 +1903,6 @@ jobs:
 
 Repo-Variablen: `FYOS_RUNNER` (Etikett des Runners), und `FYOS_HUB_QUELLE` (zum Beispiel
 `git+https://git.example.com/fyos/fyos-os.git#subdirectory=hub`) oder `FYOS_PIP_INDEX` (Paketindex mit `fyos-hub`).
-Hat dein Plugin OpenClaw-Anteile (§5), kommt `node --test "plugins/**/*.test.mjs"` dazu.
 
 Auch hier installiert uv: Der Paketindex steht per `--index` vor PyPI, und `--index-strategy first-index` nimmt ein Paket nur
 aus dem ersten Index, der es kennt (§10.3). Das Beispiel holt uv in fester Version in die Umgebung; wer uv schon auf dem
@@ -2277,7 +2062,7 @@ erfahren sie nur mit `mcp_sitzungen: true`, dann hält der Hub zustandsbehaftete
 
 **Wissen und Verhalten**
 - [ ] `fyos_plugin_<name>/skills/<name>/SKILL.md` mit `name` und aussagekräftiger `description`; in `package-data` und Entry-Point `fyos.skills`
-- [ ] Regeln für jedes Gespräch stehen nicht im Skill, sondern in `fyos-agent` (Vertrag, Vorlagen); Durchzusetzendes als OpenClaw-Plugin mit Tests
+- [ ] Regeln für jedes Gespräch stehen nicht im Skill, sondern im Runner (`fyos-agent`); Durchzusetzendes als Freigabe im Hub mit Tests
 
 **Installer**
 - [ ] `fyos-katalog.yaml` mit `kurz`, `was_daraus_wird`, Bild, `quelle`, Feldern; Entry-Point `fyos.katalog`

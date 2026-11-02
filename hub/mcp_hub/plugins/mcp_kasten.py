@@ -730,11 +730,11 @@ class McpPlugin(HubPlugin):
                 name="zeitplan",
                 title="Zeitplan",
                 description=(
-                    "Was wann läuft: die Takte der Hub-Plugins und, über die OpenClaw-Brücke, die Cron-Aufträge des "
+                    "Was wann läuft: die Takte der Hub-Plugins und, die Aufträge angebundener Dienste des "
                     "Agenten — je Aufgabe Takt, nächster und letzter Lauf und ob er gelang. Takte mit Grenzen zeigen "
                     "zusätzlich `fenster` (Uhrzeiten), `max_pro_tag`, `laeufe_heute`, `uebersprungen` (heute, nach Grund "
                     "fenster/limit), `ruht` (läuft jetzt nicht) und `protokoll` (letzte Läufe mit Start, Dauer, Ergebnis). "
-                    "`quelle` filtert (z. B. openclaw). Aufgaben mit Modell gehören in den Cron des Agenten, Aufgaben "
+                    "`quelle` filtert (z. B. agent). Aufgaben mit Modell gehören in die Takte des Agenten, Aufgaben "
                     "ohne Modell in ein Plugin."
                 ),
                 input_schema={

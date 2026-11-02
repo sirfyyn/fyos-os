@@ -75,7 +75,7 @@ def test_post_hat_keine_grundstufe_dokumente_noch_keine(katalog):
     post, dok = katalog.faehigkeiten["post"], katalog.faehigkeiten["dokumente"]
     assert "grund" not in post.stufen and post.moegliche() == ["ausbau", "aus"]
     assert not dok.stufen["grund"].verfuegbar and dok.moegliche() == ["ausbau", "aus"]
-    assert katalog.faehigkeiten["vorgaenge"].moegliche() == ["grund", "ausbau"]  # das Workboard lässt sich nicht abschalten
+    assert katalog.faehigkeiten["vorgaenge"].moegliche() == ["grund", "ausbau"]  # die Vorgänge lassen sich nicht abschalten
 
 
 # ---------------------------------------------------------------- Vorgabe im Plan
@@ -259,7 +259,7 @@ def test_zeilen_sagen_stufe_herkunft_und_inhalt(katalog, tmp_path):
     assert "Termine: Ausbaustufe (von dir gewählt), eigener Termin-Dienst" in zeilen
     assert "Postfach lesen: Grundstufe (Vorgabe), IMAP direkt" in zeilen
     assert "Post senden: aus (von dir gewählt), nicht eingerichtet" in zeilen
-    assert "Vorgänge: Grundstufe (Vorgabe), Workboard des Agenten" in zeilen
+    assert "Vorgänge: Grundstufe (Vorgabe), Ablage im Hub" in zeilen
 
 
 def test_anleitung_nennt_die_stufe_unter_dem_baustein(katalog, tmp_path):

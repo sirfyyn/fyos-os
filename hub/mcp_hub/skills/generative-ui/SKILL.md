@@ -145,7 +145,7 @@ Wo die Ansicht erscheint:
 | --- | --- |
 | FYOS-Shell | Die App erscheint als Fenster; der Link „In FYOS öffnen“ aus dem Ergebnis öffnet `gui.zeigen {id}`. |
 | Chat- oder Agent-Client mit MCP-Apps-Unterstützung | Die App erscheint direkt unter dem Aufruf. |
-| Agent im Chat der Shell (OpenClaw Control UI) | Gib den Link „In FYOS öffnen“ weiter; er öffnet die Ansicht in der Shell. |
+| Agent im Chat der Shell (App „Agent“, Runner) | Gib den Link „In FYOS öffnen“ weiter; er öffnet die Ansicht in der Shell. |
 | Kanäle nur mit Text (Nachrichten, Sprache) | Nur Text: gib `link` weiter. |
 | Claude Code im Terminal | Rechts im Panel, von selbst: der Mod `fyos-ansicht` öffnet nach `gui.bauen`/`gui.zeigen` die Seite des Hubs (unten). |
 

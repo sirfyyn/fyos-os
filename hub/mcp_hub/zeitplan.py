@@ -1,9 +1,9 @@
 """zeitplan — was im Hub und in angebundenen Diensten wann läuft (``HubPlugin.zeitplan``).
 
-Jedes Plugin meldet seine wiederkehrenden Aufgaben selbst; die OpenClaw-Brücke meldet über das Plugin ``openclaw``
-die Cron-Aufträge des Agenten. Hier werden sie zu einer Liste zusammengeführt (Werkzeug ``mcp.zeitplan``,
-Reihen in ``/metrics``). Führung: Aufgaben, die das Modell brauchen (ein Prompt an den Agenten), gehören in den
-Cron von OpenClaw; Aufgaben ohne Modell (Abgleich, Aufräumen, Messen) in ein Hub-Plugin. Beide erscheinen hier.
+Jedes Plugin meldet seine wiederkehrenden Aufgaben selbst. Hier werden sie zu einer Liste zusammengeführt (Werkzeug
+``mcp.zeitplan``, Reihen in ``/metrics``). Führung: Aufgaben, die das Modell brauchen (ein Prompt an den Agenten),
+gehören in die Takte des Runners (``agent-runner.json``); Aufgaben ohne Modell (Abgleich, Aufräumen, Messen) in ein
+Hub-Plugin.
 
 Takte, die ihr Plugin über den Wächter (``mcp_hub.takt``) fährt, tragen zusätzlich ihre Leitplanken und das Laufprotokoll:
 ``max_pro_tag``, ``fenster``, ``ruht`` (``fenster``/``limit``, wenn sie jetzt nicht laufen dürften), ``laeufe_heute``,

@@ -26,6 +26,6 @@ images:
   - name: fyos-os/hub
     newName: registry.example.com/fyos/fyos-os/hub
     newTag: main
-  - name: fyos-agent/openclaw
-    newName: registry.example.com/fyos/fyos-agent/openclaw
+  - name: fyos-agent/runner
+    newName: registry.example.com/fyos/fyos-agent/runner
     newTag: main

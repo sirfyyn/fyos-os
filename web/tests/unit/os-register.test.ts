@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  agentName, agentPfad, externeFlaechen, konfigurationLadenZuruecksetzen, konfigurationLaden, konfigurationSetzen, konfigurationZuruecksetzen, systemName,
+  agentName, externeFlaechen, konfigurationLadenZuruecksetzen, konfigurationLaden, konfigurationSetzen, konfigurationZuruecksetzen, systemName,
 } from '~/lib/config';
 import { alleFlaechen } from '~/lib/os/flaechen';
 import { farbton, glyphe } from '~/lib/os/symbole';
@@ -70,26 +70,19 @@ describe('Laufzeit-Konfiguration', () => {
   it('Vorgaben ohne Datei', () => {
     expect(systemName()).toBe('FYOS');
     expect(agentName()).toBe('Agent');
-    expect(agentPfad()).toBe('/agent/');
   });
 
   it('Name, Agent und externe Dienste aus der Datei', () => {
     konfigurationSetzen({
       name: 'Mein System',
-      agent: { name: 'Ada', pfad: '/chat/' },
+      agent: { name: 'Ada' },
       extern: [{ slug: 'gitea', titel: 'Gitea', url: 'https://git.example.org/' }],
     });
     expect(systemName()).toBe('Mein System');
     expect(agentName()).toBe('Ada');
-    expect(agentPfad()).toBe('/chat/');
     const e = alleFlaechen([]).find((f) => f.id === 'extern:gitea');
     expect(e).toMatchObject({ titel: 'Gitea', gruppe: 'Extern', extern: 'https://git.example.org/' });
     expect(e?.pfad).toBeUndefined();
-  });
-
-  it('ein Agentpfad muss mit / beginnen', () => {
-    konfigurationSetzen({ agent: { pfad: 'https://fremd.example/' } });
-    expect(agentPfad()).toBe('/agent/');
   });
 
   it('externe Dienste: nur http(s) und saubere Kennungen', () => {

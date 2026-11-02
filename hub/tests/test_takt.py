@@ -92,10 +92,10 @@ def test_grenzen_lehnen_unbrauchbares_ab(roh):
 
 
 def test_tippfehler_im_schluessel_fallen_auf_und_nennen_den_ort():
-    with pytest.raises(GrenzenFehler, match=r"^openclaw\.abgleich: unbekannt: max_pro_tage"):
-        Grenzen.lesen({"max_pro_tage": 3}, "openclaw.abgleich")
-    with pytest.raises(GrenzenFehler, match=r"^openclaw\.abgleich: fenster 'abends'"):
-        Grenzen.lesen({"fenster": "abends"}, "openclaw.abgleich")
+    with pytest.raises(GrenzenFehler, match=r"^beispiel\.abgleich: unbekannt: max_pro_tage"):
+        Grenzen.lesen({"max_pro_tage": 3}, "beispiel.abgleich")
+    with pytest.raises(GrenzenFehler, match=r"^beispiel\.abgleich: fenster 'abends'"):
+        Grenzen.lesen({"fenster": "abends"}, "beispiel.abgleich")
 
 
 def test_im_fenster_gilt_von_einschliesslich_bis_ausschliesslich():
@@ -302,9 +302,9 @@ def test_der_speicher_wird_nach_der_ruhe_wieder_benutzt():
 
 def test_unbekannte_takte_und_namen_werden_abgelehnt():
     with pytest.raises(GrenzenFehler, match=r"'abgleichh'.*bekannt: abgleich, skills"):
-        Waechter("openclaw", {"abgleichh": {"max_pro_tag": 1}}, takte=("abgleich", "skills"))
+        Waechter("beispiel", {"abgleichh": {"max_pro_tag": 1}}, takte=("abgleich", "skills"))
     with pytest.raises(GrenzenFehler, match="Zuordnung"):
-        Waechter("openclaw", ["abgleich"])
+        Waechter("beispiel", ["abgleich"])
     w, _uhr, _kv = _waechter()
     for schlecht in ("", "a b", "../x", "a:b", "a|b", "x" * 65, None):
         with pytest.raises(ValueError):

@@ -3,13 +3,11 @@ import { defineConfig } from 'astro/config';
 import solid from '@astrojs/solid-js';
 import tailwindcss from '@tailwindcss/vite';
 
-// Entwicklungs-Proxy: FYOS_DEV_HUB und FYOS_DEV_AGENT zeigen auf laufende Dienste, z. B.
-//   FYOS_DEV_HUB=http://localhost:8080 FYOS_DEV_AGENT=http://localhost:18789 npm run dev
+// Entwicklungs-Proxy: FYOS_DEV_HUB und FYOS_DEV_RUNNER zeigen auf laufende Dienste, z. B.
+//   FYOS_DEV_HUB=http://localhost:8080 FYOS_DEV_RUNNER=http://localhost:18438 FYOS_DEV_RUNNER_TOKEN=… npm run dev
 // Ohne sie zeigt die Shell nur ihre eigenen Flächen (der Hub gilt als nicht erreichbar).
-// Wie in der Auslieferung (nginx/default.conf.template): `/hub-api/*` wird zu `/hub/*`, `/agent` geht mit seinem
-// Präfix durch, denn das Gateway liefert seine Oberfläche unter gateway.controlUi.basePath=/agent aus.
+// Wie in der Auslieferung (nginx/default.conf.template): `/hub-api/*` wird zu `/hub/*`.
 const hub = process.env.FYOS_DEV_HUB;
-const agent = process.env.FYOS_DEV_AGENT;
 /** @type {Record<string, import('vite').ProxyOptions>} */
 const proxy = {};
 if (hub) {
@@ -46,14 +44,6 @@ if (runner) {
         proxyReq.setHeader('Authorization', `Bearer ${token}`);
       });
     },
-  };
-}
-// Veraltet: OpenClaw-Gateway unter /agent
-if (agent) {
-  proxy['/agent'] = {
-    target: agent,
-    changeOrigin: true,
-    ws: true,
   };
 }
 

@@ -19,8 +19,8 @@ faehigkeiten:
     baustein: leitstand
     stufen:
       grund:
-        titel: Workboard des Agenten
-        text: Die Vorgänge sind Karten im Workboard des Agenten. Nichts weiter zu betreiben.
+        titel: Ablage im Hub
+        text: Die Vorgänge liegen in einer Ablage, die ein Plugin im Hub anmeldet. Nichts weiter zu betreiben.
       ausbau:
         titel: eigener Ticketdienst
         text: Ein Ticketdienst mit dem Vorgangs-Vertrag; der Hub fragt ihn über FYOS_VORGAENGE_URL.
